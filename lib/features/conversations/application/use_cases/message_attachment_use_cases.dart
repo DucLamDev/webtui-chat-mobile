@@ -54,19 +54,25 @@ final class UploadMessageAttachmentUseCase {
 
   final MessageAttachmentRepository _repository;
 
-  static const maxBytes = 100 * 1024 * 1024;
+  static const maxBytes = 2 * 1024 * 1024 * 1024;
   static const allowedPrefixes = ['image/', 'video/', 'audio/'];
   static const allowedExact = {
+    'application/json',
+    'application/msword',
     'application/pdf',
-    'text/plain',
     'application/zip',
+    'application/vnd.ms-excel',
+    'application/vnd.ms-powerpoint',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'text/plain',
   };
 
   Future<Result<UploadedMessageFile>> execute({
     required String workspaceId,
     required PickedMessageAttachment attachment,
+    void Function(double progress)? onProgress,
   }) {
     final failure = _validateAttachment(attachment);
     if (failure != null) {
@@ -75,6 +81,7 @@ final class UploadMessageAttachmentUseCase {
     return _repository.uploadFile(
       workspaceId: workspaceId,
       attachment: attachment,
+      onProgress: onProgress,
     );
   }
 }
@@ -195,7 +202,7 @@ Failure? _validateAttachment(PickedMessageAttachment attachment) {
       attachment.byteSize > UploadMessageAttachmentUseCase.maxBytes) {
     return const Failure(
       kind: FailureKind.validation,
-      message: 'Tệp phải nhỏ hơn 100MB.',
+      message: 'Tệp phải nhỏ hơn 2GB.',
       code: 'ATTACHMENT_SIZE_INVALID',
     );
   }

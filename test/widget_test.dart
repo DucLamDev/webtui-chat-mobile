@@ -5,7 +5,7 @@ import 'package:webtui_chat/app/flavor/app_config.dart';
 import 'package:webtui_chat/app/flavor/app_flavor.dart';
 
 void main() {
-  testWidgets('renders WebTui login entrypoint', (tester) async {
+  testWidgets('renders the server connection entrypoint', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -21,9 +21,9 @@ void main() {
       ),
     );
 
-    expect(find.text('Chào mừng trở lại'), findsOneWidget);
-    expect(find.text('Email hoặc username'), findsOneWidget);
-    expect(find.text('Mật khẩu'), findsOneWidget);
-    expect(find.text('Đăng nhập'), findsOneWidget);
+    expect(find.text('Kết nối tới máy chủ'), findsOneWidget);
+    expect(find.text('Địa chỉ máy chủ'), findsOneWidget);
+    expect(find.text('Kết nối'), findsOneWidget);
+    expect(find.text('Email hoặc username'), findsNothing);
   });
 }

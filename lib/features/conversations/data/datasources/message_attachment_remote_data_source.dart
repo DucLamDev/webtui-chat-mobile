@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 
 import '../../../../core/network/api_response.dart';
@@ -7,14 +9,27 @@ import '../../../../core/network/api_transport.dart';
 import '../../domain/entities/chat_message.dart';
 
 final class MessageAttachmentRemoteDataSource {
-  const MessageAttachmentRemoteDataSource(this._api);
+  MessageAttachmentRemoteDataSource(this._api);
 
   final ApiTransport _api;
+  final Map<String, String> _resumableSessions = {};
+
+  static const int resumableThreshold = 8 * 1024 * 1024;
+  static const int uploadChunkSize = 5 * 1024 * 1024;
 
   Future<UploadedMessageFile> uploadFile({
     required String workspaceId,
     required PickedMessageAttachment attachment,
+    void Function(double progress)? onProgress,
   }) async {
+    if (attachment.byteSize >= resumableThreshold) {
+      return _uploadResumable(
+        workspaceId: workspaceId,
+        attachment: attachment,
+        onProgress: onProgress,
+      );
+    }
+    onProgress?.call(0.1);
     final form = FormData.fromMap({
       'file': await MultipartFile.fromFile(
         attachment.path,
@@ -27,8 +42,96 @@ final class MessageAttachmentRemoteDataSource {
       data: form,
       options: Options(contentType: Headers.multipartFormDataContentType),
     );
+    onProgress?.call(1);
     return _uploadedFileFromMap(
       envelopeItem(response.data, 'file'),
+      fallbackWorkspaceId: workspaceId,
+    );
+  }
+
+  Future<UploadedMessageFile> _uploadResumable({
+    required String workspaceId,
+    required PickedMessageAttachment attachment,
+    void Function(double progress)? onProgress,
+  }) async {
+    final cacheKey =
+        '$workspaceId|${attachment.path}|${attachment.byteSize}|${attachment.fileName}';
+    _UploadSession? session;
+    final cachedId = _resumableSessions[cacheKey];
+    if (cachedId != null) {
+      try {
+        final response = await _api.get<Object>(
+          '/api/v1/workspaces/${_e(workspaceId)}/files/uploads/${_e(cachedId)}',
+        );
+        final current = _uploadSessionFromMap(
+          envelopeItem(response.data, 'upload'),
+        );
+        if (current.status == 'uploading') session = current;
+      } catch (_) {
+        _resumableSessions.remove(cacheKey);
+      }
+    }
+    if (session == null) {
+      final response = await _api.post<Object>(
+        '/api/v1/workspaces/${_e(workspaceId)}/files/uploads',
+        data: {
+          'original_name': attachment.fileName,
+          'mime_type': attachment.mimeType,
+          'total_size': attachment.byteSize,
+          'chunk_size': uploadChunkSize,
+          'metadata': {
+            'source': 'flutter_mobile',
+            'kind': attachment.kind.name,
+          },
+        },
+      );
+      session = _uploadSessionFromMap(envelopeItem(response.data, 'upload'));
+      _resumableSessions[cacheKey] = session.id;
+    }
+
+    final file = await File(attachment.path).open();
+    try {
+      final uploaded = session.uploadedParts.toSet();
+      var uploadedBytes = session.receivedBytes;
+      onProgress?.call(
+        attachment.byteSize == 0 ? 0 : uploadedBytes / attachment.byteSize,
+      );
+      for (var part = 0; part < session.totalChunks; part++) {
+        if (uploaded.contains(part)) continue;
+        final offset = part * session.chunkSize;
+        final remaining = attachment.byteSize - offset;
+        final length = remaining < session.chunkSize
+            ? remaining
+            : session.chunkSize;
+        await file.setPosition(offset);
+        final bytes = await file.read(length);
+        final checksum = sha256.convert(bytes).toString();
+        await _api.put<Object>(
+          '/api/v1/workspaces/${_e(workspaceId)}/files/uploads/${_e(session.id)}/parts/$part',
+          data: bytes,
+          options: Options(
+            contentType: 'application/octet-stream',
+            headers: {
+              'Content-Length': bytes.length,
+              'X-Chunk-SHA256': checksum,
+            },
+          ),
+        );
+        uploadedBytes += bytes.length;
+        onProgress?.call(uploadedBytes / attachment.byteSize);
+      }
+    } finally {
+      await file.close();
+    }
+
+    final completed = await _api.post<Object>(
+      '/api/v1/workspaces/${_e(workspaceId)}/files/uploads/${_e(session.id)}/complete',
+      data: const {},
+    );
+    _resumableSessions.remove(cacheKey);
+    onProgress?.call(1);
+    return _uploadedFileFromMap(
+      envelopeItem(completed.data, 'file'),
       fallbackWorkspaceId: workspaceId,
     );
   }
@@ -168,6 +271,44 @@ String _downloadPathFallback(String workspaceId, String fileId) {
     return '';
   }
   return '/api/v1/workspaces/${_e(workspaceId)}/files/${_e(fileId)}/download';
+}
+
+final class _UploadSession {
+  const _UploadSession({
+    required this.id,
+    required this.chunkSize,
+    required this.totalChunks,
+    required this.receivedBytes,
+    required this.uploadedParts,
+    required this.status,
+  });
+
+  final String id;
+  final int chunkSize;
+  final int totalChunks;
+  final int receivedBytes;
+  final List<int> uploadedParts;
+  final String status;
+}
+
+_UploadSession _uploadSessionFromMap(JsonMap map) {
+  final rawParts = map['uploaded_parts'];
+  return _UploadSession(
+    id: stringField(map, const ['id']),
+    chunkSize: intField(map, const ['chunk_size'], fallback: 5 * 1024 * 1024),
+    totalChunks: intField(map, const ['total_chunks']),
+    receivedBytes: intField(map, const ['received_bytes']),
+    uploadedParts: rawParts is List
+        ? rawParts
+              .map(jsonMap)
+              .map(
+                (part) => intField(part, const ['part_number'], fallback: -1),
+              )
+              .where((part) => part >= 0)
+              .toList(growable: false)
+        : const [],
+    status: stringField(map, const ['status'], fallback: 'uploading'),
+  );
 }
 
 String _e(String value) => Uri.encodeComponent(value);

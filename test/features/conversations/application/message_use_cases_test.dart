@@ -35,6 +35,7 @@ final class _CapturingConversationRepository implements ConversationRepository {
     required String body,
     String? clientMessageId,
     String? parentId,
+    bool silent = false,
   }) async {
     sentBody = body;
     return Success(

@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Webtui Chat</string>
+	<string>Chat</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Webtui Chat</string>
+	<string>Chat</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -38,9 +38,11 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>WebTui Chat dùng microphone để ghi và gửi tin nhắn thoại.</string>
+	<string>Ứng dụng chat dùng microphone để ghi và gửi tin nhắn thoại.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>WebTui Chat dùng camera cho cuộc gọi video.</string>
+	<string>Ứng dụng chat dùng camera cho cuộc gọi video.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Ứng dụng chat truy cập thư viện để gửi ảnh và video vào cuộc trò chuyện.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>voip</string>

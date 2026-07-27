@@ -326,6 +326,7 @@ Map<String, Object?> _messageToJson(ChatMessage item) {
     'updatedAt': item.updatedAt?.toUtc().toIso8601String(),
     'mentions': item.mentions,
     'reactions': item.reactions.map(_reactionToJson).toList(growable: false),
+    'metadata': item.metadata,
     'attachments': item.attachments
         .map(_attachmentToJson)
         .toList(growable: false),
@@ -359,6 +360,9 @@ ChatMessage _messageFromJson(Map<String, Object?> json) {
               .map(_reactionFromJson)
               .toList(growable: false)
         : const [],
+    metadata: json['metadata'] is Map
+        ? Map<String, Object?>.from(json['metadata']! as Map)
+        : const {},
     attachments: attachments is List
         ? attachments
               .whereType<Map<String, Object?>>()

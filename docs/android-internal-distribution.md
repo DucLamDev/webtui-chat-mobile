@@ -70,6 +70,12 @@ open the `download_url` or `store_url` from the manifest.
 
 ## Local Signed Build
 
+Create the upload keystore once if it does not exist yet:
+
+```powershell
+keytool -genkeypair -v -storetype PKCS12 -keystore android\app\upload-keystore.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000
+```
+
 Create `android/key.properties` locally from the mobile project root:
 
 ```properties
@@ -86,6 +92,46 @@ flutter pub get
 flutter build appbundle --release --flavor prod -t lib/main_prod.dart --build-name=1.0.0 --build-number=100
 flutter build apk --release --flavor prod -t lib/main_prod.dart --build-name=1.0.0 --build-number=100
 ```
+
+## Quick Customer APK Flow
+
+Use this path while the app is not on CH Play yet:
+
+```powershell
+cd C:\Users\MSI\Desktop\vpsttt-project\github-ready\webtui-chat-mobile
+flutter pub get
+dart run tool/check_architecture.dart
+flutter analyze
+flutter test
+flutter build apk --release --flavor prod -t lib/main_prod.dart --build-name=1.0.0 --build-number=100
+Get-FileHash build\app\outputs\flutter-apk\app-prod-release.apk -Algorithm SHA256
+```
+
+Publish only the signed release APK, its SHA-256 checksum, and the matching
+manifest. The customer-facing link should point to:
+
+```text
+https://chat.vpsttt.com/download/
+```
+
+The download page reads:
+
+```text
+https://chat.vpsttt.com/download/android/stable/mobile-release-manifest.json
+```
+
+and the manifest should point `download_url` to:
+
+```text
+https://chat.vpsttt.com/downloads/files/android/stable/app-prod-release.apk
+```
+
+Customer onboarding after install:
+
+1. Owner installs or opens the self-hosted server first.
+2. The first registered account becomes workspace owner.
+3. Owner opens `/admin`, creates an invite token, and sends server domain plus token.
+4. Customer installs APK, enters the server domain, chooses register, and pastes the invite token.
 
 ## Internal Install Checklist
 

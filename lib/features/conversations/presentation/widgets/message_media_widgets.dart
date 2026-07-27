@@ -1,15 +1,21 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
+import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../domain/entities/chat_message.dart';
 
@@ -512,6 +518,417 @@ class _MessageVoiceAttachmentViewState
   }
 }
 
+class MessageVideoAttachmentView extends ConsumerStatefulWidget {
+  const MessageVideoAttachmentView({
+    required this.attachment,
+    this.apiBaseUri,
+    this.allowFullscreen = true,
+    super.key,
+  });
+
+  final MessageAttachment attachment;
+  final Uri? apiBaseUri;
+  final bool allowFullscreen;
+
+  @override
+  ConsumerState<MessageVideoAttachmentView> createState() =>
+      _MessageVideoAttachmentViewState();
+}
+
+class _MessageVideoAttachmentViewState
+    extends ConsumerState<MessageVideoAttachmentView> {
+  VideoPlayerController? _controller;
+  bool _loading = true;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_initialize());
+  }
+
+  @override
+  void didUpdateWidget(covariant MessageVideoAttachmentView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.attachment.file.downloadPath !=
+            widget.attachment.file.downloadPath ||
+        oldWidget.apiBaseUri != widget.apiBaseUri) {
+      unawaited(_initialize());
+    }
+  }
+
+  Future<void> _initialize() async {
+    final uri = attachmentDownloadUri(widget.attachment, widget.apiBaseUri);
+    if (uri == null) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _failed = true;
+        });
+      }
+      return;
+    }
+    final token =
+        (await ref.read(authTokenRepositoryProvider).readAccessToken())?.trim();
+    final next = VideoPlayerController.networkUrl(
+      uri,
+      httpHeaders: {
+        'Accept': widget.attachment.file.mimeType,
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      },
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    );
+    try {
+      await next.initialize();
+      await next.setLooping(false);
+      final previous = _controller;
+      if (!mounted) {
+        await next.dispose();
+        return;
+      }
+      setState(() {
+        _controller = next;
+        _loading = false;
+        _failed = false;
+      });
+      if (previous != null) {
+        await previous.dispose();
+      }
+    } on Object {
+      await next.dispose();
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _failed = true;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    final controller = _controller;
+    if (controller != null) {
+      unawaited(controller.dispose());
+    }
+    super.dispose();
+  }
+
+  Future<void> _togglePlayback() async {
+    final controller = _controller;
+    if (controller == null) return;
+    if (controller.value.isPlaying) {
+      await controller.pause();
+    } else {
+      if (controller.value.position >= controller.value.duration) {
+        await controller.seekTo(Duration.zero);
+      }
+      await controller.play();
+    }
+    if (mounted) setState(() {});
+  }
+
+  void _openFullscreen() {
+    final controller = _controller;
+    if (controller != null && controller.value.isPlaying) {
+      unawaited(controller.pause());
+    }
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (_) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+            title: Text(
+              widget.attachment.file.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          body: Center(
+            child: MessageVideoAttachmentView(
+              attachment: widget.attachment,
+              apiBaseUri: widget.apiBaseUri,
+              allowFullscreen: false,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = _controller;
+    final initialized = controller?.value.isInitialized == true;
+    final activeController = initialized ? controller! : null;
+    final aspectRatio = initialized
+        ? activeController!.value.aspectRatio.clamp(0.65, 1.9)
+        : 16 / 9;
+    final width = widget.allowFullscreen
+        ? (MediaQuery.sizeOf(context).width * 0.72).clamp(230, 320).toDouble()
+        : MediaQuery.sizeOf(context).width;
+    return SizedBox(
+      width: width,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(
+          widget.allowFullscreen ? WebTuiRadii.lg : 0,
+        ),
+        child: ColoredBox(
+          color: Colors.black,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AspectRatio(
+                aspectRatio: aspectRatio.toDouble(),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (activeController != null)
+                      VideoPlayer(activeController)
+                    else
+                      Center(
+                        child: _loading
+                            ? const CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              )
+                            : const Icon(
+                                CupertinoIcons.exclamationmark_triangle,
+                                color: Colors.white70,
+                                size: 32,
+                              ),
+                      ),
+                    if (activeController != null)
+                      Center(
+                        child: IconButton.filled(
+                          tooltip: activeController.value.isPlaying
+                              ? 'Tạm dừng'
+                              : 'Phát video',
+                          onPressed: _togglePlayback,
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.black54,
+                            foregroundColor: Colors.white,
+                          ),
+                          icon: Icon(
+                            activeController.value.isPlaying
+                                ? CupertinoIcons.pause_fill
+                                : CupertinoIcons.play_fill,
+                          ),
+                        ),
+                      ),
+                    if (widget.allowFullscreen && activeController != null)
+                      Positioned(
+                        right: 6,
+                        top: 6,
+                        child: IconButton.filledTonal(
+                          tooltip: 'Toàn màn hình',
+                          onPressed: _openFullscreen,
+                          icon: const Icon(
+                            CupertinoIcons.arrow_up_left_arrow_down_right,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (activeController != null)
+                VideoProgressIndicator(
+                  activeController,
+                  allowScrubbing: true,
+                  colors: const VideoProgressColors(
+                    playedColor: WebTuiColors.primary,
+                    bufferedColor: Colors.white38,
+                    backgroundColor: Colors.white12,
+                  ),
+                ),
+              if (widget.allowFullscreen)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: WebTuiSpacing.sm,
+                    vertical: WebTuiSpacing.xs,
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        CupertinoIcons.videocam_fill,
+                        color: Colors.white70,
+                        size: 16,
+                      ),
+                      const SizedBox(width: WebTuiSpacing.xs),
+                      Expanded(
+                        child: Text(
+                          _failed
+                              ? 'Không phát được video'
+                              : widget.attachment.file.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: WebTuiTypography.labelSmall.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class MessageFileAttachmentView extends ConsumerStatefulWidget {
+  const MessageFileAttachmentView({
+    required this.attachment,
+    required this.outgoing,
+    this.apiBaseUri,
+    super.key,
+  });
+
+  final MessageAttachment attachment;
+  final bool outgoing;
+  final Uri? apiBaseUri;
+
+  @override
+  ConsumerState<MessageFileAttachmentView> createState() =>
+      _MessageFileAttachmentViewState();
+}
+
+class _MessageFileAttachmentViewState
+    extends ConsumerState<MessageFileAttachmentView> {
+  bool _opening = false;
+
+  Future<void> _open() async {
+    if (_opening) return;
+    final uri = attachmentDownloadUri(widget.attachment, widget.apiBaseUri);
+    if (uri == null) {
+      _showFailure('Đường dẫn tệp không hợp lệ.');
+      return;
+    }
+    setState(() => _opening = true);
+    try {
+      final directory = await getTemporaryDirectory();
+      final safeName = widget.attachment.file.name.replaceAll(
+        RegExp(r'[<>:"/\\|?*\x00-\x1F]'),
+        '_',
+      );
+      final target = File(
+        path.join(
+          directory.path,
+          'webtui-attachments',
+          '${widget.attachment.fileId}-$safeName',
+        ),
+      );
+      if (!await target.exists() ||
+          await target.length() != widget.attachment.file.byteSize) {
+        final result = await ref
+            .read(downloadMessageAttachmentBytesUseCaseProvider)
+            .execute(
+              downloadUri: uri,
+              mimeType: widget.attachment.file.mimeType,
+            );
+        final bytes = result.valueOrNull;
+        if (bytes == null || bytes.isEmpty) {
+          throw StateError('empty attachment');
+        }
+        await target.parent.create(recursive: true);
+        await target.writeAsBytes(bytes, flush: true);
+      }
+      final opened = await OpenFilex.open(target.path);
+      if (opened.type != ResultType.done) {
+        throw StateError(opened.message);
+      }
+    } on Object {
+      _showFailure('Không thể tải hoặc mở tệp này trên thiết bị.');
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
+  }
+
+  void _showFailure(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 270),
+      child: Material(
+        color: widget.outgoing
+            ? WebTuiColors.primarySoft
+            : WebTuiColors.surface,
+        borderRadius: BorderRadius.circular(WebTuiRadii.lg),
+        child: InkWell(
+          onTap: _opening ? null : _open,
+          borderRadius: BorderRadius.circular(WebTuiRadii.lg),
+          child: Padding(
+            padding: const EdgeInsets.all(WebTuiSpacing.sm),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox.square(
+                  dimension: 38,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: WebTuiColors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(WebTuiRadii.md),
+                    ),
+                    child: Center(
+                      child: _opening
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(
+                              CupertinoIcons.doc_fill,
+                              size: 20,
+                              color: WebTuiColors.primary,
+                            ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: WebTuiSpacing.sm),
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        widget.attachment.file.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: WebTuiTypography.labelSmall.copyWith(
+                          color: WebTuiColors.textPrimary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      Text(
+                        '${_formatByteSize(widget.attachment.file.byteSize)} · Nhấn để mở',
+                        style: WebTuiTypography.labelSmall.copyWith(
+                          color: WebTuiColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ImagePlaceholder extends StatelessWidget {
   const _ImagePlaceholder({
     required this.width,
@@ -566,4 +983,14 @@ String _rateLabel(double value) {
   return value == value.roundToDouble()
       ? value.toStringAsFixed(0)
       : value.toStringAsFixed(1);
+}
+
+String _formatByteSize(int bytes) {
+  if (bytes >= 1024 * 1024) {
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+  if (bytes >= 1024) {
+    return '${(bytes / 1024).toStringAsFixed(1)} KB';
+  }
+  return '$bytes B';
 }

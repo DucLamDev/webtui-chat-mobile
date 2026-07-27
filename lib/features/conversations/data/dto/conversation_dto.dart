@@ -203,6 +203,7 @@ final class MessageDto {
     required this.createdAt,
     required this.updatedAt,
     required this.reactions,
+    this.metadata = const {},
     this.senderId,
     this.parentId,
     this.threadRootId,
@@ -218,6 +219,7 @@ final class MessageDto {
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<ReactionDto> reactions;
+  final Map<String, Object?> metadata;
   final String? senderId;
   final String? parentId;
   final String? threadRootId;
@@ -236,6 +238,9 @@ final class MessageDto {
       reactions: _listOf(
         json['reactions'],
       ).map(ReactionDto.fromJson).toList(growable: false),
+      metadata: json['metadata'] is Map
+          ? Map<String, Object?>.from(json['metadata'] as Map)
+          : const {},
       senderId: _nullableString(json['sender_id']),
       parentId: _nullableString(json['parent_id']),
       threadRootId: _nullableString(json['thread_root_id']),
@@ -258,6 +263,7 @@ final class MessageDto {
       editedAt: editedAt,
       deletedAt: deletedAt,
       reactions: reactions.map((reaction) => reaction.toDomain()).toList(),
+      metadata: metadata,
       isMine: isMine,
     );
   }

@@ -20,6 +20,7 @@ final class NativeIncomingCallService {
 
   static final _actions =
       StreamController<NativeIncomingCallAction>.broadcast();
+  static final _voipTokens = StreamController<String>.broadcast();
   static final _pendingActions = <NativeIncomingCallAction>[];
   static StreamSubscription<CallEvent?>? _subscription;
   static bool _permissionsRequested = false;
@@ -38,6 +39,24 @@ final class NativeIncomingCallService {
       );
       controller.onCancel = subscription.cancel;
     });
+  }
+
+  static Stream<String> get voipTokens {
+    ensureStarted();
+    return _voipTokens.stream;
+  }
+
+  static Future<String?> readVoipPushToken() async {
+    if (!Platform.isIOS) return null;
+    ensureStarted();
+    try {
+      final token = (await FlutterCallkitIncoming.getDevicePushTokenVoIP())
+          .toString()
+          .trim();
+      return token.isEmpty ? null : token;
+    } on Object {
+      return null;
+    }
   }
 
   static void ensureStarted() {
@@ -106,13 +125,18 @@ final class NativeIncomingCallService {
       'target_type': 'call',
       'event_type': 'call_invite',
       'caller_name': callerName,
+      if (target.organizationName != null) 'app_name': target.organizationName,
+      if (target.organizationLogoUrl != null)
+        'logo_url': target.organizationLogoUrl,
       if (target.deepLink != null) 'deep_link': target.deepLink,
     };
 
     final params = CallKitParams(
       id: callId,
       nameCaller: callerName,
-      appName: 'WebTui Chat',
+      appName: target.organizationName?.trim().isNotEmpty == true
+          ? target.organizationName!.trim()
+          : 'Ứng dụng chat',
       handle: isVideo ? 'Cuộc gọi video' : 'Cuộc gọi thoại',
       type: isVideo ? 1 : 0,
       duration: 30000,
@@ -187,6 +211,12 @@ final class NativeIncomingCallService {
 
   static void _handleCallkitEvent(CallEvent? event) {
     if (event == null) {
+      return;
+    }
+    if (event.event == Event.actionDidUpdateDevicePushTokenVoip) {
+      final body = _stringObjectMap(event.body);
+      final token = body['deviceTokenVoIP']?.toString().trim() ?? '';
+      _voipTokens.add(token);
       return;
     }
     final target = _targetFromCallkitBody(event.body);

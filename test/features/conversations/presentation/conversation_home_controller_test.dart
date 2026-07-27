@@ -319,6 +319,7 @@ final class _FakeConversationRepository implements ConversationRepository {
     required String body,
     String? clientMessageId,
     String? parentId,
+    bool silent = false,
   }) {
     throw UnimplementedError();
   }

@@ -17,11 +17,12 @@ class WebTuiChatApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
     final activeServerUri = ref.watch(activeServerUriProvider);
+    final activeDiscovery = ref.watch(activeServerDiscoveryProvider);
+    final accessToken = ref.watch(authAccessTokenProvider).valueOrNull?.trim();
     final router = ref.watch(appRouterProvider);
-    final tokenRepository = ref.read(authTokenRepositoryProvider);
 
     return MaterialApp.router(
-      title: config.appTitle,
+      title: activeDiscovery?.name ?? config.appTitle,
       debugShowCheckedModeBanner: false,
       theme: WebTuiTheme.light(),
       locale: const Locale('vi'),
@@ -41,20 +42,19 @@ class WebTuiChatApp extends ConsumerWidget {
                 ),
                 child: child ?? const SizedBox.shrink(),
               );
-        return FutureBuilder<String?>(
-          future: tokenRepository.readAccessToken(),
-          builder: (context, snapshot) {
-            final token = snapshot.data?.trim();
-            final headers = token == null || token.isEmpty
-                ? null
-                : {'Authorization': 'Bearer $token'};
-            final appContent = WebTuiAvatarNetworkScope(
-              apiBaseUri: activeServerUri,
-              headers: headers,
-              child: MobileUpdateGate(child: PrivacyGuard(child: scaledChild)),
-            );
-            return appContent;
-          },
+        final headers = accessToken == null || accessToken.isEmpty
+            ? null
+            : {'Authorization': 'Bearer $accessToken'};
+        return WebTuiAvatarNetworkScope(
+          apiBaseUri: activeServerUri,
+          headers: headers,
+          child: MobileUpdateGate(
+            child: PrivacyGuard(
+              organizationName: activeDiscovery?.name ?? 'Ứng dụng chat',
+              organizationLogoUrl: activeDiscovery?.logoUrl,
+              child: scaledChild,
+            ),
+          ),
         );
       },
     );

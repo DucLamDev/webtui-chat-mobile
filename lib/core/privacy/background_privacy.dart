@@ -22,11 +22,15 @@ final class BackgroundPrivacyController {
 class PrivacyGuard extends StatefulWidget {
   const PrivacyGuard({
     required this.child,
+    required this.organizationName,
+    this.organizationLogoUrl,
     this.controller = const BackgroundPrivacyController(),
     super.key,
   });
 
   final Widget child;
+  final String organizationName;
+  final String? organizationLogoUrl;
   final BackgroundPrivacyController controller;
 
   @override
@@ -74,7 +78,10 @@ class _PrivacyGuardState extends State<PrivacyGuard>
           child: AnimatedOpacity(
             opacity: _obscured ? 1 : 0,
             duration: const Duration(milliseconds: 120),
-            child: const _PrivacyCover(),
+            child: _PrivacyCover(
+              organizationName: widget.organizationName,
+              organizationLogoUrl: widget.organizationLogoUrl,
+            ),
           ),
         ),
       ],
@@ -83,7 +90,13 @@ class _PrivacyGuardState extends State<PrivacyGuard>
 }
 
 class _PrivacyCover extends StatelessWidget {
-  const _PrivacyCover();
+  const _PrivacyCover({
+    required this.organizationName,
+    this.organizationLogoUrl,
+  });
+
+  final String organizationName;
+  final String? organizationLogoUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -93,14 +106,13 @@ class _PrivacyCover extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.lock_outline_rounded,
-              color: WebTuiColors.primary,
-              size: 32,
+            _PrivacyOrganizationMark(
+              name: organizationName,
+              logoUrl: organizationLogoUrl,
             ),
             const SizedBox(height: WebTuiSpacing.md),
             Text(
-              'WebTui đang bảo vệ nội dung',
+              '$organizationName đang bảo vệ nội dung',
               style: WebTuiTypography.bodyMedium.copyWith(
                 color: WebTuiColors.textPrimary,
                 fontWeight: FontWeight.w700,
@@ -108,6 +120,46 @@ class _PrivacyCover extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _PrivacyOrganizationMark extends StatelessWidget {
+  const _PrivacyOrganizationMark({required this.name, this.logoUrl});
+
+  final String name;
+  final String? logoUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = Container(
+      width: 48,
+      height: 48,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        color: WebTuiColors.primarySoft,
+        shape: BoxShape.circle,
+      ),
+      child: Text(
+        name.trim().isEmpty ? 'O' : name.trim()[0].toUpperCase(),
+        style: WebTuiTypography.titleLarge.copyWith(
+          color: WebTuiColors.primary,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+    final source = logoUrl?.trim();
+    if (source == null || source.isEmpty) {
+      return fallback;
+    }
+    return ClipOval(
+      child: Image.network(
+        source,
+        width: 48,
+        height: 48,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => fallback,
       ),
     );
   }

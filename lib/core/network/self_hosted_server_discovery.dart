@@ -8,6 +8,7 @@ final class SelfHostedServerDiscovery {
     required this.wsBaseUri,
     required this.registrationMode,
     required this.appVersion,
+    this.logoUrl,
   });
 
   factory SelfHostedServerDiscovery.fromApiResponse({
@@ -20,7 +21,7 @@ final class SelfHostedServerDiscovery {
       data.isNotEmpty ? data['discovery'] : root['discovery'] ?? root,
     );
     if (discovery.isEmpty) {
-      throw StateError('Server không trả discovery WebTUI Chat hợp lệ.');
+      throw StateError('Server không trả thông tin discovery hợp lệ.');
     }
 
     final domain = _text(discovery['domain']).toLowerCase();
@@ -28,6 +29,7 @@ final class SelfHostedServerDiscovery {
     final runtime = _jsonMap(discovery['runtime']);
     final capabilities = _jsonMap(discovery['capabilities']);
     final deployment = _jsonMap(discovery['deployment']);
+    final branding = _jsonMap(discovery['branding']);
 
     if (domain != requestedServer.host.toLowerCase()) {
       throw StateError('Domain discovery không khớp với server đã nhập.');
@@ -40,7 +42,7 @@ final class SelfHostedServerDiscovery {
     }
     if (capabilities['self_hosted'] != true) {
       throw StateError(
-        'Domain này không phải instance WebTUI Chat self-hosted.',
+        'Domain này không phải một server chat self-hosted tương thích.',
       );
     }
 
@@ -59,6 +61,14 @@ final class SelfHostedServerDiscovery {
     final name = _text(zone['name']).isNotEmpty
         ? _text(zone['name'])
         : _text(runtime['app_name']);
+    final logoUrl = _resolveLogoUrl(
+      _text(runtime['logo_url']).isNotEmpty
+          ? _text(runtime['logo_url'])
+          : _text(zone['logo_url']).isNotEmpty
+          ? _text(zone['logo_url'])
+          : _text(branding['logo_url']),
+      requestedServer,
+    );
 
     return SelfHostedServerDiscovery(
       domain: domain,
@@ -70,6 +80,7 @@ final class SelfHostedServerDiscovery {
           ? _text(zone['registration_mode']).toLowerCase()
           : 'closed',
       appVersion: _text(runtime['app_version']),
+      logoUrl: logoUrl,
     );
   }
 
@@ -79,8 +90,27 @@ final class SelfHostedServerDiscovery {
   final Uri wsBaseUri;
   final String registrationMode;
   final String appVersion;
+  final String? logoUrl;
 
   bool get canRegister => registrationMode == 'open';
+}
+
+String? _resolveLogoUrl(String value, Uri requestedServer) {
+  if (value.isEmpty) {
+    return null;
+  }
+  final parsed = Uri.tryParse(value);
+  if (parsed == null || parsed.userInfo.isNotEmpty) {
+    return null;
+  }
+  final resolved = parsed.hasScheme
+      ? parsed
+      : requestedServer.resolveUri(parsed);
+  final isLocal = _isLocalHost(resolved.host);
+  if (resolved.scheme != 'https' && !(isLocal && resolved.scheme == 'http')) {
+    return null;
+  }
+  return resolved.toString();
 }
 
 Uri parseSelfHostedWebSocketUri(String value) {

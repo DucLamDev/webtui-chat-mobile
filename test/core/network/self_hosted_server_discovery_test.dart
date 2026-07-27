@@ -12,6 +12,10 @@ void main() {
     expect(discovery.name, 'Company Chat');
     expect(discovery.apiBaseUri, Uri.parse('https://chat.company.example'));
     expect(discovery.wsBaseUri, Uri.parse('wss://chat.company.example/ws'));
+    expect(
+      discovery.logoUrl,
+      'https://chat.company.example/branding/company-logo.png',
+    );
     expect(discovery.canRegister, isTrue);
   });
 
@@ -56,6 +60,7 @@ Map<String, Object?> _payload({
         },
         'runtime': {
           'app_name': 'Company Chat',
+          'logo_url': '/branding/company-logo.png',
           'app_version': '1.0.0',
           'api_base_url': apiBaseUrl,
           'ws_base_url': wsBaseUrl,

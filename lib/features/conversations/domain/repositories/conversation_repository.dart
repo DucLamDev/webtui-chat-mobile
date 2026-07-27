@@ -146,6 +146,7 @@ abstract interface class ConversationRepository {
     required String body,
     String? clientMessageId,
     String? parentId,
+    bool silent = false,
   });
 
   Future<Result<ChatMessage>> editMessage({
@@ -201,6 +202,10 @@ abstract interface class ConversationRepository {
 }
 
 abstract interface class ConversationRealtimeRepository {
+  Stream<ConversationRealtimeEvent> subscribeToUser({
+    required String workspaceId,
+  });
+
   Stream<ConversationRealtimeEvent> subscribeToChannel({
     required String workspaceId,
     required String channelId,

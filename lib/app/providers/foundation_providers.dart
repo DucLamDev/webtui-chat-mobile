@@ -10,6 +10,7 @@ import '../../core/database/app_database.dart';
 import '../../core/logging/redacting_logger.dart';
 import '../../core/network/api_transport.dart';
 import '../../core/network/request_id.dart';
+import '../../core/network/self_hosted_server_discovery.dart';
 import '../../core/network/self_hosted_server_discovery_client.dart';
 import '../../core/notifications/push_notification_service.dart';
 import '../../core/platform/external_url_launcher.dart';
@@ -121,6 +122,14 @@ final activeServerWsUriProvider = StateProvider<Uri>((ref) {
   return ref.watch(appConfigProvider).wsBaseUri;
 });
 
+final initialServerDiscoveryProvider = Provider<SelfHostedServerDiscovery?>(
+  (_) => null,
+);
+
+final activeServerDiscoveryProvider = StateProvider<SelfHostedServerDiscovery?>(
+  (ref) => ref.watch(initialServerDiscoveryProvider),
+);
+
 final dioProvider = Provider<Dio>((ref) {
   final activeServerUri = ref.watch(activeServerUriProvider);
   final logger = ref.watch(redactingLoggerProvider);
@@ -217,6 +226,10 @@ final authSessionRepositoryProvider = Provider<AuthRepository>((ref) {
 
 final authTokenRepositoryProvider = Provider<AuthTokenRepository>((ref) {
   return SecureAuthTokenRepository(ref.watch(secureKeyValueStoreProvider));
+});
+
+final authAccessTokenProvider = FutureProvider<String?>((ref) {
+  return ref.watch(authTokenRepositoryProvider).readAccessToken();
 });
 
 final deviceIdentityRepositoryProvider = Provider<DeviceIdentityRepository>((
@@ -589,6 +602,19 @@ final conversationRealtimeRepositoryProvider =
       return repository;
     });
 
+final incomingCallRealtimeRepositoryProvider =
+    Provider<ConversationRealtimeRepository>((ref) {
+      final repository = WebSocketConversationRealtimeRepository(
+        apiBaseUri: ref.watch(activeServerUriProvider),
+        wsBaseUri: ref.watch(activeServerWsUriProvider),
+        tokenRepository: ref.watch(authTokenRepositoryProvider),
+      );
+      ref.onDispose(() {
+        unawaited(repository.disconnect());
+      });
+      return repository;
+    });
+
 final updatePresenceUseCaseProvider = Provider<UpdatePresenceUseCase>((ref) {
   return UpdatePresenceUseCase(
     conversationRepository: ref.watch(conversationRepositoryProvider),
@@ -831,6 +857,12 @@ final startCallUseCaseProvider = Provider<StartCallUseCase>((ref) {
 
 final getCallUseCaseProvider = Provider<GetCallUseCase>((ref) {
   return GetCallUseCase(ref.watch(callRepositoryProvider));
+});
+
+final findIncomingCallUseCaseProvider = Provider<FindIncomingCallUseCase>((
+  ref,
+) {
+  return FindIncomingCallUseCase(ref.watch(callRepositoryProvider));
 });
 
 final acceptCallUseCaseProvider = Provider<AcceptCallUseCase>((ref) {

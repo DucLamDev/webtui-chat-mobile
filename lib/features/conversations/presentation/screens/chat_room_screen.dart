@@ -18,6 +18,7 @@ import '../../domain/entities/call_session.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/conversation_summary.dart';
 import '../controllers/chat_room_controller.dart';
+import '../widgets/collaboration_room_sheet.dart';
 import '../widgets/message_media_widgets.dart';
 import 'webrtc_call_screen.dart';
 
@@ -186,9 +187,19 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         onRetryOutbox: () => unawaited(controller.retryOutbox()),
         onLoadOlder: controller.loadOlder,
         onClearSearch: controller.clearSearch,
-        onSend: controller.sendCurrentDraft,
+        onSend: (silent) =>
+            unawaited(controller.sendCurrentDraft(silent: silent)),
+        onSchedule: () => unawaited(
+          _scheduleCurrentDraft(context, workspaceId, controller, state),
+        ),
+        onCreatePoll: () =>
+            unawaited(_openPollComposer(context, workspaceId, controller)),
         onSendThread: controller.sendThreadDraft,
         onReply: controller.startReply,
+        onReplyPrivately: (message) =>
+            unawaited(_replyPrivately(context, workspaceId, message)),
+        onConvertToTask: (message) =>
+            unawaited(_convertMessageToTask(context, workspaceId, message)),
         onEdit: controller.startEdit,
         onDelete: controller.deleteMessage,
         onReact: controller.toggleReaction,
@@ -276,6 +287,17 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
             icon: const Icon(CupertinoIcons.video_camera, size: 22),
           ),
           IconButton(
+            tooltip: 'Không gian cộng tác',
+            onPressed: () => showCollaborationRoomSheet(
+              context,
+              workspaceId: workspaceId,
+              channelId: widget.channelId,
+              title: widget.title,
+              conversation: widget.conversation,
+            ),
+            icon: const Icon(Icons.hub_outlined, size: 21),
+          ),
+          IconButton(
             tooltip: 'Chi tiết kênh',
             onPressed: () => _openDetails(context),
             icon: const Icon(CupertinoIcons.line_horizontal_3, size: 23),
@@ -293,6 +315,83 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         queryParameters: {'title': widget.title},
       ).toString(),
     );
+  }
+
+  Future<void> _replyPrivately(
+    BuildContext context,
+    String workspaceId,
+    ChatMessage message,
+  ) async {
+    final senderId = message.senderId?.trim();
+    if (message.isMine || senderId == null || senderId.isEmpty) {
+      return;
+    }
+    try {
+      final conversation = await ref
+          .read(conversationRemoteDataSourceProvider)
+          .createDirectConversation(
+            workspaceId: workspaceId,
+            participantIds: [senderId],
+            sourceChannelId: widget.channelId,
+          );
+      final draft = 'Trả lời riêng tư:\n> ${_displayMessageBody(message)}\n\n';
+      await ref
+          .read(saveDraftUseCaseProvider)
+          .execute(
+            workspaceId: workspaceId,
+            channelId: conversation.channelId,
+            body: draft,
+          );
+      if (!context.mounted) return;
+      await context.push(
+        Uri(
+          path: '/conversations/${conversation.channelId}',
+          queryParameters: {
+            'workspaceId': workspaceId,
+            'title': conversation.title,
+            if (conversation.peerUserId != null)
+              'peerUserId': conversation.peerUserId,
+          },
+        ).toString(),
+        extra: conversation,
+      );
+    } on Object catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    }
+  }
+
+  Future<void> _convertMessageToTask(
+    BuildContext context,
+    String workspaceId,
+    ChatMessage message,
+  ) async {
+    final body = _displayMessageBody(message);
+    final title = body.length > 240 ? body.substring(0, 240) : body;
+    try {
+      await ref
+          .read(conversationRemoteDataSourceProvider)
+          .createCollaborationTask(
+            workspaceId: workspaceId,
+            channelId: widget.channelId,
+            title: title,
+            sourceMessageId: message.id,
+          );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã chuyển tin nhắn thành task.')),
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    }
   }
 
   Future<void> _openSearch(
@@ -448,6 +547,137 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
       ),
     );
   }
+
+  Future<void> _scheduleCurrentDraft(
+    BuildContext context,
+    String workspaceId,
+    ChatRoomController controller,
+    ChatRoomState state,
+  ) async {
+    final body = state.draft.trim();
+    if (body.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nhập nội dung trước khi hẹn giờ gửi.')),
+      );
+      return;
+    }
+    final delay = await showModalBottomSheet<Duration>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            WebTuiSpacing.lg,
+            WebTuiSpacing.sm,
+            WebTuiSpacing.lg,
+            WebTuiSpacing.lg,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Hẹn giờ gửi',
+                style: WebTuiTypography.titleMedium.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: WebTuiSpacing.md),
+              ListTile(
+                leading: const Icon(Icons.timer_outlined),
+                title: const Text('Sau 15 phút'),
+                onTap: () =>
+                    Navigator.pop(context, const Duration(minutes: 15)),
+              ),
+              ListTile(
+                leading: const Icon(Icons.schedule_outlined),
+                title: const Text('Sau 1 giờ'),
+                onTap: () => Navigator.pop(context, const Duration(hours: 1)),
+              ),
+              ListTile(
+                leading: const Icon(Icons.wb_sunny_outlined),
+                title: const Text('Sáng mai'),
+                onTap: () {
+                  final now = DateTime.now();
+                  final tomorrow = DateTime(
+                    now.year,
+                    now.month,
+                    now.day + 1,
+                    8,
+                  );
+                  Navigator.pop(context, tomorrow.difference(now));
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (delay == null) return;
+    try {
+      await ref
+          .read(conversationRemoteDataSourceProvider)
+          .scheduleMessage(
+            workspaceId: workspaceId,
+            channelId: widget.channelId,
+            body: body,
+            scheduledFor: DateTime.now().add(delay),
+          );
+      controller.updateDraft('');
+      await controller.persistDraft();
+      if (context.mounted) {
+        _replaceDraftText('');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã lên lịch gửi tin nhắn.')),
+        );
+      }
+    } on Object catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    }
+  }
+
+  Future<void> _openPollComposer(
+    BuildContext context,
+    String workspaceId,
+    ChatRoomController controller,
+  ) async {
+    final poll = await showDialog<_PollDraft>(
+      context: context,
+      builder: (_) => const _PollComposerDialog(),
+    );
+    if (poll == null || !context.mounted) {
+      return;
+    }
+
+    try {
+      await ref
+          .read(conversationRemoteDataSourceProvider)
+          .createPoll(
+            workspaceId: workspaceId,
+            channelId: widget.channelId,
+            question: poll.question,
+            options: poll.options,
+            multiple: poll.multiple,
+            anonymous: poll.anonymous,
+          );
+      await controller.load();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã tạo bình chọn cho phòng.')),
+        );
+      }
+    } on Object catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Không tạo được bình chọn: $error')),
+        );
+      }
+    }
+  }
 }
 
 class _ChatRoomBody extends StatefulWidget {
@@ -469,8 +699,12 @@ class _ChatRoomBody extends StatefulWidget {
     required this.onLoadOlder,
     required this.onClearSearch,
     required this.onSend,
+    required this.onSchedule,
+    required this.onCreatePoll,
     required this.onSendThread,
     required this.onReply,
+    required this.onReplyPrivately,
+    required this.onConvertToTask,
     required this.onEdit,
     required this.onDelete,
     required this.onReact,
@@ -499,9 +733,13 @@ class _ChatRoomBody extends StatefulWidget {
   final VoidCallback onRetryOutbox;
   final VoidCallback onLoadOlder;
   final VoidCallback onClearSearch;
-  final VoidCallback onSend;
+  final ValueChanged<bool> onSend;
+  final VoidCallback onSchedule;
+  final VoidCallback onCreatePoll;
   final VoidCallback onSendThread;
   final ValueChanged<ChatMessage> onReply;
+  final ValueChanged<ChatMessage> onReplyPrivately;
+  final ValueChanged<ChatMessage> onConvertToTask;
   final ValueChanged<ChatMessage> onEdit;
   final ValueChanged<ChatMessage> onDelete;
   final void Function(ChatMessage message, String emoji) onReact;
@@ -678,6 +916,8 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
                                         widget.state.scope.channelId,
                                     message: message,
                                     onReply: widget.onReply,
+                                    onReplyPrivately: widget.onReplyPrivately,
+                                    onConvertToTask: widget.onConvertToTask,
                                     onEdit: widget.onEdit,
                                     onDelete: widget.onDelete,
                                     onReact: widget.onReact,
@@ -704,6 +944,8 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
                                       reactions: _reactionLabels(
                                         message.reactions,
                                       ),
+                                      onReact: (emoji) =>
+                                          widget.onReact(message, emoji),
                                       onRetryAudioCall: widget.onRetryAudioCall,
                                     ),
                                   ),
@@ -737,6 +979,8 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
           onRetryAttachment: widget.onRetryAttachment,
           onRemoveAttachment: widget.onRemoveAttachment,
           onSend: widget.onSend,
+          onSchedule: widget.onSchedule,
+          onCreatePoll: widget.onCreatePoll,
           onCancelContext: widget.onCancelComposerContext,
         ),
       ],
@@ -1212,6 +1456,8 @@ class _Composer extends StatefulWidget {
     required this.onRetryAttachment,
     required this.onRemoveAttachment,
     required this.onSend,
+    required this.onSchedule,
+    required this.onCreatePoll,
     required this.onCancelContext,
     this.replyToMessage,
     this.editingMessage,
@@ -1233,7 +1479,9 @@ class _Composer extends StatefulWidget {
   final VoidCallback onCancelVoiceRecording;
   final ValueChanged<String> onRetryAttachment;
   final ValueChanged<String> onRemoveAttachment;
-  final VoidCallback onSend;
+  final ValueChanged<bool> onSend;
+  final VoidCallback onSchedule;
+  final VoidCallback onCreatePoll;
   final VoidCallback onCancelContext;
 
   @override
@@ -1242,6 +1490,7 @@ class _Composer extends StatefulWidget {
 
 class _ComposerState extends State<_Composer> {
   bool _showEmojiTray = false;
+  bool _silent = false;
   Timer? _voiceTicker;
   Duration _voiceElapsed = Duration.zero;
 
@@ -1303,6 +1552,21 @@ class _ComposerState extends State<_Composer> {
                 _EmojiTray(onSelected: _insertEmoji),
                 const SizedBox(height: WebTuiSpacing.sm),
               ],
+              if (_silent)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: WebTuiSpacing.xs),
+                    child: InputChip(
+                      avatar: const Icon(
+                        Icons.notifications_off_outlined,
+                        size: 16,
+                      ),
+                      label: const Text('Gửi không thông báo'),
+                      onDeleted: () => setState(() => _silent = false),
+                    ),
+                  ),
+                ),
               if (widget.isRecordingVoice) ...[
                 _VoiceRecordingBar(
                   elapsed: _voiceElapsed,
@@ -1325,6 +1589,39 @@ class _ComposerState extends State<_Composer> {
                     onPressed: widget.sending ? null : _showAttachmentSheet,
                     color: WebTuiColors.primary,
                     icon: const Icon(CupertinoIcons.plus_circle),
+                  ),
+                  PopupMenuButton<String>(
+                    tooltip: 'Tùy chọn gửi',
+                    icon: const Icon(Icons.more_horiz_rounded),
+                    onSelected: (value) {
+                      if (value == 'silent') {
+                        setState(() => _silent = !_silent);
+                      } else if (value == 'schedule') {
+                        widget.onSchedule();
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: 'silent',
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.notifications_off_outlined),
+                          title: Text(
+                            _silent
+                                ? 'Bật lại thông báo'
+                                : 'Gửi không thông báo',
+                          ),
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'schedule',
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(Icons.schedule_send_outlined),
+                          title: Text('Hẹn giờ gửi'),
+                        ),
+                      ),
+                    ],
                   ),
                   Expanded(
                     child: ConstrainedBox(
@@ -1449,6 +1746,17 @@ class _ComposerState extends State<_Composer> {
                     },
                   ),
                   _AttachmentSourceTile(
+                    icon: CupertinoIcons.video_camera_solid,
+                    title: 'Video',
+                    subtitle: 'Video lớn sẽ được tải tiếp tục theo từng phần',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      widget.onPickAttachment(
+                        MessageAttachmentPickSource.video,
+                      );
+                    },
+                  ),
+                  _AttachmentSourceTile(
                     icon: CupertinoIcons.mic,
                     title: 'Ghi âm voice',
                     subtitle:
@@ -1467,10 +1775,23 @@ class _ComposerState extends State<_Composer> {
                       _toggleEmojiTray();
                     },
                   ),
-                  const _AttachmentSourceTile(
+                  _AttachmentSourceTile(
                     icon: CupertinoIcons.doc,
                     title: 'Tệp',
-                    subtitle: 'File tài liệu sẽ nối ở bước native tiếp theo',
+                    subtitle: 'Gửi PDF, Office, ZIP, âm thanh hoặc video',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      widget.onPickAttachment(MessageAttachmentPickSource.file);
+                    },
+                  ),
+                  _AttachmentSourceTile(
+                    icon: CupertinoIcons.chart_bar_alt_fill,
+                    title: 'Tạo bình chọn',
+                    subtitle: 'Lấy ý kiến của các thành viên trong phòng',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      widget.onCreatePoll();
+                    },
                   ),
                 ],
               ),
@@ -1495,7 +1816,8 @@ class _ComposerState extends State<_Composer> {
 
   void _send() {
     setState(() => _showEmojiTray = false);
-    widget.onSend();
+    widget.onSend(_silent);
+    if (_silent) setState(() => _silent = false);
     widget.focusNode.requestFocus();
   }
 
@@ -1977,12 +2299,44 @@ class _ComposerContextBanner extends StatelessWidget {
   }
 }
 
+Future<void> _createMessageReminder(
+  BuildContext context, {
+  required String workspaceId,
+  required String channelId,
+  required ChatMessage message,
+}) async {
+  try {
+    await ProviderScope.containerOf(context)
+        .read(conversationRemoteDataSourceProvider)
+        .createMessageReminder(
+          workspaceId: workspaceId,
+          channelId: channelId,
+          messageId: message.id,
+          remindAt: DateTime.now().add(const Duration(hours: 1)),
+          note: _displayMessageBody(message),
+        );
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sẽ nhắc lại tin nhắn sau 1 giờ.')),
+      );
+    }
+  } on Object catch (error) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
+  }
+}
+
 Future<void> _showMessageActions(
   BuildContext context, {
   required String workspaceId,
   required String currentChannelId,
   required ChatMessage message,
   required ValueChanged<ChatMessage> onReply,
+  required ValueChanged<ChatMessage> onReplyPrivately,
+  required ValueChanged<ChatMessage> onConvertToTask,
   required ValueChanged<ChatMessage> onEdit,
   required ValueChanged<ChatMessage> onDelete,
   required void Function(ChatMessage message, String emoji) onReact,
@@ -2005,6 +2359,8 @@ Future<void> _showMessageActions(
         currentChannelId: currentChannelId,
         message: message,
         onReply: onReply,
+        onReplyPrivately: onReplyPrivately,
+        onConvertToTask: onConvertToTask,
         onEdit: onEdit,
         onDelete: onDelete,
         onReact: onReact,
@@ -2023,6 +2379,8 @@ class _MessageQuickActions extends StatelessWidget {
     required this.currentChannelId,
     required this.message,
     required this.onReply,
+    required this.onReplyPrivately,
+    required this.onConvertToTask,
     required this.onEdit,
     required this.onDelete,
     required this.onReact,
@@ -2036,6 +2394,8 @@ class _MessageQuickActions extends StatelessWidget {
   final String currentChannelId;
   final ChatMessage message;
   final ValueChanged<ChatMessage> onReply;
+  final ValueChanged<ChatMessage> onReplyPrivately;
+  final ValueChanged<ChatMessage> onConvertToTask;
   final ValueChanged<ChatMessage> onEdit;
   final ValueChanged<ChatMessage> onDelete;
   final void Function(ChatMessage message, String emoji) onReact;
@@ -2085,6 +2445,34 @@ class _MessageQuickActions extends StatelessWidget {
                   label: 'Trả lời',
                   icon: Icons.reply_rounded,
                   onPressed: () => _closeThen(context, () => onReply(message)),
+                ),
+                if (!message.isMine && message.senderId?.isNotEmpty == true)
+                  _SheetActionButton(
+                    label: 'Trả lời riêng',
+                    icon: Icons.lock_person_outlined,
+                    onPressed: () =>
+                        _closeThen(context, () => onReplyPrivately(message)),
+                  ),
+                _SheetActionButton(
+                  label: 'Tạo task',
+                  icon: Icons.task_alt_rounded,
+                  onPressed: () =>
+                      _closeThen(context, () => onConvertToTask(message)),
+                ),
+                _SheetActionButton(
+                  label: 'Nhắc sau 1 giờ',
+                  icon: Icons.alarm_add_outlined,
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    unawaited(
+                      _createMessageReminder(
+                        hostContext,
+                        workspaceId: workspaceId,
+                        channelId: currentChannelId,
+                        message: message,
+                      ),
+                    );
+                  },
                 ),
                 _SheetActionButton(
                   label: 'Reaction',
@@ -2428,6 +2816,7 @@ class _MessageRow extends StatelessWidget {
     required this.text,
     required this.timeLabel,
     required this.reactions,
+    required this.onReact,
     required this.onRetryAudioCall,
   });
 
@@ -2438,6 +2827,7 @@ class _MessageRow extends StatelessWidget {
   final String text;
   final String timeLabel;
   final List<String> reactions;
+  final ValueChanged<String> onReact;
   final VoidCallback onRetryAudioCall;
 
   @override
@@ -2449,6 +2839,45 @@ class _MessageRow extends StatelessWidget {
         title: _missedCallTitle(message),
         timeLabel: timeLabel,
         onRetry: onRetryAudioCall,
+      );
+    }
+    final poll = _pollDefinition(message);
+    if (poll != null) {
+      final card = _PollMessageCard(
+        message: message,
+        poll: poll,
+        onVote: (reaction) {
+          final selected = message.reactions
+              .where((item) => item.reactedByMe)
+              .toList(growable: false);
+          if (!poll.multiple &&
+              !selected.any((item) => item.emoji == reaction)) {
+            for (final previous in selected) {
+              if (poll.options.any(
+                (option) => option.reaction == previous.emoji,
+              )) {
+                onReact(previous.emoji);
+              }
+            }
+          }
+          onReact(reaction);
+        },
+      );
+      if (outgoing) {
+        return Align(alignment: Alignment.centerRight, child: card);
+      }
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          SizedBox.square(
+            dimension: 30,
+            child: showAvatar
+                ? WebTuiAvatar(label: title, size: 30)
+                : const SizedBox.shrink(),
+          ),
+          const SizedBox(width: WebTuiSpacing.sm),
+          Flexible(child: card),
+        ],
       );
     }
     if (outgoing) {
@@ -2508,6 +2937,437 @@ class _MessageRow extends StatelessWidget {
       ],
     );
   }
+}
+
+final class _PollDraft {
+  const _PollDraft({
+    required this.question,
+    required this.options,
+    required this.multiple,
+    required this.anonymous,
+  });
+
+  final String question;
+  final List<String> options;
+  final bool multiple;
+  final bool anonymous;
+}
+
+class _PollComposerDialog extends StatefulWidget {
+  const _PollComposerDialog();
+
+  @override
+  State<_PollComposerDialog> createState() => _PollComposerDialogState();
+}
+
+class _PollComposerDialogState extends State<_PollComposerDialog> {
+  final _questionController = TextEditingController();
+  final _optionControllers = [TextEditingController(), TextEditingController()];
+  bool _multiple = false;
+  bool _anonymous = false;
+
+  @override
+  void dispose() {
+    _questionController.dispose();
+    for (final controller in _optionControllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final options = _optionControllers
+        .map((controller) => controller.text.trim())
+        .where((option) => option.isNotEmpty)
+        .toList(growable: false);
+    final canSubmit =
+        _questionController.text.trim().isNotEmpty && options.length >= 2;
+
+    return AlertDialog(
+      title: const Row(
+        children: [
+          Icon(Icons.poll_outlined, color: WebTuiColors.primary),
+          SizedBox(width: WebTuiSpacing.sm),
+          Text('Tạo bình chọn'),
+        ],
+      ),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _questionController,
+                autofocus: true,
+                maxLength: 500,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  labelText: 'Câu hỏi',
+                  hintText: 'Ví dụ: Chọn lịch họp tuần này?',
+                ),
+              ),
+              const SizedBox(height: WebTuiSpacing.sm),
+              for (var index = 0; index < _optionControllers.length; index++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: WebTuiSpacing.sm),
+                  child: TextField(
+                    controller: _optionControllers[index],
+                    maxLength: 200,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      counterText: '',
+                      labelText: 'Lựa chọn ${index + 1}',
+                      suffixIcon: _optionControllers.length > 2
+                          ? IconButton(
+                              tooltip: 'Xóa lựa chọn',
+                              onPressed: () {
+                                final removed = _optionControllers.removeAt(
+                                  index,
+                                );
+                                removed.dispose();
+                                setState(() {});
+                              },
+                              icon: const Icon(Icons.close_rounded),
+                            )
+                          : null,
+                    ),
+                  ),
+                ),
+              if (_optionControllers.length < 10)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => setState(
+                      () => _optionControllers.add(TextEditingController()),
+                    ),
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('Thêm lựa chọn'),
+                  ),
+                ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Cho phép chọn nhiều đáp án'),
+                value: _multiple,
+                onChanged: (value) => setState(() => _multiple = value),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Ẩn danh người bình chọn'),
+                value: _anonymous,
+                onChanged: (value) => setState(() => _anonymous = value),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Hủy'),
+        ),
+        FilledButton(
+          onPressed: canSubmit
+              ? () => Navigator.of(context).pop(
+                  _PollDraft(
+                    question: _questionController.text.trim(),
+                    options: options,
+                    multiple: _multiple,
+                    anonymous: _anonymous,
+                  ),
+                )
+              : null,
+          child: const Text('Tạo bình chọn'),
+        ),
+      ],
+    );
+  }
+}
+
+final class _PollDefinition {
+  const _PollDefinition({
+    required this.question,
+    required this.options,
+    required this.multiple,
+    this.anonymous = false,
+    this.closesAt,
+  });
+
+  final String question;
+  final List<_PollOption> options;
+  final bool multiple;
+  final bool anonymous;
+  final DateTime? closesAt;
+}
+
+final class _PollOption {
+  const _PollOption({
+    required this.id,
+    required this.label,
+    required this.reaction,
+  });
+
+  final String id;
+  final String label;
+  final String reaction;
+}
+
+class _PollMessageCard extends StatelessWidget {
+  const _PollMessageCard({
+    required this.message,
+    required this.poll,
+    required this.onVote,
+  });
+
+  final ChatMessage message;
+  final _PollDefinition poll;
+  final ValueChanged<String> onVote;
+
+  @override
+  Widget build(BuildContext context) {
+    final reactionByEmoji = {
+      for (final reaction in message.reactions) reaction.emoji: reaction,
+    };
+    final totalVotes = poll.options.fold<int>(
+      0,
+      (total, option) => total + (reactionByEmoji[option.reaction]?.count ?? 0),
+    );
+    final closed =
+        poll.closesAt != null &&
+        !poll.closesAt!.isAfter(DateTime.now().toUtc());
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 330, minWidth: 250),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: message.isMine
+              ? WebTuiColors.messageOutgoing
+              : WebTuiColors.surface,
+          borderRadius: BorderRadius.circular(WebTuiRadii.lg),
+          border: Border.all(
+            color: message.isMine
+                ? WebTuiColors.messageOutgoingBorder
+                : WebTuiColors.border,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: WebTuiColors.textPrimary.withValues(alpha: 0.06),
+              blurRadius: 18,
+              offset: const Offset(0, 7),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(WebTuiSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: WebTuiColors.primarySoft,
+                      borderRadius: BorderRadius.circular(WebTuiRadii.sm),
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(
+                        Icons.poll_outlined,
+                        color: WebTuiColors.primary,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: WebTuiSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'BÌNH CHỌN',
+                          style: WebTuiTypography.labelSmall.copyWith(
+                            color: WebTuiColors.primary,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          poll.question,
+                          style: WebTuiTypography.bodyMedium.copyWith(
+                            color: WebTuiColors.textPrimary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: WebTuiSpacing.md),
+              ...poll.options.map((option) {
+                final reaction = reactionByEmoji[option.reaction];
+                final count = reaction?.count ?? 0;
+                final percentage = totalVotes == 0
+                    ? 0
+                    : ((count / totalVotes) * 100).round();
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: WebTuiSpacing.sm),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(WebTuiRadii.md),
+                      onTap: closed ? null : () => onVote(option.reaction),
+                      child: Ink(
+                        decoration: BoxDecoration(
+                          color: WebTuiColors.background,
+                          borderRadius: BorderRadius.circular(WebTuiRadii.md),
+                          border: Border.all(
+                            color: reaction?.reactedByMe == true
+                                ? WebTuiColors.primary
+                                : WebTuiColors.border,
+                          ),
+                        ),
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: FractionallySizedBox(
+                                alignment: Alignment.centerLeft,
+                                widthFactor: percentage / 100,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: WebTuiColors.primarySoft,
+                                    borderRadius: BorderRadius.circular(
+                                      WebTuiRadii.md,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: WebTuiSpacing.sm,
+                                vertical: 10,
+                              ),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    option.reaction,
+                                    style: const TextStyle(fontSize: 16),
+                                  ),
+                                  const SizedBox(width: WebTuiSpacing.sm),
+                                  Expanded(
+                                    child: Text(
+                                      option.label,
+                                      style: WebTuiTypography.bodySmall
+                                          .copyWith(
+                                            color: WebTuiColors.textPrimary,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                  ),
+                                  Text(
+                                    '$count · $percentage%',
+                                    style: WebTuiTypography.labelSmall.copyWith(
+                                      color: WebTuiColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+              Wrap(
+                spacing: WebTuiSpacing.sm,
+                runSpacing: WebTuiSpacing.xs,
+                children: [
+                  Text(
+                    '$totalVotes lượt chọn',
+                    style: WebTuiTypography.labelSmall.copyWith(
+                      color: WebTuiColors.textSecondary,
+                    ),
+                  ),
+                  Text(
+                    poll.multiple ? 'Chọn nhiều đáp án' : 'Chọn một đáp án',
+                    style: WebTuiTypography.labelSmall.copyWith(
+                      color: WebTuiColors.textSecondary,
+                    ),
+                  ),
+                  if (poll.anonymous)
+                    Text(
+                      'Ẩn danh',
+                      style: WebTuiTypography.labelSmall.copyWith(
+                        color: WebTuiColors.textSecondary,
+                      ),
+                    ),
+                  if (closed)
+                    Text(
+                      'Đã đóng',
+                      style: WebTuiTypography.labelSmall.copyWith(
+                        color: WebTuiColors.danger,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+_PollDefinition? _pollDefinition(ChatMessage message) {
+  if (!message.isPoll) {
+    return null;
+  }
+  final rawPoll = message.metadata['poll'];
+  if (rawPoll is! Map) {
+    return null;
+  }
+  final poll = Map<String, Object?>.from(rawPoll);
+  final rawOptions = poll['options'];
+  if (rawOptions is! List) {
+    return null;
+  }
+  final options = rawOptions
+      .whereType<Map>()
+      .map((rawOption) {
+        final option = Map<String, Object?>.from(rawOption);
+        final id = option['id']?.toString().trim() ?? '';
+        final label = option['label']?.toString().trim() ?? '';
+        final reaction = option['reaction']?.toString().trim() ?? '';
+        if (id.isEmpty || label.isEmpty || reaction.isEmpty) {
+          return null;
+        }
+        return _PollOption(id: id, label: label, reaction: reaction);
+      })
+      .whereType<_PollOption>()
+      .toList(growable: false);
+  if (options.length < 2) {
+    return null;
+  }
+  final closesAtValue = poll['closes_at']?.toString();
+  return _PollDefinition(
+    question: poll['question']?.toString().trim().isNotEmpty == true
+        ? poll['question']!.toString().trim()
+        : message.body,
+    options: options,
+    multiple: poll['multiple'] == true,
+    anonymous: poll['anonymous'] == true,
+    closesAt: closesAtValue == null
+        ? null
+        : DateTime.tryParse(closesAtValue)?.toUtc(),
+  );
 }
 
 class _MissedCallCard extends StatelessWidget {
@@ -2727,73 +3587,18 @@ class _MessageAttachmentList extends StatelessWidget {
                       attachment: attachment,
                       apiBaseUri: networkScope?.apiBaseUri,
                     )
-                  : _MessageFileAttachmentTile(
+                  : attachment.isVideo
+                  ? MessageVideoAttachmentView(
+                      attachment: attachment,
+                      apiBaseUri: networkScope?.apiBaseUri,
+                    )
+                  : MessageFileAttachmentView(
                       attachment: attachment,
                       outgoing: outgoing,
+                      apiBaseUri: networkScope?.apiBaseUri,
                     ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-class _MessageFileAttachmentTile extends StatelessWidget {
-  const _MessageFileAttachmentTile({
-    required this.attachment,
-    required this.outgoing,
-  });
-
-  final MessageAttachment attachment;
-  final bool outgoing;
-
-  @override
-  Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 250),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: outgoing ? WebTuiColors.primarySoft : WebTuiColors.surface,
-          borderRadius: BorderRadius.circular(WebTuiRadii.lg),
-          border: Border.all(color: WebTuiColors.border),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(WebTuiSpacing.sm),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                _messageAttachmentIcon(attachment.kind),
-                size: 20,
-                color: WebTuiColors.primary,
-              ),
-              const SizedBox(width: WebTuiSpacing.sm),
-              Flexible(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      attachment.file.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: WebTuiTypography.labelSmall.copyWith(
-                        color: WebTuiColors.textPrimary,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    Text(
-                      _formatBytes(attachment.file.byteSize),
-                      style: WebTuiTypography.labelSmall.copyWith(
-                        color: WebTuiColors.textMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

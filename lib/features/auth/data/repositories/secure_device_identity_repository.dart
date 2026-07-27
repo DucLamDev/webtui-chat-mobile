@@ -28,7 +28,7 @@ final class SecureDeviceIdentityRepository implements DeviceIdentityRepository {
     return DeviceIdentity(
       id: deviceId,
       platform: platform,
-      displayName: 'WebTui ${_titleCase(platform)}',
+      displayName: 'Ứng dụng chat ${_titleCase(platform)}',
     );
   }
 }

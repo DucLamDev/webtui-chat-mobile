@@ -117,6 +117,8 @@ final class NotificationTarget {
     this.callMode,
     this.callStatus,
     this.callerName,
+    this.organizationName,
+    this.organizationLogoUrl,
   });
 
   factory NotificationTarget.fromPayload({
@@ -163,6 +165,16 @@ final class NotificationTarget {
         'callerName',
         'body',
       ]),
+      organizationName: _firstString(data, const [
+        'app_name',
+        'organization_name',
+        'organizationName',
+      ]),
+      organizationLogoUrl: _firstString(data, const [
+        'logo_url',
+        'organization_logo_url',
+        'organizationLogoUrl',
+      ]),
     );
   }
 
@@ -202,6 +214,8 @@ final class NotificationTarget {
   final String? callMode;
   final String? callStatus;
   final String? callerName;
+  final String? organizationName;
+  final String? organizationLogoUrl;
 
   bool get canOpenConversation =>
       workspaceId.trim().isNotEmpty && channelId?.trim().isNotEmpty == true;

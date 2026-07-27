@@ -12,6 +12,7 @@ final class RegisterCommand {
     required this.username,
     required this.password,
     required this.confirmPassword,
+    this.inviteToken = '',
   });
 
   final String displayName;
@@ -19,6 +20,7 @@ final class RegisterCommand {
   final String username;
   final String password;
   final String confirmPassword;
+  final String inviteToken;
 }
 
 final class RegisterUseCase {
@@ -40,6 +42,7 @@ final class RegisterUseCase {
     final username = command.username.trim();
     final password = command.password.trim();
     final confirmPassword = command.confirmPassword.trim();
+    final inviteToken = command.inviteToken.trim();
 
     if (displayName.isEmpty || email.isEmpty || username.isEmpty) {
       return const FailureResult(
@@ -84,6 +87,7 @@ final class RegisterUseCase {
         email: email,
         username: username,
         password: password,
+        inviteToken: inviteToken,
         device: device,
       );
       if (result case Success<AuthSession>(:final value)) {

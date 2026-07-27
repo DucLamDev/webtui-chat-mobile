@@ -37,6 +37,7 @@ final class SendMessageUseCase {
     required String body,
     String? clientMessageId,
     String? parentId,
+    bool silent = false,
   }) {
     final normalized = body.trim();
     final failure = _validateMessageBody(normalized);
@@ -49,6 +50,7 @@ final class SendMessageUseCase {
       body: normalized,
       clientMessageId: clientMessageId,
       parentId: parentId,
+      silent: silent,
     );
   }
 }

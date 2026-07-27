@@ -67,7 +67,7 @@ final class AppConfig {
   }
 
   String get appTitle {
-    return 'Webtui Chat';
+    return 'Ứng dụng chat';
   }
 
   bool get showDebugBanner => flavor != AppFlavor.prod;

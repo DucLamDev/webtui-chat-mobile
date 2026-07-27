@@ -16,6 +16,10 @@ abstract interface class CallRepository {
     required String callId,
   });
 
+  Future<Result<CallSession?>> findIncomingRingingCall({
+    required String workspaceId,
+  });
+
   Future<Result<CallSession>> acceptCall({
     required String workspaceId,
     required String callId,

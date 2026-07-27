@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/providers/foundation_providers.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
@@ -17,6 +18,7 @@ class LoginScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.listen<LoginState>(loginControllerProvider, (previous, next) {
       if (next.succeeded && previous?.succeeded != true) {
+        ref.invalidate(authAccessTokenProvider);
         onLoginSuccess?.call();
       }
     });
@@ -48,10 +50,14 @@ class LoginScreen extends ConsumerWidget {
                 );
               },
               child: _AuthLayout(
-                key: ValueKey(state.mode),
+                key: ValueKey(
+                  state.serverConnected ? state.mode : 'server-selection',
+                ),
                 state: state,
                 controller: controller,
-                content: state.isLogin
+                content: !state.serverConnected
+                    ? _ServerContent(state: state, controller: controller)
+                    : state.isLogin
                     ? _LoginContent(state: state, controller: controller)
                     : _RegisterContent(state: state, controller: controller),
               ),
@@ -59,6 +65,51 @@ class LoginScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ServerContent extends StatelessWidget {
+  const _ServerContent({required this.state, required this.controller});
+
+  final LoginState state;
+  final LoginController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Align(child: _BrandLogo(size: 94)),
+        const SizedBox(height: 22),
+        const _AuthTitle(
+          center: true,
+          title: 'Kết nối tới máy chủ',
+          subtitle:
+              'Nhập domain của tổ chức. Ứng dụng sẽ kiểm tra kết nối trước khi đăng nhập.',
+        ),
+        const SizedBox(height: 34),
+        _AuthTextField(
+          fieldKey: const Key('server_domain_field'),
+          initialValue: state.domain,
+          label: 'Địa chỉ máy chủ',
+          hint: 'chat.example.com',
+          icon: Icons.dns_outlined,
+          enabled: !state.isLoading,
+          keyboardType: TextInputType.url,
+          textInputAction: TextInputAction.done,
+          onChanged: controller.updateDomain,
+          onSubmitted: (_) => controller.connectServer(),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Bạn có thể nhập domain hoặc URL HTTPS đầy đủ.',
+          textAlign: TextAlign.center,
+          style: WebTuiTypography.bodySmall.copyWith(
+            color: WebTuiColors.textMuted,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -108,26 +159,25 @@ class _LoginContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Align(child: _BrandLogo(size: 94)),
+        Align(
+          child: _BrandLogo(
+            size: 94,
+            imageUrl: state.logoUrl,
+            name: state.serverName,
+          ),
+        ),
         const SizedBox(height: 18),
-        const _AuthTitle(
+        _AuthTitle(
           center: true,
           title: 'Chào mừng trở lại',
-          subtitle: 'Đăng nhập vào server chat của công ty bạn',
+          subtitle: 'Đăng nhập vào ${state.serverName ?? 'tổ chức của bạn'}',
         ),
-        const SizedBox(height: 30),
-        _AuthTextField(
-          fieldKey: const Key('login_domain_field'),
-          initialValue: state.domain,
-          label: 'Địa chỉ server',
-          hint: 'chat.example.com',
-          icon: Icons.dns_outlined,
-          enabled: !state.isLoading,
-          keyboardType: TextInputType.url,
-          textInputAction: TextInputAction.next,
-          onChanged: controller.updateDomain,
+        const SizedBox(height: 12),
+        _SelectedServerBar(
+          domain: state.domain,
+          onChange: state.isLoading ? null : controller.changeServer,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         _AuthTextField(
           fieldKey: const Key('login_identifier_field'),
           initialValue: state.identifier,
@@ -216,16 +266,25 @@ class _RegisterContent extends StatelessWidget {
           children: [
             _BackButton(onPressed: controller.showLogin),
             const Spacer(),
-            const _BrandLogo(size: 48),
+            _BrandLogo(
+              size: 48,
+              imageUrl: state.logoUrl,
+              name: state.serverName,
+            ),
           ],
         ),
         const SizedBox(height: 14),
-        const _RegisterMark(),
+        _RegisterMark(imageUrl: state.logoUrl, name: state.serverName),
         const SizedBox(height: 16),
-        const _AuthTitle(
+        _AuthTitle(
           center: true,
           title: 'Tạo tài khoản mới',
-          subtitle: 'Tài khoản được tạo trên server đã chọn',
+          subtitle: 'Tài khoản được tạo tại ${state.serverName ?? 'tổ chức'}',
+        ),
+        const SizedBox(height: 10),
+        _SelectedServerBar(
+          domain: state.domain,
+          onChange: state.isLoading ? null : controller.changeServer,
         ),
         const SizedBox(height: 24),
         _AuthTextField(
@@ -263,15 +322,15 @@ class _RegisterContent extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         _AuthTextField(
-          fieldKey: const Key('register_domain_field'),
-          initialValue: state.domain,
-          label: 'Địa chỉ server',
-          hint: 'chat.example.com',
-          icon: Icons.language_rounded,
+          fieldKey: const Key('register_invite_token_field'),
+          initialValue: state.inviteToken,
+          label: 'Mã lời mời',
+          hint: 'Nhập mã nếu server yêu cầu',
+          icon: Icons.key_rounded,
           enabled: !state.isLoading,
-          keyboardType: TextInputType.url,
+          keyboardType: TextInputType.text,
           textInputAction: TextInputAction.next,
-          onChanged: controller.updateDomain,
+          onChanged: controller.updateInviteToken,
         ),
         const SizedBox(height: 14),
         _AuthTextField(
@@ -326,7 +385,7 @@ class _RegisterContent extends StatelessWidget {
               TextSpan(text: 'Điều khoản sử dụng', style: _linkStyle),
               const TextSpan(text: ' và '),
               TextSpan(text: 'Chính sách bảo mật', style: _linkStyle),
-              const TextSpan(text: ' của WebTui.'),
+              TextSpan(text: ' của ${state.serverName ?? 'tổ chức'}.'),
             ],
           ),
           textAlign: TextAlign.center,
@@ -372,32 +431,47 @@ class _AuthFooter extends StatelessWidget {
                 _AuthStatus(state: state),
                 _SubmitButton(
                   key: Key(
-                    state.isLogin
+                    !state.serverConnected
+                        ? 'server_connect_button'
+                        : state.isLogin
                         ? 'login_submit_button'
                         : 'register_submit_button',
                   ),
-                  enabled: state.canSubmit,
+                  enabled: state.serverConnected
+                      ? state.canSubmit
+                      : state.canConnectServer,
                   loading: state.isLoading && !state.isGoogleLoading,
-                  icon: state.isLogin
+                  icon: !state.serverConnected
+                      ? Icons.arrow_forward_rounded
+                      : state.isLogin
                       ? Icons.login_rounded
                       : Icons.person_add_alt_1_rounded,
-                  loadingLabel: state.isLogin
+                  loadingLabel: !state.serverConnected
+                      ? 'Đang kiểm tra máy chủ...'
+                      : state.isLogin
                       ? 'Đang đăng nhập...'
                       : 'Đang đăng ký...',
-                  label: state.isLogin ? 'Đăng nhập' : 'Tạo tài khoản',
-                  onPressed: controller.submit,
-                ),
-                _ModeSwitch(
-                  leading: state.isLogin
-                      ? 'Chưa có tài khoản?'
-                      : 'Đã có tài khoản?',
-                  action: state.isLogin ? 'Đăng ký ngay' : 'Đăng nhập ngay',
-                  onPressed: state.isLoading
-                      ? null
+                  label: !state.serverConnected
+                      ? 'Kết nối'
                       : state.isLogin
-                      ? controller.showRegister
-                      : controller.showLogin,
+                      ? 'Đăng nhập'
+                      : 'Tạo tài khoản',
+                  onPressed: state.serverConnected
+                      ? controller.submit
+                      : controller.connectServer,
                 ),
+                if (state.serverConnected)
+                  _ModeSwitch(
+                    leading: state.isLogin
+                        ? 'Chưa có tài khoản?'
+                        : 'Đã có tài khoản?',
+                    action: state.isLogin ? 'Đăng ký ngay' : 'Đăng nhập ngay',
+                    onPressed: state.isLoading
+                        ? null
+                        : state.isLogin
+                        ? controller.showRegister
+                        : controller.showLogin,
+                  ),
               ],
             ),
           ),
@@ -520,9 +594,11 @@ class _AuthTitle extends StatelessWidget {
 }
 
 class _BrandLogo extends StatelessWidget {
-  const _BrandLogo({this.size = 76});
+  const _BrandLogo({this.size = 76, this.imageUrl, this.name});
 
   final double size;
+  final String? imageUrl;
+  final String? name;
 
   @override
   Widget build(BuildContext context) {
@@ -533,12 +609,58 @@ class _BrandLogo extends StatelessWidget {
       builder: (context, value, child) {
         return Transform.scale(scale: value, child: child);
       },
-      child: SizedBox.square(
-        dimension: size,
-        child: Image.asset(
-          'assets/branding/logo_webtui.png',
-          fit: BoxFit.contain,
-          semanticLabel: 'WebTui',
+      child: SizedBox.square(dimension: size, child: _logoContent()),
+    );
+  }
+
+  Widget _logoContent() {
+    final url = imageUrl?.trim();
+    final organization = name?.trim();
+    if (url != null && url.isNotEmpty) {
+      return Image.network(
+        url,
+        fit: BoxFit.contain,
+        semanticLabel: organization,
+        errorBuilder: (_, _, _) => _organizationFallback(organization),
+      );
+    }
+    if (organization != null && organization.isNotEmpty) {
+      return _organizationFallback(organization);
+    }
+    return Image.asset(
+      'assets/branding/logo_webtui.png',
+      fit: BoxFit.contain,
+      semanticLabel: 'Ứng dụng chat',
+    );
+  }
+
+  Widget _organizationFallback(String? organization) {
+    final label = (organization == null || organization.isEmpty)
+        ? 'O'
+        : organization
+              .split(RegExp(r'\s+'))
+              .where((part) => part.isNotEmpty)
+              .take(2)
+              .map((part) => part.characters.first)
+              .join()
+              .toUpperCase();
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1476FF), Color(0xFF0752C9)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(size * 0.24),
+      ),
+      child: Center(
+        child: Text(
+          label,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: size * 0.34,
+            fontWeight: FontWeight.w900,
+          ),
         ),
       ),
     );
@@ -546,7 +668,10 @@ class _BrandLogo extends StatelessWidget {
 }
 
 class _RegisterMark extends StatelessWidget {
-  const _RegisterMark();
+  const _RegisterMark({this.imageUrl, this.name});
+
+  final String? imageUrl;
+  final String? name;
 
   @override
   Widget build(BuildContext context) {
@@ -564,7 +689,7 @@ class _RegisterMark extends StatelessWidget {
               border: Border.all(color: const Color(0xFFC4DCFF)),
             ),
           ),
-          const _BrandLogo(size: 84),
+          _BrandLogo(size: 84, imageUrl: imageUrl, name: name),
           const Positioned(
             right: 86,
             top: 10,
@@ -605,6 +730,49 @@ class _BackButton extends StatelessWidget {
         side: const BorderSide(color: Color(0xFFE1E9F3)),
       ),
       icon: const Icon(Icons.arrow_back_rounded),
+    );
+  }
+}
+
+class _SelectedServerBar extends StatelessWidget {
+  const _SelectedServerBar({required this.domain, required this.onChange});
+
+  final String domain;
+  final VoidCallback? onChange;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF3FF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFCFE1FA)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.verified_rounded,
+              color: WebTuiColors.accentGreen,
+              size: 19,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                domain,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: WebTuiTypography.bodySmall.copyWith(
+                  color: WebTuiColors.textPrimary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            TextButton(onPressed: onChange, child: const Text('Đổi máy chủ')),
+          ],
+        ),
+      ),
     );
   }
 }

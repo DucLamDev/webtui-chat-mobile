@@ -66,6 +66,7 @@ final class PushNotificationService {
   bool _tokenRefreshListening = false;
   bool _messageHandlersStarted = false;
   StreamSubscription<String>? _tokenRefreshSubscription;
+  StreamSubscription<String>? _voipTokenSubscription;
   StreamSubscription<RemoteMessage>? _messageOpenedSubscription;
   StreamSubscription<RemoteMessage>? _foregroundSubscription;
 
@@ -82,8 +83,9 @@ final class PushNotificationService {
     final firebase = await ensureFirebaseRuntime();
     final permission = firebase ? await _requestPermission() : 'unknown';
     final token = firebase ? await _readFcmToken() : null;
+    final voipToken = await NativeIncomingCallService.readVoipPushToken();
     final key =
-        '${device.id}:$normalizedWorkspaceId:${token ?? ''}:$permission';
+        '${device.id}:$normalizedWorkspaceId:${token ?? ''}:${voipToken ?? ''}:$permission';
     if (_registeredKey == key) {
       return;
     }
@@ -92,11 +94,47 @@ final class PushNotificationService {
       workspaceId: normalizedWorkspaceId,
       deviceId: device.id,
       platform: _platform(),
+      pushProvider: token == null ? 'none' : 'fcm',
       pushToken: token,
       notificationPermission: permission,
     );
+    if (voipToken != null) {
+      await _upsertDevice(
+        workspaceId: normalizedWorkspaceId,
+        deviceId: '${device.id}:voip',
+        platform: 'ios',
+        pushProvider: 'apns',
+        pushToken: voipToken,
+        notificationPermission: permission == 'denied' ? 'denied' : 'granted',
+      );
+    }
     _registeredKey = key;
     _registeredWorkspaceId = normalizedWorkspaceId;
+    _voipTokenSubscription ??= NativeIncomingCallService.voipTokens.listen((
+      nextToken,
+    ) {
+      final workspaceId = _registeredWorkspaceId;
+      if (workspaceId == null || workspaceId.isEmpty) return;
+      _registeredKey = null;
+      if (nextToken.trim().isEmpty) {
+        unawaited(
+          _api.delete<Object>(
+            '/api/v1/mobile/devices/${_e('${device.id}:voip')}',
+          ),
+        );
+        return;
+      }
+      unawaited(
+        _upsertDevice(
+          workspaceId: workspaceId,
+          deviceId: '${device.id}:voip',
+          platform: 'ios',
+          pushProvider: 'apns',
+          pushToken: nextToken.trim(),
+          notificationPermission: permission == 'denied' ? 'denied' : 'granted',
+        ),
+      );
+    });
 
     if (firebase) {
       unawaited(NativeIncomingCallService.prepareDevicePermissions());
@@ -110,6 +148,7 @@ final class PushNotificationService {
                 workspaceId: _registeredWorkspaceId ?? normalizedWorkspaceId,
                 deviceId: device.id,
                 platform: _platform(),
+                pushProvider: 'fcm',
                 pushToken: nextToken,
                 notificationPermission: permission,
               );
@@ -121,12 +160,18 @@ final class PushNotificationService {
   Future<void> unregister() async {
     final device = await _deviceIdentityRepository.currentDevice();
     await _api.delete<Object>('/api/v1/mobile/devices/${_e(device.id)}');
+    if (Platform.isIOS) {
+      await _api.delete<Object>(
+        '/api/v1/mobile/devices/${_e('${device.id}:voip')}',
+      );
+    }
     _registeredKey = null;
     _registeredWorkspaceId = null;
   }
 
   Future<void> dispose() async {
     await _tokenRefreshSubscription?.cancel();
+    await _voipTokenSubscription?.cancel();
     await _messageOpenedSubscription?.cancel();
     await _foregroundSubscription?.cancel();
     await _openedTargets.close();
@@ -184,6 +229,7 @@ final class PushNotificationService {
     required String workspaceId,
     required String deviceId,
     required String platform,
+    required String pushProvider,
     required String? pushToken,
     required String notificationPermission,
   }) async {
@@ -193,7 +239,7 @@ final class PushNotificationService {
         'workspace_id': workspaceId,
         'device_id': deviceId,
         'platform': platform,
-        'push_provider': pushToken == null ? 'none' : 'fcm',
+        'push_provider': pushProvider,
         'push_token': pushToken ?? '',
         'notification_permission': notificationPermission,
         'release_channel': 'mobile',

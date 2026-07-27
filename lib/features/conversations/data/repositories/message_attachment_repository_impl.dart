@@ -16,10 +16,14 @@ final class MessageAttachmentRepositoryImpl
   Future<Result<UploadedMessageFile>> uploadFile({
     required String workspaceId,
     required PickedMessageAttachment attachment,
+    void Function(double progress)? onProgress,
   }) {
     return guardResult(
-      () =>
-          _remote.uploadFile(workspaceId: workspaceId, attachment: attachment),
+      () => _remote.uploadFile(
+        workspaceId: workspaceId,
+        attachment: attachment,
+        onProgress: onProgress,
+      ),
     );
   }
 

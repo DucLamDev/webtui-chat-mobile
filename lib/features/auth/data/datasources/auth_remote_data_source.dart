@@ -32,8 +32,10 @@ final class AuthRemoteDataSource {
     required String email,
     required String username,
     required String password,
+    String inviteToken = '',
     required DeviceIdentity device,
   }) async {
+    final cleanInviteToken = inviteToken.trim();
     final response = await _api.post<Object>(
       '/api/v1/auth/register',
       data: {
@@ -41,6 +43,7 @@ final class AuthRemoteDataSource {
         'email': email,
         'username': username,
         'password': password,
+        if (cleanInviteToken.isNotEmpty) 'invite_token': cleanInviteToken,
         'device_name': device.displayName,
       },
     );

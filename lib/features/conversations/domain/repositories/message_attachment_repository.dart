@@ -21,6 +21,7 @@ abstract interface class MessageAttachmentRepository {
   Future<Result<UploadedMessageFile>> uploadFile({
     required String workspaceId,
     required PickedMessageAttachment attachment,
+    void Function(double progress)? onProgress,
   });
 
   Future<Result<MessageAttachment>> attachFile({

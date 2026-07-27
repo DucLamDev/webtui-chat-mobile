@@ -32,6 +32,7 @@ final class AuthRepositoryImpl implements AuthRepository {
     required String email,
     required String username,
     required String password,
+    String inviteToken = '',
     required DeviceIdentity device,
   }) {
     return guardResult(
@@ -40,6 +41,7 @@ final class AuthRepositoryImpl implements AuthRepository {
         email: email,
         username: username,
         password: password,
+        inviteToken: inviteToken,
         device: device,
       ),
     );

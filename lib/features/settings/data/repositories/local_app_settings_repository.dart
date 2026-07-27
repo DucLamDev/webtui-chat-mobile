@@ -34,6 +34,8 @@ final class LocalAppSettingsRepository implements AppSettingsRepository {
       quietHoursEnabled: map['quietHoursEnabled'] == true,
       quietStart: map['quietStart']?.toString() ?? '22:00',
       quietEnd: map['quietEnd']?.toString() ?? '07:00',
+      microphoneEnabledOnJoin: map['microphoneEnabledOnJoin'] != false,
+      cameraEnabledOnJoin: map['cameraEnabledOnJoin'] != false,
     );
   }
 
@@ -50,6 +52,8 @@ final class LocalAppSettingsRepository implements AppSettingsRepository {
         'quietHoursEnabled': settings.quietHoursEnabled,
         'quietStart': settings.quietStart,
         'quietEnd': settings.quietEnd,
+        'microphoneEnabledOnJoin': settings.microphoneEnabledOnJoin,
+        'cameraEnabledOnJoin': settings.cameraEnabledOnJoin,
       }),
     );
   }

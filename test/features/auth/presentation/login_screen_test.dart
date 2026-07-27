@@ -84,6 +84,7 @@ void main() {
 
   testWidgets('switches to register form', (tester) async {
     await _pumpLogin(tester, authRepository: _WidgetAuthRepository());
+    await _connectServer(tester);
 
     final registerLink = find.text('Đăng ký ngay');
     await tester.ensureVisible(registerLink);
@@ -93,8 +94,35 @@ void main() {
 
     expect(find.text('Tạo tài khoản mới'), findsOneWidget);
     expect(find.text('Xác nhận mật khẩu'), findsOneWidget);
-    expect(find.text('Địa chỉ server'), findsOneWidget);
+    expect(find.byKey(const Key('register_domain_field')), findsNothing);
+    expect(find.text('Đổi máy chủ'), findsOneWidget);
+    expect(
+      find.byKey(const Key('register_invite_token_field')),
+      findsOneWidget,
+    );
     expect(find.byKey(const Key('register_submit_button')), findsOneWidget);
+  });
+
+  testWidgets('restores the selected server and organization branding', (
+    tester,
+  ) async {
+    await _pumpLogin(
+      tester,
+      authRepository: const _WidgetAuthRepository(),
+      initialDiscovery: SelfHostedServerDiscovery(
+        domain: 'localhost',
+        name: 'Company Chat',
+        apiBaseUri: Uri.parse('http://localhost:8080'),
+        wsBaseUri: Uri.parse('ws://localhost:8080/ws'),
+        registrationMode: 'open',
+        appVersion: 'test',
+        logoUrl: 'https://cdn.example.com/company.png',
+      ),
+    );
+
+    expect(find.byKey(const Key('server_domain_field')), findsNothing);
+    expect(find.byKey(const Key('login_identifier_field')), findsOneWidget);
+    expect(find.textContaining('Company Chat'), findsOneWidget);
   });
 }
 
@@ -102,6 +130,7 @@ Future<void> _pumpLogin(
   WidgetTester tester, {
   required AuthRepository authRepository,
   VoidCallback? onLoginSuccess,
+  SelfHostedServerDiscovery? initialDiscovery,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -113,6 +142,8 @@ Future<void> _pumpLogin(
             wsBaseUri: Uri.parse('ws://localhost:8080/ws'),
           ),
         ),
+        if (initialDiscovery != null)
+          initialServerDiscoveryProvider.overrideWithValue(initialDiscovery),
         serverConnectorProvider.overrideWithValue(
           (_) async => SelfHostedServerDiscovery(
             domain: 'localhost',
@@ -144,6 +175,7 @@ Future<void> _pumpLogin(
 }
 
 Future<void> _fillAndSubmit(WidgetTester tester) async {
+  await _connectServer(tester);
   await tester.enterText(
     find.byKey(const Key('login_identifier_field')),
     'lam@example.com',
@@ -155,6 +187,16 @@ Future<void> _fillAndSubmit(WidgetTester tester) async {
   await tester.pump();
   await tester.tap(find.byKey(const Key('login_submit_button')));
   await tester.pump();
+}
+
+Future<void> _connectServer(WidgetTester tester) async {
+  await tester.enterText(
+    find.byKey(const Key('server_domain_field')),
+    'http://localhost:8080',
+  );
+  await tester.pump();
+  await tester.tap(find.byKey(const Key('server_connect_button')));
+  await tester.pumpAndSettle();
 }
 
 AuthSession _session() {
@@ -194,6 +236,7 @@ final class _WidgetAuthRepository implements AuthRepository {
     required String email,
     required String username,
     required String password,
+    String inviteToken = '',
     required DeviceIdentity device,
   }) {
     return loginHandler?.call() ?? Future.value(Success(_session()));

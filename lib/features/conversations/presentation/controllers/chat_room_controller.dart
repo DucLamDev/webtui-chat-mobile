@@ -525,7 +525,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     state = state.copyWith(clearReply: true, clearEditing: true);
   }
 
-  Future<void> sendCurrentDraft() async {
+  Future<void> sendCurrentDraft({bool silent = false}) async {
     final body = state.draft.trim();
     final attachmentsReady = state.pendingAttachments.any(
       (item) => item.status == MessageAttachmentUploadStatus.uploaded,
@@ -546,6 +546,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
             body: body.isEmpty ? attachmentFallback : body,
             clientMessageId: clientMessageId,
             parentId: state.replyToMessage?.id,
+            silent: silent,
           )
         : await _editMessageUseCase.execute(
             workspaceId: state.scope.workspaceId,
@@ -987,6 +988,22 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     final result = await _uploadMessageAttachmentUseCase.execute(
       workspaceId: state.scope.workspaceId,
       attachment: picked,
+      onProgress: (progress) {
+        final current = _attachmentItemById(
+          state.pendingAttachments,
+          clientAttachmentId,
+        );
+        if (current == null ||
+            current.status != MessageAttachmentUploadStatus.uploading) {
+          return;
+        }
+        state = state.copyWith(
+          pendingAttachments: _replaceAttachmentItem(
+            state.pendingAttachments,
+            current.copyWith(progress: progress.clamp(0, 1)),
+          ),
+        );
+      },
     );
     switch (result) {
       case Success<UploadedMessageFile>(value: final file):

@@ -30,7 +30,7 @@ final class SelfHostedServerDiscoveryClient {
             .replace(queryParameters: {'domain': serverUri.host}),
       );
       if (response.statusCode != 200) {
-        throw StateError('Server không trả discovery WebTUI Chat hợp lệ.');
+        throw StateError('Server không trả thông tin discovery hợp lệ.');
       }
       return SelfHostedServerDiscovery.fromApiResponse(
         payload: response.data,

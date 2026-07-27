@@ -216,3 +216,12 @@ server là P1.
 - Logout xóa token và unregister push device nếu có.
 - App resume sau offline/background chạy sync catch-up.
 - Không có dữ liệu workspace/server này xuất hiện ở server khác.
+
+## Owner invite flow update
+
+- Backend self-hosted: account đầu tiên claim workspace owner và server chuyển
+  sang `invite_only`.
+- Admin web: owner tạo invite token trong `/admin`.
+- Mobile: màn register có thêm `invite_token`; `invite_only` vẫn cho phép đăng
+  ký khi customer nhập token hợp lệ.
+- Desktop: link web có thể mở form register với `?auth=register&invite_token=...`.

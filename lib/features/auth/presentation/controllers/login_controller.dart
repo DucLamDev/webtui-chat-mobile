@@ -22,8 +22,12 @@ final serverConnectorProvider = Provider<ServerConnector>((ref) {
 final loginControllerProvider =
     StateNotifierProvider.autoDispose<LoginController, LoginState>((ref) {
       final activeServer = ref.read(activeServerUriProvider);
+      final activeDiscovery = ref.read(activeServerDiscoveryProvider);
       return LoginController(
-        initialServer: _serverInputFromUri(activeServer),
+        initialServer: activeDiscovery == null
+            ? ''
+            : _serverInputFromUri(activeServer),
+        initialDiscovery: activeDiscovery,
         connectToServer: ref.read(serverConnectorProvider),
         login: (command) => ref.read(loginUseCaseProvider).execute(command),
         register: (command) =>
@@ -38,6 +42,7 @@ final class LoginState {
     this.displayName = '',
     this.email = '',
     this.username = '',
+    this.inviteToken = '',
     this.domain = '',
     this.identifier = '',
     this.password = '',
@@ -49,7 +54,9 @@ final class LoginState {
     this.isGoogleLoading = false,
     this.errorMessage,
     this.succeeded = false,
+    this.serverConnected = false,
     this.serverName,
+    this.logoUrl,
     this.registrationMode,
   });
 
@@ -57,6 +64,7 @@ final class LoginState {
   final String displayName;
   final String email;
   final String username;
+  final String inviteToken;
   final String domain;
   final String identifier;
   final String password;
@@ -68,33 +76,35 @@ final class LoginState {
   final bool isGoogleLoading;
   final String? errorMessage;
   final bool succeeded;
+  final bool serverConnected;
   final String? serverName;
+  final String? logoUrl;
   final String? registrationMode;
 
   bool get isLogin => mode == AuthFormMode.login;
 
   bool get canSubmit {
-    if (isLoading) {
+    if (isLoading || !serverConnected) {
       return false;
     }
     if (isLogin) {
-      return domain.trim().isNotEmpty &&
-          identifier.trim().isNotEmpty &&
-          password.trim().isNotEmpty;
+      return identifier.trim().isNotEmpty && password.trim().isNotEmpty;
     }
-    return domain.trim().isNotEmpty &&
-        displayName.trim().isNotEmpty &&
+    return displayName.trim().isNotEmpty &&
         email.trim().isNotEmpty &&
         username.trim().isNotEmpty &&
         password.trim().isNotEmpty &&
         confirmPassword.trim().isNotEmpty;
   }
 
+  bool get canConnectServer => !isLoading && domain.trim().isNotEmpty;
+
   LoginState copyWith({
     AuthFormMode? mode,
     String? displayName,
     String? email,
     String? username,
+    String? inviteToken,
     String? domain,
     String? identifier,
     String? password,
@@ -107,7 +117,9 @@ final class LoginState {
     String? errorMessage,
     bool clearError = false,
     bool? succeeded,
+    bool? serverConnected,
     String? serverName,
+    String? logoUrl,
     String? registrationMode,
     bool clearServer = false,
   }) {
@@ -116,6 +128,7 @@ final class LoginState {
       displayName: displayName ?? this.displayName,
       email: email ?? this.email,
       username: username ?? this.username,
+      inviteToken: inviteToken ?? this.inviteToken,
       domain: domain ?? this.domain,
       identifier: identifier ?? this.identifier,
       password: password ?? this.password,
@@ -127,7 +140,9 @@ final class LoginState {
       isGoogleLoading: isGoogleLoading ?? this.isGoogleLoading,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
       succeeded: succeeded ?? this.succeeded,
+      serverConnected: serverConnected ?? this.serverConnected,
       serverName: clearServer ? null : serverName ?? this.serverName,
+      logoUrl: clearServer ? null : logoUrl ?? this.logoUrl,
       registrationMode: clearServer
           ? null
           : registrationMode ?? this.registrationMode,
@@ -138,6 +153,7 @@ final class LoginState {
 final class LoginController extends StateNotifier<LoginState> {
   LoginController({
     required String initialServer,
+    SelfHostedServerDiscovery? initialDiscovery,
     required Future<SelfHostedServerDiscovery> Function(String domain)
     connectToServer,
     required Future<Result<AuthSession>> Function(LoginCommand command) login,
@@ -148,7 +164,15 @@ final class LoginController extends StateNotifier<LoginState> {
        _login = login,
        _register = register,
        _googleLogin = googleLogin,
-       super(LoginState(domain: initialServer));
+       super(
+         LoginState(
+           domain: initialServer,
+           serverConnected: initialDiscovery != null,
+           serverName: initialDiscovery?.name,
+           logoUrl: initialDiscovery?.logoUrl,
+           registrationMode: initialDiscovery?.registrationMode,
+         ),
+       );
 
   final Future<SelfHostedServerDiscovery> Function(String domain)
   _connectToServer;
@@ -182,12 +206,58 @@ final class LoginController extends StateNotifier<LoginState> {
     state = state.copyWith(username: value, clearError: true, succeeded: false);
   }
 
+  void updateInviteToken(String value) {
+    state = state.copyWith(
+      inviteToken: value,
+      clearError: true,
+      succeeded: false,
+    );
+  }
+
   void updateDomain(String value) {
     state = state.copyWith(
       domain: value,
+      serverConnected: false,
       clearError: true,
       succeeded: false,
       clearServer: true,
+    );
+  }
+
+  Future<void> connectServer() async {
+    if (!state.canConnectServer) {
+      return;
+    }
+    state = state.copyWith(isLoading: true, clearError: true, succeeded: false);
+    try {
+      final server = await _connectToServer(state.domain);
+      state = state.copyWith(
+        isLoading: false,
+        serverConnected: true,
+        serverName: server.name,
+        logoUrl: server.logoUrl,
+        registrationMode: server.registrationMode,
+      );
+    } on Object catch (error) {
+      state = state.copyWith(
+        isLoading: false,
+        serverConnected: false,
+        errorMessage: _serverError(error),
+        succeeded: false,
+        clearServer: true,
+      );
+    }
+  }
+
+  void changeServer() {
+    if (state.isLoading) {
+      return;
+    }
+    state = state.copyWith(
+      mode: AuthFormMode.login,
+      serverConnected: false,
+      clearError: true,
+      succeeded: false,
     );
   }
 
@@ -229,32 +299,18 @@ final class LoginController extends StateNotifier<LoginState> {
     }
 
     state = state.copyWith(isLoading: true, clearError: true, succeeded: false);
-    late final SelfHostedServerDiscovery server;
-    try {
-      server = await _connectToServer(state.domain);
-    } on Object catch (error) {
+    if (!state.isLogin &&
+        state.registrationMode != 'open' &&
+        !(state.registrationMode == 'invite_only' &&
+            state.inviteToken.trim().isNotEmpty)) {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: _serverError(error),
-        succeeded: false,
+        errorMessage: state.registrationMode == 'invite_only'
+            ? 'Server ${state.serverName} chỉ nhận tài khoản qua lời mời.'
+            : 'Server ${state.serverName} đang đóng đăng ký tài khoản.',
       );
       return;
     }
-    if (!state.isLogin && !server.canRegister) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: server.registrationMode == 'invite_only'
-            ? 'Server ${server.name} chỉ nhận tài khoản qua lời mời.'
-            : 'Server ${server.name} đang đóng đăng ký tài khoản.',
-        serverName: server.name,
-        registrationMode: server.registrationMode,
-      );
-      return;
-    }
-    state = state.copyWith(
-      serverName: server.name,
-      registrationMode: server.registrationMode,
-    );
     final result = state.isLogin
         ? await _login(
             LoginCommand(
@@ -269,6 +325,7 @@ final class LoginController extends StateNotifier<LoginState> {
               username: state.username,
               password: state.password,
               confirmPassword: state.confirmPassword,
+              inviteToken: state.inviteToken,
             ),
           );
 
@@ -285,7 +342,7 @@ final class LoginController extends StateNotifier<LoginState> {
   }
 
   Future<void> loginWithGoogle() async {
-    if (state.isLoading) {
+    if (state.isLoading || !state.serverConnected) {
       return;
     }
 
@@ -295,21 +352,6 @@ final class LoginController extends StateNotifier<LoginState> {
       clearError: true,
       succeeded: false,
     );
-    try {
-      final server = await _connectToServer(state.domain);
-      state = state.copyWith(
-        serverName: server.name,
-        registrationMode: server.registrationMode,
-      );
-    } on Object catch (error) {
-      state = state.copyWith(
-        isLoading: false,
-        isGoogleLoading: false,
-        errorMessage: _serverError(error),
-        succeeded: false,
-      );
-      return;
-    }
     final result = await _googleLogin();
     switch (result) {
       case Success<AuthSession>():
@@ -345,8 +387,30 @@ Future<SelfHostedServerDiscovery> _connectToServer(
   await ref
       .read(secureKeyValueStoreProvider)
       .write(SecureStoreKey.instanceWsBaseUrl, discovery.wsBaseUri.toString());
+  await ref
+      .read(secureKeyValueStoreProvider)
+      .write(SecureStoreKey.instanceOrganizationName, discovery.name);
+  if (discovery.logoUrl case final logoUrl?) {
+    await ref
+        .read(secureKeyValueStoreProvider)
+        .write(SecureStoreKey.instanceOrganizationLogoUrl, logoUrl);
+  } else {
+    await ref
+        .read(secureKeyValueStoreProvider)
+        .delete(SecureStoreKey.instanceOrganizationLogoUrl);
+  }
+  await ref
+      .read(secureKeyValueStoreProvider)
+      .write(
+        SecureStoreKey.instanceRegistrationMode,
+        discovery.registrationMode,
+      );
+  await ref
+      .read(secureKeyValueStoreProvider)
+      .write(SecureStoreKey.instanceAppVersion, discovery.appVersion);
   ref.read(activeServerUriProvider.notifier).state = discovery.apiBaseUri;
   ref.read(activeServerWsUriProvider.notifier).state = discovery.wsBaseUri;
+  ref.read(activeServerDiscoveryProvider.notifier).state = discovery;
   return discovery;
 }
 

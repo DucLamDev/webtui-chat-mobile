@@ -15,6 +15,7 @@ import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../business/presentation/screens/business_dashboard_screen.dart';
 import '../../../conversations/domain/entities/call_session.dart';
+import '../../../conversations/domain/entities/conversation_realtime_event.dart';
 import '../../../conversations/domain/entities/conversation_summary.dart';
 import '../../../conversations/presentation/controllers/chat_room_controller.dart';
 import '../../../conversations/presentation/controllers/conversation_home_controller.dart';
@@ -40,10 +41,14 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   String? _presenceWorkspaceId;
   String? _syncWorkspaceId;
   bool _syncInFlight = false;
+  bool _incomingCallPollInFlight = false;
   Timer? _presenceTimer;
+  Timer? _incomingCallPollTimer;
   StreamSubscription<NotificationTarget>? _notificationOpenSubscription;
   StreamSubscription<NotificationTarget>? _foregroundNotificationSubscription;
   StreamSubscription<NativeIncomingCallAction>? _nativeCallSubscription;
+  StreamSubscription<ConversationRealtimeEvent>?
+  _incomingCallRealtimeSubscription;
   bool _notificationEnabled = true;
   bool _compactMode = false;
   bool _networkDegraded = false;
@@ -62,9 +67,11 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _presenceTimer?.cancel();
+    _incomingCallPollTimer?.cancel();
     _notificationOpenSubscription?.cancel();
     _foregroundNotificationSubscription?.cancel();
     _nativeCallSubscription?.cancel();
+    _incomingCallRealtimeSubscription?.cancel();
     final workspaceId = _presenceWorkspaceId;
     if (workspaceId != null) {
       unawaited(_setPresence(workspaceId, ConversationPresence.offline));
@@ -93,6 +100,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   Widget build(BuildContext context) {
     final workspaceState = ref.watch(workspaceControllerProvider);
     final activeWorkspace = workspaceState.activeWorkspace;
+    final organization = ref.watch(activeServerDiscoveryProvider);
 
     if (workspaceState.isLoading && activeWorkspace == null) {
       return const Scaffold(
@@ -104,7 +112,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
 
     if (activeWorkspace == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('WebTui')),
+        appBar: AppBar(title: Text(organization?.name ?? 'Tổ chức')),
         body: const SafeArea(
           child: WebTuiEmptyState(
             title: 'Chưa có workspace',
@@ -137,6 +145,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
               .registerForWorkspace(activeWorkspace.id),
         );
         _listenPushTargets();
+        _listenIncomingCalls(activeWorkspace.id);
       });
     }
 
@@ -162,13 +171,18 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     return KeyedSubtree(
       key: ValueKey('workspace-shell-${workspaceState.generation}'),
       child: WebTuiMobileScaffold(
-        title: _titles[_tabIndex],
+        title: organization == null
+            ? _titles[_tabIndex]
+            : '${organization.name} · ${_titles[_tabIndex]}',
         selectedTab: _tabIndex,
         onTabSelected: (index) => setState(() => _tabIndex = index),
         leading: IconButton(
           tooltip: 'Hồ sơ cá nhân',
           onPressed: () => context.push('/profile'),
-          icon: const Icon(CupertinoIcons.person),
+          icon: _OrganizationMark(
+            imageUrl: organization?.logoUrl,
+            name: organization?.name ?? activeWorkspace.name,
+          ),
         ),
         actions: [
           _NotificationBellButton(
@@ -235,6 +249,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
                       // Logout must still clear the local session when push cleanup fails.
                     }
                     await ref.read(logoutUseCaseProvider).execute();
+                    ref.invalidate(authAccessTokenProvider);
                     if (context.mounted) {
                       context.go('/login');
                     }
@@ -420,15 +435,6 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
             );
         return;
       }
-      final acceptedResult = await ref
-          .read(acceptCallUseCaseProvider)
-          .execute(workspaceId: target.workspaceId, callId: callId);
-      final acceptedCall = acceptedResult.valueOrNull;
-      if (!mounted || acceptedCall == null) {
-        await NativeIncomingCallService.endCall(callId);
-        return;
-      }
-      await NativeIncomingCallService.markConnected(callId);
       if (!mounted) {
         return;
       }
@@ -436,20 +442,22 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         MaterialPageRoute<void>(
           fullscreenDialog: true,
           builder: (_) => WebRtcCallScreen(
-            workspaceId: acceptedCall.workspaceId,
-            channelId: acceptedCall.channelId,
-            callId: acceptedCall.id,
+            workspaceId: initialCall.workspaceId,
+            channelId: initialCall.channelId,
+            callId: initialCall.id,
             title: target.callerName ?? 'Cuộc gọi đến',
-            mode: acceptedCall.mode,
+            mode: initialCall.mode,
             incoming: true,
+            onConnected: () =>
+                NativeIncomingCallService.markConnected(initialCall.id),
             onLeave: () async {
-              await NativeIncomingCallService.endCall(acceptedCall.id);
+              await NativeIncomingCallService.endCall(initialCall.id);
               ref.invalidate(chatRoomControllerProvider);
               ref.invalidate(
-                conversationHomeControllerProvider(acceptedCall.workspaceId),
+                conversationHomeControllerProvider(initialCall.workspaceId),
               );
               ref.invalidate(
-                notificationCenterControllerProvider(acceptedCall.workspaceId),
+                notificationCenterControllerProvider(initialCall.workspaceId),
               );
             },
           ),
@@ -473,7 +481,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       case NativeIncomingCallActionType.timeout:
         await _rejectNativeIncomingCall(action.target, reason: 'timeout');
       case NativeIncomingCallActionType.ended:
-        await _rejectNativeIncomingCall(action.target, reason: 'ended');
+        await _endNativeIncomingCall(action.target);
     }
   }
 
@@ -496,18 +504,6 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         return;
       }
 
-      final acceptedCall = currentCall.status == CallStatus.accepted
-          ? currentCall
-          : (await ref
-                    .read(acceptCallUseCaseProvider)
-                    .execute(workspaceId: target.workspaceId, callId: callId))
-                .valueOrNull;
-      if (!mounted || acceptedCall == null || acceptedCall.isTerminal) {
-        await NativeIncomingCallService.endCall(callId);
-        return;
-      }
-
-      await NativeIncomingCallService.markConnected(callId);
       if (!mounted) {
         return;
       }
@@ -515,20 +511,22 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         MaterialPageRoute<void>(
           fullscreenDialog: true,
           builder: (_) => WebRtcCallScreen(
-            workspaceId: acceptedCall.workspaceId,
-            channelId: acceptedCall.channelId,
-            callId: acceptedCall.id,
+            workspaceId: currentCall.workspaceId,
+            channelId: currentCall.channelId,
+            callId: currentCall.id,
             title: target.callerName ?? 'Cuộc gọi đến',
-            mode: acceptedCall.mode,
+            mode: currentCall.mode,
             incoming: true,
+            onConnected: () =>
+                NativeIncomingCallService.markConnected(currentCall.id),
             onLeave: () async {
-              await NativeIncomingCallService.endCall(acceptedCall.id);
+              await NativeIncomingCallService.endCall(currentCall.id);
               ref.invalidate(chatRoomControllerProvider);
               ref.invalidate(
-                conversationHomeControllerProvider(acceptedCall.workspaceId),
+                conversationHomeControllerProvider(currentCall.workspaceId),
               );
               ref.invalidate(
-                notificationCenterControllerProvider(acceptedCall.workspaceId),
+                notificationCenterControllerProvider(currentCall.workspaceId),
               );
             },
           ),
@@ -559,7 +557,168 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         );
   }
 
+  void _listenIncomingCalls(String workspaceId) {
+    unawaited(_incomingCallRealtimeSubscription?.cancel());
+    _incomingCallRealtimeSubscription = ref
+        .read(incomingCallRealtimeRepositoryProvider)
+        .subscribeToUser(workspaceId: workspaceId)
+        .where(
+          (event) =>
+              event.workspaceId == workspaceId &&
+              event.type == ConversationRealtimeEventType.callInvited,
+        )
+        .listen((event) {
+          if (!mounted || event.callId?.trim().isNotEmpty != true) {
+            return;
+          }
+          final target = NotificationTarget.fromPayload(
+            workspaceId: event.workspaceId,
+            channelId: event.channelId,
+            data: {
+              'workspace_id': event.workspaceId,
+              'channel_id': event.channelId,
+              'call_id': event.callId,
+              'mode': event.callMode?.name ?? 'audio',
+              'status': 'ringing',
+              'target_type': 'call',
+              'event_type': 'call_invite',
+            },
+          );
+          unawaited(_showIncomingCall(target));
+        });
+    _incomingCallPollTimer?.cancel();
+    _incomingCallPollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      unawaited(_pollIncomingCall(workspaceId));
+    });
+    unawaited(_pollIncomingCall(workspaceId));
+  }
+
+  Future<void> _pollIncomingCall(String workspaceId) async {
+    if (!mounted ||
+        _incomingCallPollInFlight ||
+        _presenceWorkspaceId != workspaceId) {
+      return;
+    }
+    _incomingCallPollInFlight = true;
+    try {
+      final result = await ref
+          .read(findIncomingCallUseCaseProvider)
+          .execute(workspaceId: workspaceId);
+      final call = result.valueOrNull;
+      if (!mounted || call == null || call.status != CallStatus.ringing) {
+        return;
+      }
+      final home = ref.read(conversationHomeControllerProvider(workspaceId));
+      final caller = [
+        ...home.contacts,
+        ...home.workspaceMembers,
+      ].where((item) => item.userId == call.initiatorUserId).firstOrNull;
+      final target = NotificationTarget.fromPayload(
+        workspaceId: call.workspaceId,
+        channelId: call.channelId,
+        data: {
+          'workspace_id': call.workspaceId,
+          'channel_id': call.channelId,
+          'call_id': call.id,
+          'mode': call.mode.name,
+          'status': 'ringing',
+          'target_type': 'call',
+          'event_type': 'call_invite',
+          if (caller != null) 'caller_name': caller.displayName,
+        },
+      );
+      await _showIncomingCall(target);
+    } on Object {
+      // Push and WebSocket are still the primary paths. Polling keeps incoming
+      // calls usable on emulators and devices without a working push runtime.
+    } finally {
+      _incomingCallPollInFlight = false;
+    }
+  }
+
+  Future<void> _endNativeIncomingCall(NotificationTarget target) async {
+    final callId = target.callId?.trim();
+    if (callId == null || callId.isEmpty) {
+      return;
+    }
+    await NativeIncomingCallService.endCall(callId);
+    final current =
+        (await ref
+                .read(getCallUseCaseProvider)
+                .execute(workspaceId: target.workspaceId, callId: callId))
+            .valueOrNull;
+    if (current == null || current.isTerminal) {
+      return;
+    }
+    if (current.status == CallStatus.ringing) {
+      await ref
+          .read(rejectCallUseCaseProvider)
+          .execute(
+            workspaceId: target.workspaceId,
+            callId: callId,
+            reason: 'ended',
+          );
+      return;
+    }
+    await ref
+        .read(endCallUseCaseProvider)
+        .execute(
+          workspaceId: target.workspaceId,
+          callId: callId,
+          currentStatus: current.status,
+          reason: 'ended',
+        );
+  }
+
   static const _titles = ['Tin nhắn', 'Bạn bè', 'Kênh', 'Nghiệp vụ', 'Cài đặt'];
+}
+
+class _OrganizationMark extends StatelessWidget {
+  const _OrganizationMark({required this.name, this.imageUrl});
+
+  final String name;
+  final String? imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = imageUrl?.trim();
+    if (url != null && url.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          url,
+          width: 30,
+          height: 30,
+          fit: BoxFit.contain,
+          errorBuilder: (_, _, _) => _fallback(),
+        ),
+      );
+    }
+    return _fallback();
+  }
+
+  Widget _fallback() {
+    final normalized = name.trim();
+    final initial = normalized.isEmpty ? 'O' : normalized.characters.first;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: WebTuiColors.primary,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: SizedBox.square(
+        dimension: 30,
+        child: Center(
+          child: Text(
+            initial.toUpperCase(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _IncomingCallDialog extends StatefulWidget {

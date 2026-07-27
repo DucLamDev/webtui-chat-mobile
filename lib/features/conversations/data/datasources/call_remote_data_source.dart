@@ -38,6 +38,16 @@ final class CallRemoteDataSource {
     return _callFromMap(envelopeItem(response.data, 'call'));
   }
 
+  Future<CallSession?> findIncomingRingingCall({
+    required String workspaceId,
+  }) async {
+    final response = await _api.get<Object>(
+      '/api/v1/workspaces/${_e(workspaceId)}/calls/incoming',
+    );
+    final call = envelopeItem(response.data, 'call');
+    return call.isEmpty ? null : _callFromMap(call);
+  }
+
   Future<CallSession> changeStatus({
     required String workspaceId,
     required String callId,

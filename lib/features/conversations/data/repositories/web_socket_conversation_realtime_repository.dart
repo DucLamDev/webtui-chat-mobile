@@ -28,7 +28,21 @@ final class WebSocketConversationRealtimeRepository
   int _reconnectAttempt = 0;
 
   @override
+  Stream<ConversationRealtimeEvent> subscribeToUser({
+    required String workspaceId,
+  }) {
+    return _subscribe(workspaceId: workspaceId, channelId: '');
+  }
+
+  @override
   Stream<ConversationRealtimeEvent> subscribeToChannel({
+    required String workspaceId,
+    required String channelId,
+  }) {
+    return _subscribe(workspaceId: workspaceId, channelId: channelId);
+  }
+
+  Stream<ConversationRealtimeEvent> _subscribe({
     required String workspaceId,
     required String channelId,
   }) {
@@ -95,7 +109,9 @@ final class WebSocketConversationRealtimeRepository
       }
       _socket = socket;
       _reconnectAttempt = 0;
-      socket.add(jsonEncode({'type': 'join', 'room': room}));
+      if (channelId.trim().isNotEmpty) {
+        socket.add(jsonEncode({'type': 'join', 'room': room}));
+      }
       socket.listen(
         (data) => _handleSocketData(data, workspaceId, channelId),
         onError: (_) => _scheduleReconnect(workspaceId, channelId),
@@ -332,6 +348,9 @@ ChatMessage _messageFromMap(JsonMap map, String workspaceId, String channelId) {
     reactions: jsonMapList(
       field(map, const ['reactions']),
     ).map(_reactionFromMap).toList(growable: false),
+    metadata: Map<String, Object?>.from(
+      jsonMap(field(map, const ['metadata'])),
+    ),
     attachments: _messageAttachmentsFromMap(
       map,
       workspaceId: resolvedWorkspaceId,
@@ -442,5 +461,8 @@ MessageReactionSummary _reactionFromMap(JsonMap map) {
 }
 
 String _roomFor(String workspaceId, String channelId) {
+  if (channelId.trim().isEmpty) {
+    return 'workspace:$workspaceId:user-events';
+  }
   return 'workspace:$workspaceId:channel:$channelId';
 }

@@ -41,6 +41,15 @@ final class CallRepositoryImpl implements CallRepository {
   }
 
   @override
+  Future<Result<CallSession?>> findIncomingRingingCall({
+    required String workspaceId,
+  }) {
+    return guardResult(
+      () => _remote.findIncomingRingingCall(workspaceId: workspaceId),
+    );
+  }
+
+  @override
   Future<Result<CallSession>> acceptCall({
     required String workspaceId,
     required String callId,

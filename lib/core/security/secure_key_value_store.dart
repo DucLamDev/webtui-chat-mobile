@@ -6,6 +6,10 @@ enum SecureStoreKey {
   deviceId('device_id'),
   instanceBaseUrl('instance_base_url'),
   instanceWsBaseUrl('instance_ws_base_url'),
+  instanceOrganizationName('instance_organization_name'),
+  instanceOrganizationLogoUrl('instance_organization_logo_url'),
+  instanceRegistrationMode('instance_registration_mode'),
+  instanceAppVersion('instance_app_version'),
   activeWorkspaceId('active_workspace_id'),
   appLockEnabled('app_lock_enabled'),
   appLockPinHash('app_lock_pin_hash');

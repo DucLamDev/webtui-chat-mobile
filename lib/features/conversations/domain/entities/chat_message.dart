@@ -15,6 +15,7 @@ final class ChatMessage {
     this.mentions = const [],
     this.reactions = const [],
     this.attachments = const [],
+    this.metadata = const {},
     this.isPinned = false,
     this.isMine = false,
   });
@@ -34,12 +35,17 @@ final class ChatMessage {
   final List<String> mentions;
   final List<MessageReactionSummary> reactions;
   final List<MessageAttachment> attachments;
+  final Map<String, Object?> metadata;
   final bool isPinned;
   final bool isMine;
 
   bool get isDeleted => deletedAt != null;
   bool get isSystem => kind == 'system' || senderId == null;
   bool get hasThread => threadRootId != null || parentId != null;
+  bool get isPoll =>
+      kind == 'event' &&
+      metadata['message_type']?.toString().trim().toLowerCase() == 'poll' &&
+      metadata['poll'] is Map;
 
   ChatMessage copyWith({
     String? body,
@@ -49,6 +55,7 @@ final class ChatMessage {
     List<String>? mentions,
     List<MessageReactionSummary>? reactions,
     List<MessageAttachment>? attachments,
+    Map<String, Object?>? metadata,
     bool? isPinned,
     bool? isMine,
   }) {
@@ -68,6 +75,7 @@ final class ChatMessage {
       mentions: mentions ?? this.mentions,
       reactions: reactions ?? this.reactions,
       attachments: attachments ?? this.attachments,
+      metadata: metadata ?? this.metadata,
       isPinned: isPinned ?? this.isPinned,
       isMine: isMine ?? this.isMine,
     );
@@ -76,7 +84,7 @@ final class ChatMessage {
 
 enum MessageAttachmentKind { image, video, audio, file }
 
-enum MessageAttachmentPickSource { camera, gallery }
+enum MessageAttachmentPickSource { camera, gallery, video, file }
 
 enum MessageAttachmentUploadStatus {
   queued,

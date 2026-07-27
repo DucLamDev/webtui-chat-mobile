@@ -334,6 +334,7 @@ final class ConversationRepositoryImpl implements ConversationRepository {
     required String body,
     String? clientMessageId,
     String? parentId,
+    bool silent = false,
   }) {
     return guardResult(
       () => _remote.sendMessage(
@@ -342,6 +343,7 @@ final class ConversationRepositoryImpl implements ConversationRepository {
         body: body,
         clientMessageId: clientMessageId,
         parentId: parentId,
+        silent: silent,
       ),
     );
   }

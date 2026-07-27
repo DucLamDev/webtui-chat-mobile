@@ -125,6 +125,39 @@ class AppSettingsScreen extends ConsumerWidget {
                 ),
               ],
             ),
+            const WebTuiSectionLabel('Cuộc gọi'),
+            WebTuiListSurface(
+              children: [
+                WebTuiSettingRow(
+                  title: 'Tắt mic khi tham gia',
+                  subtitle: 'Tránh tiếng ồn bất ngờ khi vào cuộc gọi',
+                  icon: Icons.mic_off_outlined,
+                  trailing: WebTuiToggle(
+                    value: !settings.microphoneEnabledOnJoin,
+                    onChanged: (value) {
+                      controller.update(
+                        settings.copyWith(microphoneEnabledOnJoin: !value),
+                        workspaceId: workspaceId,
+                      );
+                    },
+                  ),
+                ),
+                WebTuiSettingRow(
+                  title: 'Tắt camera khi tham gia',
+                  subtitle: 'Có thể bật lại sau khi đã vào video call',
+                  icon: Icons.videocam_off_outlined,
+                  trailing: WebTuiToggle(
+                    value: !settings.cameraEnabledOnJoin,
+                    onChanged: (value) {
+                      controller.update(
+                        settings.copyWith(cameraEnabledOnJoin: !value),
+                        workspaceId: workspaceId,
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
             const WebTuiSectionLabel('Dữ liệu offline'),
             WebTuiListSurface(
               children: [

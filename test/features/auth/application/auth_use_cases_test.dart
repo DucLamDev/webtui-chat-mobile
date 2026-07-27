@@ -80,6 +80,7 @@ void main() {
           username: ' lamduc ',
           password: ' matkhau123 ',
           confirmPassword: ' matkhau123 ',
+          inviteToken: ' wti_invite-token ',
         ),
       );
 
@@ -89,6 +90,7 @@ void main() {
       expect(auth.lastEmail, 'lam@example.com');
       expect(auth.lastUsername, 'lamduc');
       expect(auth.lastPassword, 'matkhau123');
+      expect(auth.lastInviteToken, 'wti_invite-token');
       expect(tokens.accessToken, 'access-token');
       expect(tokens.refreshToken, 'refresh-token');
     });
@@ -249,6 +251,7 @@ final class _FakeAuthRepository implements AuthRepository {
   String? lastUsername;
   String? lastIdentifier;
   String? lastPassword;
+  String? lastInviteToken;
   String? lastGoogleCredential;
 
   @override
@@ -269,6 +272,7 @@ final class _FakeAuthRepository implements AuthRepository {
     required String email,
     required String username,
     required String password,
+    String inviteToken = '',
     required DeviceIdentity device,
   }) async {
     registerCalls += 1;
@@ -276,6 +280,7 @@ final class _FakeAuthRepository implements AuthRepository {
     lastEmail = email;
     lastUsername = username;
     lastPassword = password;
+    lastInviteToken = inviteToken;
     return registerResult ?? Success(_session());
   }
 

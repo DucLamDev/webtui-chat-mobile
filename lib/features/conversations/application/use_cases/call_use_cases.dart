@@ -53,6 +53,16 @@ final class GetCallUseCase {
   }
 }
 
+final class FindIncomingCallUseCase {
+  const FindIncomingCallUseCase(this._repository);
+
+  final CallRepository _repository;
+
+  Future<Result<CallSession?>> execute({required String workspaceId}) {
+    return _repository.findIncomingRingingCall(workspaceId: workspaceId);
+  }
+}
+
 final class AcceptCallUseCase {
   const AcceptCallUseCase(this._repository);
 
