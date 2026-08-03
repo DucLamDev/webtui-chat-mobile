@@ -1,7 +1,7 @@
 # WebTui Chat Mobile
 
-Flutter mobile app nằm trong `clients/mobile/` của monorepo (hoặc `mobile/` khi
-tách repository clients) và đi theo feature-first Clean Architecture:
+Đây là repository độc lập của ứng dụng Flutter WebTui Chat cho Android và iOS.
+Source đi theo feature-first Clean Architecture:
 
 ```text
 Presentation -> Application -> Domain <- Data
@@ -32,8 +32,11 @@ Token policy:
 
 App lock/privacy:
 
-- PIN app-lock lưu hash SHA-256 có salt theo device id trong secure storage.
-- Biometric adapter sẽ gắn khi UX/backend có contract rõ; M2 đặt sẵn boundary use case/repository cho app lock.
+- PIN app-lock lưu PBKDF2-HMAC-SHA256 với salt ngẫu nhiên và 120.000 vòng trong secure storage; hash SHA-256 cũ được migrate sau lần mở khóa thành công.
+- `BiometricAuthService` đã kết nối native biometric qua MethodChannel
+  `webtui/biometric` (Android BiometricPrompt và iOS LocalAuthentication). Sau 5
+  lần nhập PIN sai, form khóa 30 giây rồi tự mở lại; timer được hủy khi widget
+  dispose.
 - `PrivacyGuard` phủ nội dung khi app inactive/paused; Android `MainActivity` bật `FLAG_SECURE` qua MethodChannel `webtui/privacy`.
 
 ## Phase M3 Workspace/RBAC/Profile/Settings
@@ -72,6 +75,10 @@ flutter run --flavor prod -t lib/main_prod.dart \
 ```
 
 `GOOGLE_OAUTH_SERVER_CLIENT_ID` phải trùng với `GOOGLE_CLIENT_ID` trên backend để backend xác minh đúng audience của ID token. Android vẫn cần khai báo package name và SHA-1/SHA-256 của app trong Google Cloud/Firebase Console.
+
+Nút Google chỉ hiện khi cả hai client ID được cấu hình. Trên iOS, nút này được
+ẩn cho tới khi Sign in with Apple và URL scheme native của Google được triển
+khai, kiểm thử và rà soát theo App Store Review Guideline 4.8.
 
 ## Kết Nối API Mobile
 
@@ -131,21 +138,29 @@ flutter build apk --debug --flavor dev -t lib/main_dev.dart
 
 ## Android Packaging M11
 
-- Workflow `.github/workflows/mobile.yml` chay format, architecture check, analyze, unit/widget test, integration smoke test va debug APK.
-- Job release chi build signed AAB/APK khi co du secret `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
-- Release artifact co APK, AAB, SHA-256 checksum va `mobile-release-manifest.json`.
-- Lenh `flutter test integration_test` can Android emulator/device; GitHub Actions chay qua Android emulator.
-- Huong dan van hanh: `docs/android-internal-distribution.md`.
+- Workflow `.github/workflows/mobile.yml` chạy format, architecture/release check,
+  analyze, unit/widget test, integration smoke test và debug APK.
+- Job release chỉ build signed AAB/APK khi có đủ secret
+  `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`,
+  `ANDROID_KEY_PASSWORD` cùng biến Firebase/privacy production bắt buộc.
+- Release artifact có APK, AAB, native debug symbols, SHA-256 checksum và
+  `mobile-release-manifest.json`.
+- Lệnh `flutter test integration_test` cần Android emulator/device; GitHub
+  Actions chạy qua Android emulator.
+- Hướng dẫn vận hành: `docs/android-internal-distribution.md`.
 - Checklist security/privacy: `docs/release-security-checklist.md`.
 - Device matrix M10/M11: `docs/android-device-matrix.md`.
 - Play Console readiness: `docs/google-play-readiness.md`.
+- Google Play + App Store readiness và mô hình push self-hosted:
+  `docs/store-release-readiness.md`.
 - Privacy policy draft: `docs/privacy-policy-draft.md`.
 - Android direct download plan: `docs/android-direct-download-plan.md`.
-- Static download page source: `../../portal/download/index.html`.
+- Static download page source trong companion repository:
+  `../webtui-chat-portal/download/index.html`.
 
 ## Reference UI
 
-Ảnh reference của monorepo nằm tại
-`../docs/design/mobile/references/webtui-mobile-zalo-reference.png`. Phase M1
+Ảnh reference nằm tại
+`docs/design/mobile/references/webtui-mobile-zalo-reference.png`. Phase M1
 dựng shell và design tokens; Phase M2 thêm auth/session foundation và login
 entrypoint, chưa phụ thuộc backend/mock production trong widget test.

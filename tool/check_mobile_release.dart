@@ -4,16 +4,163 @@ void main() {
   final checks = <_ReleaseCheck>[
     _ReleaseCheck(
       label: 'Workflow mobile release job',
-      file: File('../../.github/workflows/mobile.yml'),
+      file: File('.github/workflows/mobile.yml'),
       mustContain: const [
         'android-release:',
         'flutter build appbundle --release',
         'flutter build apk --release',
         'mobile-release-manifest.json',
         'sha256sum',
+        '--build-number',
+        'MOBILE_FIREBASE_ANDROID_APP_ID',
+        'MOBILE_FIREBASE_IOS_APP_ID',
+        'MOBILE_PRIVACY_POLICY_URL',
+        'zipalign',
+        'xcodebuild -version',
+        'xcrun --sdk iphoneos --show-sdk-version',
+        "grep -Eq '^26\\.'",
         'download_url',
         'checksum_sha256',
       ],
+    ),
+    _ReleaseCheck(
+      label: 'Current SQLite native assets',
+      file: File('pubspec.yaml'),
+      mustContain: const ['drift: ^2.34.3', 'sqlite3: ^3.5.0'],
+      mustNotContain: const ['sqlite3_flutter_libs'],
+    ),
+    _ReleaseCheck(
+      label: 'Android least-privilege release manifest',
+      file: File('android/app/src/main/AndroidManifest.xml'),
+      mustContain: const [
+        'android:allowBackup="false"',
+        'android:usesCleartextTraffic="false"',
+        'android.permission.READ_MEDIA_IMAGES',
+        'android.permission.READ_MEDIA_VIDEO',
+        'android.permission.READ_MEDIA_AUDIO',
+        'android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
+        'tools:node="remove"',
+        'android:protectionLevel="signature"',
+        'android.hardware.camera',
+        'android.hardware.camera.front',
+        'android.hardware.microphone',
+        'android.hardware.bluetooth',
+        'android:required="false"',
+        'com.google.firebase.messaging.default_notification_channel_id',
+      ],
+    ),
+    _ReleaseCheck(
+      label: 'Android notification channel',
+      file: File(
+        'android/app/src/main/kotlin/com/vpsttt/webtui_chat/WebTuiApplication.kt',
+      ),
+      mustContain: const [
+        'MESSAGE_CHANNEL_ID = "webtui_messages"',
+        'NotificationManager.IMPORTANCE_HIGH',
+      ],
+    ),
+    _ReleaseCheck(
+      label: 'iOS CocoaPods project',
+      file: File('ios/Podfile'),
+      mustContain: const [
+        "platform :ios, '13.0'",
+        'flutter_install_all_ios_pods',
+        'flutter_additional_ios_build_settings',
+      ],
+    ),
+    _ReleaseCheck(
+      label: 'iOS permission descriptions and app name',
+      file: File('ios/Runner/Info.plist'),
+      mustContain: const [
+        '<string>WebTui Chat</string>',
+        '<key>NSFaceIDUsageDescription</key>',
+        '<key>NSLocalNetworkUsageDescription</key>',
+        '<string>audio</string>',
+        '<string>voip</string>',
+        '<string>remote-notification</string>',
+      ],
+    ),
+    _ReleaseCheck(
+      label: 'iOS production push entitlement',
+      file: File('ios/Runner/Runner.entitlements'),
+      mustContain: const ['<string>production</string>'],
+    ),
+    _ReleaseCheck(
+      label: 'iOS development push entitlement',
+      file: File('ios/Runner/RunnerDebug.entitlements'),
+      mustContain: const ['<string>development</string>'],
+    ),
+    _ReleaseCheck(
+      label: 'iOS app privacy manifest',
+      file: File('ios/Runner/PrivacyInfo.xcprivacy'),
+      mustContain: const [
+        '<key>NSPrivacyTracking</key>',
+        '<false/>',
+        'NSPrivacyAccessedAPICategoryFileTimestamp',
+        'C617.1',
+        '3B52.1',
+        'NSPrivacyAccessedAPICategorySystemBootTime',
+        '35F9.1',
+        'NSPrivacyAccessedAPICategoryUserDefaults',
+        'CA92.1',
+        'NSPrivacyCollectedDataTypePhoneNumber',
+        'NSPrivacyCollectedDataTypeEmailsOrTextMessages',
+        'NSPrivacyCollectedDataTypePhotosorVideos',
+        'NSPrivacyCollectedDataTypeAudioData',
+        'NSPrivacyCollectedDataTypeDeviceID',
+      ],
+    ),
+    _ReleaseCheck(
+      label: 'iOS privacy manifest target membership',
+      file: File('ios/Runner.xcodeproj/project.pbxproj'),
+      mustContain: const [
+        'PrivacyInfo.xcprivacy in Resources',
+        'path = PrivacyInfo.xcprivacy',
+      ],
+    ),
+    _ReleaseCheck(
+      label: 'In-app account deletion contract',
+      file: File(
+        'lib/features/auth/data/repositories/account_repository_impl.dart',
+      ),
+      mustContain: const [
+        "'/api/v1/users/me'",
+        "'confirmation': confirmation",
+        "'ownership_successor_email': normalizedSuccessorEmail",
+      ],
+    ),
+    _ReleaseCheck(
+      label: 'In-app account deletion UI',
+      file: File(
+        'lib/features/settings/presentation/screens/privacy_sessions_screen.dart',
+      ),
+      mustContain: const [
+        "title: 'Xóa tài khoản'",
+        "hintText: 'DELETE'",
+        "labelText: 'Email thành viên nhận quyền'",
+        'WEBTUI_PRIVACY_POLICY_URL',
+      ],
+    ),
+    _ReleaseCheck(
+      label: 'Store-safe login provider visibility',
+      file: File(
+        'lib/features/auth/presentation/google_sign_in_visibility.dart',
+      ),
+      mustContain: const [
+        'targetPlatform != TargetPlatform.iOS',
+        'clientId.trim().isNotEmpty',
+        'serverClientId.trim().isNotEmpty',
+      ],
+    ),
+    _ReleaseCheck(
+      label: 'Password recovery is not a dead action',
+      file: File('lib/features/auth/presentation/screens/login_screen.dart'),
+      mustContain: const [
+        'Key(\'forgot_password_button\')',
+        '_showPasswordRecoveryGuidance',
+        'liên hệ quản trị viên',
+      ],
+      mustNotContain: const ['onPressed: state.isLoading ? null : () {},'],
     ),
     _ReleaseCheck(
       label: 'Android production package and signing',
@@ -24,6 +171,8 @@ void main() {
         'ANDROID_KEYSTORE_PASSWORD',
         'ANDROID_KEY_ALIAS',
         'ANDROID_KEY_PASSWORD',
+        'WEBTUI_ALLOW_UNSIGNED_RELEASE',
+        'requestedReleaseTask',
       ],
       mustNotContain: const [
         'signingConfig = signingConfigs.getByName("debug")',
@@ -68,6 +217,17 @@ void main() {
       mustContain: const ['Data We Process', 'User Controls', 'Contact'],
     ),
     _ReleaseCheck(
+      label: 'Cross-store release readiness',
+      file: File('docs/store-release-readiness.md'),
+      mustContain: const [
+        'Current Verdict',
+        'Production Push Model For A Store Binary',
+        'Google Play Console Checklist',
+        'App Store Connect Checklist',
+        'DELETE /api/v1/users/me',
+      ],
+    ),
+    _ReleaseCheck(
       label: 'Download page plan',
       file: File('docs/download-page-spec.md'),
       mustContain: const [
@@ -87,7 +247,7 @@ void main() {
     ),
     _ReleaseCheck(
       label: 'Download page HTML',
-      file: File('../../portal/download/index.html'),
+      file: File('../webtui-chat-portal/download/index.html'),
       mustContain: const [
         'Tải WebTui Chat cho Android',
         'android-chat-preview.png',
@@ -98,12 +258,12 @@ void main() {
     ),
     _ReleaseCheck(
       label: 'Download page CSS',
-      file: File('../../portal/download/styles.css'),
+      file: File('../webtui-chat-portal/download/styles.css'),
       mustContain: const ['.hero', '.phone-preview', '@media'],
     ),
     _ReleaseCheck(
       label: 'Download page JS',
-      file: File('../../portal/download/app.js'),
+      file: File('../webtui-chat-portal/download/app.js'),
       mustContain: const [
         'mobile-release-manifest.json',
         'checksum_sha256',
@@ -112,21 +272,35 @@ void main() {
     ),
     _ReleaseCheck(
       label: 'Download page preview asset',
-      file: File('../../portal/download/assets/android-chat-preview.png'),
+      file: File(
+        '../webtui-chat-portal/download/assets/android-chat-preview.png',
+      ),
     ),
     _ReleaseCheck(
       label: 'Download page privacy stub',
-      file: File('../../portal/download/privacy.html'),
-      mustContain: const ['Chính sách riêng tư', 'support@vpsttt.com'],
+      file: File('../webtui-chat-portal/download/privacy.html'),
+      mustContain: const ['Chính sách quyền riêng tư', 'support@vpsttt.com'],
+    ),
+    _ReleaseCheck(
+      label: 'Public account-deletion page',
+      file: File('../webtui-chat-portal/download/account-deletion.html'),
+      mustContain: const [
+        '<h1>Xóa tài khoản WebTUI Chat</h1>',
+        '<strong>DELETE</strong>',
+        'support@vpsttt.com',
+        'href="./privacy.html"',
+      ],
     ),
     _ReleaseCheck(
       label: 'Download host manifest example',
-      file: File('../../portal/download/mobile-release-manifest.example.json'),
+      file: File(
+        '../webtui-chat-portal/download/mobile-release-manifest.example.json',
+      ),
       mustContain: const [
         'com.vpsttt.webtui_chat',
         'checksum_sha256',
         'download_url',
-        'chat.vpsttt.com/downloads/files/android/stable/app-prod-release.apk',
+        'download.vpsttt.com/downloads/files/android/stable/app-prod-release.apk',
       ],
     ),
   ];

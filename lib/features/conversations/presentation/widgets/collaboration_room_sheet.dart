@@ -13,6 +13,7 @@ import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../domain/entities/collaboration_room.dart';
 import '../../domain/entities/conversation_summary.dart';
+import 'meeting_scheduler_sheet.dart';
 
 Future<void> showCollaborationRoomSheet(
   BuildContext context, {
@@ -60,7 +61,6 @@ class _CollaborationRoomSheetState
   final _notesController = TextEditingController();
   final _taskController = TextEditingController();
   final _promoteController = TextEditingController();
-  final _meetingController = TextEditingController();
   final _breakoutBroadcastController = TextEditingController();
   CollaborationSettings? _settings;
   CollaborationDocument? _notes;
@@ -100,7 +100,6 @@ class _CollaborationRoomSheetState
     _notesController.dispose();
     _taskController.dispose();
     _promoteController.dispose();
-    _meetingController.dispose();
     _breakoutBroadcastController.dispose();
     super.dispose();
   }
@@ -706,38 +705,56 @@ class _CollaborationRoomSheetState
   }
 
   Widget _meetingLifecycleCard() {
+    final upcoming =
+        _meetings
+            .where((meeting) => meeting.canStart || meeting.isLive)
+            .toList(growable: false)
+          ..sort((left, right) {
+            if (left.isLive && !right.isLive) return -1;
+            if (right.isLive && !left.isLive) return 1;
+            return left.startsAt.compareTo(right.startsAt);
+          });
+    final history = _meetings
+        .where((meeting) => !meeting.canStart && !meeting.isLive)
+        .take(5)
+        .toList(growable: false);
     return _sectionCard(
       icon: Icons.calendar_month_outlined,
       title: 'Lịch họp',
       child: Column(
         children: [
           if (_canManage) ...[
-            TextField(
-              controller: _meetingController,
-              maxLength: 160,
-              decoration: const InputDecoration(
-                labelText: 'Tên cuộc họp mới',
-                hintText: 'Ví dụ: Daily team sản phẩm',
-                counterText: '',
-              ),
-              onSubmitted: (_) => _createMeeting(),
-            ),
-            const SizedBox(height: WebTuiSpacing.sm),
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
                 onPressed: _saving ? null : _createMeeting,
-                icon: const Icon(Icons.add_circle_outline_rounded),
-                label: const Text('Lên lịch sau 5 phút'),
+                icon: const Icon(Icons.event_available_rounded),
+                label: const Text('Tạo lịch họp'),
               ),
             ),
             const Divider(height: WebTuiSpacing.xl),
           ],
-          if (_meetings.isEmpty)
-            const Text('Chưa có cuộc họp được lên lịch.')
+          if (upcoming.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: WebTuiSpacing.sm),
+              child: Text('Chưa có cuộc họp sắp diễn ra.'),
+            )
           else
-            for (final meeting in _meetings.take(10))
+            for (final meeting in upcoming.take(10))
               _meetingTile(meeting, controls: true),
+          if (history.isNotEmpty)
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: EdgeInsets.zero,
+              title: Text(
+                'Lịch sử gần đây (${history.length})',
+                style: WebTuiTypography.bodySmall.copyWith(
+                  color: WebTuiColors.textSecondary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              children: [for (final meeting in history) _meetingTile(meeting)],
+            ),
         ],
       ),
     );
@@ -760,7 +777,25 @@ class _CollaborationRoomSheetState
         ),
       ),
       title: Text(meeting.title),
-      subtitle: Text(meeting.isLive ? 'Đang diễn ra' : time),
+      subtitle: Text(
+        meeting.isLive
+            ? 'Đang diễn ra · Chạm để vào họp'
+            : meeting.status == 'cancelled'
+            ? 'Đã hủy · $time'
+            : meeting.status == 'ended'
+            ? 'Đã kết thúc · $time'
+            : meeting.description.isEmpty
+            ? time
+            : '$time · ${meeting.description}',
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+      onTap:
+          meeting.isLive &&
+              _settings?.canOpenMeeting == true &&
+              _settings?.meetingRoomKey != null
+          ? () => _openMeeting(_settings!.meetingRoomKey!)
+          : null,
       trailing: controls && _canManage
           ? PopupMenuButton<String>(
               onSelected: (action) => _transitionMeeting(meeting, action),
@@ -1598,19 +1633,25 @@ class _CollaborationRoomSheetState
   }
 
   Future<void> _createMeeting() async {
-    final title = _meetingController.text.trim();
-    if (title.isEmpty) return;
+    final draft = await showMeetingSchedulerSheet(
+      context,
+      conversationTitle: widget.title,
+    );
+    if (draft == null || !mounted) return;
     await _guard(() async {
       await ref
           .read(conversationRemoteDataSourceProvider)
           .createMeeting(
             workspaceId: widget.workspaceId,
             channelId: widget.channelId,
-            title: title,
-            startsAt: DateTime.now().toUtc().add(const Duration(minutes: 5)),
-            endsAt: DateTime.now().toUtc().add(const Duration(minutes: 65)),
+            title: draft.title,
+            description: draft.description,
+            startsAt: draft.startsAt,
+            endsAt: draft.endsAt,
+            lobbyOpensAt: draft.lobbyOpensAt,
+            roomPolicy: draft.roomPolicy,
+            cleanupAfter: draft.cleanupAfter,
           );
-      _meetingController.clear();
       final meetings = await ref
           .read(conversationRemoteDataSourceProvider)
           .listMeetings(
@@ -1618,7 +1659,7 @@ class _CollaborationRoomSheetState
             channelId: widget.channelId,
           );
       if (mounted) setState(() => _meetings = meetings);
-      _notice('Đã lên lịch cuộc họp sau 5 phút.');
+      _notice('Đã lên lịch cuộc họp.');
     });
   }
 

@@ -102,7 +102,10 @@ final class WebSocketConversationRealtimeRepository
     }
     final room = _roomFor(workspaceId, channelId);
     try {
-      final socket = await WebSocket.connect(_webSocketUri(token).toString());
+      final socket = await WebSocket.connect(
+        _webSocketUri().toString(),
+        headers: {'Authorization': 'Bearer $token'},
+      );
       if (_disposed || _room != room) {
         await socket.close();
         return;
@@ -171,8 +174,8 @@ final class WebSocketConversationRealtimeRepository
     }
   }
 
-  Uri _webSocketUri(String accessToken) {
-    return conversationRealtimeWebSocketUri(_wsBaseUri, accessToken);
+  Uri _webSocketUri() {
+    return conversationRealtimeWebSocketUri(_wsBaseUri);
   }
 }
 
@@ -187,14 +190,7 @@ Uri defaultConversationRealtimeWsUri(Uri apiBaseUri) {
   );
 }
 
-Uri conversationRealtimeWebSocketUri(Uri wsBaseUri, String accessToken) {
-  return wsBaseUri.replace(
-    queryParameters: {
-      ...wsBaseUri.queryParameters,
-      'access_token': accessToken,
-    },
-  );
-}
+Uri conversationRealtimeWebSocketUri(Uri wsBaseUri) => wsBaseUri;
 
 final class ConversationRealtimeEventMapper {
   const ConversationRealtimeEventMapper._();

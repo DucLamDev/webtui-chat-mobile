@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
+import '../../../../core/result/result.dart';
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
@@ -18,6 +19,7 @@ class AppSettingsScreen extends ConsumerWidget {
     final state = ref.watch(appSettingsControllerProvider);
     final controller = ref.read(appSettingsControllerProvider.notifier);
     final settings = state.settings;
+    final appLockEnabled = ref.watch(isAppLockEnabledProvider);
     final workspaceId = ref.watch(
       workspaceControllerProvider.select((value) => value.activeWorkspace?.id),
     );
@@ -158,6 +160,27 @@ class AppSettingsScreen extends ConsumerWidget {
                 ),
               ],
             ),
+            const WebTuiSectionLabel('Bảo mật ứng dụng'),
+            WebTuiListSurface(
+              children: [
+                WebTuiSettingRow(
+                  title: 'Khóa ứng dụng',
+                  subtitle:
+                      'Yêu cầu PIN hoặc sinh trắc học khi quay lại ứng dụng',
+                  icon: Icons.phonelink_lock_rounded,
+                  trailing: appLockEnabled.isLoading
+                      ? const SizedBox.square(
+                          dimension: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : WebTuiToggle(
+                          value: appLockEnabled.valueOrNull ?? false,
+                          onChanged: (value) =>
+                              _setAppLock(context, ref, value),
+                        ),
+                ),
+              ],
+            ),
             const WebTuiSectionLabel('Dữ liệu offline'),
             WebTuiListSurface(
               children: [
@@ -213,6 +236,158 @@ class AppSettingsScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+Future<void> _setAppLock(
+  BuildContext context,
+  WidgetRef ref,
+  bool enabled,
+) async {
+  if (enabled) {
+    final pin = await _promptNewPin(context);
+    if (pin == null || !context.mounted) {
+      return;
+    }
+    final result = await ref.read(enableAppLockUseCaseProvider).execute(pin);
+    if (!context.mounted) {
+      return;
+    }
+    switch (result) {
+      case Success<void>():
+        ref.invalidate(isAppLockEnabledProvider);
+      case FailureResult<void>(failure: final failure):
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(failure.message)));
+    }
+    return;
+  }
+
+  var authorized = false;
+  final biometrics = ref.read(biometricAuthServiceProvider);
+  if (await biometrics.isAvailable()) {
+    authorized = await biometrics.authenticate(
+      reason: 'Xác thực để tắt khóa ứng dụng',
+    );
+  }
+  if (!authorized && context.mounted) {
+    final pin = await _promptCurrentPin(context);
+    if (pin == null) {
+      return;
+    }
+    final verification = await ref.read(unlockAppUseCaseProvider).execute(pin);
+    authorized = verification is Success<void>;
+    if (!authorized && context.mounted) {
+      final message = verification is FailureResult<void>
+          ? verification.failure.message
+          : 'Không thể xác minh mã PIN.';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+  if (!authorized) {
+    return;
+  }
+  await ref.read(disableAppLockUseCaseProvider).execute();
+  ref.invalidate(isAppLockEnabledProvider);
+}
+
+Future<String?> _promptNewPin(BuildContext context) {
+  final pinController = TextEditingController();
+  final confirmationController = TextEditingController();
+  return showDialog<String>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) {
+      String? error;
+      return StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Bật khóa ứng dụng'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: pinController,
+                autofocus: true,
+                obscureText: true,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'PIN (4-12 số)'),
+              ),
+              TextField(
+                controller: confirmationController,
+                obscureText: true,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Nhập lại PIN'),
+              ),
+              if (error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(
+                    error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Hủy'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final pin = pinController.text.trim();
+                if (!RegExp(r'^\d{4,12}$').hasMatch(pin)) {
+                  setState(() => error = 'PIN phải gồm 4-12 chữ số.');
+                  return;
+                }
+                if (pin != confirmationController.text.trim()) {
+                  setState(() => error = 'Hai mã PIN không khớp.');
+                  return;
+                }
+                Navigator.pop(dialogContext, pin);
+              },
+              child: const Text('Bật khóa'),
+            ),
+          ],
+        ),
+      );
+    },
+  ).whenComplete(() {
+    pinController.dispose();
+    confirmationController.dispose();
+  });
+}
+
+Future<String?> _promptCurrentPin(BuildContext context) {
+  final controller = TextEditingController();
+  return showDialog<String>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Xác nhận mã PIN'),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        obscureText: true,
+        keyboardType: TextInputType.number,
+        decoration: const InputDecoration(labelText: 'Mã PIN hiện tại'),
+        onSubmitted: (value) => Navigator.pop(dialogContext, value.trim()),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text('Hủy'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
+          child: const Text('Xác nhận'),
+        ),
+      ],
+    ),
+  ).whenComplete(controller.dispose);
 }
 
 class _ReleasePolicyRow extends StatelessWidget {

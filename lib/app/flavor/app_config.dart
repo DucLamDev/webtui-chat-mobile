@@ -13,6 +13,7 @@ final class AppConfig {
     required this.wsBaseUri,
     this.appVersion = '1.0.0',
     this.releaseChannel = 'internal',
+    this.releaseServiceBaseUrl = 'https://download.vpsttt.com',
   });
 
   factory AppConfig.fromFlavor(AppFlavor flavor) {
@@ -32,6 +33,10 @@ final class AppConfig {
       'WEBTUI_RELEASE_CHANNEL',
       defaultValue: '',
     );
+    const configuredReleaseServiceUrl = String.fromEnvironment(
+      'WEBTUI_RELEASE_SERVICE_URL',
+      defaultValue: 'https://download.vpsttt.com',
+    );
 
     final apiBaseUri = configuredBaseUrl.isEmpty
         ? flavor.defaultApiBaseUri
@@ -47,6 +52,7 @@ final class AppConfig {
       releaseChannel: configuredReleaseChannel.isEmpty
           ? _defaultReleaseChannel(flavor)
           : configuredReleaseChannel,
+      releaseServiceBaseUrl: configuredReleaseServiceUrl,
     );
   }
 
@@ -55,6 +61,9 @@ final class AppConfig {
   final Uri wsBaseUri;
   final String appVersion;
   final String releaseChannel;
+  // Publisher-controlled release origin. It deliberately does not change when
+  // the user connects to a different self-hosted instance.
+  final String releaseServiceBaseUrl;
 
   AppConfig forServer(Uri serverUri, {Uri? wsBaseUri}) {
     return AppConfig(
@@ -63,6 +72,7 @@ final class AppConfig {
       wsBaseUri: wsBaseUri ?? _defaultRealtimeWsUri(serverUri),
       appVersion: appVersion,
       releaseChannel: releaseChannel,
+      releaseServiceBaseUrl: releaseServiceBaseUrl,
     );
   }
 

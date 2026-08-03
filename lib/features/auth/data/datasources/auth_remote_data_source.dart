@@ -4,6 +4,7 @@ import '../../domain/entities/auth_session.dart';
 import '../../domain/entities/auth_tokens.dart';
 import '../../domain/entities/auth_user.dart';
 import '../../domain/entities/device_identity.dart';
+import '../../domain/entities/oidc_provider.dart';
 import '../../domain/entities/user_session.dart';
 
 final class AuthRemoteDataSource {
@@ -57,6 +58,61 @@ final class AuthRemoteDataSource {
     final response = await _api.post<Object>(
       '/api/v1/auth/google',
       data: {'credential': credential, 'device_name': device.displayName},
+    );
+    return _authSessionFromResponse(response.data);
+  }
+
+  Future<List<OidcProvider>> listOidcProviders(String domain) async {
+    final response = await _api.get<Object>(
+      '/api/v1/auth/oidc/providers',
+      queryParameters: {'domain': domain},
+    );
+    return envelopeList(response.data, 'oidc_providers')
+        .map(
+          (provider) => OidcProvider(
+            id: stringField(provider, const ['id']),
+            name: stringField(provider, const ['name']),
+          ),
+        )
+        .where((provider) => provider.id.trim().isNotEmpty)
+        .toList(growable: false);
+  }
+
+  Future<Uri> startOidc({
+    required String domain,
+    required String providerId,
+    required String returnTo,
+    required DeviceIdentity device,
+  }) async {
+    final response = await _api.post<Object>(
+      '/api/v1/auth/oidc/start',
+      data: {
+        'domain': domain,
+        'provider_id': providerId,
+        'return_to': returnTo,
+        'device_name': device.displayName,
+      },
+    );
+    final payload = envelopeItem(response.data, 'oidc');
+    final authorizationUrl = stringField(payload, const [
+      'authorization_url',
+      'authorizationUrl',
+    ]).trim();
+    final uri = Uri.tryParse(authorizationUrl);
+    if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
+      throw const FormatException('OIDC authorization URL is invalid.');
+    }
+    return uri;
+  }
+
+  Future<AuthSession> completeOidc({
+    required String code,
+    required String domain,
+    required DeviceIdentity device,
+  }) async {
+    final response = await _api.post<Object>(
+      '/api/v1/auth/oidc/complete',
+      data: {'code': code, 'domain': domain, 'device_name': device.displayName},
     );
     return _authSessionFromResponse(response.data);
   }

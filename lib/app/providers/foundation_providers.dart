@@ -13,23 +13,30 @@ import '../../core/network/request_id.dart';
 import '../../core/network/self_hosted_server_discovery.dart';
 import '../../core/network/self_hosted_server_discovery_client.dart';
 import '../../core/notifications/push_notification_service.dart';
+import '../../core/platform/biometric_auth_service.dart';
 import '../../core/platform/external_url_launcher.dart';
+import '../../core/platform/native_deep_link_service.dart';
 import '../../core/security/secure_key_value_store.dart';
+import '../../core/security/server_account_registry.dart';
 import '../../features/auth/application/use_cases/app_lock_use_cases.dart';
+import '../../features/auth/application/use_cases/delete_account_use_case.dart';
 import '../../features/auth/application/use_cases/google_login_use_case.dart';
 import '../../features/auth/application/use_cases/login_use_case.dart';
 import '../../features/auth/application/use_cases/logout_use_case.dart';
+import '../../features/auth/application/use_cases/oidc_login_use_case.dart';
 import '../../features/auth/application/use_cases/refresh_access_token_use_case.dart';
 import '../../features/auth/application/use_cases/register_use_case.dart';
 import '../../features/auth/application/use_cases/session_use_cases.dart';
 import '../../features/auth/data/datasources/auth_remote_data_source.dart';
 import '../../features/auth/data/google/google_sign_in_identity_provider.dart';
 import '../../features/auth/data/network/auth_refresh_interceptor.dart';
+import '../../features/auth/data/repositories/account_repository_impl.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/data/repositories/local_session_state_repository.dart';
 import '../../features/auth/data/repositories/secure_app_lock_repository.dart';
 import '../../features/auth/data/repositories/secure_auth_token_repository.dart';
 import '../../features/auth/data/repositories/secure_device_identity_repository.dart';
+import '../../features/auth/domain/repositories/account_repository.dart';
 import '../../features/auth/domain/repositories/app_lock_repository.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/domain/repositories/auth_token_repository.dart';
@@ -165,12 +172,31 @@ final authDioProvider = Provider<Dio>((ref) {
   return dio;
 });
 
+final releaseDioProvider = Provider<Dio>((ref) {
+  final config = ref.watch(appConfigProvider);
+  final releaseUri = Uri.parse(config.releaseServiceBaseUrl);
+  if (releaseUri.scheme != 'https' || releaseUri.host.isEmpty) {
+    throw StateError('WEBTUI_RELEASE_SERVICE_URL must be a public HTTPS URL.');
+  }
+  final dio = _configuredDio(releaseUri);
+  dio.interceptors.addAll([
+    RequestIdInterceptor(ref.watch(requestIdGeneratorProvider)),
+    RedactingDioLogInterceptor(ref.watch(redactingLoggerProvider)),
+  ]);
+  ref.onDispose(() => dio.close(force: true));
+  return dio;
+});
+
 final apiTransportProvider = Provider<ApiTransport>((ref) {
   return DioApiTransport(ref.watch(dioProvider));
 });
 
 final authApiTransportProvider = Provider<ApiTransport>((ref) {
   return DioApiTransport(ref.watch(authDioProvider));
+});
+
+final releaseApiTransportProvider = Provider<ApiTransport>((ref) {
+  return DioApiTransport(ref.watch(releaseDioProvider));
 });
 
 final openApiClientBoundaryProvider = Provider<WebTuiOpenApiClientBoundary>((
@@ -194,6 +220,16 @@ final pushNotificationServiceProvider = Provider<PushNotificationService>((
 
 final externalUrlLauncherProvider = Provider<ExternalUrlLauncher>((_) {
   return const MethodChannelExternalUrlLauncher();
+});
+
+final biometricAuthServiceProvider = Provider<BiometricAuthService>((_) {
+  return const BiometricAuthService();
+});
+
+final nativeDeepLinkServiceProvider = Provider<NativeDeepLinkService>((ref) {
+  final service = NativeDeepLinkService();
+  ref.onDispose(() => unawaited(service.dispose()));
+  return service;
 });
 
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
@@ -248,6 +284,7 @@ final sessionStateRepositoryProvider = Provider<SessionStateRepository>((ref) {
   return LocalSessionStateRepository(
     secureStore: ref.watch(secureKeyValueStoreProvider),
     database: ref.watch(appDatabaseProvider),
+    serverAccountRegistry: ref.watch(serverAccountRegistryProvider),
   );
 });
 
@@ -280,6 +317,14 @@ final googleLoginUseCaseProvider = Provider<GoogleLoginUseCase>((ref) {
   );
 });
 
+final oidcLoginUseCaseProvider = Provider<OidcLoginUseCase>((ref) {
+  return OidcLoginUseCase(
+    authRepository: ref.watch(authRepositoryProvider),
+    tokenRepository: ref.watch(authTokenRepositoryProvider),
+    deviceIdentityRepository: ref.watch(deviceIdentityRepositoryProvider),
+  );
+});
+
 final refreshAccessTokenUseCaseProvider = Provider<RefreshAccessTokenUseCase>((
   ref,
 ) {
@@ -294,6 +339,18 @@ final logoutUseCaseProvider = Provider<LogoutUseCase>((ref) {
     authRepository: ref.watch(authRepositoryProvider),
     tokenRepository: ref.watch(authTokenRepositoryProvider),
     sessionStateRepository: ref.watch(sessionStateRepositoryProvider),
+  );
+});
+
+final accountRepositoryProvider = Provider<AccountRepository>((ref) {
+  return AccountRepositoryImpl(ref.watch(apiTransportProvider));
+});
+
+final deleteAccountUseCaseProvider = Provider<DeleteAccountUseCase>((ref) {
+  return DeleteAccountUseCase(
+    accountRepository: ref.watch(accountRepositoryProvider),
+    sessionStateRepository: ref.watch(sessionStateRepositoryProvider),
+    appLockRepository: ref.watch(appLockRepositoryProvider),
   );
 });
 
@@ -315,6 +372,16 @@ final isAppLockEnabledUseCaseProvider = Provider<IsAppLockEnabledUseCase>((
   ref,
 ) {
   return IsAppLockEnabledUseCase(ref.watch(appLockRepositoryProvider));
+});
+
+final serverAccountRegistryProvider = Provider<SecureServerAccountRegistry>((
+  ref,
+) {
+  return SecureServerAccountRegistry(ref.watch(secureKeyValueStoreProvider));
+});
+
+final isAppLockEnabledProvider = FutureProvider<bool>((ref) {
+  return ref.watch(isAppLockEnabledUseCaseProvider).execute();
 });
 
 final enableAppLockUseCaseProvider = Provider<EnableAppLockUseCase>((ref) {
@@ -484,7 +551,9 @@ final clearWorkspaceCacheUseCaseProvider = Provider<ClearWorkspaceCacheUseCase>(
 
 final mobileReleaseRemoteDataSourceProvider =
     Provider<MobileReleaseRemoteDataSource>((ref) {
-      return MobileReleaseRemoteDataSource(ref.watch(apiTransportProvider));
+      return MobileReleaseRemoteDataSource(
+        ref.watch(releaseApiTransportProvider),
+      );
     });
 
 final checkMobileReleasePolicyUseCaseProvider =

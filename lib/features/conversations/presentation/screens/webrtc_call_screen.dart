@@ -231,11 +231,10 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     try {
       final response = await ref
           .read(apiTransportProvider)
-          .get<Object>('/api/v1/discovery');
-      final discovery = envelopeItem(response.data, 'discovery');
-      final runtime = jsonMap(field(discovery, const ['runtime']));
+          .get<Object>('/api/v1/calls/ice-servers');
+      final data = jsonMap(envelopeData(response.data));
       final servers = jsonMapList(
-        field(runtime, const ['rtc_ice_servers', 'rtcIceServers']),
+        field(data, const ['ice_servers', 'iceServers']),
       );
       if (servers.isNotEmpty) {
         return servers
@@ -542,6 +541,8 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
             name: 'ic_launcher',
             defType: 'mipmap',
           ),
+          showBadge: false,
+          shouldRequestBatteryOptimizationsOff: false,
         );
         final initialized = await FlutterBackground.initialize(
           androidConfig: backgroundConfig,

@@ -22,6 +22,7 @@ final class NativeIncomingCallService {
       StreamController<NativeIncomingCallAction>.broadcast();
   static final _voipTokens = StreamController<String>.broadcast();
   static final _pendingActions = <NativeIncomingCallAction>[];
+  static final _targetsByCallId = <String, NotificationTarget>{};
   static StreamSubscription<CallEvent?>? _subscription;
   static bool _permissionsRequested = false;
 
@@ -130,6 +131,7 @@ final class NativeIncomingCallService {
         'logo_url': target.organizationLogoUrl,
       if (target.deepLink != null) 'deep_link': target.deepLink,
     };
+    _targetsByCallId[callId] = target;
 
     final params = CallKitParams(
       id: callId,
@@ -140,8 +142,6 @@ final class NativeIncomingCallService {
       handle: isVideo ? 'Cuộc gọi video' : 'Cuộc gọi thoại',
       type: isVideo ? 1 : 0,
       duration: 30000,
-      textAccept: 'Chấp nhận',
-      textDecline: 'Từ chối',
       missedCallNotification: const NotificationParams(
         showNotification: true,
         isShowCallback: false,
@@ -166,6 +166,8 @@ final class NativeIncomingCallService {
         textColor: '#FFFFFF',
         incomingCallNotificationChannelName: 'Cuộc gọi đến',
         missedCallNotificationChannelName: 'Cuộc gọi nhỡ',
+        textAccept: 'Chấp nhận',
+        textDecline: 'Từ chối',
       ),
       ios: IOSParams(
         handleType: 'generic',
@@ -194,6 +196,8 @@ final class NativeIncomingCallService {
       await FlutterCallkitIncoming.endCall(normalizedCallId);
     } on Object {
       // The call may already be gone from native UI.
+    } finally {
+      _targetsByCallId.remove(normalizedCallId);
     }
   }
 
@@ -213,28 +217,51 @@ final class NativeIncomingCallService {
     if (event == null) {
       return;
     }
-    if (event.event == Event.actionDidUpdateDevicePushTokenVoip) {
-      final body = _stringObjectMap(event.body);
-      final token = body['deviceTokenVoIP']?.toString().trim() ?? '';
-      _voipTokens.add(token);
-      return;
-    }
-    final target = _targetFromCallkitBody(event.body);
-    if (target == null || target.callId?.trim().isNotEmpty != true) {
+    if (event is CallEventActionDidUpdateDevicePushTokenVoip) {
+      unawaited(_publishCurrentVoipToken());
       return;
     }
 
-    final actionType = switch (event.event) {
-      Event.actionCallAccept => NativeIncomingCallActionType.accept,
-      Event.actionCallDecline => NativeIncomingCallActionType.decline,
-      Event.actionCallEnded => NativeIncomingCallActionType.ended,
-      Event.actionCallTimeout => NativeIncomingCallActionType.timeout,
-      _ => null,
+    final (actionType, body, fallbackCallId) = switch (event) {
+      CallEventActionCallAccept(callKitParams: final params) => (
+        NativeIncomingCallActionType.accept,
+        params.toJson(),
+        params.id,
+      ),
+      CallEventActionCallDecline(callKitParams: final params) => (
+        NativeIncomingCallActionType.decline,
+        params.toJson(),
+        params.id,
+      ),
+      CallEventActionCallEnded(callKitParams: final params) => (
+        NativeIncomingCallActionType.ended,
+        params.toJson(),
+        params.id,
+      ),
+      CallEventActionCallTimeout(id: final id) => (
+        NativeIncomingCallActionType.timeout,
+        <String, Object?>{'id': id},
+        id,
+      ),
+      _ => (null, null, null),
     };
-    if (actionType == null) {
+    if (actionType == null || fallbackCallId == null) {
       return;
     }
+    final target =
+        _targetsByCallId[fallbackCallId] ?? _targetFromCallkitBody(body);
+    if (target == null || target.callId?.trim().isNotEmpty != true) {
+      return;
+    }
+    if (actionType != NativeIncomingCallActionType.accept) {
+      _targetsByCallId.remove(fallbackCallId);
+    }
     _emit(NativeIncomingCallAction(type: actionType, target: target));
+  }
+
+  static Future<void> _publishCurrentVoipToken() async {
+    final token = await readVoipPushToken();
+    _voipTokens.add(token ?? '');
   }
 
   static void _emit(NativeIncomingCallAction action) {

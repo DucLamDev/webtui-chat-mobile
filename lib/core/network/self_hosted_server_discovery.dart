@@ -8,6 +8,7 @@ final class SelfHostedServerDiscovery {
     required this.wsBaseUri,
     required this.registrationMode,
     required this.appVersion,
+    this.capabilities = const SelfHostedCapabilities(),
     this.logoUrl,
   });
 
@@ -45,6 +46,9 @@ final class SelfHostedServerDiscovery {
         'Domain này không phải một server chat self-hosted tương thích.',
       );
     }
+    if (capabilities['chat'] != true) {
+      throw StateError('Server này không bật tính năng WebTui Chat.');
+    }
 
     final isLocal = _isLocalHost(requestedServer.host);
     final apiBaseUri = isLocal
@@ -80,6 +84,16 @@ final class SelfHostedServerDiscovery {
           ? _text(zone['registration_mode']).toLowerCase()
           : 'closed',
       appVersion: _text(runtime['app_version']),
+      capabilities: SelfHostedCapabilities(
+        chat: capabilities['chat'] == true,
+        files: capabilities['files'] == true,
+        calls: capabilities['calls'] == true,
+        bots: capabilities['bots'] == true,
+        automation: capabilities['automation'] == true,
+        webhooks: capabilities['webhooks'] == true,
+        federation: capabilities['federation'] == true,
+        sso: capabilities['sso'] == true,
+      ),
       logoUrl: logoUrl,
     );
   }
@@ -90,9 +104,32 @@ final class SelfHostedServerDiscovery {
   final Uri wsBaseUri;
   final String registrationMode;
   final String appVersion;
+  final SelfHostedCapabilities capabilities;
   final String? logoUrl;
 
   bool get canRegister => registrationMode == 'open';
+}
+
+final class SelfHostedCapabilities {
+  const SelfHostedCapabilities({
+    this.chat = true,
+    this.files = true,
+    this.calls = true,
+    this.bots = true,
+    this.automation = true,
+    this.webhooks = true,
+    this.federation = false,
+    this.sso = false,
+  });
+
+  final bool chat;
+  final bool files;
+  final bool calls;
+  final bool bots;
+  final bool automation;
+  final bool webhooks;
+  final bool federation;
+  final bool sso;
 }
 
 String? _resolveLogoUrl(String value, Uri requestedServer) {

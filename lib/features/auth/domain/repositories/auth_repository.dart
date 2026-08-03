@@ -1,6 +1,7 @@
 import '../../../../core/result/result.dart';
 import '../entities/auth_session.dart';
 import '../entities/device_identity.dart';
+import '../entities/oidc_provider.dart';
 import '../entities/user_session.dart';
 
 abstract interface class AuthRepository {
@@ -21,6 +22,21 @@ abstract interface class AuthRepository {
 
   Future<Result<AuthSession>> loginWithGoogle({
     required String credential,
+    required DeviceIdentity device,
+  });
+
+  Future<Result<List<OidcProvider>>> listOidcProviders(String domain);
+
+  Future<Result<Uri>> startOidc({
+    required String domain,
+    required String providerId,
+    required String returnTo,
+    required DeviceIdentity device,
+  });
+
+  Future<Result<AuthSession>> completeOidc({
+    required String code,
+    required String domain,
     required DeviceIdentity device,
   });
 

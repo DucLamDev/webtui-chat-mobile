@@ -35,19 +35,22 @@ class WebTuiLoadingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 92,
-      child: Center(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox.square(
-              dimension: 18,
-              child: CircularProgressIndicator(strokeWidth: 2.2),
-            ),
-            const SizedBox(width: WebTuiSpacing.md),
-            Flexible(
-              child: Text(
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      label: message,
+      child: SizedBox(
+        height: 92,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WebTuiSpacing.lg,
+            vertical: WebTuiSpacing.md,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
                 message,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -55,9 +58,33 @@ class WebTuiLoadingState extends StatelessWidget {
                   color: WebTuiColors.textMuted,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: WebTuiSpacing.sm),
+              const _SkeletonLine(widthFactor: 0.72),
+              const SizedBox(height: WebTuiSpacing.xs),
+              const _SkeletonLine(widthFactor: 0.46),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _SkeletonLine extends StatelessWidget {
+  const _SkeletonLine({required this.widthFactor});
+
+  final double widthFactor;
+
+  @override
+  Widget build(BuildContext context) {
+    return FractionallySizedBox(
+      widthFactor: widthFactor,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: WebTuiColors.border.withValues(alpha: 0.62),
+          borderRadius: BorderRadius.circular(WebTuiRadii.lg),
+        ),
+        child: const SizedBox(height: 10),
       ),
     );
   }

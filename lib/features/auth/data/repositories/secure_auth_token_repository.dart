@@ -1,4 +1,5 @@
 import '../../../../core/security/secure_key_value_store.dart';
+import '../../../../core/security/server_account_registry.dart';
 import '../../domain/entities/auth_tokens.dart';
 import '../../domain/repositories/auth_token_repository.dart';
 
@@ -22,11 +23,15 @@ final class SecureAuthTokenRepository implements AuthTokenRepository {
     await _store.write(SecureStoreKey.accessToken, tokens.accessToken);
     if (tokens.refreshToken.trim().isNotEmpty) {
       await _store.write(SecureStoreKey.refreshToken, tokens.refreshToken);
+    } else {
+      await _store.delete(SecureStoreKey.refreshToken);
     }
+    await SecureServerAccountRegistry(_store).stashActiveSession();
   }
 
   @override
   Future<void> clearTokens() async {
+    await SecureServerAccountRegistry(_store).clearActiveSession();
     await Future.wait([
       _store.delete(SecureStoreKey.accessToken),
       _store.delete(SecureStoreKey.refreshToken),

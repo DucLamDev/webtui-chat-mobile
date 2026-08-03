@@ -23,7 +23,7 @@ Phase M4 triển khai feature-first Clean Architecture cho màn Tin nhắn, Danh
 - `GET /api/v1/contacts`
 - `GET /api/v1/workspaces/{workspace_id}/members`
 
-## Blocker/TODO
+## Ghi chú tích hợp
 
-- Backend hiện có `GET /api/v1/workspaces/{workspace_id}/files` theo workspace, chưa có filter media/file theo từng `channel_id`; tab Media/Tệp không dùng mock production và chỉ hiển thị empty/API-backed workspace files.
-- Search conversation/user/channel đang lọc trên dữ liệu API đã tải. Khi backend có endpoint search conversation/channel riêng, chuyển controller sang use case search server-side.
+- Media/tệp theo kênh dùng API thật `GET /api/v1/workspaces/{workspace_id}/channels/{channel_id}/media` và các attachment endpoint theo channel/message.
+- Tìm kiếm nhanh trong danh sách hiện tại chạy trên dữ liệu API đã tải; tìm kiếm nội dung đầy đủ dùng endpoint search phía server.

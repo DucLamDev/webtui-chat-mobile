@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,18 +10,58 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../controllers/login_controller.dart';
+import '../google_sign_in_visibility.dart';
 
-class LoginScreen extends ConsumerWidget {
+const _privacyPolicyUrl = String.fromEnvironment('WEBTUI_PRIVACY_POLICY_URL');
+const _googleOAuthClientId = String.fromEnvironment('GOOGLE_OAUTH_CLIENT_ID');
+const _googleOAuthServerClientId = String.fromEnvironment(
+  'GOOGLE_OAUTH_SERVER_CLIENT_ID',
+);
+
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({this.onLoginSuccess, super.key});
 
   final VoidCallback? onLoginSuccess;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends ConsumerState<LoginScreen> {
+  StreamSubscription<Uri>? _deepLinkSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.microtask(() async {
+      if (!mounted) {
+        return;
+      }
+      final service = ref.read(nativeDeepLinkServiceProvider);
+      _deepLinkSubscription = service.urls.listen(_handleDeepLink);
+      final initialUri = await service.getInitialUri();
+      if (initialUri != null && mounted) {
+        await _handleDeepLink(initialUri);
+      }
+    });
+  }
+
+  Future<void> _handleDeepLink(Uri uri) {
+    return ref.read(loginControllerProvider.notifier).handleDeepLink(uri);
+  }
+
+  @override
+  void dispose() {
+    _deepLinkSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     ref.listen<LoginState>(loginControllerProvider, (previous, next) {
       if (next.succeeded && previous?.succeeded != true) {
         ref.invalidate(authAccessTokenProvider);
-        onLoginSuccess?.call();
+        widget.onLoginSuccess?.call();
       }
     });
 
@@ -59,13 +101,32 @@ class LoginScreen extends ConsumerWidget {
                     ? _ServerContent(state: state, controller: controller)
                     : state.isLogin
                     ? _LoginContent(state: state, controller: controller)
-                    : _RegisterContent(state: state, controller: controller),
+                    : _RegisterContent(
+                        state: state,
+                        controller: controller,
+                        onOpenPrivacy: _privacyPolicyUrl.isEmpty
+                            ? null
+                            : () => _openPrivacyPolicy(context),
+                      ),
               ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _openPrivacyPolicy(BuildContext context) async {
+    final opened = await ref
+        .read(externalUrlLauncherProvider)
+        .open(_privacyPolicyUrl);
+    if (context.mounted && !opened) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không mở được chính sách quyền riêng tư.'),
+        ),
+      );
+    }
   }
 }
 
@@ -109,6 +170,26 @@ class _ServerContent extends StatelessWidget {
             color: WebTuiColors.textMuted,
           ),
         ),
+        if (state.recentServers.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          const _DividerLabel('Máy chủ gần đây'),
+          const SizedBox(height: 12),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final server in state.recentServers)
+                ActionChip(
+                  avatar: const Icon(Icons.dns_rounded, size: 18),
+                  label: Text(server.name),
+                  onPressed: state.isLoading
+                      ? null
+                      : () => controller.selectRecentServer(server),
+                ),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -156,6 +237,13 @@ class _LoginContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final showGoogleSignIn = canShowGoogleSignIn(
+      targetPlatform: defaultTargetPlatform,
+      clientId: _googleOAuthClientId,
+      serverClientId: _googleOAuthServerClientId,
+    );
+    final hasAlternativeSignIn =
+        showGoogleSignIn || state.oidcProviders.isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -232,30 +320,76 @@ class _LoginContent extends StatelessWidget {
             ),
             const Spacer(),
             TextButton(
-              onPressed: state.isLoading ? null : () {},
+              key: const Key('forgot_password_button'),
+              onPressed: state.isLoading
+                  ? null
+                  : () => _showPasswordRecoveryGuidance(context, state),
               child: const Text('Quên mật khẩu?'),
             ),
           ],
         ),
-        const SizedBox(height: 24),
-        const _DividerLabel('Hoặc tiếp tục với'),
-        const SizedBox(height: 18),
-        _SocialButton(
-          label: 'Đăng nhập bằng Google',
-          icon: const _GoogleLogo(),
-          loading: state.isGoogleLoading,
-          onPressed: state.isLoading ? null : controller.loginWithGoogle,
-        ),
+        if (hasAlternativeSignIn) ...[
+          const SizedBox(height: 24),
+          const _DividerLabel('Hoặc tiếp tục với'),
+          const SizedBox(height: 18),
+        ],
+        if (showGoogleSignIn)
+          _SocialButton(
+            label: 'Đăng nhập bằng Google',
+            icon: const _GoogleLogo(),
+            loading: state.isGoogleLoading,
+            onPressed: state.isLoading ? null : controller.loginWithGoogle,
+          ),
+        for (final provider in state.oidcProviders) ...[
+          if (showGoogleSignIn || provider != state.oidcProviders.first)
+            const SizedBox(height: 12),
+          _SocialButton(
+            label: 'Đăng nhập bằng ${provider.name}',
+            icon: const Icon(Icons.corporate_fare_rounded, size: 21),
+            loading: state.loadingOidcProviderId == provider.id,
+            onPressed: state.isLoading
+                ? null
+                : () => controller.loginWithOidc(provider),
+          ),
+        ],
       ],
     );
   }
 }
 
+Future<void> _showPasswordRecoveryGuidance(
+  BuildContext context,
+  LoginState state,
+) {
+  return showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Khôi phục mật khẩu'),
+      content: Text(
+        'Tài khoản được quản lý bởi máy chủ ${state.serverName ?? state.domain}. '
+        'Hãy liên hệ quản trị viên của tổ chức để đặt lại mật khẩu. Nếu tổ chức '
+        'dùng SSO/OIDC, bạn có thể quay lại và chọn nhà cung cấp đăng nhập tương ứng.',
+      ),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text('Đã hiểu'),
+        ),
+      ],
+    ),
+  );
+}
+
 class _RegisterContent extends StatelessWidget {
-  const _RegisterContent({required this.state, required this.controller});
+  const _RegisterContent({
+    required this.state,
+    required this.controller,
+    required this.onOpenPrivacy,
+  });
 
   final LoginState state;
   final LoginController controller;
+  final VoidCallback? onOpenPrivacy;
 
   @override
   Widget build(BuildContext context) {
@@ -378,20 +512,21 @@ class _RegisterContent extends StatelessWidget {
           onSubmitted: (_) => controller.submit(),
         ),
         const SizedBox(height: 18),
-        Text.rich(
-          TextSpan(
-            text: 'Khi đăng ký, bạn đồng ý với ',
-            children: [
-              TextSpan(text: 'Điều khoản sử dụng', style: _linkStyle),
-              const TextSpan(text: ' và '),
-              TextSpan(text: 'Chính sách bảo mật', style: _linkStyle),
-              TextSpan(text: ' của ${state.serverName ?? 'tổ chức'}.'),
-            ],
-          ),
+        Text(
+          'Khi đăng ký, bạn đồng ý với điều khoản và chính sách quyền riêng tư của ${state.serverName ?? 'tổ chức'}.',
           textAlign: TextAlign.center,
           style: WebTuiTypography.bodySmall.copyWith(
             color: WebTuiColors.textMuted,
             height: 1.45,
+          ),
+        ),
+        TextButton.icon(
+          onPressed: onOpenPrivacy,
+          icon: const Icon(Icons.open_in_new_rounded, size: 16),
+          label: Text(
+            onOpenPrivacy == null
+                ? 'Chính sách chưa được cấu hình'
+                : 'Xem chính sách quyền riêng tư',
           ),
         ),
       ],
@@ -1126,8 +1261,3 @@ class _ModeSwitch extends StatelessWidget {
     );
   }
 }
-
-final _linkStyle = WebTuiTypography.bodySmall.copyWith(
-  color: WebTuiColors.primary,
-  fontWeight: FontWeight.w800,
-);

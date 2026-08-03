@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/privacy/background_privacy.dart';
 import '../design_system/components/webtui_avatar.dart';
 import '../design_system/theme/webtui_theme.dart';
+import '../features/auth/presentation/widgets/app_lock_gate.dart';
 import '../features/settings/presentation/widgets/mobile_update_gate.dart';
 import 'flavor/app_config.dart';
 import 'providers/foundation_providers.dart';
@@ -52,7 +53,10 @@ class WebTuiChatApp extends ConsumerWidget {
             child: PrivacyGuard(
               organizationName: activeDiscovery?.name ?? 'Ứng dụng chat',
               organizationLogoUrl: activeDiscovery?.logoUrl,
-              child: scaledChild,
+              child: AppLockGate(
+                protectSession: accessToken?.isNotEmpty == true,
+                child: scaledChild,
+              ),
             ),
           ),
         );

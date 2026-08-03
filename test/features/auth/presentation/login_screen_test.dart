@@ -15,6 +15,7 @@ import 'package:webtui_chat/features/auth/domain/entities/auth_session.dart';
 import 'package:webtui_chat/features/auth/domain/entities/auth_tokens.dart';
 import 'package:webtui_chat/features/auth/domain/entities/auth_user.dart';
 import 'package:webtui_chat/features/auth/domain/entities/device_identity.dart';
+import 'package:webtui_chat/features/auth/domain/entities/oidc_provider.dart';
 import 'package:webtui_chat/features/auth/domain/entities/user_session.dart';
 import 'package:webtui_chat/features/auth/domain/repositories/auth_repository.dart';
 import 'package:webtui_chat/features/auth/domain/repositories/auth_token_repository.dart';
@@ -123,6 +124,22 @@ void main() {
     expect(find.byKey(const Key('server_domain_field')), findsNothing);
     expect(find.byKey(const Key('login_identifier_field')), findsOneWidget);
     expect(find.textContaining('Company Chat'), findsOneWidget);
+  });
+
+  testWidgets('password recovery explains the self-hosted admin flow', (
+    tester,
+  ) async {
+    await _pumpLogin(tester, authRepository: const _WidgetAuthRepository());
+    await _connectServer(tester);
+
+    final recoveryButton = find.byKey(const Key('forgot_password_button'));
+    await tester.ensureVisible(recoveryButton);
+    await tester.pumpAndSettle();
+    await tester.tap(recoveryButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Khôi phục mật khẩu'), findsOneWidget);
+    expect(find.textContaining('liên hệ quản trị viên'), findsOneWidget);
   });
 }
 
@@ -248,6 +265,30 @@ final class _WidgetAuthRepository implements AuthRepository {
     required DeviceIdentity device,
   }) {
     return loginHandler?.call() ?? Future.value(Success(_session()));
+  }
+
+  @override
+  Future<Result<List<OidcProvider>>> listOidcProviders(String domain) async {
+    return const Success([]);
+  }
+
+  @override
+  Future<Result<Uri>> startOidc({
+    required String domain,
+    required String providerId,
+    required String returnTo,
+    required DeviceIdentity device,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Result<AuthSession>> completeOidc({
+    required String code,
+    required String domain,
+    required DeviceIdentity device,
+  }) {
+    throw UnimplementedError();
   }
 
   @override

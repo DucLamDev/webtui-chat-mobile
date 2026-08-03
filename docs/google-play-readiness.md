@@ -47,11 +47,25 @@ Data safety declaration must match actual app behavior:
 
 Current Android manifest uses:
 
-- `INTERNET`: backend API, WebSocket, file transfer, push.
-- `CAMERA`: avatar and chat image capture.
+- `INTERNET`/network state: backend API, WebSocket, WebRTC, file transfer, push.
+- `CAMERA`: avatar/chat capture and user-started video calls.
+- `RECORD_AUDIO`/audio routing/Bluetooth: voice messages and calls.
 - `POST_NOTIFICATIONS`: Android 13+ push notification permission.
+- `FOREGROUND_SERVICE_MEDIA_PROJECTION`: only while the user shares a screen.
+- `FOREGROUND_SERVICE_PHONE_CALL`, `FOREGROUND_SERVICE_MICROPHONE`,
+  `FOREGROUND_SERVICE_CAMERA`, `MANAGE_OWN_CALLS`, and
+  `USE_FULL_SCREEN_INTENT`: user-visible incoming audio/video calls supplied by
+  the call plugin.
 
-Do not declare microphone/background/call permissions until voice/video call UX is fully wired and policy rationale is ready.
+The app deliberately removes plugin-contributed `READ_MEDIA_*`,
+`READ_EXTERNAL_STORAGE`, and `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` permissions.
+Camera, front camera, microphone, and Bluetooth are declared as optional
+hardware features so Play does not filter text-chat-capable tablets,
+Chromebooks, or other devices that cannot place every kind of call.
+Complete the Play Console foreground-service and full-screen-intent declarations
+with reviewer videos before production.
+
+See `store-release-readiness.md` for the cross-store blocking checklist.
 
 ## Test Tracks
 

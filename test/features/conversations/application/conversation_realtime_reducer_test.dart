@@ -178,25 +178,18 @@ void main() {
     final base = defaultConversationRealtimeWsUri(
       Uri.parse('https://chat.vpsttt.com'),
     );
-    final uri = conversationRealtimeWebSocketUri(base, 'access-token');
+    final uri = conversationRealtimeWebSocketUri(base);
 
     expect(base.toString(), 'wss://chat.vpsttt.com/ws');
-    expect(
-      uri.toString(),
-      'wss://chat.vpsttt.com/ws?access_token=access-token',
-    );
+    expect(uri.toString(), 'wss://chat.vpsttt.com/ws');
   });
 
   test('preserves configured websocket endpoint query params', () {
     final uri = conversationRealtimeWebSocketUri(
       Uri.parse('wss://example.com/custom/ws?workspace_id=w1'),
-      'access-token',
     );
 
-    expect(
-      uri.toString(),
-      'wss://example.com/custom/ws?workspace_id=w1&access_token=access-token',
-    );
+    expect(uri.toString(), 'wss://example.com/custom/ws?workspace_id=w1');
   });
 }
 

@@ -407,6 +407,8 @@ final class ConversationRemoteDataSource {
     required String title,
     required DateTime startsAt,
     DateTime? endsAt,
+    DateTime? lobbyOpensAt,
+    DateTime? cleanupAfter,
     String description = '',
     String roomPolicy = 'keep',
   }) async {
@@ -417,7 +419,9 @@ final class ConversationRemoteDataSource {
         'description': description,
         'starts_at': startsAt.toUtc().toIso8601String(),
         'ends_at': endsAt?.toUtc().toIso8601String(),
+        'lobby_opens_at': lobbyOpensAt?.toUtc().toIso8601String(),
         'room_policy': roomPolicy,
+        'cleanup_after': cleanupAfter?.toUtc().toIso8601String(),
       }),
     );
     return _channelMeetingFromMap(envelopeItem(response.data, 'meeting'));

@@ -12,7 +12,8 @@ enum SecureStoreKey {
   instanceAppVersion('instance_app_version'),
   activeWorkspaceId('active_workspace_id'),
   appLockEnabled('app_lock_enabled'),
-  appLockPinHash('app_lock_pin_hash');
+  appLockPinHash('app_lock_pin_hash'),
+  serverAccounts('server_accounts_v1');
 
   const SecureStoreKey(this.value);
 

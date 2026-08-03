@@ -38,12 +38,29 @@ val releaseStoreFile = signingValue("storeFile", "ANDROID_KEYSTORE_PATH")
 val releaseStorePassword = signingValue("storePassword", "ANDROID_KEYSTORE_PASSWORD")
 val releaseKeyAlias = signingValue("keyAlias", "ANDROID_KEY_ALIAS")
 val releaseKeyPassword = signingValue("keyPassword", "ANDROID_KEY_PASSWORD")
-val hasReleaseSigning = listOf(
+val releaseSigningValues = listOf(
     releaseStoreFile,
     releaseStorePassword,
     releaseKeyAlias,
     releaseKeyPassword,
-).all { !it.isNullOrEmpty() }
+)
+val releaseStoreFileOnDisk = releaseStoreFile?.let(rootProject::file)
+val hasReleaseSigning = releaseSigningValues.all { !it.isNullOrEmpty() } &&
+    releaseStoreFileOnDisk?.isFile == true
+val allowUnsignedRelease = providers.gradleProperty("WEBTUI_ALLOW_UNSIGNED_RELEASE")
+    .orNull
+    ?.toBooleanStrictOrNull() == true
+val requestedReleaseTask = gradle.startParameter.taskNames.any {
+    it.contains("release", ignoreCase = true)
+}
+
+if (requestedReleaseTask && !hasReleaseSigning && !allowUnsignedRelease) {
+    throw GradleException(
+        "Release signing is incomplete or the configured keystore does not exist. " +
+            "Provide the protected signing values. For compile-only local validation, " +
+            "explicitly set WEBTUI_ALLOW_UNSIGNED_RELEASE=true; never upload that artifact.",
+    )
+}
 
 android {
     namespace = "com.vpsttt.webtui_chat"
@@ -74,7 +91,9 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         manifestPlaceholders["webtuiAppLinkHost"] =
-            project.findProperty("WEBTUI_APP_LINK_HOST")?.toString() ?: "chat.webtui.local"
+            project.findProperty("WEBTUI_APP_LINK_HOST")?.toString()
+                ?: System.getenv("WEBTUI_APP_LINK_HOST")?.trim()?.takeIf { it.isNotEmpty() }
+                ?: "chat.vpsttt.com"
     }
 
     flavorDimensions += "environment"
@@ -82,7 +101,7 @@ android {
     signingConfigs {
         create("release") {
             if (hasReleaseSigning) {
-                storeFile = rootProject.file(releaseStoreFile!!)
+                storeFile = releaseStoreFileOnDisk!!
                 storePassword = releaseStorePassword
                 keyAlias = releaseKeyAlias
                 keyPassword = releaseKeyPassword
@@ -94,16 +113,16 @@ android {
         create("dev") {
             dimension = "environment"
             applicationIdSuffix = ".dev"
-            resValue("string", "app_name", "Webtui Chat")
+            resValue("string", "app_name", "WebTui Chat Dev")
         }
         create("staging") {
             dimension = "environment"
             applicationIdSuffix = ".staging"
-            resValue("string", "app_name", "Webtui Chat")
+            resValue("string", "app_name", "WebTui Chat Staging")
         }
         create("prod") {
             dimension = "environment"
-            resValue("string", "app_name", "Webtui Chat")
+            resValue("string", "app_name", "WebTui Chat")
         }
     }
 
@@ -111,6 +130,7 @@ android {
         release {
             isMinifyEnabled = false
             isShrinkResources = false
+            ndk.debugSymbolLevel = "SYMBOL_TABLE"
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("release")
             }

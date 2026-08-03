@@ -136,6 +136,11 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
     final provider = chatRoomControllerProvider(scope);
     final state = ref.watch(provider);
     final controller = ref.read(provider.notifier);
+    final serverCapabilities = ref.watch(
+      activeServerDiscoveryProvider.select((value) => value?.capabilities),
+    );
+    final callsEnabled = serverCapabilities?.calls ?? false;
+    final filesEnabled = serverCapabilities?.files ?? false;
     _chatController = controller;
     final initialMessageId = widget.initialMessageId?.trim();
     if (initialMessageId != null &&
@@ -175,7 +180,12 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         draftFocusNode: _draftFocusNode,
         onDraftChanged: controller.updateDraft,
         onThreadDraftChanged: controller.updateThreadDraft,
-        onPickAttachment: controller.pickAttachment,
+        onPickAttachment: filesEnabled
+            ? controller.pickAttachment
+            : (_) => _showCapabilityUnavailable(
+                context,
+                'Máy chủ này không bật tính năng tệp đính kèm.',
+              ),
         onStartVoiceRecording: () =>
             unawaited(controller.startVoiceRecording()),
         onStopVoiceRecording: () => unawaited(controller.stopVoiceRecording()),
@@ -209,14 +219,19 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         onClearThread: controller.clearThread,
         onFocusMessage: controller.focusMessage,
         onCancelComposerContext: controller.cancelComposerContext,
-        onRetryAudioCall: () => unawaited(
-          _startCallFromCurrentConversation(
-            context,
-            controller,
-            state,
-            CallMode.audio,
-          ),
-        ),
+        onRetryAudioCall: callsEnabled
+            ? () => unawaited(
+                _startCallFromCurrentConversation(
+                  context,
+                  controller,
+                  state,
+                  CallMode.audio,
+                ),
+              )
+            : () => _showCapabilityUnavailable(
+                context,
+                'Máy chủ này không bật cuộc gọi.',
+              ),
       ),
     );
 
@@ -262,30 +277,32 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
                 _openSearch(context, controller, state.searchQuery),
             icon: const Icon(CupertinoIcons.search, size: 21),
           ),
-          IconButton(
-            tooltip: 'Gọi thoại',
-            onPressed: () => unawaited(
-              _startCallFromCurrentConversation(
-                context,
-                controller,
-                state,
-                CallMode.audio,
+          if (callsEnabled) ...[
+            IconButton(
+              tooltip: 'Gọi thoại',
+              onPressed: () => unawaited(
+                _startCallFromCurrentConversation(
+                  context,
+                  controller,
+                  state,
+                  CallMode.audio,
+                ),
               ),
+              icon: const Icon(CupertinoIcons.phone, size: 21),
             ),
-            icon: const Icon(CupertinoIcons.phone, size: 21),
-          ),
-          IconButton(
-            tooltip: 'Gọi video',
-            onPressed: () => unawaited(
-              _startCallFromCurrentConversation(
-                context,
-                controller,
-                state,
-                CallMode.video,
+            IconButton(
+              tooltip: 'Gọi video',
+              onPressed: () => unawaited(
+                _startCallFromCurrentConversation(
+                  context,
+                  controller,
+                  state,
+                  CallMode.video,
+                ),
               ),
+              icon: const Icon(CupertinoIcons.video_camera, size: 22),
             ),
-            icon: const Icon(CupertinoIcons.video_camera, size: 22),
-          ),
+          ],
           IconButton(
             tooltip: 'Không gian cộng tác',
             onPressed: () => showCollaborationRoomSheet(
@@ -315,6 +332,12 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         queryParameters: {'title': widget.title},
       ).toString(),
     );
+  }
+
+  void _showCapabilityUnavailable(BuildContext context, String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _replyPrivately(

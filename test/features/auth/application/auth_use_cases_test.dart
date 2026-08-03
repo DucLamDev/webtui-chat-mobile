@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/core/database/app_database.dart';
 import 'package:webtui_chat/core/error/failure.dart';
 import 'package:webtui_chat/core/result/result.dart';
 import 'package:webtui_chat/core/security/secure_key_value_store.dart';
+import 'package:webtui_chat/core/security/server_account_registry.dart';
 import 'package:webtui_chat/features/auth/application/use_cases/google_login_use_case.dart';
 import 'package:webtui_chat/features/auth/application/use_cases/login_use_case.dart';
 import 'package:webtui_chat/features/auth/application/use_cases/logout_use_case.dart';
@@ -16,6 +18,7 @@ import 'package:webtui_chat/features/auth/domain/entities/auth_session.dart';
 import 'package:webtui_chat/features/auth/domain/entities/auth_tokens.dart';
 import 'package:webtui_chat/features/auth/domain/entities/auth_user.dart';
 import 'package:webtui_chat/features/auth/domain/entities/device_identity.dart';
+import 'package:webtui_chat/features/auth/domain/entities/oidc_provider.dart';
 import 'package:webtui_chat/features/auth/domain/entities/user_session.dart';
 import 'package:webtui_chat/features/auth/domain/repositories/auth_repository.dart';
 import 'package:webtui_chat/features/auth/domain/repositories/auth_token_repository.dart';
@@ -172,6 +175,15 @@ void main() {
       addTearDown(database.close);
 
       await tokenRepository.saveTokens(_session().tokens);
+      const serverUrl = 'https://chat.example';
+      await secureStore.write(SecureStoreKey.instanceBaseUrl, serverUrl);
+      final accountRegistry = SecureServerAccountRegistry(secureStore);
+      await accountRegistry.rememberServer(
+        baseUrl: Uri.parse(serverUrl),
+        wsBaseUrl: Uri.parse('wss://chat.example'),
+        name: 'Chat example',
+      );
+      await accountRegistry.stashActiveSession();
       await secureStore.write(SecureStoreKey.activeWorkspaceId, 'workspace-1');
       await database.putKeyValue(
         scope: 'workspace:workspace-1',
@@ -190,6 +202,7 @@ void main() {
         sessionStateRepository: LocalSessionStateRepository(
           secureStore: secureStore,
           database: database,
+          serverAccountRegistry: accountRegistry,
         ),
       );
 
@@ -199,6 +212,17 @@ void main() {
       expect(await tokenRepository.readAccessToken(), isNull);
       expect(await tokenRepository.readRefreshToken(), isNull);
       expect(await secureStore.read(SecureStoreKey.activeWorkspaceId), isNull);
+      expect(
+        jsonDecode(
+          (await secureStore.read(SecureStoreKey.serverAccounts))!,
+        ).single,
+        isNot(containsPair('refresh_token', anything)),
+      );
+      expect(
+        await accountRegistry.activate(Uri.parse(serverUrl)),
+        isFalse,
+        reason: 'logout must not allow a cached refresh token to be restored',
+      );
       expect(
         await database.readKeyValue(
           scope: 'workspace:workspace-1',
@@ -292,6 +316,30 @@ final class _FakeAuthRepository implements AuthRepository {
     googleLoginCalls += 1;
     lastGoogleCredential = credential;
     return Success(_session());
+  }
+
+  @override
+  Future<Result<List<OidcProvider>>> listOidcProviders(String domain) async {
+    return const Success([]);
+  }
+
+  @override
+  Future<Result<Uri>> startOidc({
+    required String domain,
+    required String providerId,
+    required String returnTo,
+    required DeviceIdentity device,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Result<AuthSession>> completeOidc({
+    required String code,
+    required String domain,
+    required DeviceIdentity device,
+  }) {
+    throw UnimplementedError();
   }
 
   @override

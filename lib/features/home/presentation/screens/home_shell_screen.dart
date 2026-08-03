@@ -85,15 +85,23 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     if (workspaceId == null) {
       return;
     }
+    if (state == AppLifecycleState.resumed) {
+      _activatePresence(workspaceId);
+      _startIncomingCallPolling(workspaceId);
+      unawaited(_runWorkspaceCatchUp(workspaceId));
+      return;
+    }
+
+    // Push notifications remain the background delivery path. Keeping these
+    // timers alive wastes battery and previously changed an away user back to
+    // online on the next presence heartbeat.
+    _presenceTimer?.cancel();
+    _incomingCallPollTimer?.cancel();
     final presence = switch (state) {
-      AppLifecycleState.resumed => ConversationPresence.online,
       AppLifecycleState.detached => ConversationPresence.offline,
       _ => ConversationPresence.away,
     };
     unawaited(_setPresence(workspaceId, presence));
-    if (state == AppLifecycleState.resumed) {
-      unawaited(_runWorkspaceCatchUp(workspaceId));
-    }
   }
 
   @override
@@ -586,8 +594,12 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           );
           unawaited(_showIncomingCall(target));
         });
+    _startIncomingCallPolling(workspaceId);
+  }
+
+  void _startIncomingCallPolling(String workspaceId) {
     _incomingCallPollTimer?.cancel();
-    _incomingCallPollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+    _incomingCallPollTimer = Timer.periodic(const Duration(seconds: 8), (_) {
       unawaited(_pollIncomingCall(workspaceId));
     });
     unawaited(_pollIncomingCall(workspaceId));

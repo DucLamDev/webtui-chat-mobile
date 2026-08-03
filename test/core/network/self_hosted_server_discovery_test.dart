@@ -42,12 +42,23 @@ void main() {
     expect(discovery.apiBaseUri, Uri.parse('http://localhost:8080'));
     expect(discovery.wsBaseUri, Uri.parse('ws://localhost:8080/ws'));
   });
+
+  test('rejects a compatible instance when chat is disabled', () {
+    expect(
+      () => SelfHostedServerDiscovery.fromApiResponse(
+        payload: _payload(chat: false),
+        requestedServer: Uri.parse('https://chat.company.example'),
+      ),
+      throwsStateError,
+    );
+  });
 }
 
 Map<String, Object?> _payload({
   String domain = 'chat.company.example',
   String apiBaseUrl = 'https://chat.company.example',
   String wsBaseUrl = 'wss://chat.company.example/ws',
+  bool chat = true,
 }) {
   return {
     'data': {
@@ -65,7 +76,7 @@ Map<String, Object?> _payload({
           'api_base_url': apiBaseUrl,
           'ws_base_url': wsBaseUrl,
         },
-        'capabilities': {'self_hosted': true},
+        'capabilities': {'self_hosted': true, 'chat': chat},
         'deployment': {'status': 'ready'},
       },
     },

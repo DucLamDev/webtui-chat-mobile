@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Chat</string>
+    <string name="app_name">WebTui Chat</string>
+    <string name="notification_channel_messages">Tin nhắn</string>
+    <string name="notification_channel_messages_description">Tin nhắn mới và cập nhật cuộc trò chuyện</string>
 </resources>

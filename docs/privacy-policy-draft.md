@@ -6,7 +6,8 @@ This is an operational draft for Play Console readiness. Legal review is require
 
 Webtui Chat processes:
 
-- Account and profile data such as email, username, display name, avatar, and workspace membership.
+- Account and profile data such as email, phone number, username, display name,
+  avatar, and workspace membership.
 - Chat content such as messages, reactions, channels, files, attachments, and notification state.
 - Device and session data such as app-generated device ID, refresh session, FCM token, platform, app version, and release channel.
 - Workspace admin data such as bot, webhook, API token metadata, automation, audit log, and ticket metadata when the user has permission.
@@ -33,8 +34,14 @@ Webtui Chat processes:
 - Users can manage notification preview and preferences in Settings.
 - Users can revoke active sessions.
 - Users can clear workspace cache without deleting drafts or outbox.
-- Account export/delete endpoint remains a backend requirement before broad public release.
+- Users can initiate permanent account deletion from **Quyền riêng tư -> Xóa tài
+  khoản**. The source implements `DELETE /api/v1/users/me` and a public web
+  deletion-request page; production deployment, end-to-end deletion testing,
+  retention wording, and legal review remain required before release.
 
 ## Contact
 
-Support contact and legal entity details must be finalized before Play Console production submission.
+Support contact, public HTTPS policy URL, data controller/legal entity, retention
+periods, subprocessors (including the push relay), deletion/export process, and
+regional rights must be finalized and legally reviewed before either public
+store submission. This draft is not a publishable legal policy.

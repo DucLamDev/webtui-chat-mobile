@@ -1,0 +1,168 @@
+name: Mobile CI and release
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+    tags: ["mobile-v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: dart format --set-exit-if-changed lib test integration_test tool
+      - run: dart run tool/check_architecture.dart
+      - run: dart run tool/check_mobile_release.dart
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build apk --debug --flavor dev -t lib/main_dev.dart
+
+  android-release:
+    if: startsWith(github.ref, 'refs/tags/mobile-v')
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      ANDROID_KEYSTORE_PATH: app/release.jks
+      FIREBASE_API_KEY: ${{ vars.MOBILE_FIREBASE_API_KEY }}
+      FIREBASE_MESSAGING_SENDER_ID: ${{ vars.MOBILE_FIREBASE_MESSAGING_SENDER_ID }}
+      FIREBASE_PROJECT_ID: ${{ vars.MOBILE_FIREBASE_PROJECT_ID }}
+      FIREBASE_ANDROID_APP_ID: ${{ vars.MOBILE_FIREBASE_ANDROID_APP_ID }}
+      FIREBASE_IOS_APP_ID: ${{ vars.MOBILE_FIREBASE_IOS_APP_ID }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ vars.MOBILE_GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_SERVER_CLIENT_ID: ${{ vars.MOBILE_GOOGLE_OAUTH_SERVER_CLIENT_ID }}
+      WEBTUI_APP_LINK_HOST: ${{ vars.MOBILE_APP_LINK_HOST }}
+      WEBTUI_PRIVACY_POLICY_URL: ${{ vars.MOBILE_PRIVACY_POLICY_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Require signing credentials
+        run: test -n "$ANDROID_KEYSTORE_BASE64" && test -n "$ANDROID_KEYSTORE_PASSWORD" && test -n "$ANDROID_KEY_ALIAS" && test -n "$ANDROID_KEY_PASSWORD"
+      - name: Require production runtime configuration
+        run: |
+          test -n "$FIREBASE_API_KEY"
+          test -n "$FIREBASE_MESSAGING_SENDER_ID"
+          test -n "$FIREBASE_PROJECT_ID"
+          test -n "$FIREBASE_ANDROID_APP_ID"
+          test -n "$WEBTUI_APP_LINK_HOST"
+          test -n "$WEBTUI_PRIVACY_POLICY_URL"
+          [[ "$WEBTUI_PRIVACY_POLICY_URL" == https://* ]]
+      - name: Restore Android signing key
+        run: printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/release.jks
+      - run: flutter pub get
+      - name: Build signed Android releases
+        env:
+          RELEASE_VERSION: ${{ github.ref_name }}
+        run: |
+          VERSION="${RELEASE_VERSION#mobile-v}"
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          BUILD_NUMBER="$GITHUB_RUN_NUMBER"
+          mkdir -p release
+          DEFINES=(
+            --dart-define="WEBTUI_APP_VERSION=$VERSION"
+            --dart-define=WEBTUI_RELEASE_CHANNEL=stable
+            --dart-define=WEBTUI_RELEASE_SERVICE_URL=https://download.vpsttt.com
+            --dart-define="WEBTUI_PRIVACY_POLICY_URL=$WEBTUI_PRIVACY_POLICY_URL"
+            --dart-define="FIREBASE_API_KEY=$FIREBASE_API_KEY"
+            --dart-define="FIREBASE_MESSAGING_SENDER_ID=$FIREBASE_MESSAGING_SENDER_ID"
+            --dart-define="FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID"
+            --dart-define="FIREBASE_ANDROID_APP_ID=$FIREBASE_ANDROID_APP_ID"
+            --dart-define="FIREBASE_IOS_APP_ID=$FIREBASE_IOS_APP_ID"
+            --dart-define="GOOGLE_OAUTH_CLIENT_ID=$GOOGLE_OAUTH_CLIENT_ID"
+            --dart-define="GOOGLE_OAUTH_SERVER_CLIENT_ID=$GOOGLE_OAUTH_SERVER_CLIENT_ID"
+          )
+          flutter build appbundle --release --flavor prod -t lib/main_prod.dart --build-name "$VERSION" --build-number "$BUILD_NUMBER" "${DEFINES[@]}"
+          flutter build apk --release --flavor prod -t lib/main_prod.dart --build-name "$VERSION" --build-number "$BUILD_NUMBER" "${DEFINES[@]}"
+          cp build/app/outputs/flutter-apk/app-prod-release.apk release/app-prod-release.apk
+          cp build/app/outputs/bundle/prodRelease/app-prod-release.aab release/app-prod-release.aab
+          if [ -f build/app/outputs/native-debug-symbols/prodRelease/native-debug-symbols.zip ]; then
+            cp build/app/outputs/native-debug-symbols/prodRelease/native-debug-symbols.zip release/native-debug-symbols.zip
+          fi
+          ZIPALIGN="$(find "$ANDROID_HOME/build-tools" -type f -name zipalign | sort -V | tail -1)"
+          test -x "$ZIPALIGN"
+          "$ZIPALIGN" -c -P 16 -v 4 release/app-prod-release.apk
+          sha256sum release/app-prod-release.apk > release/app-prod-release.apk.sha256
+          sha256sum release/app-prod-release.aab > release/app-prod-release.aab.sha256
+          CHECKSUM="$(cut -d ' ' -f 1 release/app-prod-release.apk.sha256)"
+          jq -n --arg version "$VERSION" --argjson build_number "$BUILD_NUMBER" --arg checksum_sha256 "$CHECKSUM" --arg download_url "https://download.vpsttt.com/downloads/files/android/stable/app-prod-release.apk" '{platform:"android",channel:"stable",version:$version,build_number:$build_number,minimum_version:$version,recommended_version:$version,download_url:$download_url,checksum_sha256:$checksum_sha256,required:false}' > release/mobile-release-manifest.json
+          cp release/mobile-release-manifest.json release/latest.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-production-${{ github.ref_name }}
+          path: release/*
+          if-no-files-found: error
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+
+  ios-archive-check:
+    if: startsWith(github.ref, 'refs/tags/mobile-v')
+    needs: verify
+    runs-on: macos-latest
+    env:
+      FIREBASE_API_KEY: ${{ vars.MOBILE_FIREBASE_API_KEY }}
+      FIREBASE_MESSAGING_SENDER_ID: ${{ vars.MOBILE_FIREBASE_MESSAGING_SENDER_ID }}
+      FIREBASE_PROJECT_ID: ${{ vars.MOBILE_FIREBASE_PROJECT_ID }}
+      FIREBASE_ANDROID_APP_ID: ${{ vars.MOBILE_FIREBASE_ANDROID_APP_ID }}
+      FIREBASE_IOS_APP_ID: ${{ vars.MOBILE_FIREBASE_IOS_APP_ID }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ vars.MOBILE_GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_SERVER_CLIENT_ID: ${{ vars.MOBILE_GOOGLE_OAUTH_SERVER_CLIENT_ID }}
+      WEBTUI_PRIVACY_POLICY_URL: ${{ vars.MOBILE_PRIVACY_POLICY_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Require Xcode with iPhoneOS 26 SDK
+        run: |
+          xcodebuild -version
+          SDK_VERSION="$(xcrun --sdk iphoneos --show-sdk-version)"
+          echo "iPhoneOS SDK: $SDK_VERSION"
+          grep -Eq '^26\.' <<<"$SDK_VERSION"
+      - run: flutter pub get
+      - name: Require production runtime configuration
+        run: |
+          test -n "$FIREBASE_API_KEY"
+          test -n "$FIREBASE_MESSAGING_SENDER_ID"
+          test -n "$FIREBASE_PROJECT_ID"
+          test -n "$FIREBASE_IOS_APP_ID"
+          test -n "$WEBTUI_PRIVACY_POLICY_URL"
+          [[ "$WEBTUI_PRIVACY_POLICY_URL" == https://* ]]
+      - name: Build unsigned production iOS app
+        env:
+          RELEASE_VERSION: ${{ github.ref_name }}
+        run: |
+          VERSION="${RELEASE_VERSION#mobile-v}"
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          flutter build ios --release --no-codesign -t lib/main_prod.dart \
+            --build-name "$VERSION" \
+            --build-number "$GITHUB_RUN_NUMBER" \
+            --dart-define="WEBTUI_APP_VERSION=$VERSION" \
+            --dart-define=WEBTUI_RELEASE_CHANNEL=stable \
+            --dart-define=WEBTUI_RELEASE_SERVICE_URL=https://download.vpsttt.com \
+            --dart-define="WEBTUI_PRIVACY_POLICY_URL=$WEBTUI_PRIVACY_POLICY_URL" \
+            --dart-define="FIREBASE_API_KEY=$FIREBASE_API_KEY" \
+            --dart-define="FIREBASE_MESSAGING_SENDER_ID=$FIREBASE_MESSAGING_SENDER_ID" \
+            --dart-define="FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID" \
+            --dart-define="FIREBASE_ANDROID_APP_ID=$FIREBASE_ANDROID_APP_ID" \
+            --dart-define="FIREBASE_IOS_APP_ID=$FIREBASE_IOS_APP_ID" \
+            --dart-define="GOOGLE_OAUTH_CLIENT_ID=$GOOGLE_OAUTH_CLIENT_ID" \
+            --dart-define="GOOGLE_OAUTH_SERVER_CLIENT_ID=$GOOGLE_OAUTH_SERVER_CLIENT_ID"
