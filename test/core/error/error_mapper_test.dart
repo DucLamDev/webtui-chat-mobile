@@ -28,4 +28,22 @@ void main() {
     expect(failure.requestId, 'req-1');
     expect(failure.message, 'Bạn không có quyền.');
   });
+
+  test('maps a bare 429 without blaming normal user interaction', () {
+    final options = RequestOptions(path: '/auth/login');
+    final exception = DioException(
+      requestOptions: options,
+      response: Response<Object?>(requestOptions: options, statusCode: 429),
+      type: DioExceptionType.badResponse,
+    );
+
+    final failure = mapDioExceptionToFailure(exception);
+
+    expect(failure.kind, FailureKind.rateLimited);
+    expect(
+      failure.message,
+      'Yêu cầu tạm thời chưa thể xử lý. Vui lòng thử lại sau ít phút.',
+    );
+    expect(failure.message, isNot(contains('thao tác quá nhanh')));
+  });
 }

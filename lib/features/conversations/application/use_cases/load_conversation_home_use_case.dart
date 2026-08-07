@@ -28,20 +28,12 @@ final class LoadConversationHomeUseCase {
       );
     }
 
-    final directsResult = await _conversationRepository.listDirectConversations(
+    final directsFuture = _conversationRepository.listDirectConversations(
       workspaceId: activeWorkspaceId,
     );
-    if (directsResult case FailureResult<List<ConversationSummary>>()) {
-      return FailureResult(directsResult.failure);
-    }
-
-    final channelsResult = await _conversationRepository.listChannels(
+    final channelsFuture = _conversationRepository.listChannels(
       workspaceId: activeWorkspaceId,
     );
-    if (channelsResult case FailureResult<List<ConversationSummary>>()) {
-      return FailureResult(channelsResult.failure);
-    }
-
     final contactsFuture = _conversationRepository.listContacts();
     final membersFuture = _conversationRepository.listWorkspaceMembers(
       workspaceId: activeWorkspaceId,
@@ -49,6 +41,19 @@ final class LoadConversationHomeUseCase {
     final presenceFuture = _conversationRepository.listPresence(
       workspaceId: activeWorkspaceId,
     );
+
+    // All home sections are independent. Fetching them together keeps the
+    // first useful content to a single network round trip on mobile.
+    final directsResult = await directsFuture;
+    if (directsResult case FailureResult<List<ConversationSummary>>()) {
+      return FailureResult(directsResult.failure);
+    }
+
+    final channelsResult = await channelsFuture;
+    if (channelsResult case FailureResult<List<ConversationSummary>>()) {
+      return FailureResult(channelsResult.failure);
+    }
+
     final contactsResult = await contactsFuture;
     final membersResult = await membersFuture;
     final presenceResult = await presenceFuture;

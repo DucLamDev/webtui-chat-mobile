@@ -23,6 +23,7 @@ final class MessageOutboxItem {
     required this.updatedAt,
     this.parentId,
     this.attachments = const [],
+    this.silent = false,
     this.status = MessageOutboxStatus.queued,
     this.attemptCount = 0,
     this.lastError,
@@ -35,6 +36,7 @@ final class MessageOutboxItem {
   final String body;
   final String? parentId;
   final List<MessageOutboxAttachment> attachments;
+  final bool silent;
   final MessageOutboxStatus status;
   final int attemptCount;
   final String? lastError;
@@ -58,6 +60,7 @@ final class MessageOutboxItem {
       body: body,
       parentId: parentId,
       attachments: attachments,
+      silent: silent,
       status: status ?? this.status,
       attemptCount: attemptCount ?? this.attemptCount,
       lastError: lastError ?? this.lastError,

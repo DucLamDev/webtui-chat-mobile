@@ -10,65 +10,88 @@ final class LoadBusinessDashboardUseCase {
 
   Future<BusinessDashboardData> execute({required String workspaceId}) async {
     final errors = <String, String>{};
-    final departments = await _collect<List<DepartmentSummary>>(
+    final departmentsFuture = _collect<List<DepartmentSummary>>(
       key: 'departments',
       errors: errors,
       action: () => _repository.listDepartments(workspaceId: workspaceId),
       fallback: const [],
     );
-    final tickets = await _collect<List<TicketSummary>>(
+    final ticketsFuture = _collect<List<TicketSummary>>(
       key: 'tickets',
       errors: errors,
       action: () => _repository.listTickets(workspaceId: workspaceId),
       fallback: const [],
     );
-    final bots = await _collect<List<BotSummary>>(
+    final botsFuture = _collect<List<BotSummary>>(
       key: 'bots',
       errors: errors,
       action: () => _repository.listBots(workspaceId: workspaceId),
       fallback: const [],
     );
-    final webhooks = await _collect<List<WebhookSummary>>(
+    final webhooksFuture = _collect<List<WebhookSummary>>(
       key: 'webhooks',
       errors: errors,
       action: () => _repository.listWebhooks(workspaceId: workspaceId),
       fallback: const [],
     );
-    final cronJobs = await _collect<List<CronJobSummary>>(
+    final cronJobsFuture = _collect<List<CronJobSummary>>(
       key: 'automation',
       errors: errors,
       action: () => _repository.listCronJobs(workspaceId: workspaceId),
       fallback: const [],
     );
-    final adminStats = await _collect<AdminStatsSummary?>(
+    final adminStatsFuture = _collect<AdminStatsSummary?>(
       key: 'admin',
       errors: errors,
       action: () => _repository.loadAdminStats(workspaceId: workspaceId),
       fallback: null,
     );
-    final adminHealth = await _collect<AdminHealthSummary?>(
+    final adminHealthFuture = _collect<AdminHealthSummary?>(
       key: 'admin_health',
       errors: errors,
       action: () => _repository.loadAdminHealth(workspaceId: workspaceId),
       fallback: null,
     );
-    final apiTokens = await _collect<List<ApiTokenSummary>>(
+    final apiTokensFuture = _collect<List<ApiTokenSummary>>(
       key: 'api_tokens',
       errors: errors,
       action: () => _repository.listApiTokens(workspaceId: workspaceId),
       fallback: const [],
     );
-    final auditLogs = await _collect<List<AuditLogSummary>>(
+    final auditLogsFuture = _collect<List<AuditLogSummary>>(
       key: 'audit',
       errors: errors,
       action: () => _repository.listAuditLogs(workspaceId: workspaceId),
       fallback: const [],
     );
 
+    // These modules are independent. Starting them together removes the long
+    // request waterfall that made the mobile tab appear frozen on first open.
+    final initial = await Future.wait<Object?>([
+      departmentsFuture,
+      ticketsFuture,
+      botsFuture,
+      webhooksFuture,
+      cronJobsFuture,
+      adminStatsFuture,
+      adminHealthFuture,
+      apiTokensFuture,
+      auditLogsFuture,
+    ]);
+    final departments = initial[0]! as List<DepartmentSummary>;
+    final tickets = initial[1]! as List<TicketSummary>;
+    final bots = initial[2]! as List<BotSummary>;
+    final webhooks = initial[3]! as List<WebhookSummary>;
+    final cronJobs = initial[4]! as List<CronJobSummary>;
+    final adminStats = initial[5] as AdminStatsSummary?;
+    final adminHealth = initial[6] as AdminHealthSummary?;
+    final apiTokens = initial[7]! as List<ApiTokenSummary>;
+    final auditLogs = initial[8]! as List<AuditLogSummary>;
+
     BotWorkspaceDetail? botDetail;
     if (bots.isNotEmpty) {
       final selectedBot = bots.first;
-      final aiConfig = await _collect<BotAIConfigSummary?>(
+      final aiConfigFuture = _collect<BotAIConfigSummary?>(
         key: 'bot_ai',
         errors: errors,
         action: () => _repository.getBotAIConfig(
@@ -77,7 +100,7 @@ final class LoadBusinessDashboardUseCase {
         ),
         fallback: null,
       );
-      final flows = await _collect<List<BotFlowSummary>>(
+      final flowsFuture = _collect<List<BotFlowSummary>>(
         key: 'bot_flows',
         errors: errors,
         action: () => _repository.listBotFlows(
@@ -86,7 +109,7 @@ final class LoadBusinessDashboardUseCase {
         ),
         fallback: const [],
       );
-      final installations = await _collect<List<BotInstallationSummary>>(
+      final installationsFuture = _collect<List<BotInstallationSummary>>(
         key: 'bot_installations',
         errors: errors,
         action: () => _repository.listBotInstallations(
@@ -95,11 +118,16 @@ final class LoadBusinessDashboardUseCase {
         ),
         fallback: const [],
       );
+      final botModules = await Future.wait<Object?>([
+        aiConfigFuture,
+        flowsFuture,
+        installationsFuture,
+      ]);
       botDetail = BotWorkspaceDetail(
         bot: selectedBot,
-        aiConfig: aiConfig,
-        flows: flows,
-        installations: installations,
+        aiConfig: botModules[0] as BotAIConfigSummary?,
+        flows: botModules[1]! as List<BotFlowSummary>,
+        installations: botModules[2]! as List<BotInstallationSummary>,
       );
     }
 

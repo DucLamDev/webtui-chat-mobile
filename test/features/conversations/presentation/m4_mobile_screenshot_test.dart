@@ -126,10 +126,6 @@ class _PhoneMessagesPreview extends StatelessWidget {
           icon: Icon(CupertinoIcons.square_pencil),
         ),
       ],
-      floatingActionButton: const FloatingActionButton(
-        onPressed: _noopAction,
-        child: Icon(CupertinoIcons.chat_bubble_2),
-      ),
       body: ListView(
         padding: const EdgeInsets.only(bottom: WebTuiSpacing.lg),
         children: const [

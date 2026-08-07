@@ -52,6 +52,49 @@ void main() {
     expect(afterEdit.messages.single.isMine, isTrue);
   });
 
+  test('replaces an optimistic message by client message id', () {
+    const reducer = ConversationRealtimeReducer();
+    final optimistic = ChatMessage(
+      id: 'local-client-1',
+      workspaceId: 'w1',
+      channelId: 'c1',
+      kind: 'text',
+      body: 'Xin chào',
+      senderId: 'u1',
+      createdAt: DateTime.utc(2026, 8, 3, 8),
+      metadata: const {
+        'client_message_id': 'client-1',
+        'delivery_status': 'sending',
+      },
+      isMine: true,
+    );
+    final confirmed = ChatMessage(
+      id: 'message-1',
+      workspaceId: 'w1',
+      channelId: 'c1',
+      kind: 'text',
+      body: 'Xin chào',
+      senderId: 'u1',
+      createdAt: DateTime.utc(2026, 8, 3, 8),
+      metadata: const {'client_message_id': 'client-1'},
+    );
+
+    final state = reducer.reduce(
+      ConversationRealtimeState(messages: [optimistic]),
+      ConversationRealtimeEvent(
+        type: ConversationRealtimeEventType.messageCreated,
+        workspaceId: 'w1',
+        channelId: 'c1',
+        message: confirmed,
+      ),
+      currentUserId: 'u1',
+    );
+
+    expect(state.messages, hasLength(1));
+    expect(state.messages.single.id, 'message-1');
+    expect(state.messages.single.isMine, isTrue);
+  });
+
   test('marks deleted and toggles typing users', () {
     const reducer = ConversationRealtimeReducer();
     final initial = ConversationRealtimeState(messages: [_message(id: 'm1')]);

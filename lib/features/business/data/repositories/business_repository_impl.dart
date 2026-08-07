@@ -121,12 +121,14 @@ final class BusinessRepositoryImpl implements BusinessRepository {
     required String workspaceId,
   }) {
     return guardResult(() async {
-      final incoming = await _remote.listIncomingWebhooks(
+      final incomingFuture = _remote.listIncomingWebhooks(
         workspaceId: workspaceId,
       );
-      final outgoing = await _remote.listOutgoingWebhooks(
+      final outgoingFuture = _remote.listOutgoingWebhooks(
         workspaceId: workspaceId,
       );
+      final incoming = await incomingFuture;
+      final outgoing = await outgoingFuture;
       return [...incoming, ...outgoing];
     });
   }

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -304,7 +305,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
             ),
           ],
           IconButton(
-            tooltip: 'Không gian cộng tác',
+            tooltip: 'Công cụ làm việc',
             onPressed: () => showCollaborationRoomSheet(
               context,
               workspaceId: workspaceId,
@@ -312,7 +313,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
               title: widget.title,
               conversation: widget.conversation,
             ),
-            icon: const Icon(Icons.hub_outlined, size: 21),
+            icon: const Icon(CupertinoIcons.square_grid_2x2, size: 21),
           ),
           IconButton(
             tooltip: 'Chi tiết kênh',
@@ -858,7 +859,7 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
                 ? const _ChatEmptyState()
                 : ListView.builder(
                     controller: _scrollController,
-                    cacheExtent: 900,
+                    scrollCacheExtent: const ScrollCacheExtent.pixels(900),
                     addAutomaticKeepAlives: false,
                     addRepaintBoundaries: true,
                     keyboardDismissBehavior:
@@ -954,7 +955,7 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
                                     label: _messageSemanticLabel(
                                       message,
                                       _displayMessageBody(message),
-                                      _timeLabel(message.createdAt),
+                                      _messageTimeLabel(message),
                                     ),
                                     child: _MessageRow(
                                       message: message,
@@ -963,7 +964,7 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
                                           !message.isMine && !sameSender,
                                       outgoing: message.isMine,
                                       text: _displayMessageBody(message),
-                                      timeLabel: _timeLabel(message.createdAt),
+                                      timeLabel: _messageTimeLabel(message),
                                       reactions: _reactionLabels(
                                         message.reactions,
                                       ),
@@ -2915,7 +2916,7 @@ class _MessageRow extends StatelessWidget {
                   : _messageTextSpan(message, true),
               timeLabel: timeLabel,
               outgoing: true,
-              statusLabel: 'Đã gửi',
+              statusLabel: _deliveryStatusLabel(message),
               reactions: reactions,
             ),
           if (message.attachments.isNotEmpty)
@@ -2960,6 +2961,15 @@ class _MessageRow extends StatelessWidget {
       ],
     );
   }
+}
+
+String _deliveryStatusLabel(ChatMessage message) {
+  return switch (message.deliveryStatus) {
+    'queued' => 'Đang chờ gửi',
+    'sending' => 'Đang gửi',
+    'failed' => 'Chưa gửi được',
+    _ => 'Đã gửi',
+  };
 }
 
 final class _PollDraft {
@@ -3834,6 +3844,14 @@ class _InlineError extends StatelessWidget {
 String _timeLabel(DateTime value) {
   final local = value.toLocal();
   return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+}
+
+String _messageTimeLabel(ChatMessage message) {
+  return switch (message.deliveryStatus) {
+    'failed' => 'Chưa gửi',
+    'queued' || 'sending' => 'Đang gửi',
+    _ => _timeLabel(message.createdAt),
+  };
 }
 
 bool _sameDay(DateTime left, DateTime right) {

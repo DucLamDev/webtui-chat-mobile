@@ -34,6 +34,9 @@ final class EnqueueMessageOutboxUseCase {
     required String body,
     String? parentId,
     List<MessageOutboxAttachment> attachments = const [],
+    bool silent = false,
+    MessageOutboxStatus status = MessageOutboxStatus.queued,
+    int attemptCount = 0,
     String? lastError,
   }) async {
     final now = DateTime.now().toUtc();
@@ -45,8 +48,9 @@ final class EnqueueMessageOutboxUseCase {
       body: body,
       parentId: parentId,
       attachments: attachments,
-      status: MessageOutboxStatus.failed,
-      attemptCount: 1,
+      silent: silent,
+      status: status,
+      attemptCount: attemptCount,
       lastError: lastError,
       createdAt: now,
       updatedAt: now,

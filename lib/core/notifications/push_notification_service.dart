@@ -27,7 +27,23 @@ Future<void> webTuiFirebaseMessagingBackgroundHandler(
   );
 }
 
-Future<bool> ensureFirebaseRuntime() async {
+Future<bool>? _firebaseRuntimeInitialization;
+
+Future<bool> ensureFirebaseRuntime() {
+  final inFlight = _firebaseRuntimeInitialization;
+  if (inFlight != null) {
+    return inFlight;
+  }
+  final initialization = _initializeFirebaseRuntime();
+  _firebaseRuntimeInitialization = initialization;
+  return initialization.whenComplete(() {
+    if (identical(_firebaseRuntimeInitialization, initialization)) {
+      _firebaseRuntimeInitialization = null;
+    }
+  });
+}
+
+Future<bool> _initializeFirebaseRuntime() async {
   try {
     if (Firebase.apps.isEmpty) {
       final options = FirebaseRuntimeOptions.currentPlatform();

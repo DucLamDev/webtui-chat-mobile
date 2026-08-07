@@ -88,7 +88,7 @@ String _messageFromStatus(int statusCode) {
     404 => 'Không tìm thấy dữ liệu.',
     409 => 'Dữ liệu đã thay đổi, vui lòng tải lại.',
     422 || 400 => 'Dữ liệu không hợp lệ.',
-    429 => 'Thao tác quá nhanh, vui lòng thử lại sau.',
+    429 => 'Yêu cầu tạm thời chưa thể xử lý. Vui lòng thử lại sau ít phút.',
     >= 500 => 'Máy chủ đang gặp lỗi.',
     _ => 'Yêu cầu không thành công.',
   };

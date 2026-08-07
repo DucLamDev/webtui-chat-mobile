@@ -1,12 +1,14 @@
+import 'dart:async';
 import 'dart:convert';
 
 import '../../../../core/database/app_database.dart';
 import '../../domain/entities/message_outbox_item.dart';
 
 final class MessageOutboxDataSource {
-  const MessageOutboxDataSource(this._database);
+  MessageOutboxDataSource(this._database);
 
   final AppDatabase _database;
+  Future<void> _mutationTail = Future.value();
 
   Future<List<MessageOutboxItem>> list({
     required String workspaceId,
@@ -39,50 +41,56 @@ final class MessageOutboxDataSource {
     }
   }
 
-  Future<void> upsert(MessageOutboxItem item) async {
-    final items = await list(
-      workspaceId: item.workspaceId,
-      channelId: item.channelId,
-    );
-    final next = [...items];
-    final index = next.indexWhere((entry) => entry.id == item.id);
-    if (index == -1) {
-      next.add(item);
-    } else {
-      next[index] = item;
-    }
-    await _write(
-      workspaceId: item.workspaceId,
-      channelId: item.channelId,
-      items: next,
-    );
+  Future<void> upsert(MessageOutboxItem item) {
+    return _mutate(() async {
+      final items = await list(
+        workspaceId: item.workspaceId,
+        channelId: item.channelId,
+      );
+      final next = [...items];
+      final index = next.indexWhere((entry) => entry.id == item.id);
+      if (index == -1) {
+        next.add(item);
+      } else {
+        next[index] = item;
+      }
+      await _write(
+        workspaceId: item.workspaceId,
+        channelId: item.channelId,
+        items: next,
+      );
+    });
   }
 
   Future<void> delete({
     required String workspaceId,
     required String channelId,
     required String itemId,
-  }) async {
-    final items = await list(workspaceId: workspaceId, channelId: channelId);
-    await _write(
-      workspaceId: workspaceId,
-      channelId: channelId,
-      items: [
-        for (final item in items)
-          if (item.id != itemId) item,
-      ],
-    );
+  }) {
+    return _mutate(() async {
+      final items = await list(workspaceId: workspaceId, channelId: channelId);
+      await _write(
+        workspaceId: workspaceId,
+        channelId: channelId,
+        items: [
+          for (final item in items)
+            if (item.id != itemId) item,
+        ],
+      );
+    });
   }
 
   Future<void> clearChannel({
     required String workspaceId,
     required String channelId,
   }) {
-    return _database.deleteScope(_scope(workspaceId, channelId));
+    return _mutate(() => _database.deleteScope(_scope(workspaceId, channelId)));
   }
 
   Future<void> clearWorkspace({required String workspaceId}) {
-    return _database.deleteScopesWithPrefix('message_outbox:$workspaceId:');
+    return _mutate(
+      () => _database.deleteScopesWithPrefix('message_outbox:$workspaceId:'),
+    );
   }
 
   Future<void> _write({
@@ -97,6 +105,18 @@ final class MessageOutboxDataSource {
         'items': items.map(_itemToJson).toList(growable: false),
       }),
     );
+  }
+
+  Future<T> _mutate<T>(Future<T> Function() action) {
+    final completer = Completer<T>();
+    _mutationTail = _mutationTail.then((_) async {
+      try {
+        completer.complete(await action());
+      } on Object catch (error, stackTrace) {
+        completer.completeError(error, stackTrace);
+      }
+    });
+    return completer.future;
   }
 }
 
@@ -115,6 +135,7 @@ Map<String, Object?> _itemToJson(MessageOutboxItem item) {
     'attachments': item.attachments
         .map(_attachmentToJson)
         .toList(growable: false),
+    'silent': item.silent,
     'status': item.status.name,
     'attemptCount': item.attemptCount,
     'lastError': item.lastError,
@@ -138,6 +159,7 @@ MessageOutboxItem _itemFromJson(Map<String, Object?> json) {
               .map(_attachmentFromJson)
               .toList(growable: false)
         : const [],
+    silent: _bool(json['silent']),
     status: _status(json['status']),
     attemptCount: _int(json['attemptCount']),
     lastError: _nullableString(json['lastError']),
@@ -195,6 +217,19 @@ int _int(Object? value) {
     return int.tryParse(value) ?? 0;
   }
   return 0;
+}
+
+bool _bool(Object? value) {
+  if (value is bool) {
+    return value;
+  }
+  if (value is num) {
+    return value != 0;
+  }
+  if (value is String) {
+    return value == 'true' || value == '1';
+  }
+  return false;
 }
 
 DateTime? _dateTime(Object? value) {

@@ -21,6 +21,7 @@ Future<void> showCollaborationRoomSheet(
   required String channelId,
   required String title,
   required ConversationSummary? conversation,
+  int initialTab = 0,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -33,6 +34,7 @@ Future<void> showCollaborationRoomSheet(
       channelId: channelId,
       title: title,
       conversation: conversation,
+      initialTab: initialTab,
     ),
   );
 }
@@ -43,6 +45,7 @@ class CollaborationRoomSheet extends ConsumerStatefulWidget {
     required this.channelId,
     required this.title,
     required this.conversation,
+    this.initialTab = 0,
     super.key,
   });
 
@@ -50,6 +53,7 @@ class CollaborationRoomSheet extends ConsumerStatefulWidget {
   final String channelId;
   final String title;
   final ConversationSummary? conversation;
+  final int initialTab;
 
   @override
   ConsumerState<CollaborationRoomSheet> createState() =>
@@ -91,6 +95,7 @@ class _CollaborationRoomSheetState
   @override
   void initState() {
     super.initState();
+    _tab = widget.initialTab.clamp(0, 5).toInt();
     _promoteController.text = widget.title;
     unawaited(_load());
   }
@@ -111,11 +116,16 @@ class _CollaborationRoomSheetState
     });
     final remote = ref.read(conversationRemoteDataSourceProvider);
     try {
-      final profile = await ref.read(loadProfileUseCaseProvider).execute();
-      final settings = await remote.getCollaborationSettings(
+      final profileFuture = ref.read(loadProfileUseCaseProvider).execute();
+      final settingsFuture = remote.getCollaborationSettings(
         workspaceId: widget.workspaceId,
         channelId: widget.channelId,
       );
+      final profile = await profileFuture;
+      final settings = await settingsFuture;
+      // Meeting/shared-content APIs do not depend on the notes and task APIs.
+      // Warm them in the same round trip so a direct tool shortcut opens fast.
+      unawaited(_loadAdvanced());
       final results = await Future.wait<Object>([
         remote.getCollaborationDocument(
           workspaceId: widget.workspaceId,
@@ -175,7 +185,6 @@ class _CollaborationRoomSheetState
         _currentUserId = profile.valueOrNull?.id;
         _loading = false;
       });
-      unawaited(_loadAdvanced());
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -302,14 +311,12 @@ class _CollaborationRoomSheetState
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF2E8AF7), Color(0xFF1759BC)],
-              ),
+              color: WebTuiColors.primarySoft,
               borderRadius: BorderRadius.circular(WebTuiRadii.lg),
             ),
             child: const Icon(
               CupertinoIcons.video_camera_solid,
-              color: Colors.white,
+              color: WebTuiColors.primary,
             ),
           ),
           const SizedBox(width: WebTuiSpacing.md),
@@ -386,59 +393,6 @@ class _CollaborationRoomSheetState
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(WebTuiSpacing.lg),
         children: [
-          Container(
-            padding: const EdgeInsets.all(WebTuiSpacing.lg),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF0D6EFD), Color(0xFF5B4BDB)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(22),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Không gian cộng tác',
-                  style: WebTuiTypography.titleMedium.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: WebTuiSpacing.xs),
-                Text(
-                  'Họp, voice room, task và nội dung quan trọng trong cùng một nơi.',
-                  style: WebTuiTypography.bodySmall.copyWith(
-                    color: Colors.white.withValues(alpha: 0.86),
-                  ),
-                ),
-                const SizedBox(height: WebTuiSpacing.md),
-                Wrap(
-                  spacing: WebTuiSpacing.sm,
-                  runSpacing: WebTuiSpacing.sm,
-                  children: [
-                    _HomeMetric(
-                      icon: Icons.alternate_email_rounded,
-                      value: home?.unreadMentions ?? 0,
-                      label: 'nhắc tên',
-                    ),
-                    _HomeMetric(
-                      icon: Icons.notifications_none_rounded,
-                      value: home?.pendingReminders ?? 0,
-                      label: 'nhắc việc',
-                    ),
-                    _HomeMetric(
-                      icon: Icons.phone_missed_rounded,
-                      value: home?.missedCalls ?? 0,
-                      label: 'cuộc gọi nhỡ',
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: WebTuiSpacing.md),
           _sectionCard(
             icon: Icons.event_available_outlined,
             title: 'Sắp diễn ra',
@@ -2131,48 +2085,6 @@ class _CapabilityChip extends StatelessWidget {
       avatar: Icon(icon, size: 16, color: WebTuiColors.primary),
       label: Text(label),
       visualDensity: VisualDensity.compact,
-    );
-  }
-}
-
-class _HomeMetric extends StatelessWidget {
-  const _HomeMetric({
-    required this.icon,
-    required this.value,
-    required this.label,
-  });
-
-  final IconData icon;
-  final int value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: WebTuiSpacing.sm,
-        vertical: WebTuiSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.20)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: Colors.white, size: 16),
-          const SizedBox(width: 5),
-          Text(
-            '$value $label',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

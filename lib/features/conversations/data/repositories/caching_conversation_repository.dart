@@ -261,14 +261,14 @@ final class CachingConversationRepository implements ConversationRepository {
 
     switch (result) {
       case Success<MessagePage>(value: final page):
-        await _cacheWrite(
-          () => _cache.saveLatestMessagePage(
+        final reconciled = await _cacheRead(
+          () => _cache.reconcileLatestMessagePage(
             workspaceId: workspaceId,
             channelId: channelId,
-            page: page,
+            remotePage: page,
           ),
         );
-        return result;
+        return Success(reconciled ?? page);
       case FailureResult<MessagePage>():
         final cached = await _cacheRead(
           () => _cache.readLatestMessagePage(

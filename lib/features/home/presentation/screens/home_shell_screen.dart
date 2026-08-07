@@ -13,13 +13,13 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
-import '../../../business/presentation/screens/business_dashboard_screen.dart';
 import '../../../conversations/domain/entities/call_session.dart';
 import '../../../conversations/domain/entities/conversation_realtime_event.dart';
 import '../../../conversations/domain/entities/conversation_summary.dart';
 import '../../../conversations/presentation/controllers/chat_room_controller.dart';
 import '../../../conversations/presentation/controllers/conversation_home_controller.dart';
 import '../../../conversations/presentation/screens/webrtc_call_screen.dart';
+import '../../../conversations/presentation/screens/workspace_tools_screen.dart';
 import '../../../conversations/presentation/widgets/conversation_home_views.dart';
 import '../../../notifications/domain/entities/mobile_notification.dart';
 import '../../../notifications/presentation/controllers/notification_center_controller.dart';
@@ -37,6 +37,9 @@ class HomeShellScreen extends ConsumerStatefulWidget {
 class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     with WidgetsBindingObserver {
   late int _tabIndex;
+  late Set<int> _visitedTabs;
+  String? _visitedWorkspaceId;
+  int? _visitedWorkspaceGeneration;
   String? _pushRegisteredWorkspaceId;
   String? _presenceWorkspaceId;
   String? _syncWorkspaceId;
@@ -61,6 +64,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _tabIndex = widget.initialTabIndex.clamp(0, _titles.length - 1).toInt();
+    _visitedTabs = {_tabIndex};
   }
 
   @override
@@ -141,6 +145,13 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       );
     }
 
+    if (_visitedWorkspaceId != activeWorkspace.id ||
+        _visitedWorkspaceGeneration != workspaceState.generation) {
+      _visitedWorkspaceId = activeWorkspace.id;
+      _visitedWorkspaceGeneration = workspaceState.generation;
+      _visitedTabs = {_tabIndex};
+    }
+
     if (_pushRegisteredWorkspaceId != activeWorkspace.id) {
       _pushRegisteredWorkspaceId = activeWorkspace.id;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -183,7 +194,13 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
             ? _titles[_tabIndex]
             : '${organization.name} · ${_titles[_tabIndex]}',
         selectedTab: _tabIndex,
-        onTabSelected: (index) => setState(() => _tabIndex = index),
+        onTabSelected: (index) {
+          if (index == _tabIndex) return;
+          setState(() {
+            _tabIndex = index;
+            _visitedTabs.add(index);
+          });
+        },
         leading: IconButton(
           tooltip: 'Hồ sơ cá nhân',
           onPressed: () => context.push('/profile'),
@@ -208,16 +225,16 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           else if (_tabIndex == 0)
             IconButton(
               tooltip: 'Tạo hội thoại',
-              onPressed: () => setState(() => _tabIndex = 1),
+              onPressed: () {
+                setState(() {
+                  _tabIndex = 1;
+                  _visitedTabs.add(1);
+                });
+              },
               icon: const Icon(CupertinoIcons.square_pencil),
             ),
         ],
         floatingActionButton: switch (_tabIndex) {
-          0 => FloatingActionButton(
-            tooltip: 'Tạo hội thoại',
-            onPressed: () => setState(() => _tabIndex = 1),
-            child: const Icon(CupertinoIcons.chat_bubble_2),
-          ),
           2 => FloatingActionButton(
             tooltip: 'Tạo kênh',
             onPressed: () => context.push('/channels/new'),
@@ -234,46 +251,66 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
                 ),
               ),
             Expanded(
-              child: switch (_tabIndex) {
-                0 => MessagesHomeView(workspaceId: activeWorkspace.id),
-                1 => ContactsHomeView(workspaceId: activeWorkspace.id),
-                2 => ChannelsHomeView(workspaceId: activeWorkspace.id),
-                3 => BusinessDashboardScreen(workspaceId: activeWorkspace.id),
-                _ => _SettingsTab(
-                  workspaceName: activeWorkspace.name,
-                  notificationEnabled: _notificationEnabled,
-                  compactMode: _compactMode,
-                  soundLevel: _soundLevel,
-                  textScalePreview: _textScalePreview,
-                  onProfileTap: () => context.push('/profile'),
-                  onAdvancedTap: () => context.push('/settings'),
-                  onPrivacyTap: () => context.push('/privacy'),
-                  onLogoutTap: () async {
-                    try {
-                      await ref
-                          .read(pushNotificationServiceProvider)
-                          .unregister();
-                    } on Object {
-                      // Logout must still clear the local session when push cleanup fails.
-                    }
-                    await ref.read(logoutUseCaseProvider).execute();
-                    ref.invalidate(authAccessTokenProvider);
-                    if (context.mounted) {
-                      context.go('/login');
-                    }
-                  },
-                  onNotificationChanged: (value) {
-                    setState(() => _notificationEnabled = value);
-                  },
-                  onCompactChanged: (value) =>
-                      setState(() => _compactMode = value),
-                  onSoundChanged: (value) =>
-                      setState(() => _soundLevel = value),
-                  onTextScaleChanged: (value) {
-                    setState(() => _textScalePreview = value);
-                  },
-                ),
-              },
+              // Keep a tab mounted after its first visit. Switching tabs now
+              // paints immediately and no longer disposes its controller/cache.
+              child: IndexedStack(
+                index: _tabIndex,
+                children: [
+                  if (_visitedTabs.contains(0))
+                    MessagesHomeView(workspaceId: activeWorkspace.id)
+                  else
+                    const SizedBox.shrink(),
+                  if (_visitedTabs.contains(1))
+                    ContactsHomeView(workspaceId: activeWorkspace.id)
+                  else
+                    const SizedBox.shrink(),
+                  if (_visitedTabs.contains(2))
+                    ChannelsHomeView(workspaceId: activeWorkspace.id)
+                  else
+                    const SizedBox.shrink(),
+                  if (_visitedTabs.contains(3))
+                    WorkspaceToolsScreen(workspaceId: activeWorkspace.id)
+                  else
+                    const SizedBox.shrink(),
+                  if (_visitedTabs.contains(4))
+                    _SettingsTab(
+                      workspaceName: activeWorkspace.name,
+                      notificationEnabled: _notificationEnabled,
+                      compactMode: _compactMode,
+                      soundLevel: _soundLevel,
+                      textScalePreview: _textScalePreview,
+                      onProfileTap: () => context.push('/profile'),
+                      onAdvancedTap: () => context.push('/settings'),
+                      onPrivacyTap: () => context.push('/privacy'),
+                      onLogoutTap: () async {
+                        try {
+                          await ref
+                              .read(pushNotificationServiceProvider)
+                              .unregister();
+                        } on Object {
+                          // Logout must still clear the local session when push cleanup fails.
+                        }
+                        await ref.read(logoutUseCaseProvider).execute();
+                        ref.invalidate(authAccessTokenProvider);
+                        if (context.mounted) {
+                          context.go('/login');
+                        }
+                      },
+                      onNotificationChanged: (value) {
+                        setState(() => _notificationEnabled = value);
+                      },
+                      onCompactChanged: (value) =>
+                          setState(() => _compactMode = value),
+                      onSoundChanged: (value) =>
+                          setState(() => _soundLevel = value),
+                      onTextScaleChanged: (value) {
+                        setState(() => _textScalePreview = value);
+                      },
+                    )
+                  else
+                    const SizedBox.shrink(),
+                ],
+              ),
             ),
           ],
         ),
@@ -682,7 +719,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         );
   }
 
-  static const _titles = ['Tin nhắn', 'Bạn bè', 'Kênh', 'Nghiệp vụ', 'Cài đặt'];
+  static const _titles = ['Tin nhắn', 'Bạn bè', 'Kênh', 'Công việc', 'Cài đặt'];
 }
 
 class _OrganizationMark extends StatelessWidget {

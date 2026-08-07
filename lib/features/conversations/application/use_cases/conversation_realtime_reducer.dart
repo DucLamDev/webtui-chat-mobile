@@ -104,7 +104,14 @@ List<ChatMessage> _upsertMessage(
   List<ChatMessage> messages,
   ChatMessage incoming,
 ) {
-  final index = messages.indexWhere((message) => message.id == incoming.id);
+  final index = messages.indexWhere((message) {
+    if (message.id == incoming.id) {
+      return true;
+    }
+    return (message.isLocalOptimistic || incoming.isLocalOptimistic) &&
+        incoming.clientMessageId.isNotEmpty &&
+        message.clientMessageId == incoming.clientMessageId;
+  });
   if (index == -1) {
     final next = [...messages, incoming];
     next.sort((left, right) => left.createdAt.compareTo(right.createdAt));

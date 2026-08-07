@@ -109,4 +109,98 @@ void main() {
     );
     expect(unpinnedPage!.messages.single.isPinned, isFalse);
   });
+
+  test('persists a sent message before a latest page exists', () async {
+    final database = AppDatabase(createInMemoryDriftConnection());
+    addTearDown(database.close);
+    final cache = ConversationCacheDataSource(database);
+    final message = ChatMessage(
+      id: 'message-new',
+      workspaceId: 'workspace-1',
+      channelId: 'channel-new',
+      kind: 'text',
+      body: 'Tin nhan dau tien',
+      createdAt: DateTime.utc(2026, 8, 3, 8),
+      metadata: const {'client_message_id': 'mobile-send-1'},
+      isMine: true,
+    );
+
+    await cache.upsertLatestMessage(
+      workspaceId: 'workspace-1',
+      channelId: 'channel-new',
+      message: message,
+    );
+
+    final page = await cache.readLatestMessagePage(
+      workspaceId: 'workspace-1',
+      channelId: 'channel-new',
+    );
+    expect(page, isNotNull);
+    expect(page!.messages.single.id, 'message-new');
+    expect(page.messages.single.body, 'Tin nhan dau tien');
+  });
+
+  test(
+    'keeps a recent accepted send when an older server page arrives',
+    () async {
+      final database = AppDatabase(createInMemoryDriftConnection());
+      addTearDown(database.close);
+      final cache = ConversationCacheDataSource(database);
+      final now = DateTime.utc(2026, 8, 3, 8, 30);
+      final justSent = ChatMessage(
+        id: 'message-new',
+        workspaceId: 'workspace-1',
+        channelId: 'channel-1',
+        kind: 'text',
+        body: 'Khong duoc bien mat',
+        createdAt: now.subtract(const Duration(seconds: 3)),
+        metadata: const {'client_message_id': 'mobile-send-2'},
+        isMine: true,
+      );
+      await cache.saveLatestMessagePage(
+        workspaceId: 'workspace-1',
+        channelId: 'channel-1',
+        page: MessagePage(messages: [justSent]),
+      );
+
+      final reconciled = await cache.reconcileLatestMessagePage(
+        workspaceId: 'workspace-1',
+        channelId: 'channel-1',
+        remotePage: const MessagePage(messages: []),
+        now: now,
+      );
+
+      expect(reconciled.messages.single.id, 'message-new');
+    },
+  );
+
+  test('does not keep an expired local send over the server page', () async {
+    final database = AppDatabase(createInMemoryDriftConnection());
+    addTearDown(database.close);
+    final cache = ConversationCacheDataSource(database);
+    final now = DateTime.utc(2026, 8, 3, 8, 30);
+    final oldLocalMessage = ChatMessage(
+      id: 'message-old',
+      workspaceId: 'workspace-1',
+      channelId: 'channel-1',
+      kind: 'text',
+      body: 'Old cached message',
+      createdAt: now.subtract(const Duration(minutes: 6)),
+      metadata: const {'client_message_id': 'mobile-send-old'},
+    );
+    await cache.saveLatestMessagePage(
+      workspaceId: 'workspace-1',
+      channelId: 'channel-1',
+      page: MessagePage(messages: [oldLocalMessage]),
+    );
+
+    final reconciled = await cache.reconcileLatestMessagePage(
+      workspaceId: 'workspace-1',
+      channelId: 'channel-1',
+      remotePage: const MessagePage(messages: []),
+      now: now,
+    );
+
+    expect(reconciled.messages, isEmpty);
+  });
 }

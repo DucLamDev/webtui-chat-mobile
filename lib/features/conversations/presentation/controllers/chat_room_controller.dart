@@ -375,6 +375,9 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   bool _outboxRetryInFlight = false;
 
   Future<void> load() async {
+    // Subscribe before fetching history so a message committed while the
+    // request is in flight cannot fall into the gap between GET and WebSocket.
+    _subscribeRealtime();
     state = state.copyWith(
       isLoading: true,
       clearError: true,
@@ -397,9 +400,15 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     final outboxItems = await outboxFuture;
     final profileResult = await profileFuture;
     final currentUserId = profileResult.valueOrNull?.id;
+    final pendingMessages = outboxItems
+        .map((item) => _optimisticMessage(item, currentUserId))
+        .toList(growable: false);
     switch (result) {
       case Success<MessagePage>(value: final page):
-        final messages = _chronological(page.messages, currentUserId);
+        final messages = _mergeChronological(
+          _chronological(page.messages, currentUserId),
+          [...state.messages, ...pendingMessages],
+        );
         state = state.copyWith(
           messages: messages,
           draft: draft,
@@ -410,18 +419,19 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
           isLoading: false,
           clearError: true,
         );
-        _subscribeRealtime();
         unawaited(_hydrateMissingAttachments(messages));
         await _markLatestRead();
         unawaited(retryOutbox(auto: true));
       case FailureResult<MessagePage>(failure: final failure):
         state = state.copyWith(
+          messages: _mergeChronological(state.messages, pendingMessages),
           draft: draft,
           outboxItems: outboxItems,
           currentUserId: currentUserId,
           isLoading: false,
           errorMessage: failure.message,
         );
+        unawaited(retryOutbox(auto: true));
     }
   }
 
@@ -539,21 +549,49 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     final clientMessageId = _newClientMessageIdUseCase.execute();
     state = state.copyWith(isSending: true, clearError: true);
     final editing = state.editingMessage;
-    final result = editing == null
-        ? await _sendMessageUseCase.execute(
-            workspaceId: state.scope.workspaceId,
-            channelId: state.scope.channelId,
-            body: body.isEmpty ? attachmentFallback : body,
-            clientMessageId: clientMessageId,
-            parentId: state.replyToMessage?.id,
-            silent: silent,
-          )
-        : await _editMessageUseCase.execute(
-            workspaceId: state.scope.workspaceId,
-            channelId: state.scope.channelId,
-            messageId: editing.id,
-            body: body,
-          );
+    if (editing == null) {
+      final item = await _enqueueMessageOutboxUseCase.execute(
+        workspaceId: state.scope.workspaceId,
+        channelId: state.scope.channelId,
+        clientMessageId: clientMessageId,
+        body: body.isEmpty ? attachmentFallback : body,
+        parentId: state.replyToMessage?.id,
+        attachments: uploadedOutboxAttachments(state.pendingAttachments),
+        silent: silent,
+      );
+      if (mounted) {
+        state = state.copyWith(
+          messages: _upsertLocal(
+            state.messages,
+            _optimisticMessage(item, state.currentUserId),
+          ),
+          outboxItems: [...state.outboxItems, item],
+          pendingAttachments: const [],
+          draft: '',
+          clearReply: true,
+          clearEditing: true,
+        );
+      }
+      await _clearDraftUseCase.execute(
+        workspaceId: item.workspaceId,
+        channelId: item.channelId,
+      );
+      await _retryOutboxItem(item, auto: false);
+      if (mounted) {
+        state = state.copyWith(isSending: false);
+      }
+      return;
+    }
+
+    final result = await _editMessageUseCase.execute(
+      workspaceId: state.scope.workspaceId,
+      channelId: state.scope.channelId,
+      messageId: editing.id,
+      body: body,
+    );
+    if (!mounted) {
+      return;
+    }
     switch (result) {
       case Success<ChatMessage>(value: final message):
         final prepared = message.copyWith(
@@ -571,22 +609,9 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
           workspaceId: state.scope.workspaceId,
           channelId: state.scope.channelId,
         );
-        await _attachPendingFiles(prepared);
         await _markLatestRead();
       case FailureResult<ChatMessage>(failure: final failure):
-        if (editing == null) {
-          await _enqueueFailedSend(
-            body: body.isEmpty ? attachmentFallback : body,
-            clientMessageId: clientMessageId,
-            parentId: state.replyToMessage?.id,
-            errorMessage: failure.message,
-          );
-        } else {
-          state = state.copyWith(
-            isSending: false,
-            errorMessage: failure.message,
-          );
-        }
+        state = state.copyWith(isSending: false, errorMessage: failure.message);
         await persistDraft();
     }
   }
@@ -595,9 +620,10 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     if (_outboxRetryInFlight) {
       return;
     }
-    final candidates = state.outboxItems
-        .where((item) => !item.isSending)
-        .toList(growable: false);
+    // A persisted `sending` item may belong to a controller that was disposed
+    // when the user left the channel. Retrying with the same idempotency key is
+    // safe and closes that interrupted-send gap.
+    final candidates = state.outboxItems.toList(growable: false);
     if (candidates.isEmpty) {
       return;
     }
@@ -611,36 +637,6 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     }
   }
 
-  Future<void> _enqueueFailedSend({
-    required String body,
-    required String clientMessageId,
-    required String? parentId,
-    required String errorMessage,
-  }) async {
-    final item = await _enqueueMessageOutboxUseCase.execute(
-      workspaceId: state.scope.workspaceId,
-      channelId: state.scope.channelId,
-      clientMessageId: clientMessageId,
-      body: body,
-      parentId: parentId,
-      attachments: uploadedOutboxAttachments(state.pendingAttachments),
-      lastError: errorMessage,
-    );
-    state = state.copyWith(
-      outboxItems: [...state.outboxItems, item],
-      pendingAttachments: const [],
-      draft: '',
-      isSending: false,
-      clearError: true,
-      clearReply: true,
-      clearEditing: true,
-    );
-    await _clearDraftUseCase.execute(
-      workspaceId: state.scope.workspaceId,
-      channelId: state.scope.channelId,
-    );
-  }
-
   Future<void> _retryOutboxItem(
     MessageOutboxItem item, {
     required bool auto,
@@ -651,7 +647,16 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
       updatedAt: DateTime.now().toUtc(),
     );
     await _saveMessageOutboxItemUseCase.execute(sending);
-    state = state.copyWith(outboxItems: _replaceOutboxItem(sending));
+    if (mounted) {
+      state = state.copyWith(
+        messages: _setOptimisticDeliveryStatus(
+          state.messages,
+          sending.clientMessageId,
+          MessageOutboxStatus.sending,
+        ),
+        outboxItems: _replaceOutboxItem(sending),
+      );
+    }
 
     final result = await _sendMessageUseCase.execute(
       workspaceId: sending.workspaceId,
@@ -659,34 +664,50 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
       body: sending.body,
       clientMessageId: sending.clientMessageId,
       parentId: sending.parentId,
+      silent: sending.silent,
     );
     switch (result) {
       case Success<ChatMessage>(value: final message):
         final prepared = message.copyWith(
-          isMine: message.senderId == state.currentUserId,
+          isMine: mounted && message.senderId == state.currentUserId,
         );
-        final attachmentError = await _attachOutboxFiles(prepared, sending);
-        if (attachmentError != null) {
+        final attachmentResult = await _attachOutboxFiles(prepared, sending);
+        if (attachmentResult.error != null) {
           final failed = sending.copyWith(
             status: MessageOutboxStatus.failed,
-            lastError: attachmentError,
+            lastError: attachmentResult.error,
             updatedAt: DateTime.now().toUtc(),
           );
           await _saveMessageOutboxItemUseCase.execute(failed);
-          state = state.copyWith(
-            messages: _upsertLocal(state.messages, prepared),
-            outboxItems: _replaceOutboxItem(failed),
-            errorMessage: auto ? null : attachmentError,
-          );
+          if (mounted) {
+            state = state.copyWith(
+              messages: _setOptimisticDeliveryStatus(
+                _upsertLocal(state.messages, prepared),
+                sending.clientMessageId,
+                MessageOutboxStatus.failed,
+              ),
+              outboxItems: _replaceOutboxItem(failed),
+              errorMessage: auto ? null : attachmentResult.error,
+            );
+          }
           return;
         }
         await _deleteMessageOutboxItemUseCase.execute(sending);
-        state = state.copyWith(
-          messages: _upsertLocal(state.messages, prepared),
-          outboxItems: _removeOutboxItem(sending.id),
-          clearError: true,
-        );
-        await _markLatestRead();
+        if (mounted) {
+          state = state.copyWith(
+            messages: _upsertLocal(
+              state.messages,
+              prepared.copyWith(
+                attachments: attachmentResult.attachments.isEmpty
+                    ? prepared.attachments
+                    : attachmentResult.attachments,
+              ),
+            ),
+            outboxItems: _removeOutboxItem(sending.id),
+            clearError: true,
+          );
+          await _markLatestRead();
+        }
       case FailureResult<ChatMessage>(failure: final failure):
         final failed = sending.copyWith(
           status: MessageOutboxStatus.failed,
@@ -694,19 +715,25 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
           updatedAt: DateTime.now().toUtc(),
         );
         await _saveMessageOutboxItemUseCase.execute(failed);
-        state = state.copyWith(
-          outboxItems: _replaceOutboxItem(failed),
-          errorMessage: auto ? null : failure.message,
-        );
+        if (mounted) {
+          state = state.copyWith(
+            messages: _setOptimisticDeliveryStatus(
+              state.messages,
+              sending.clientMessageId,
+              MessageOutboxStatus.failed,
+            ),
+            outboxItems: _replaceOutboxItem(failed),
+            errorMessage: auto ? null : failure.message,
+          );
+        }
     }
   }
 
-  Future<String?> _attachOutboxFiles(
-    ChatMessage message,
-    MessageOutboxItem item,
-  ) async {
+  Future<({String? error, List<MessageAttachment> attachments})>
+  _attachOutboxFiles(ChatMessage message, MessageOutboxItem item) async {
     final attachments = [...item.attachments]
       ..sort((left, right) => left.sortOrder.compareTo(right.sortOrder));
+    final attached = <MessageAttachment>[];
     for (final attachment in attachments) {
       final result = await _attachUploadedFileUseCase.execute(
         workspaceId: item.workspaceId,
@@ -715,13 +742,14 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
         fileId: attachment.fileId,
         sortOrder: attachment.sortOrder,
       );
-      if (result case FailureResult<MessageAttachment>(
-        failure: final failure,
-      )) {
-        return failure.message;
+      switch (result) {
+        case Success<MessageAttachment>(value: final value):
+          attached.add(value);
+        case FailureResult<MessageAttachment>(failure: final failure):
+          return (error: failure.message, attachments: attached);
       }
     }
-    return null;
+    return (error: null, attachments: attached);
   }
 
   List<MessageOutboxItem> _replaceOutboxItem(MessageOutboxItem item) {
@@ -1033,72 +1061,6 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     }
   }
 
-  Future<void> _attachPendingFiles(ChatMessage message) async {
-    final readyItems = state.pendingAttachments
-        .where(
-          (item) =>
-              item.status == MessageAttachmentUploadStatus.uploaded &&
-              item.uploadedFile != null,
-        )
-        .toList(growable: false);
-    if (readyItems.isEmpty) {
-      return;
-    }
-    final attached = <MessageAttachment>[];
-    for (var index = 0; index < readyItems.length; index += 1) {
-      final item = readyItems[index];
-      final file = item.uploadedFile!;
-      final result = await _attachUploadedFileUseCase.execute(
-        workspaceId: state.scope.workspaceId,
-        channelId: state.scope.channelId,
-        messageId: message.id,
-        fileId: file.id,
-        sortOrder: index,
-      );
-      switch (result) {
-        case Success<MessageAttachment>(value: final attachment):
-          attached.add(attachment);
-          state = state.copyWith(
-            pendingAttachments: _replaceAttachmentItem(
-              state.pendingAttachments,
-              item.copyWith(
-                status: MessageAttachmentUploadStatus.attached,
-                attachment: attachment,
-                clearError: true,
-              ),
-            ),
-          );
-        case FailureResult<MessageAttachment>(failure: final failure):
-          state = state.copyWith(
-            pendingAttachments: _replaceAttachmentItem(
-              state.pendingAttachments,
-              item.copyWith(
-                status: MessageAttachmentUploadStatus.failed,
-                errorMessage: failure.message,
-              ),
-            ),
-            errorMessage: failure.message,
-          );
-      }
-    }
-    if (attached.isNotEmpty) {
-      state = state.copyWith(
-        messages: state.messages
-            .map(
-              (item) => item.id == message.id
-                  ? item.copyWith(attachments: attached)
-                  : item,
-            )
-            .toList(growable: false),
-        pendingAttachments: state.pendingAttachments
-            .where(
-              (item) => item.status != MessageAttachmentUploadStatus.attached,
-            )
-            .toList(growable: false),
-      );
-    }
-  }
-
   Future<void> _hydrateMissingAttachments(List<ChatMessage> messages) async {
     final targets = messages
         .where(_shouldHydrateAttachments)
@@ -1375,10 +1337,16 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   }
 
   Future<void> _markLatestRead() async {
-    if (state.messages.isEmpty) {
+    ChatMessage? latest;
+    for (final message in state.messages.reversed) {
+      if (!message.isLocalOptimistic) {
+        latest = message;
+        break;
+      }
+    }
+    if (latest == null) {
       return;
     }
-    final latest = state.messages.last;
     await _markConversationReadUseCase.execute(
       workspaceId: state.scope.workspaceId,
       channelId: state.scope.channelId,
@@ -1416,13 +1384,62 @@ List<ChatMessage> _mergeChronological(
   List<ChatMessage> older,
   List<ChatMessage> current,
 ) {
-  final byId = <String, ChatMessage>{};
+  final result = <ChatMessage>[];
   for (final message in [...older, ...current]) {
-    byId[message.id] = message;
+    final index = result.indexWhere((existing) {
+      if (existing.id == message.id) {
+        return true;
+      }
+      return (existing.isLocalOptimistic || message.isLocalOptimistic) &&
+          message.clientMessageId.isNotEmpty &&
+          existing.clientMessageId == message.clientMessageId;
+    });
+    if (index == -1) {
+      result.add(message);
+    } else if (result[index].isLocalOptimistic || !message.isLocalOptimistic) {
+      result[index] = message;
+    }
   }
-  final result = byId.values.toList(growable: false);
   result.sort((left, right) => left.createdAt.compareTo(right.createdAt));
-  return result;
+  return List.unmodifiable(result);
+}
+
+ChatMessage _optimisticMessage(MessageOutboxItem item, String? currentUserId) {
+  return ChatMessage(
+    id: 'local-${item.clientMessageId}',
+    workspaceId: item.workspaceId,
+    channelId: item.channelId,
+    kind: 'text',
+    body: item.body,
+    createdAt: item.createdAt,
+    senderId: currentUserId?.trim().isNotEmpty == true
+        ? currentUserId
+        : 'local-current-user',
+    parentId: item.parentId,
+    metadata: {
+      'client_message_id': item.clientMessageId,
+      'delivery_status': item.status.name,
+    },
+    isMine: true,
+  );
+}
+
+List<ChatMessage> _setOptimisticDeliveryStatus(
+  List<ChatMessage> messages,
+  String clientMessageId,
+  MessageOutboxStatus status,
+) {
+  return messages
+      .map(
+        (message) =>
+            message.isLocalOptimistic &&
+                message.clientMessageId == clientMessageId
+            ? message.copyWith(
+                metadata: {...message.metadata, 'delivery_status': status.name},
+              )
+            : message,
+      )
+      .toList(growable: false);
 }
 
 List<ChatMessage> _upsertLocal(

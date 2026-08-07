@@ -447,8 +447,8 @@ class _RegisterContent extends StatelessWidget {
         _AuthTextField(
           fieldKey: const Key('register_username_field'),
           initialValue: state.username,
-          label: 'Username',
-          hint: 'yourusername',
+          label: 'Tên đăng nhập',
+          hint: 'Ví dụ: duclam24 (không cần ký tự đặc biệt)',
           icon: Icons.person_outline_rounded,
           enabled: !state.isLoading,
           textInputAction: TextInputAction.next,

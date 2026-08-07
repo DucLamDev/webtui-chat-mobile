@@ -41,6 +41,14 @@ final class ChatMessage {
 
   bool get isDeleted => deletedAt != null;
   bool get isSystem => kind == 'system' || senderId == null;
+  String get clientMessageId =>
+      (metadata['client_message_id'] ?? metadata['clientMessageId'] ?? '')
+          .toString()
+          .trim();
+  String get deliveryStatus =>
+      (metadata['delivery_status'] ?? '').toString().trim();
+  bool get isLocalOptimistic =>
+      id.startsWith('local-') && clientMessageId.isNotEmpty;
   bool get hasThread => threadRootId != null || parentId != null;
   bool get isPoll =>
       kind == 'event' &&

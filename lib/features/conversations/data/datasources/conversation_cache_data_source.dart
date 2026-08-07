@@ -92,6 +92,11 @@ final class ConversationCacheDataSource {
       channelId: channelId,
     );
     if (page == null) {
+      await saveLatestMessagePage(
+        workspaceId: workspaceId,
+        channelId: channelId,
+        page: MessagePage(messages: [message]),
+      );
       return;
     }
 
@@ -112,6 +117,66 @@ final class ConversationCacheDataSource {
         hasMore: page.hasMore,
       ),
     );
+  }
+
+  /// Reconciles a fresh server page with messages that this device has just
+  /// sent successfully.
+  ///
+  /// A mobile user can leave and immediately re-open a channel while the
+  /// original list request is still in flight. That older request (or a short
+  /// lived stale proxy response) may not contain the newly committed message.
+  /// Keep only recent, idempotent local sends during that small consistency
+  /// window; all other server data remains authoritative.
+  Future<MessagePage> reconcileLatestMessagePage({
+    required String workspaceId,
+    required String channelId,
+    required MessagePage remotePage,
+    DateTime? now,
+  }) async {
+    final cachedPage = await readLatestMessagePage(
+      workspaceId: workspaceId,
+      channelId: channelId,
+    );
+    if (cachedPage == null) {
+      await saveLatestMessagePage(
+        workspaceId: workspaceId,
+        channelId: channelId,
+        page: remotePage,
+      );
+      return remotePage;
+    }
+
+    final remoteIds = remotePage.messages.map((message) => message.id).toSet();
+    final cutoff = (now ?? DateTime.now().toUtc()).subtract(
+      const Duration(minutes: 5),
+    );
+    final recentLocalSends = cachedPage.messages.where((message) {
+      return !remoteIds.contains(message.id) &&
+          message.workspaceId == workspaceId &&
+          message.channelId == channelId &&
+          !message.createdAt.isBefore(cutoff) &&
+          message.clientMessageId.isNotEmpty;
+    });
+    final messagesById = <String, ChatMessage>{
+      for (final message in remotePage.messages) message.id: message,
+      for (final message in recentLocalSends) message.id: message,
+    };
+    final reconciledMessages = messagesById.values.toList(growable: false)
+      ..sort((left, right) {
+        final byCreatedAt = right.createdAt.compareTo(left.createdAt);
+        return byCreatedAt != 0 ? byCreatedAt : right.id.compareTo(left.id);
+      });
+    final reconciledPage = MessagePage(
+      messages: reconciledMessages,
+      nextCursor: remotePage.nextCursor,
+      hasMore: remotePage.hasMore,
+    );
+    await saveLatestMessagePage(
+      workspaceId: workspaceId,
+      channelId: channelId,
+      page: reconciledPage,
+    );
+    return reconciledPage;
   }
 
   Future<void> removeLatestMessage({

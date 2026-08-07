@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -16,28 +18,26 @@ Future<void> bootstrap({required AppFlavor flavor}) async {
   WidgetsFlutterBinding.ensureInitialized();
   configureFirebaseBackgroundMessaging();
   NativeIncomingCallService.ensureStarted();
-  await ensureFirebaseRuntime();
+  // Push setup is not required to draw the first frame. The notification
+  // service awaits the same idempotent initializer before it reads a token.
+  unawaited(ensureFirebaseRuntime());
 
   var config = AppConfig.fromFlavor(flavor);
   const secureStorage = FlutterSecureStorage();
-  final storedServer = await secureStorage.read(
-    key: SecureStoreKey.instanceBaseUrl.value,
-  );
-  final storedWebSocket = await secureStorage.read(
-    key: SecureStoreKey.instanceWsBaseUrl.value,
-  );
-  final storedOrganizationName = await secureStorage.read(
-    key: SecureStoreKey.instanceOrganizationName.value,
-  );
-  final storedOrganizationLogoUrl = await secureStorage.read(
-    key: SecureStoreKey.instanceOrganizationLogoUrl.value,
-  );
-  final storedRegistrationMode = await secureStorage.read(
-    key: SecureStoreKey.instanceRegistrationMode.value,
-  );
-  final storedAppVersion = await secureStorage.read(
-    key: SecureStoreKey.instanceAppVersion.value,
-  );
+  final storedValues = await Future.wait<String?>([
+    secureStorage.read(key: SecureStoreKey.instanceBaseUrl.value),
+    secureStorage.read(key: SecureStoreKey.instanceWsBaseUrl.value),
+    secureStorage.read(key: SecureStoreKey.instanceOrganizationName.value),
+    secureStorage.read(key: SecureStoreKey.instanceOrganizationLogoUrl.value),
+    secureStorage.read(key: SecureStoreKey.instanceRegistrationMode.value),
+    secureStorage.read(key: SecureStoreKey.instanceAppVersion.value),
+  ]);
+  final storedServer = storedValues[0];
+  final storedWebSocket = storedValues[1];
+  final storedOrganizationName = storedValues[2];
+  final storedOrganizationLogoUrl = storedValues[3];
+  final storedRegistrationMode = storedValues[4];
+  final storedAppVersion = storedValues[5];
   SelfHostedServerDiscovery? initialDiscovery;
   if (storedServer != null) {
     try {
