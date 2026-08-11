@@ -2,12 +2,20 @@ import 'dart:async';
 import 'dart:convert';
 
 import '../../../../core/database/app_database.dart';
+import '../../../../core/security/instance_scope.dart';
+import '../../../../core/security/secure_key_value_store.dart';
 import '../../domain/entities/message_outbox_item.dart';
 
 final class MessageOutboxDataSource {
-  MessageOutboxDataSource(this._database);
+  MessageOutboxDataSource(
+    this._database,
+    this._instanceScope,
+    this._secureStore,
+  );
 
   final AppDatabase _database;
+  final InstanceScope _instanceScope;
+  final SecureKeyValueStore _secureStore;
   Future<void> _mutationTail = Future.value();
 
   Future<List<MessageOutboxItem>> list({
@@ -15,7 +23,7 @@ final class MessageOutboxDataSource {
     required String channelId,
   }) async {
     final value = await _database.readKeyValue(
-      scope: _scope(workspaceId, channelId),
+      scope: _scoped(workspaceId, channelId),
       key: 'items',
     );
     if (value == null) {
@@ -33,6 +41,7 @@ final class MessageOutboxDataSource {
       return items
           .whereType<Map<String, Object?>>()
           .map(_itemFromJson)
+          .where((item) => item.instanceScopeId == _instanceScope.storageId)
           .toList(growable: false);
     } on FormatException {
       return const [];
@@ -42,6 +51,11 @@ final class MessageOutboxDataSource {
   }
 
   Future<void> upsert(MessageOutboxItem item) {
+    if (item.instanceScopeId != _instanceScope.storageId) {
+      throw StateError(
+        'Refusing to persist an outbox item from another instance.',
+      );
+    }
     return _mutate(() async {
       final items = await list(
         workspaceId: item.workspaceId,
@@ -60,6 +74,17 @@ final class MessageOutboxDataSource {
         items: next,
       );
     });
+  }
+
+  Future<bool> canDispatch(MessageOutboxItem item) async {
+    if (item.instanceScopeId != _instanceScope.storageId) {
+      return false;
+    }
+    final values = await Future.wait<String?>([
+      _secureStore.read(SecureStoreKey.activeInstanceScopeId),
+      _secureStore.read(SecureStoreKey.liveDiscoveryValidatedScopeId),
+    ]);
+    return values[0] == _instanceScope.storageId && values[1] == values[0];
   }
 
   Future<void> delete({
@@ -84,12 +109,16 @@ final class MessageOutboxDataSource {
     required String workspaceId,
     required String channelId,
   }) {
-    return _mutate(() => _database.deleteScope(_scope(workspaceId, channelId)));
+    return _mutate(
+      () => _database.deleteScope(_scoped(workspaceId, channelId)),
+    );
   }
 
   Future<void> clearWorkspace({required String workspaceId}) {
     return _mutate(
-      () => _database.deleteScopesWithPrefix('message_outbox:$workspaceId:'),
+      () => _database.deleteScopesWithPrefix(
+        _instanceScope.localScope('message_outbox:$workspaceId:'),
+      ),
     );
   }
 
@@ -99,7 +128,7 @@ final class MessageOutboxDataSource {
     required List<MessageOutboxItem> items,
   }) {
     return _database.putKeyValue(
-      scope: _scope(workspaceId, channelId),
+      scope: _scoped(workspaceId, channelId),
       key: 'items',
       value: jsonEncode({
         'items': items.map(_itemToJson).toList(growable: false),
@@ -118,6 +147,10 @@ final class MessageOutboxDataSource {
     });
     return completer.future;
   }
+
+  String _scoped(String workspaceId, String channelId) {
+    return _instanceScope.localScope(_scope(workspaceId, channelId));
+  }
 }
 
 String _scope(String workspaceId, String channelId) {
@@ -127,6 +160,7 @@ String _scope(String workspaceId, String channelId) {
 Map<String, Object?> _itemToJson(MessageOutboxItem item) {
   return {
     'id': item.id,
+    'instanceScopeId': item.instanceScopeId,
     'workspaceId': item.workspaceId,
     'channelId': item.channelId,
     'clientMessageId': item.clientMessageId,
@@ -148,6 +182,7 @@ MessageOutboxItem _itemFromJson(Map<String, Object?> json) {
   final attachments = json['attachments'];
   return MessageOutboxItem(
     id: _string(json['id']),
+    instanceScopeId: _string(json['instanceScopeId']),
     workspaceId: _string(json['workspaceId']),
     channelId: _string(json['channelId']),
     clientMessageId: _string(json['clientMessageId']),

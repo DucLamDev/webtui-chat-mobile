@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -14,6 +14,8 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../moderation/presentation/controllers/moderation_controller.dart';
+import '../../../moderation/presentation/widgets/moderation_actions.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
 import '../../domain/entities/call_session.dart';
 import '../../domain/entities/chat_message.dart';
@@ -34,6 +36,22 @@ final _forwardChannelsProvider = FutureProvider.autoDispose
           throw Exception(failure.message),
       };
     });
+
+enum ChatModerationSafetyStatus { loading, error, ready }
+
+ChatModerationSafetyStatus chatModerationSafetyStatus(
+  ModerationState moderationState,
+) {
+  if (moderationState.isLoadingBlockedUsers) {
+    return ChatModerationSafetyStatus.loading;
+  }
+  if (moderationState.errorMessage != null) {
+    return ChatModerationSafetyStatus.error;
+  }
+  return ChatModerationSafetyStatus.ready;
+}
+
+bool shouldOfferMessageReport(ChatMessage message) => !message.isMine;
 
 class ChatRoomScreen extends ConsumerStatefulWidget {
   const ChatRoomScreen({
@@ -129,6 +147,35 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
       );
     }
 
+    final moderationProvider = moderationControllerProvider(workspaceId);
+    final moderationState = ref.watch(moderationProvider);
+    switch (chatModerationSafetyStatus(moderationState)) {
+      case ChatModerationSafetyStatus.loading:
+        return _moderationSafetyGate(
+          const KeyedSubtree(
+            key: Key('chat_moderation_loading_gate'),
+            child: WebTuiLoadingState(
+              message: 'Đang áp dụng cài đặt an toàn...',
+            ),
+          ),
+        );
+      case ChatModerationSafetyStatus.error:
+        return _moderationSafetyGate(
+          KeyedSubtree(
+            key: const Key('chat_moderation_error_gate'),
+            child: WebTuiErrorState(
+              title: 'Chưa thể mở hội thoại an toàn',
+              message: moderationState.errorMessage!,
+              onRetry: () => unawaited(
+                ref.read(moderationProvider.notifier).loadBlockedUsers(),
+              ),
+            ),
+          ),
+        );
+      case ChatModerationSafetyStatus.ready:
+        break;
+    }
+
     final scope = ChatRoomScope(
       workspaceId: workspaceId,
       channelId: widget.channelId,
@@ -142,6 +189,10 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
     );
     final callsEnabled = serverCapabilities?.calls ?? false;
     final filesEnabled = serverCapabilities?.files ?? false;
+    final safetyTargetUserId = _safetyTargetUserId(state);
+    final interactionBlocked =
+        safetyTargetUserId != null &&
+        moderationState.isBlocked(safetyTargetUserId);
     _chatController = controller;
     final initialMessageId = widget.initialMessageId?.trim();
     if (initialMessageId != null &&
@@ -195,7 +246,9 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         onRetryAttachment: controller.retryAttachment,
         onRemoveAttachment: controller.removeAttachment,
         onRetry: controller.load,
-        onRetryOutbox: () => unawaited(controller.retryOutbox()),
+        onRetryOutbox: interactionBlocked
+            ? () => _showBlockedSharedContentGuidance(context)
+            : () => unawaited(controller.retryOutbox()),
         onLoadOlder: controller.loadOlder,
         onClearSearch: controller.clearSearch,
         onSend: (silent) =>
@@ -205,30 +258,92 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         ),
         onCreatePoll: () =>
             unawaited(_openPollComposer(context, workspaceId, controller)),
-        onSendThread: controller.sendThreadDraft,
+        onSendThread: interactionBlocked
+            ? () => _showBlockedSharedContentGuidance(context)
+            : controller.sendThreadDraft,
         onReply: controller.startReply,
-        onReplyPrivately: (message) =>
-            unawaited(_replyPrivately(context, workspaceId, message)),
-        onConvertToTask: (message) =>
-            unawaited(_convertMessageToTask(context, workspaceId, message)),
-        onEdit: controller.startEdit,
+        onReplyPrivately: (message) => interactionBlocked
+            ? _showBlockedSharedContentGuidance(context)
+            : unawaited(_replyPrivately(context, workspaceId, message)),
+        blockedUserIds: moderationState.blockedUserIds,
+        interactionBlocked: interactionBlocked,
+        onManageBlockedConversation: safetyTargetUserId == null
+            ? null
+            : () => showUserSafetyActions(
+                context,
+                ref,
+                workspaceId: workspaceId,
+                userId: safetyTargetUserId,
+                userLabel: widget.title,
+              ),
+        onReportMessage: (message) => unawaited(
+          reportMessage(
+            context,
+            ref,
+            workspaceId: workspaceId,
+            messageId: message.id,
+          ),
+        ),
+        onReportUser: (message) {
+          final senderId = message.senderId?.trim();
+          if (senderId == null || senderId.isEmpty) return;
+          unawaited(
+            reportUser(
+              context,
+              ref,
+              workspaceId: workspaceId,
+              userId: senderId,
+              userLabel: 'người gửi',
+            ),
+          );
+        },
+        onToggleBlockUser: (message) {
+          final senderId = message.senderId?.trim();
+          if (senderId == null || senderId.isEmpty) return;
+          unawaited(
+            toggleUserBlock(
+              context,
+              ref,
+              workspaceId: workspaceId,
+              userId: senderId,
+              userLabel: 'người gửi',
+            ),
+          );
+        },
+        onConvertToTask: (message) => interactionBlocked
+            ? _showBlockedSharedContentGuidance(context)
+            : unawaited(_convertMessageToTask(context, workspaceId, message)),
+        onEdit: interactionBlocked
+            ? (_) => _showBlockedSharedContentGuidance(context)
+            : controller.startEdit,
         onDelete: controller.deleteMessage,
-        onReact: controller.toggleReaction,
-        onPin: controller.togglePin,
+        onReact: interactionBlocked
+            ? (_, _) => _showBlockedSharedContentGuidance(context)
+            : controller.toggleReaction,
+        onPin: interactionBlocked
+            ? (_) => _showBlockedSharedContentGuidance(context)
+            : controller.togglePin,
         onThread: controller.loadThread,
-        onForward: controller.forwardMessage,
+        onForward: interactionBlocked
+            ? (_, _) => _showBlockedSharedContentGuidance(context)
+            : controller.forwardMessage,
         onClearThread: controller.clearThread,
         onFocusMessage: controller.focusMessage,
         onCancelComposerContext: controller.cancelComposerContext,
         onRetryAudioCall: callsEnabled
-            ? () => unawaited(
-                _startCallFromCurrentConversation(
-                  context,
-                  controller,
-                  state,
-                  CallMode.audio,
-                ),
-              )
+            ? interactionBlocked
+                  ? () => _showCapabilityUnavailable(
+                      context,
+                      'Hãy bỏ chặn người dùng trước khi gọi.',
+                    )
+                  : () => unawaited(
+                      _startCallFromCurrentConversation(
+                        context,
+                        controller,
+                        state,
+                        CallMode.audio,
+                      ),
+                    )
             : () => _showCapabilityUnavailable(
                 context,
                 'Máy chủ này không bật cuộc gọi.',
@@ -245,6 +360,15 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
               title: widget.title,
               avatarUrl: widget.avatarUrl,
               onDetails: () => _openDetails(context),
+              onSafety: safetyTargetUserId == null
+                  ? null
+                  : () => showUserSafetyActions(
+                      context,
+                      ref,
+                      workspaceId: workspaceId,
+                      userId: safetyTargetUserId,
+                      userLabel: widget.title,
+                    ),
             ),
             Expanded(child: body),
           ],
@@ -281,38 +405,63 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
           if (callsEnabled) ...[
             IconButton(
               tooltip: 'Gọi thoại',
-              onPressed: () => unawaited(
-                _startCallFromCurrentConversation(
-                  context,
-                  controller,
-                  state,
-                  CallMode.audio,
-                ),
-              ),
+              onPressed: interactionBlocked
+                  ? () => _showCapabilityUnavailable(
+                      context,
+                      'Hãy bỏ chặn người dùng trước khi gọi.',
+                    )
+                  : () => unawaited(
+                      _startCallFromCurrentConversation(
+                        context,
+                        controller,
+                        state,
+                        CallMode.audio,
+                      ),
+                    ),
               icon: const Icon(CupertinoIcons.phone, size: 21),
             ),
             IconButton(
               tooltip: 'Gọi video',
-              onPressed: () => unawaited(
-                _startCallFromCurrentConversation(
-                  context,
-                  controller,
-                  state,
-                  CallMode.video,
-                ),
-              ),
+              onPressed: interactionBlocked
+                  ? () => _showCapabilityUnavailable(
+                      context,
+                      'Hãy bỏ chặn người dùng trước khi gọi.',
+                    )
+                  : () => unawaited(
+                      _startCallFromCurrentConversation(
+                        context,
+                        controller,
+                        state,
+                        CallMode.video,
+                      ),
+                    ),
               icon: const Icon(CupertinoIcons.video_camera, size: 22),
             ),
           ],
-          IconButton(
-            tooltip: 'Công cụ làm việc',
-            onPressed: () => showCollaborationRoomSheet(
-              context,
-              workspaceId: workspaceId,
-              channelId: widget.channelId,
-              title: widget.title,
-              conversation: widget.conversation,
+          if (safetyTargetUserId != null)
+            IconButton(
+              tooltip: 'Báo cáo hoặc chặn người dùng',
+              onPressed: () => showUserSafetyActions(
+                context,
+                ref,
+                workspaceId: workspaceId,
+                userId: safetyTargetUserId,
+                userLabel: widget.title,
+              ),
+              icon: const Icon(Icons.shield_outlined, size: 22),
             ),
+          IconButton(
+            key: const Key('chat_collaboration_tools_action'),
+            tooltip: 'Công cụ làm việc',
+            onPressed: interactionBlocked
+                ? () => _showBlockedSharedContentGuidance(context)
+                : () => showCollaborationRoomSheet(
+                    context,
+                    workspaceId: workspaceId,
+                    channelId: widget.channelId,
+                    title: widget.title,
+                    conversation: widget.conversation,
+                  ),
             icon: const Icon(CupertinoIcons.square_grid_2x2, size: 21),
           ),
           IconButton(
@@ -326,12 +475,44 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
     );
   }
 
+  Widget _moderationSafetyGate(Widget child) {
+    final body = SafeArea(child: Center(child: child));
+    if (widget.embedded) {
+      return body;
+    }
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.title)),
+      body: body,
+    );
+  }
+
   void _openDetails(BuildContext context) {
     context.push(
       Uri(
         path: '/channels/${widget.channelId}',
         queryParameters: {'title': widget.title},
       ).toString(),
+    );
+  }
+
+  void _showBlockedSharedContentGuidance(BuildContext context) {
+    _showCapabilityUnavailable(
+      context,
+      'Hãy bỏ chặn người dùng trước khi tạo hoặc thay đổi nội dung dùng chung.',
+    );
+  }
+
+  String? _safetyTargetUserId(ChatRoomState state) {
+    final explicitPeer = widget.peerUserId?.trim();
+    if (explicitPeer != null && explicitPeer.isNotEmpty) {
+      return explicitPeer;
+    }
+    final conversation = widget.conversation;
+    if (conversation?.kind != ConversationKind.direct) {
+      return null;
+    }
+    return conversation?.directCallTargetUserId(
+      currentUserId: state.currentUserId,
     );
   }
 
@@ -728,6 +909,12 @@ class _ChatRoomBody extends StatefulWidget {
     required this.onSendThread,
     required this.onReply,
     required this.onReplyPrivately,
+    required this.blockedUserIds,
+    required this.interactionBlocked,
+    required this.onManageBlockedConversation,
+    required this.onReportMessage,
+    required this.onReportUser,
+    required this.onToggleBlockUser,
     required this.onConvertToTask,
     required this.onEdit,
     required this.onDelete,
@@ -763,6 +950,12 @@ class _ChatRoomBody extends StatefulWidget {
   final VoidCallback onSendThread;
   final ValueChanged<ChatMessage> onReply;
   final ValueChanged<ChatMessage> onReplyPrivately;
+  final Set<String> blockedUserIds;
+  final bool interactionBlocked;
+  final VoidCallback? onManageBlockedConversation;
+  final ValueChanged<ChatMessage> onReportMessage;
+  final ValueChanged<ChatMessage> onReportUser;
+  final ValueChanged<ChatMessage> onToggleBlockUser;
   final ValueChanged<ChatMessage> onConvertToTask;
   final ValueChanged<ChatMessage> onEdit;
   final ValueChanged<ChatMessage> onDelete;
@@ -822,23 +1015,30 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
   @override
   Widget build(BuildContext context) {
     final disableAnimations = MediaQuery.of(context).disableAnimations;
+    final visiblePinnedMessages = widget.state.pinnedMessages
+        .where((message) => !_isBlockedMessage(message))
+        .toList(growable: false);
+    final threadRoot = widget.state.threadRootMessage;
     return Column(
       children: [
         if (widget.state.searchQuery.isNotEmpty)
           _MessageSearchPanel(
             state: widget.state,
+            blockedUserIds: widget.blockedUserIds,
             onClear: widget.onClearSearch,
             onOpenResult: widget.onFocusMessage,
           ),
-        if (widget.state.pinnedMessages.isNotEmpty)
+        if (visiblePinnedMessages.isNotEmpty)
           _PinnedMessagesBar(
-            messages: widget.state.pinnedMessages,
+            messages: visiblePinnedMessages,
             onOpen: widget.onFocusMessage,
           ),
-        if (widget.state.threadRootMessage != null)
+        if (threadRoot != null && !_isBlockedMessage(threadRoot))
           _ThreadPanel(
-            rootMessage: widget.state.threadRootMessage!,
-            messages: widget.state.threadMessages,
+            rootMessage: threadRoot,
+            messages: widget.state.threadMessages
+                .where((message) => !_isBlockedMessage(message))
+                .toList(growable: false),
             draft: widget.state.threadDraft,
             sending: widget.state.isSendingThread,
             onDraftChanged: widget.onThreadDraftChanged,
@@ -896,6 +1096,11 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
                           previous != null &&
                           previous.senderId == message.senderId &&
                           !showDay;
+                      final senderId = message.senderId?.trim();
+                      final senderBlocked =
+                          !message.isMine &&
+                          senderId != null &&
+                          widget.blockedUserIds.contains(senderId);
                       return Container(
                         key: _messageKey(message.id),
                         padding: EdgeInsets.only(
@@ -930,6 +1135,11 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
                                         onRetry: widget.onRetryAudioCall,
                                       )
                                     : _SystemMessage(text: message.body)
+                              else if (senderBlocked)
+                                _BlockedMessagePlaceholder(
+                                  onManage: () =>
+                                      widget.onToggleBlockUser(message),
+                                )
                               else
                                 GestureDetector(
                                   behavior: HitTestBehavior.opaque,
@@ -941,6 +1151,12 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
                                     message: message,
                                     onReply: widget.onReply,
                                     onReplyPrivately: widget.onReplyPrivately,
+                                    isSenderBlocked: senderBlocked,
+                                    sharedContentBlocked:
+                                        widget.interactionBlocked,
+                                    onReportMessage: widget.onReportMessage,
+                                    onReportUser: widget.onReportUser,
+                                    onToggleBlockUser: widget.onToggleBlockUser,
                                     onConvertToTask: widget.onConvertToTask,
                                     onEdit: widget.onEdit,
                                     onDelete: widget.onDelete,
@@ -985,28 +1201,33 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
         if (widget.state.hasTypingUsers) const _TypingIndicator(),
         if (widget.state.hasOutboxItems)
           _OutboxStatusBar(state: widget.state, onRetry: widget.onRetryOutbox),
-        _Composer(
-          controller: widget.draftController,
-          focusNode: widget.draftFocusNode,
-          sending: widget.state.isSending,
-          canSend: widget.state.canSend,
-          isRecordingVoice: widget.state.isRecordingVoice,
-          voiceRecordingStartedAt: widget.state.voiceRecordingStartedAt,
-          attachments: widget.state.pendingAttachments,
-          replyToMessage: widget.state.replyToMessage,
-          editingMessage: widget.state.editingMessage,
-          onChanged: widget.onDraftChanged,
-          onPickAttachment: widget.onPickAttachment,
-          onStartVoiceRecording: widget.onStartVoiceRecording,
-          onStopVoiceRecording: widget.onStopVoiceRecording,
-          onCancelVoiceRecording: widget.onCancelVoiceRecording,
-          onRetryAttachment: widget.onRetryAttachment,
-          onRemoveAttachment: widget.onRemoveAttachment,
-          onSend: widget.onSend,
-          onSchedule: widget.onSchedule,
-          onCreatePoll: widget.onCreatePoll,
-          onCancelContext: widget.onCancelComposerContext,
-        ),
+        if (widget.interactionBlocked)
+          _BlockedConversationComposer(
+            onManage: widget.onManageBlockedConversation,
+          )
+        else
+          _Composer(
+            controller: widget.draftController,
+            focusNode: widget.draftFocusNode,
+            sending: widget.state.isSending,
+            canSend: widget.state.canSend,
+            isRecordingVoice: widget.state.isRecordingVoice,
+            voiceRecordingStartedAt: widget.state.voiceRecordingStartedAt,
+            attachments: widget.state.pendingAttachments,
+            replyToMessage: widget.state.replyToMessage,
+            editingMessage: widget.state.editingMessage,
+            onChanged: widget.onDraftChanged,
+            onPickAttachment: widget.onPickAttachment,
+            onStartVoiceRecording: widget.onStartVoiceRecording,
+            onStopVoiceRecording: widget.onStopVoiceRecording,
+            onCancelVoiceRecording: widget.onCancelVoiceRecording,
+            onRetryAttachment: widget.onRetryAttachment,
+            onRemoveAttachment: widget.onRemoveAttachment,
+            onSend: widget.onSend,
+            onSchedule: widget.onSchedule,
+            onCreatePoll: widget.onCreatePoll,
+            onCancelContext: widget.onCancelComposerContext,
+          ),
       ],
     );
   }
@@ -1054,21 +1275,38 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
   GlobalKey _messageKey(String messageId) {
     return _messageKeys.putIfAbsent(messageId, GlobalKey.new);
   }
+
+  bool _isBlockedMessage(ChatMessage message) {
+    final senderId = message.senderId?.trim();
+    return !message.isMine &&
+        senderId != null &&
+        widget.blockedUserIds.contains(senderId);
+  }
 }
 
 class _MessageSearchPanel extends StatelessWidget {
   const _MessageSearchPanel({
     required this.state,
+    required this.blockedUserIds,
     required this.onClear,
     required this.onOpenResult,
   });
 
   final ChatRoomState state;
+  final Set<String> blockedUserIds;
   final VoidCallback onClear;
   final ValueChanged<ChatMessage> onOpenResult;
 
   @override
   Widget build(BuildContext context) {
+    final visibleResults = state.searchResults
+        .where((message) {
+          final senderId = message.senderId?.trim();
+          return message.isMine ||
+              senderId == null ||
+              !blockedUserIds.contains(senderId);
+        })
+        .toList(growable: false);
     return ColoredBox(
       color: WebTuiColors.chatBackground,
       child: Padding(
@@ -1101,7 +1339,7 @@ class _MessageSearchPanel extends StatelessWidget {
                       child: Text(
                         state.isSearching
                             ? 'Đang tìm...'
-                            : '${state.searchResults.length} kết quả cho "${state.searchQuery}"',
+                            : '${visibleResults.length} kết quả cho "${state.searchQuery}"',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: WebTuiTypography.labelSmall.copyWith(
@@ -1116,16 +1354,16 @@ class _MessageSearchPanel extends StatelessWidget {
                     ),
                   ],
                 ),
-                if (state.searchResults.isNotEmpty)
+                if (visibleResults.isNotEmpty)
                   SizedBox(
                     height: 36,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
-                      itemCount: state.searchResults.length,
+                      itemCount: visibleResults.length,
                       separatorBuilder: (_, _) =>
                           const SizedBox(width: WebTuiSpacing.xs),
                       itemBuilder: (context, index) {
-                        final message = state.searchResults[index];
+                        final message = visibleResults[index];
                         return ActionChip(
                           avatar: const Icon(Icons.center_focus_strong_rounded),
                           label: ConstrainedBox(
@@ -2360,6 +2598,11 @@ Future<void> _showMessageActions(
   required ChatMessage message,
   required ValueChanged<ChatMessage> onReply,
   required ValueChanged<ChatMessage> onReplyPrivately,
+  required bool isSenderBlocked,
+  required bool sharedContentBlocked,
+  required ValueChanged<ChatMessage> onReportMessage,
+  required ValueChanged<ChatMessage> onReportUser,
+  required ValueChanged<ChatMessage> onToggleBlockUser,
   required ValueChanged<ChatMessage> onConvertToTask,
   required ValueChanged<ChatMessage> onEdit,
   required ValueChanged<ChatMessage> onDelete,
@@ -2384,6 +2627,11 @@ Future<void> _showMessageActions(
         message: message,
         onReply: onReply,
         onReplyPrivately: onReplyPrivately,
+        isSenderBlocked: isSenderBlocked,
+        sharedContentBlocked: sharedContentBlocked,
+        onReportMessage: onReportMessage,
+        onReportUser: onReportUser,
+        onToggleBlockUser: onToggleBlockUser,
         onConvertToTask: onConvertToTask,
         onEdit: onEdit,
         onDelete: onDelete,
@@ -2404,6 +2652,11 @@ class _MessageQuickActions extends StatelessWidget {
     required this.message,
     required this.onReply,
     required this.onReplyPrivately,
+    required this.isSenderBlocked,
+    required this.sharedContentBlocked,
+    required this.onReportMessage,
+    required this.onReportUser,
+    required this.onToggleBlockUser,
     required this.onConvertToTask,
     required this.onEdit,
     required this.onDelete,
@@ -2419,6 +2672,11 @@ class _MessageQuickActions extends StatelessWidget {
   final ChatMessage message;
   final ValueChanged<ChatMessage> onReply;
   final ValueChanged<ChatMessage> onReplyPrivately;
+  final bool isSenderBlocked;
+  final bool sharedContentBlocked;
+  final ValueChanged<ChatMessage> onReportMessage;
+  final ValueChanged<ChatMessage> onReportUser;
+  final ValueChanged<ChatMessage> onToggleBlockUser;
   final ValueChanged<ChatMessage> onConvertToTask;
   final ValueChanged<ChatMessage> onEdit;
   final ValueChanged<ChatMessage> onDelete;
@@ -2470,19 +2728,49 @@ class _MessageQuickActions extends StatelessWidget {
                   icon: Icons.reply_rounded,
                   onPressed: () => _closeThen(context, () => onReply(message)),
                 ),
-                if (!message.isMine && message.senderId?.isNotEmpty == true)
+                if (!sharedContentBlocked &&
+                    !message.isMine &&
+                    message.senderId?.isNotEmpty == true)
                   _SheetActionButton(
                     label: 'Trả lời riêng',
                     icon: Icons.lock_person_outlined,
                     onPressed: () =>
                         _closeThen(context, () => onReplyPrivately(message)),
                   ),
-                _SheetActionButton(
-                  label: 'Tạo task',
-                  icon: Icons.task_alt_rounded,
-                  onPressed: () =>
-                      _closeThen(context, () => onConvertToTask(message)),
-                ),
+                if (shouldOfferMessageReport(message))
+                  _SheetActionButton(
+                    label: 'Báo cáo tin nhắn',
+                    icon: Icons.flag_outlined,
+                    danger: true,
+                    onPressed: () =>
+                        _closeThen(context, () => onReportMessage(message)),
+                  ),
+                if (!message.isMine &&
+                    message.senderId?.isNotEmpty == true) ...[
+                  _SheetActionButton(
+                    label: 'Báo cáo người gửi',
+                    icon: Icons.person_off_outlined,
+                    danger: true,
+                    onPressed: () =>
+                        _closeThen(context, () => onReportUser(message)),
+                  ),
+                  _SheetActionButton(
+                    label: isSenderBlocked ? 'Bỏ chặn' : 'Chặn người dùng',
+                    icon: isSenderBlocked
+                        ? Icons.person_add_alt_1
+                        : Icons.block_rounded,
+                    danger: !isSenderBlocked,
+                    onPressed: () =>
+                        _closeThen(context, () => onToggleBlockUser(message)),
+                  ),
+                ],
+                if (!sharedContentBlocked)
+                  _SheetActionButton(
+                    label: 'Tạo task',
+                    icon: Icons.task_alt_rounded,
+                    onPressed: () =>
+                        _closeThen(context, () => onConvertToTask(message)),
+                  ),
                 _SheetActionButton(
                   label: 'Nhắc sau 1 giờ',
                   icon: Icons.alarm_add_outlined,
@@ -2498,40 +2786,45 @@ class _MessageQuickActions extends StatelessWidget {
                     );
                   },
                 ),
-                _SheetActionButton(
-                  label: 'Reaction',
-                  icon: Icons.thumb_up_alt_outlined,
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    _showReactionPicker(hostContext);
-                  },
-                ),
-                _SheetActionButton(
-                  label: message.isPinned ? 'Bỏ ghim' : 'Ghim',
-                  icon: message.isPinned
-                      ? Icons.push_pin_rounded
-                      : Icons.push_pin_outlined,
-                  onPressed: () => _closeThen(context, () => onPin(message)),
-                ),
+                if (!sharedContentBlocked) ...[
+                  _SheetActionButton(
+                    label: 'Reaction',
+                    icon: Icons.thumb_up_alt_outlined,
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _showReactionPicker(hostContext);
+                    },
+                  ),
+                  _SheetActionButton(
+                    label: message.isPinned ? 'Bỏ ghim' : 'Ghim',
+                    icon: message.isPinned
+                        ? Icons.push_pin_rounded
+                        : Icons.push_pin_outlined,
+                    onPressed: () => _closeThen(context, () => onPin(message)),
+                  ),
+                ],
                 _SheetActionButton(
                   label: 'Thread',
                   icon: Icons.forum_outlined,
                   onPressed: () => _closeThen(context, () => onThread(message)),
                 ),
-                _SheetActionButton(
-                  label: 'Chuyển tiếp',
-                  icon: Icons.shortcut_rounded,
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    _showForwardDialog(hostContext);
-                  },
-                ),
-                if (message.isMine) ...[
+                if (!sharedContentBlocked)
                   _SheetActionButton(
-                    label: 'Sửa',
-                    icon: Icons.edit_rounded,
-                    onPressed: () => _closeThen(context, () => onEdit(message)),
+                    label: 'Chuyển tiếp',
+                    icon: Icons.shortcut_rounded,
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _showForwardDialog(hostContext);
+                    },
                   ),
+                if (message.isMine) ...[
+                  if (!sharedContentBlocked)
+                    _SheetActionButton(
+                      label: 'Sửa',
+                      icon: Icons.edit_rounded,
+                      onPressed: () =>
+                          _closeThen(context, () => onEdit(message)),
+                    ),
                   _SheetActionButton(
                     label: 'Thu hồi',
                     icon: Icons.delete_outline_rounded,
@@ -3547,18 +3840,23 @@ class _MessageAttachmentList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final displayedAttachments = boundedMessageAttachments(attachments);
     final networkScope = WebTuiAvatarNetworkScope.maybeOf(context);
     final viewportWidth = MediaQuery.sizeOf(context).width;
     final singleImageMaxWidth = (viewportWidth * 0.66).clamp(188, 258);
     final singleImageMaxHeight = (viewportWidth * 0.72).clamp(188, 286);
     final imageGridMaxWidth = (viewportWidth * 0.62).clamp(188, 230);
     final imageTileSize = ((imageGridMaxWidth - 4) / 2).clamp(92, 112);
-    final images = attachments
+    final images = boundedEagerImageAttachments(displayedAttachments);
+    final overflowImages = displayedAttachments
         .where((attachment) => attachment.isImage)
-        .toList(growable: false);
-    final otherAttachments = attachments
-        .where((attachment) => !attachment.isImage)
-        .toList(growable: false);
+        .skip(images.length);
+    final otherAttachments = <MessageAttachment>[
+      ...displayedAttachments.where((attachment) => !attachment.isImage),
+      ...overflowImages,
+    ];
+    final hiddenAttachmentCount =
+        attachments.length - displayedAttachments.length;
     return Padding(
       padding: const EdgeInsets.only(top: WebTuiSpacing.xs),
       child: Column(
@@ -3615,7 +3913,13 @@ class _MessageAttachmentList extends StatelessWidget {
           for (final attachment in otherAttachments)
             Padding(
               padding: const EdgeInsets.only(top: WebTuiSpacing.xs),
-              child: attachment.isAudio
+              child: attachment.isImage
+                  ? MessageFileAttachmentView(
+                      attachment: attachment,
+                      outgoing: outgoing,
+                      apiBaseUri: networkScope?.apiBaseUri,
+                    )
+                  : attachment.isAudio
                   ? MessageVoiceAttachmentView(
                       attachment: attachment,
                       apiBaseUri: networkScope?.apiBaseUri,
@@ -3631,10 +3935,44 @@ class _MessageAttachmentList extends StatelessWidget {
                       apiBaseUri: networkScope?.apiBaseUri,
                     ),
             ),
+          if (hiddenAttachmentCount > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: WebTuiSpacing.xs),
+              child: Text(
+                'Còn $hiddenAttachmentCount tệp chưa hiển thị',
+                style: WebTuiTypography.labelSmall.copyWith(
+                  color: WebTuiColors.textMuted,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
+}
+
+const int maxRenderedAttachmentsPerMessage = 20;
+const int maxEagerImagePreviewsPerMessage = 4;
+
+List<MessageAttachment> boundedMessageAttachments(
+  List<MessageAttachment> attachments,
+) {
+  if (attachments.length <= maxRenderedAttachmentsPerMessage) {
+    return attachments;
+  }
+  return attachments
+      .take(maxRenderedAttachmentsPerMessage)
+      .toList(growable: false);
+}
+
+List<MessageAttachment> boundedEagerImageAttachments(
+  List<MessageAttachment> attachments,
+) {
+  return attachments
+      .where((attachment) => attachment.isImage)
+      .take(maxEagerImagePreviewsPerMessage)
+      .toList(growable: false);
 }
 
 class _EmbeddedChatHeader extends StatelessWidget {
@@ -3642,11 +3980,13 @@ class _EmbeddedChatHeader extends StatelessWidget {
     required this.title,
     required this.onDetails,
     this.avatarUrl,
+    this.onSafety,
   });
 
   final String title;
   final VoidCallback onDetails;
   final String? avatarUrl;
+  final VoidCallback? onSafety;
 
   @override
   Widget build(BuildContext context) {
@@ -3682,11 +4022,94 @@ class _EmbeddedChatHeader extends StatelessWidget {
                   ],
                 ),
               ),
+              if (onSafety != null)
+                IconButton(
+                  tooltip: 'Báo cáo hoặc chặn người dùng',
+                  onPressed: onSafety,
+                  icon: const Icon(Icons.shield_outlined),
+                ),
               IconButton(
                 tooltip: 'Chi tiết kênh',
                 onPressed: onDetails,
                 icon: const Icon(CupertinoIcons.ellipsis),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BlockedMessagePlaceholder extends StatelessWidget {
+  const _BlockedMessagePlaceholder({required this.onManage});
+
+  final VoidCallback onManage;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      container: true,
+      label: 'Tin nhắn từ người dùng đã chặn đang được ẩn',
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: WebTuiColors.surface,
+          borderRadius: BorderRadius.circular(WebTuiRadii.md),
+          border: Border.all(color: WebTuiColors.border),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WebTuiSpacing.md,
+            vertical: WebTuiSpacing.sm,
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.visibility_off_outlined,
+                size: 18,
+                color: WebTuiColors.textMuted,
+              ),
+              const SizedBox(width: WebTuiSpacing.sm),
+              const Expanded(
+                child: Text('Tin nhắn từ người dùng đã chặn đã được ẩn.'),
+              ),
+              TextButton(onPressed: onManage, child: const Text('Quản lý')),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BlockedConversationComposer extends StatelessWidget {
+  const _BlockedConversationComposer({this.onManage});
+
+  final VoidCallback? onManage;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: WebTuiColors.surface,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            WebTuiSpacing.lg,
+            WebTuiSpacing.md,
+            WebTuiSpacing.lg,
+            WebTuiSpacing.md,
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.block_rounded, color: WebTuiColors.textMuted),
+              const SizedBox(width: WebTuiSpacing.sm),
+              const Expanded(
+                child: Text(
+                  'Bạn đã chặn người dùng này. Bỏ chặn để nhắn tin hoặc gọi.',
+                ),
+              ),
+              TextButton(onPressed: onManage, child: const Text('Quản lý')),
             ],
           ),
         ),

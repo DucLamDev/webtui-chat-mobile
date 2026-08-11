@@ -17,6 +17,7 @@ import '../../domain/entities/message_outbox_item.dart';
 
 final chatRoomControllerProvider = StateNotifierProvider.autoDispose
     .family<ChatRoomController, ChatRoomState, ChatRoomScope>((ref, scope) {
+      final legalPolicy = ref.watch(legalAcceptanceAccessPolicyProvider);
       final controller = ChatRoomController(
         scope: scope,
         loadMessagesUseCase: ref.watch(loadMessagesUseCaseProvider),
@@ -54,6 +55,9 @@ final chatRoomControllerProvider = StateNotifierProvider.autoDispose
         saveMessageOutboxItemUseCase: ref.watch(
           saveMessageOutboxItemUseCaseProvider,
         ),
+        canDispatchMessageOutboxItemUseCase: ref.watch(
+          canDispatchMessageOutboxItemUseCaseProvider,
+        ),
         deleteMessageOutboxItemUseCase: ref.watch(
           deleteMessageOutboxItemUseCaseProvider,
         ),
@@ -74,6 +78,8 @@ final chatRoomControllerProvider = StateNotifierProvider.autoDispose
         saveDraftUseCase: ref.watch(saveDraftUseCaseProvider),
         clearDraftUseCase: ref.watch(clearDraftUseCaseProvider),
         loadProfileUseCase: ref.watch(loadProfileUseCaseProvider),
+        canCreateUserContent: () => legalPolicy.canCreateUserContent,
+        onLegalAcceptanceRequired: legalPolicy.requireAcceptance,
       )..load();
       return controller;
     });
@@ -287,6 +293,8 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     required LoadMessageOutboxUseCase loadMessageOutboxUseCase,
     required EnqueueMessageOutboxUseCase enqueueMessageOutboxUseCase,
     required SaveMessageOutboxItemUseCase saveMessageOutboxItemUseCase,
+    required CanDispatchMessageOutboxItemUseCase
+    canDispatchMessageOutboxItemUseCase,
     required DeleteMessageOutboxItemUseCase deleteMessageOutboxItemUseCase,
     required NewClientMessageIdUseCase newClientMessageIdUseCase,
     required NewAttachmentUploadItemUseCase newAttachmentUploadItemUseCase,
@@ -300,6 +308,8 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     required SaveDraftUseCase saveDraftUseCase,
     required ClearDraftUseCase clearDraftUseCase,
     required LoadProfileUseCase loadProfileUseCase,
+    bool Function()? canCreateUserContent,
+    void Function()? onLegalAcceptanceRequired,
     ConversationRealtimeReducer reducer = const ConversationRealtimeReducer(),
   }) : _loadMessagesUseCase = loadMessagesUseCase,
        _sendMessageUseCase = sendMessageUseCase,
@@ -320,6 +330,8 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
        _loadMessageOutboxUseCase = loadMessageOutboxUseCase,
        _enqueueMessageOutboxUseCase = enqueueMessageOutboxUseCase,
        _saveMessageOutboxItemUseCase = saveMessageOutboxItemUseCase,
+       _canDispatchMessageOutboxItemUseCase =
+           canDispatchMessageOutboxItemUseCase,
        _deleteMessageOutboxItemUseCase = deleteMessageOutboxItemUseCase,
        _newClientMessageIdUseCase = newClientMessageIdUseCase,
        _newAttachmentUploadItemUseCase = newAttachmentUploadItemUseCase,
@@ -333,6 +345,9 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
        _saveDraftUseCase = saveDraftUseCase,
        _clearDraftUseCase = clearDraftUseCase,
        _loadProfileUseCase = loadProfileUseCase,
+       _canCreateUserContent =
+           canCreateUserContent ?? _allowUserContentByDefault,
+       _onLegalAcceptanceRequired = onLegalAcceptanceRequired ?? _noop,
        _reducer = reducer,
        super(ChatRoomState(scope: scope));
 
@@ -355,6 +370,8 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   final LoadMessageOutboxUseCase _loadMessageOutboxUseCase;
   final EnqueueMessageOutboxUseCase _enqueueMessageOutboxUseCase;
   final SaveMessageOutboxItemUseCase _saveMessageOutboxItemUseCase;
+  final CanDispatchMessageOutboxItemUseCase
+  _canDispatchMessageOutboxItemUseCase;
   final DeleteMessageOutboxItemUseCase _deleteMessageOutboxItemUseCase;
   final NewClientMessageIdUseCase _newClientMessageIdUseCase;
   final NewAttachmentUploadItemUseCase _newAttachmentUploadItemUseCase;
@@ -368,6 +385,8 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   final SaveDraftUseCase _saveDraftUseCase;
   final ClearDraftUseCase _clearDraftUseCase;
   final LoadProfileUseCase _loadProfileUseCase;
+  final bool Function() _canCreateUserContent;
+  final void Function() _onLegalAcceptanceRequired;
   final ConversationRealtimeReducer _reducer;
 
   StreamSubscription<ConversationRealtimeEvent>? _realtimeSubscription;
@@ -421,7 +440,9 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
         );
         unawaited(_hydrateMissingAttachments(messages));
         await _markLatestRead();
-        unawaited(retryOutbox(auto: true));
+        if (_canCreateUserContent()) {
+          unawaited(retryOutbox(auto: true));
+        }
       case FailureResult<MessagePage>(failure: final failure):
         state = state.copyWith(
           messages: _mergeChronological(state.messages, pendingMessages),
@@ -431,7 +452,9 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
           isLoading: false,
           errorMessage: failure.message,
         );
-        unawaited(retryOutbox(auto: true));
+        if (_canCreateUserContent()) {
+          unawaited(retryOutbox(auto: true));
+        }
     }
   }
 
@@ -543,6 +566,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     if ((body.isEmpty && !attachmentsReady) || state.isSending) {
       return;
     }
+    if (!_guardUserContentMutation()) return;
     final attachmentFallback = _attachmentMessageFallback(
       state.pendingAttachments,
     );
@@ -617,6 +641,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   }
 
   Future<void> retryOutbox({bool auto = false}) async {
+    if (!_guardUserContentMutation(notify: !auto)) return;
     if (_outboxRetryInFlight) {
       return;
     }
@@ -641,6 +666,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     MessageOutboxItem item, {
     required bool auto,
   }) async {
+    if (!_guardUserContentMutation(notify: !auto)) return;
     final sending = item.copyWith(
       status: MessageOutboxStatus.sending,
       attemptCount: item.attemptCount + 1,
@@ -656,6 +682,28 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
         ),
         outboxItems: _replaceOutboxItem(sending),
       );
+    }
+
+    if (!await _canDispatchMessageOutboxItemUseCase.execute(sending)) {
+      const error = 'Server đã thay đổi; tin nhắn chưa được gửi.';
+      final failed = sending.copyWith(
+        status: MessageOutboxStatus.failed,
+        lastError: error,
+        updatedAt: DateTime.now().toUtc(),
+      );
+      await _saveMessageOutboxItemUseCase.execute(failed);
+      if (mounted) {
+        state = state.copyWith(
+          messages: _setOptimisticDeliveryStatus(
+            state.messages,
+            sending.clientMessageId,
+            MessageOutboxStatus.failed,
+          ),
+          outboxItems: _replaceOutboxItem(failed),
+          errorMessage: auto ? null : error,
+        );
+      }
+      return;
     }
 
     final result = await _sendMessageUseCase.execute(
@@ -790,6 +838,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   }
 
   Future<void> toggleReaction(ChatMessage message, String emoji) async {
+    if (!_guardUserContentMutation()) return;
     final reacted = message.reactions.any(
       (reaction) => reaction.emoji == emoji && reaction.reactedByMe,
     );
@@ -804,6 +853,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   }
 
   Future<void> togglePin(ChatMessage message) async {
+    if (!_guardUserContentMutation()) return;
     final result = await _togglePinMessageUseCase.execute(
       workspaceId: state.scope.workspaceId,
       channelId: state.scope.channelId,
@@ -839,6 +889,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     ChatMessage message,
     String targetChannelId,
   ) async {
+    if (!_guardUserContentMutation()) return;
     final result = await _forwardMessageUseCase.execute(
       workspaceId: state.scope.workspaceId,
       channelId: state.scope.channelId,
@@ -881,6 +932,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     if (root == null || body.isEmpty || state.isSendingThread) {
       return;
     }
+    if (!_guardUserContentMutation()) return;
     state = state.copyWith(isSendingThread: true, clearError: true);
     final result = await _sendMessageUseCase.execute(
       workspaceId: state.scope.workspaceId,
@@ -910,6 +962,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   }
 
   Future<void> pickAttachment(MessageAttachmentPickSource source) async {
+    if (!_guardUserContentMutation()) return;
     final pickedResult = await _pickMessageAttachmentUseCase.execute(source);
     switch (pickedResult) {
       case Success<PickedMessageAttachment?>(value: final picked):
@@ -926,6 +979,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     if (state.isRecordingVoice || state.isSending) {
       return;
     }
+    if (!_guardUserContentMutation()) return;
     state = state.copyWith(clearError: true, clearNotice: true);
     final result = await _startVoiceMessageRecordingUseCase.execute();
     switch (result) {
@@ -952,7 +1006,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     );
     switch (result) {
       case Success<PickedMessageAttachment?>(value: final picked):
-        if (picked != null) {
+        if (picked != null && _guardUserContentMutation()) {
           await _queueAttachment(picked);
         }
       case FailureResult<PickedMessageAttachment?>(failure: final failure):
@@ -974,6 +1028,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   }
 
   Future<void> _queueAttachment(PickedMessageAttachment picked) async {
+    if (!_guardUserContentMutation()) return;
     final item = _newAttachmentUploadItemUseCase.execute(picked);
     state = state.copyWith(
       pendingAttachments: [...state.pendingAttachments, item],
@@ -983,6 +1038,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   }
 
   Future<void> retryAttachment(String clientAttachmentId) {
+    if (!_guardUserContentMutation()) return Future<void>.value();
     return _uploadAttachment(clientAttachmentId);
   }
 
@@ -995,6 +1051,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   }
 
   Future<void> _uploadAttachment(String clientAttachmentId) async {
+    if (!_guardUserContentMutation()) return;
     final item = _attachmentItemById(
       state.pendingAttachments,
       clientAttachmentId,
@@ -1160,6 +1217,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     required String targetUserId,
     required CallMode mode,
   }) async {
+    if (!_guardUserContentMutation()) return null;
     if (state.isStartingCall) {
       return null;
     }
@@ -1214,6 +1272,20 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
       case FailureResult<CallSession>(failure: final failure):
         state = state.copyWith(errorMessage: failure.message);
     }
+  }
+
+  bool _guardUserContentMutation({bool notify = true}) {
+    if (_canCreateUserContent()) return true;
+    if (notify) {
+      _onLegalAcceptanceRequired();
+      if (mounted) {
+        state = state.copyWith(
+          errorMessage:
+              'Bạn cần đồng ý Điều khoản và Chính sách quyền riêng tư trước khi tạo nội dung.',
+        );
+      }
+    }
+    return false;
   }
 
   void _mergeActionResult(Result<ChatMessage> result) {
@@ -1361,6 +1433,10 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     super.dispose();
   }
 }
+
+bool _allowUserContentByDefault() => true;
+
+void _noop() {}
 
 List<ChatMessage> _chronological(
   List<ChatMessage> messages,

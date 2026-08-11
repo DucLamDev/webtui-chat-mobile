@@ -1,13 +1,15 @@
 import 'dart:convert';
 
 import '../../../../core/database/app_database.dart';
+import '../../../../core/security/instance_scope.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/conversation_summary.dart';
 
 final class ConversationCacheDataSource {
-  const ConversationCacheDataSource(this._database);
+  const ConversationCacheDataSource(this._database, this._instanceScope);
 
   final AppDatabase _database;
+  final InstanceScope _instanceScope;
 
   Future<void> saveDirectConversations({
     required String workspaceId,
@@ -52,7 +54,7 @@ final class ConversationCacheDataSource {
     required MessagePage page,
   }) {
     return _database.putKeyValue(
-      scope: _messageScope(workspaceId, channelId),
+      scope: _instanceScope.localScope(_messageScope(workspaceId, channelId)),
       key: 'latest_page',
       value: jsonEncode(_messagePageToJson(page)),
     );
@@ -63,7 +65,7 @@ final class ConversationCacheDataSource {
     required String channelId,
   }) async {
     final value = await _database.readKeyValue(
-      scope: _messageScope(workspaceId, channelId),
+      scope: _instanceScope.localScope(_messageScope(workspaceId, channelId)),
       key: 'latest_page',
     );
     if (value == null) {
@@ -243,7 +245,7 @@ final class ConversationCacheDataSource {
     required List<ConversationSummary> items,
   }) {
     return _database.putKeyValue(
-      scope: _conversationScope(workspaceId),
+      scope: _instanceScope.localScope(_conversationScope(workspaceId)),
       key: key,
       value: jsonEncode({
         'items': items.map(_conversationToJson).toList(growable: false),
@@ -256,7 +258,7 @@ final class ConversationCacheDataSource {
     required String key,
   }) async {
     final value = await _database.readKeyValue(
-      scope: _conversationScope(workspaceId),
+      scope: _instanceScope.localScope(_conversationScope(workspaceId)),
       key: key,
     );
     if (value == null) {

@@ -5,11 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/core/database/app_database.dart';
 import 'package:webtui_chat/core/error/failure.dart';
 import 'package:webtui_chat/core/result/result.dart';
+import 'package:webtui_chat/core/security/instance_scope.dart';
 import 'package:webtui_chat/core/security/secure_key_value_store.dart';
 import 'package:webtui_chat/core/security/server_account_registry.dart';
-import 'package:webtui_chat/features/auth/application/use_cases/google_login_use_case.dart';
 import 'package:webtui_chat/features/auth/application/use_cases/login_use_case.dart';
 import 'package:webtui_chat/features/auth/application/use_cases/logout_use_case.dart';
+import 'package:webtui_chat/features/auth/application/use_cases/oidc_login_use_case.dart';
 import 'package:webtui_chat/features/auth/application/use_cases/refresh_access_token_use_case.dart';
 import 'package:webtui_chat/features/auth/application/use_cases/register_use_case.dart';
 import 'package:webtui_chat/features/auth/data/repositories/local_session_state_repository.dart';
@@ -18,12 +19,14 @@ import 'package:webtui_chat/features/auth/domain/entities/auth_session.dart';
 import 'package:webtui_chat/features/auth/domain/entities/auth_tokens.dart';
 import 'package:webtui_chat/features/auth/domain/entities/auth_user.dart';
 import 'package:webtui_chat/features/auth/domain/entities/device_identity.dart';
+import 'package:webtui_chat/features/auth/domain/entities/legal_acceptance.dart';
+import 'package:webtui_chat/features/auth/domain/entities/legal_document_versions.dart';
 import 'package:webtui_chat/features/auth/domain/entities/oidc_provider.dart';
 import 'package:webtui_chat/features/auth/domain/entities/user_session.dart';
 import 'package:webtui_chat/features/auth/domain/repositories/auth_repository.dart';
 import 'package:webtui_chat/features/auth/domain/repositories/auth_token_repository.dart';
 import 'package:webtui_chat/features/auth/domain/repositories/device_identity_repository.dart';
-import 'package:webtui_chat/features/auth/domain/repositories/google_identity_provider.dart';
+import 'package:webtui_chat/features/auth/domain/repositories/session_state_repository.dart';
 
 void main() {
   group('LoginUseCase', () {
@@ -47,6 +50,27 @@ void main() {
       expect(auth.lastPassword, 'secret');
       expect(tokens.accessToken, 'access-token');
       expect(tokens.refreshToken, 'refresh-token');
+      expect(tokens.lastPersistence, AuthTokenPersistence.durable);
+    });
+
+    test('unchecked remember policy saves a process-session token', () async {
+      final tokens = _FakeTokenRepository();
+      final useCase = LoginUseCase(
+        authRepository: _FakeAuthRepository(loginResult: Success(_session())),
+        tokenRepository: tokens,
+        deviceIdentityRepository: _FakeDeviceIdentityRepository(),
+      );
+
+      final result = await useCase.execute(
+        const LoginCommand(
+          identifier: 'lam',
+          password: 'secret',
+          remember: false,
+        ),
+      );
+
+      expect(result, isA<Success<AuthSession>>());
+      expect(tokens.lastPersistence, AuthTokenPersistence.sessionOnly);
     });
 
     test('returns validation failure before calling repository', () async {
@@ -84,6 +108,10 @@ void main() {
           password: ' matkhau123 ',
           confirmPassword: ' matkhau123 ',
           inviteToken: ' wti_invite-token ',
+          termsAccepted: true,
+          termsVersion: '2026-08-07',
+          privacyAccepted: true,
+          privacyVersion: '2026-08-07',
         ),
       );
 
@@ -94,6 +122,10 @@ void main() {
       expect(auth.lastUsername, 'lamduc');
       expect(auth.lastPassword, 'matkhau123');
       expect(auth.lastInviteToken, 'wti_invite-token');
+      expect(auth.lastTermsAccepted, isTrue);
+      expect(auth.lastTermsVersion, '2026-08-07');
+      expect(auth.lastPrivacyAccepted, isTrue);
+      expect(auth.lastPrivacyVersion, '2026-08-07');
       expect(tokens.accessToken, 'access-token');
       expect(tokens.refreshToken, 'refresh-token');
     });
@@ -119,24 +151,28 @@ void main() {
       expect(result.failureOrNull?.kind, FailureKind.validation);
       expect(auth.registerCalls, 0);
     });
-  });
 
-  test('GoogleLoginUseCase exchanges an ID token with the backend', () async {
-    final auth = _FakeAuthRepository();
-    final tokens = _FakeTokenRepository();
-    final useCase = GoogleLoginUseCase(
-      identityProvider: const _FakeGoogleIdentityProvider(),
-      authRepository: auth,
-      tokenRepository: tokens,
-      deviceIdentityRepository: _FakeDeviceIdentityRepository(),
-    );
+    test('requires explicit legal acceptance before registration', () async {
+      final auth = _FakeAuthRepository();
+      final useCase = RegisterUseCase(
+        authRepository: auth,
+        tokenRepository: _FakeTokenRepository(),
+        deviceIdentityRepository: _FakeDeviceIdentityRepository(),
+      );
 
-    final result = await useCase.execute();
+      final result = await useCase.execute(
+        const RegisterCommand(
+          displayName: 'Lâm Đức',
+          email: 'lam@example.com',
+          username: 'lamduc',
+          password: 'matkhau123',
+          confirmPassword: 'matkhau123',
+        ),
+      );
 
-    expect(result, isA<Success<AuthSession>>());
-    expect(auth.googleLoginCalls, 1);
-    expect(auth.lastGoogleCredential, 'google-id-token');
-    expect(tokens.accessToken, 'access-token');
+      expect(result.failureOrNull?.code, 'REGISTER_LEGAL_ACCEPTANCE_REQUIRED');
+      expect(auth.registerCalls, 0);
+    });
   });
 
   test('refresh queue fans out concurrent 401 refreshes to one call', () async {
@@ -166,6 +202,239 @@ void main() {
     expect(tokens.refreshToken, 'new-refresh');
   });
 
+  test('late A refresh success cannot overwrite server B tokens', () async {
+    final completer = Completer<Result<AuthSession>>();
+    final auth = _FakeAuthRepository(refreshHandler: (_) => completer.future);
+    final tokens = _FakeTokenRepository(refreshToken: 'refresh-a')
+      ..accessToken = 'access-a';
+    final useCase = RefreshAccessTokenUseCase(
+      authRepository: auth,
+      tokenRepository: tokens,
+    );
+
+    final pending = useCase.execute();
+    await Future<void>.delayed(Duration.zero);
+    _switchFakeTokensToB(tokens);
+    completer.complete(
+      Success(_session(access: 'late-access-a', refresh: 'late-refresh-a')),
+    );
+
+    final result = await pending;
+    expect(result.failureOrNull?.code, 'AUTH_INSTANCE_CHANGED');
+    expect(tokens.accessToken, 'access-b');
+    expect(tokens.refreshToken, 'refresh-b');
+  });
+
+  test('late A refresh 401 cannot clear server B tokens', () async {
+    final completer = Completer<Result<AuthSession>>();
+    final auth = _FakeAuthRepository(refreshHandler: (_) => completer.future);
+    final tokens = _FakeTokenRepository(refreshToken: 'refresh-a')
+      ..accessToken = 'access-a';
+    final useCase = RefreshAccessTokenUseCase(
+      authRepository: auth,
+      tokenRepository: tokens,
+    );
+
+    final pending = useCase.execute();
+    await Future<void>.delayed(Duration.zero);
+    _switchFakeTokensToB(tokens);
+    completer.complete(
+      const FailureResult(
+        Failure(
+          kind: FailureKind.unauthorized,
+          code: 'REFRESH_REJECTED',
+          message: 'Expired',
+        ),
+      ),
+    );
+
+    await pending;
+    expect(tokens.accessToken, 'access-b');
+    expect(tokens.refreshToken, 'refresh-b');
+  });
+
+  test('late A login success cannot overwrite server B tokens', () async {
+    final completer = Completer<Result<AuthSession>>();
+    final auth = _FakeAuthRepository(loginFuture: completer.future);
+    final tokens = _FakeTokenRepository()
+      ..accessToken = 'access-a'
+      ..refreshToken = 'refresh-a';
+    final useCase = LoginUseCase(
+      authRepository: auth,
+      tokenRepository: tokens,
+      deviceIdentityRepository: _FakeDeviceIdentityRepository(),
+    );
+
+    final pending = useCase.execute(
+      const LoginCommand(identifier: 'user-a', password: 'password-a'),
+    );
+    await Future<void>.delayed(Duration.zero);
+    _switchFakeTokensToB(tokens);
+    completer.complete(
+      Success(_session(access: 'late-access-a', refresh: 'late-refresh-a')),
+    );
+
+    expect((await pending).failureOrNull?.code, 'AUTH_STORAGE_FAILURE');
+    expect(tokens.accessToken, 'access-b');
+    expect(tokens.refreshToken, 'refresh-b');
+  });
+
+  test('late A registration cannot overwrite server B tokens', () async {
+    final completer = Completer<Result<AuthSession>>();
+    final auth = _FakeAuthRepository(registerFuture: completer.future);
+    final tokens = _FakeTokenRepository();
+    final useCase = RegisterUseCase(
+      authRepository: auth,
+      tokenRepository: tokens,
+      deviceIdentityRepository: _FakeDeviceIdentityRepository(),
+    );
+
+    final pending = useCase.execute(
+      const RegisterCommand(
+        displayName: 'User A',
+        email: 'a@example.com',
+        username: 'user-a',
+        password: 'password-a',
+        confirmPassword: 'password-a',
+        termsAccepted: true,
+        termsVersion: '2026-08-07',
+        privacyAccepted: true,
+        privacyVersion: '2026-08-07',
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+    _switchFakeTokensToB(tokens);
+    completer.complete(
+      Success(_session(access: 'late-access-a', refresh: 'late-refresh-a')),
+    );
+
+    expect((await pending).failureOrNull?.code, 'REGISTER_STORAGE_FAILURE');
+    expect(tokens.accessToken, 'access-b');
+    expect(tokens.refreshToken, 'refresh-b');
+  });
+
+  test('late A OIDC completion cannot overwrite server B tokens', () async {
+    final completer = Completer<Result<AuthSession>>();
+    final auth = _FakeAuthRepository(completeOidcFuture: completer.future);
+    final tokens = _FakeTokenRepository();
+    final useCase = OidcLoginUseCase(
+      authRepository: auth,
+      tokenRepository: tokens,
+      deviceIdentityRepository: _FakeDeviceIdentityRepository(),
+      loadExpectedServerOrigin: () => Uri.parse('https://server-a.example'),
+    );
+
+    expect(
+      (await useCase.start(
+        domain: 'server-a.example',
+        providerId: 'provider-a',
+      )).isSuccess,
+      isTrue,
+    );
+    final returnTo = Uri.parse(auth.lastOidcReturnTo!);
+    final pending = useCase.complete(
+      code: 'code-a',
+      domain: 'server-a.example',
+      instanceScopeId: returnTo.queryParameters['instance_scope']!,
+      attemptId: returnTo.queryParameters['attempt']!,
+    );
+    await Future<void>.delayed(Duration.zero);
+    _switchFakeTokensToB(tokens);
+    completer.complete(
+      Success(_session(access: 'late-access-a', refresh: 'late-refresh-a')),
+    );
+
+    expect((await pending).failureOrNull?.code, 'OIDC_LOGIN_STORAGE_FAILURE');
+    expect(tokens.accessToken, 'access-b');
+    expect(tokens.refreshToken, 'refresh-b');
+  });
+
+  test(
+    'OIDC callback from A is rejected after same-origin instance replacement',
+    () async {
+      final auth = _FakeAuthRepository();
+      final tokens = _FakeTokenRepository();
+      final useCase = OidcLoginUseCase(
+        authRepository: auth,
+        tokenRepository: tokens,
+        deviceIdentityRepository: _FakeDeviceIdentityRepository(),
+        loadExpectedServerOrigin: () => Uri.parse('https://shared.example'),
+      );
+
+      expect(
+        (await useCase.start(
+          domain: 'shared.example',
+          providerId: 'provider-a',
+        )).isSuccess,
+        isTrue,
+      );
+      final returnTo = Uri.parse(auth.lastOidcReturnTo!);
+      _switchFakeTokensToB(tokens);
+
+      final result = await useCase.complete(
+        code: 'one-time-code-from-a',
+        domain: 'shared.example',
+        instanceScopeId: returnTo.queryParameters['instance_scope']!,
+        attemptId: returnTo.queryParameters['attempt']!,
+      );
+
+      expect(result.failureOrNull?.code, 'OIDC_LOGIN_STORAGE_FAILURE');
+      expect(auth.completeOidcCalls, 0);
+      expect(tokens.accessToken, 'access-b');
+      expect(tokens.refreshToken, 'refresh-b');
+    },
+  );
+
+  test('late A logout cannot clear server B token or workspace', () async {
+    final completer = Completer<Result<void>>();
+    final auth = _FakeAuthRepository(logoutFuture: completer.future);
+    final tokens = _FakeTokenRepository(refreshToken: 'refresh-a')
+      ..accessToken = 'access-a';
+    final session = _FakeSessionStateRepository(
+      currentGuard: tokens.mutationGuard,
+      workspaceId: 'workspace-a',
+    );
+    final useCase = LogoutUseCase(
+      authRepository: auth,
+      tokenRepository: tokens,
+      sessionStateRepository: session,
+    );
+
+    final pending = useCase.execute();
+    await Future<void>.delayed(Duration.zero);
+    _switchFakeTokensToB(tokens);
+    session
+      ..currentGuard = tokens.mutationGuard
+      ..workspaceId = 'workspace-b';
+    completer.complete(const Success(null));
+
+    expect((await pending).isSuccess, isTrue);
+    expect(tokens.accessToken, 'access-b');
+    expect(tokens.refreshToken, 'refresh-b');
+    expect(session.workspaceId, 'workspace-b');
+    expect(session.guards, hasLength(1));
+    expect(session.guards.single.instanceScopeId, 'scope-a');
+  });
+
+  test('tokens fail closed when live discovery validation is absent', () async {
+    final store = _MemorySecureStore();
+    const scopeId = 'scope-customer';
+    await store.write(SecureStoreKey.activeInstanceScopeId, scopeId);
+    await store.write(SecureStoreKey.sessionInstanceScopeId, scopeId);
+    await store.write(SecureStoreKey.activeInstanceGeneration, 'generation-c');
+    await store.write(SecureStoreKey.accessToken, 'customer-access');
+    await store.write(SecureStoreKey.refreshToken, 'customer-refresh');
+    final repository = SecureAuthTokenRepository(store);
+
+    expect(await repository.readAccessToken(), isNull);
+    expect(await repository.readRefreshToken(), isNull);
+    expect(await repository.captureMutationGuard(), isNull);
+    await expectLater(
+      repository.saveTokens(_session().tokens),
+      throwsStateError,
+    );
+  });
+
   test(
     'logout clears refresh token and workspace scoped local state',
     () async {
@@ -174,27 +443,57 @@ void main() {
       final database = AppDatabase(createInMemoryDriftConnection());
       addTearDown(database.close);
 
-      await tokenRepository.saveTokens(_session().tokens);
       const serverUrl = 'https://chat.example';
+      final instanceScope = InstanceScope(
+        instanceId: '11111111-1111-4111-8111-111111111111',
+        serverOrigin: Uri.parse(serverUrl),
+      );
+      final otherInstanceScope = InstanceScope(
+        instanceId: '22222222-2222-4222-8222-222222222222',
+        serverOrigin: Uri.parse('https://other.example'),
+      );
       await secureStore.write(SecureStoreKey.instanceBaseUrl, serverUrl);
+      await secureStore.write(
+        SecureStoreKey.instanceId,
+        instanceScope.instanceId,
+      );
+      await secureStore.write(
+        SecureStoreKey.activeInstanceScopeId,
+        instanceScope.storageId,
+      );
+      await secureStore.write(
+        SecureStoreKey.liveDiscoveryValidatedScopeId,
+        instanceScope.storageId,
+      );
+      await secureStore.write(
+        SecureStoreKey.activeInstanceGeneration,
+        'generation-a',
+      );
+      await tokenRepository.saveTokens(_session().tokens);
       final accountRegistry = SecureServerAccountRegistry(secureStore);
       await accountRegistry.rememberServer(
-        baseUrl: Uri.parse(serverUrl),
+        instanceScope: instanceScope,
         wsBaseUrl: Uri.parse('wss://chat.example'),
         name: 'Chat example',
       );
       await accountRegistry.stashActiveSession();
       await secureStore.write(SecureStoreKey.activeWorkspaceId, 'workspace-1');
       await database.putKeyValue(
-        scope: 'workspace:workspace-1',
+        scope: instanceScope.localScope('workspace:workspace-1'),
         key: 'cursor',
         value: 'cursor-1',
       );
       await database.putKeyValue(
-        scope: 'session',
+        scope: instanceScope.localScope('session'),
         key: 'selected_tab',
         value: 'messages',
       );
+      await database.putKeyValue(
+        scope: otherInstanceScope.localScope('workspace:workspace-1'),
+        key: 'cursor',
+        value: 'other-server-cursor',
+      );
+      final cleanupEvents = <String>[];
 
       final useCase = LogoutUseCase(
         authRepository: _FakeAuthRepository(),
@@ -202,6 +501,26 @@ void main() {
         sessionStateRepository: LocalSessionStateRepository(
           secureStore: secureStore,
           database: database,
+          loadInstanceScope: () => instanceScope,
+          clearNativeInstanceBinding: () async {
+            cleanupEvents.add('binding');
+          },
+          terminateNativeCalls: (scope) async {
+            expect(
+              await secureStore.read(SecureStoreKey.sessionInstanceScopeId),
+              isNull,
+              reason: 'secure session must be invalid before native cleanup',
+            );
+            expect(scope, instanceScope);
+            cleanupEvents.add('calls');
+          },
+          clearMessageNotifications: () async {
+            cleanupEvents.add('messages');
+          },
+          clearScopedAttachmentFiles: (scope) async {
+            expect(scope, instanceScope);
+            cleanupEvents.add('files');
+          },
           serverAccountRegistry: accountRegistry,
         ),
       );
@@ -212,6 +531,7 @@ void main() {
       expect(await tokenRepository.readAccessToken(), isNull);
       expect(await tokenRepository.readRefreshToken(), isNull);
       expect(await secureStore.read(SecureStoreKey.activeWorkspaceId), isNull);
+      expect(cleanupEvents, ['binding', 'calls', 'messages', 'files']);
       expect(
         jsonDecode(
           (await secureStore.read(SecureStoreKey.serverAccounts))!,
@@ -219,20 +539,31 @@ void main() {
         isNot(containsPair('refresh_token', anything)),
       );
       expect(
-        await accountRegistry.activate(Uri.parse(serverUrl)),
+        await accountRegistry.activate(instanceScope),
         isFalse,
         reason: 'logout must not allow a cached refresh token to be restored',
       );
       expect(
         await database.readKeyValue(
-          scope: 'workspace:workspace-1',
+          scope: instanceScope.localScope('workspace:workspace-1'),
           key: 'cursor',
         ),
         isNull,
       );
       expect(
-        await database.readKeyValue(scope: 'session', key: 'selected_tab'),
+        await database.readKeyValue(
+          scope: instanceScope.localScope('session'),
+          key: 'selected_tab',
+        ),
         isNull,
+      );
+      expect(
+        await database.readKeyValue(
+          scope: otherInstanceScope.localScope('workspace:workspace-1'),
+          key: 'cursor',
+        ),
+        'other-server-cursor',
+        reason: 'logout from A must not delete B cache',
       );
     },
   );
@@ -260,23 +591,62 @@ final class _FakeAuthRepository implements AuthRepository {
     this.loginResult,
     this.registerResult,
     this.refreshHandler,
+    this.loginFuture,
+    this.registerFuture,
+    this.completeOidcFuture,
+    this.logoutFuture,
   });
 
   final Result<AuthSession>? loginResult;
   final Result<AuthSession>? registerResult;
   final Future<Result<AuthSession>> Function(String refreshToken)?
   refreshHandler;
+  final Future<Result<AuthSession>>? loginFuture;
+  final Future<Result<AuthSession>>? registerFuture;
+  final Future<Result<AuthSession>>? completeOidcFuture;
+  final Future<Result<void>>? logoutFuture;
   int loginCalls = 0;
   int registerCalls = 0;
   int refreshCalls = 0;
-  int googleLoginCalls = 0;
+  int startOidcCalls = 0;
+  int completeOidcCalls = 0;
   String? lastDisplayName;
   String? lastEmail;
   String? lastUsername;
   String? lastIdentifier;
   String? lastPassword;
   String? lastInviteToken;
-  String? lastGoogleCredential;
+  bool? lastTermsAccepted;
+  String? lastTermsVersion;
+  bool? lastPrivacyAccepted;
+  String? lastPrivacyVersion;
+  String? lastOidcReturnTo;
+
+  @override
+  Future<Result<LegalAcceptance>> loadLegalAcceptance({
+    required String workspaceId,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Result<LegalAcceptance>> acceptLegalDocuments({
+    required String workspaceId,
+    required String termsVersion,
+    required String privacyVersion,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Result<LegalDocumentVersions>> loadLegalDocumentVersions() async {
+    return const Success(
+      LegalDocumentVersions(
+        termsVersion: '2026-08-07',
+        privacyVersion: '2026-08-07',
+      ),
+    );
+  }
 
   @override
   Future<Result<AuthSession>> login({
@@ -287,6 +657,7 @@ final class _FakeAuthRepository implements AuthRepository {
     loginCalls += 1;
     lastIdentifier = identifier;
     lastPassword = password;
+    if (loginFuture != null) return loginFuture!;
     return loginResult ?? Success(_session());
   }
 
@@ -297,6 +668,10 @@ final class _FakeAuthRepository implements AuthRepository {
     required String username,
     required String password,
     String inviteToken = '',
+    bool termsAccepted = false,
+    String termsVersion = '',
+    bool privacyAccepted = false,
+    String privacyVersion = '',
     required DeviceIdentity device,
   }) async {
     registerCalls += 1;
@@ -305,17 +680,12 @@ final class _FakeAuthRepository implements AuthRepository {
     lastUsername = username;
     lastPassword = password;
     lastInviteToken = inviteToken;
+    lastTermsAccepted = termsAccepted;
+    lastTermsVersion = termsVersion;
+    lastPrivacyAccepted = privacyAccepted;
+    lastPrivacyVersion = privacyVersion;
+    if (registerFuture != null) return registerFuture!;
     return registerResult ?? Success(_session());
-  }
-
-  @override
-  Future<Result<AuthSession>> loginWithGoogle({
-    required String credential,
-    required DeviceIdentity device,
-  }) async {
-    googleLoginCalls += 1;
-    lastGoogleCredential = credential;
-    return Success(_session());
   }
 
   @override
@@ -329,8 +699,10 @@ final class _FakeAuthRepository implements AuthRepository {
     required String providerId,
     required String returnTo,
     required DeviceIdentity device,
-  }) {
-    throw UnimplementedError();
+  }) async {
+    startOidcCalls += 1;
+    lastOidcReturnTo = returnTo;
+    return Success(Uri.parse('https://identity.example/authorize'));
   }
 
   @override
@@ -339,7 +711,9 @@ final class _FakeAuthRepository implements AuthRepository {
     required String domain,
     required DeviceIdentity device,
   }) {
-    throw UnimplementedError();
+    completeOidcCalls += 1;
+    return completeOidcFuture ??
+        Future<Result<AuthSession>>.value(Success(_session()));
   }
 
   @override
@@ -350,7 +724,9 @@ final class _FakeAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<Result<void>> logout(String refreshToken) async => const Success(null);
+  Future<Result<void>> logout(String refreshToken) {
+    return logoutFuture ?? Future<Result<void>>.value(const Success(null));
+  }
 
   @override
   Future<Result<List<UserSession>>> listSessions() {
@@ -368,20 +744,24 @@ final class _FakeAuthRepository implements AuthRepository {
   }
 }
 
-final class _FakeGoogleIdentityProvider implements GoogleIdentityProvider {
-  const _FakeGoogleIdentityProvider();
-
-  @override
-  Future<Result<String>> authenticate() async {
-    return const Success('google-id-token');
-  }
-}
-
 final class _FakeTokenRepository implements AuthTokenRepository {
-  _FakeTokenRepository({this.refreshToken});
+  _FakeTokenRepository({
+    this.refreshToken,
+    AuthTokenMutationGuard? mutationGuard,
+  }) : mutationGuard =
+           mutationGuard ??
+           const AuthTokenMutationGuard(
+             instanceScopeId: 'scope-a',
+             generation: 'generation-a',
+           );
 
   String? accessToken;
   String? refreshToken;
+  AuthTokenMutationGuard? mutationGuard;
+  AuthTokenPersistence? lastPersistence;
+
+  @override
+  Future<AuthTokenMutationGuard?> captureMutationGuard() async => mutationGuard;
 
   @override
   Future<void> clearTokens() async {
@@ -396,9 +776,44 @@ final class _FakeTokenRepository implements AuthTokenRepository {
   Future<String?> readRefreshToken() async => refreshToken;
 
   @override
+  Future<bool> isMutationGuardCurrent(AuthTokenMutationGuard guard) async =>
+      guard == mutationGuard;
+
+  @override
+  Future<String?> readAccessTokenIfCurrent(AuthTokenMutationGuard guard) async {
+    return guard == mutationGuard ? accessToken : null;
+  }
+
+  @override
+  Future<String?> readRefreshTokenIfCurrent(
+    AuthTokenMutationGuard guard,
+  ) async {
+    return guard == mutationGuard ? refreshToken : null;
+  }
+
+  @override
   Future<void> saveTokens(AuthTokens tokens) async {
     accessToken = tokens.accessToken;
     refreshToken = tokens.refreshToken;
+  }
+
+  @override
+  Future<bool> saveTokensIfCurrent(
+    AuthTokens tokens,
+    AuthTokenMutationGuard guard, {
+    AuthTokenPersistence? persistence,
+  }) async {
+    if (guard != mutationGuard) return false;
+    lastPersistence = persistence;
+    await saveTokens(tokens);
+    return true;
+  }
+
+  @override
+  Future<bool> clearTokensIfCurrent(AuthTokenMutationGuard guard) async {
+    if (guard != mutationGuard) return false;
+    await clearTokens();
+    return true;
   }
 }
 
@@ -413,14 +828,61 @@ final class _FakeDeviceIdentityRepository implements DeviceIdentityRepository {
   }
 }
 
+final class _FakeSessionStateRepository implements SessionStateRepository {
+  _FakeSessionStateRepository({
+    required this.currentGuard,
+    required this.workspaceId,
+  });
+
+  AuthTokenMutationGuard? currentGuard;
+  String? workspaceId;
+  final guards = <AuthTokenMutationGuard>[];
+
+  @override
+  Future<AuthTokenMutationGuard?> captureActiveSessionGuard() async =>
+      currentGuard;
+
+  @override
+  Future<bool> hasAnySavedSession() async => workspaceId != null;
+
+  @override
+  Future<void> resetForLogout() async {
+    workspaceId = null;
+  }
+
+  @override
+  Future<bool> resetForLogoutIfCurrent(AuthTokenMutationGuard guard) async {
+    guards.add(guard);
+    if (guard != currentGuard) return false;
+    workspaceId = null;
+    return true;
+  }
+
+  @override
+  Future<void> resetForServerSwitch() async {}
+}
+
+void _switchFakeTokensToB(_FakeTokenRepository tokens) {
+  tokens
+    ..mutationGuard = const AuthTokenMutationGuard(
+      instanceScopeId: 'scope-b',
+      generation: 'generation-b',
+    )
+    ..accessToken = 'access-b'
+    ..refreshToken = 'refresh-b';
+}
+
 final class _MemorySecureStore implements SecureKeyValueStore {
   final _values = <SecureStoreKey, String>{};
 
   @override
   Future<void> clearSession() async {
     await Future.wait([
+      delete(SecureStoreKey.accessToken),
       delete(SecureStoreKey.refreshToken),
+      delete(SecureStoreKey.sessionInstanceScopeId),
       delete(SecureStoreKey.activeWorkspaceId),
+      delete(SecureStoreKey.activeWorkspaceInstanceScopeId),
     ]);
   }
 

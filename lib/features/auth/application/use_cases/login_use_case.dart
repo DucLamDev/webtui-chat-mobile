@@ -6,10 +6,15 @@ import '../../domain/repositories/auth_token_repository.dart';
 import '../../domain/repositories/device_identity_repository.dart';
 
 final class LoginCommand {
-  const LoginCommand({required this.identifier, required this.password});
+  const LoginCommand({
+    required this.identifier,
+    required this.password,
+    this.remember = true,
+  });
 
   final String identifier;
   final String password;
+  final bool remember;
 }
 
 final class LoginUseCase {
@@ -39,7 +44,14 @@ final class LoginUseCase {
     }
 
     try {
+      final guard = await _tokenRepository.captureMutationGuard();
+      if (guard == null) {
+        throw StateError('Active instance is not live validated.');
+      }
       final device = await _deviceIdentityRepository.currentDevice();
+      if (await _tokenRepository.captureMutationGuard() != guard) {
+        throw StateError('Active instance changed during login.');
+      }
       final result = await _authRepository.login(
         identifier: identifier,
         password: password,
@@ -47,7 +59,15 @@ final class LoginUseCase {
       );
 
       if (result case Success<AuthSession>(:final value)) {
-        await _tokenRepository.saveTokens(value.tokens);
+        if (!await _tokenRepository.saveTokensIfCurrent(
+          value.tokens,
+          guard,
+          persistence: command.remember
+              ? AuthTokenPersistence.durable
+              : AuthTokenPersistence.sessionOnly,
+        )) {
+          throw StateError('Active instance changed during login.');
+        }
       }
       return result;
     } on Object catch (error) {

@@ -81,7 +81,7 @@ final class ImagePickerMessageAttachmentRepository
   }
 
   Future<Result<PickedMessageAttachment?>> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       allowMultiple: false,
       withData: false,
       type: FileType.custom,

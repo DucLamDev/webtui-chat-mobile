@@ -4,6 +4,8 @@ import '../../domain/entities/auth_session.dart';
 import '../../domain/entities/auth_tokens.dart';
 import '../../domain/entities/auth_user.dart';
 import '../../domain/entities/device_identity.dart';
+import '../../domain/entities/legal_acceptance.dart';
+import '../../domain/entities/legal_document_versions.dart';
 import '../../domain/entities/oidc_provider.dart';
 import '../../domain/entities/user_session.dart';
 
@@ -11,6 +13,63 @@ final class AuthRemoteDataSource {
   const AuthRemoteDataSource(this._api);
 
   final ApiTransport _api;
+
+  Future<LegalDocumentVersions> loadLegalDocumentVersions() async {
+    final response = await _api.get<Object>('/api/v1/auth/legal-documents');
+    final documents = envelopeList(response.data, 'documents');
+    String termsVersion = '';
+    String privacyVersion = '';
+    for (final document in documents) {
+      final type = stringField(document, const [
+        'document_type',
+        'type',
+      ]).trim().toLowerCase();
+      final version = stringField(document, const ['version']).trim();
+      if (type == 'terms') {
+        termsVersion = version;
+      } else if (type == 'privacy') {
+        privacyVersion = version;
+      }
+    }
+    final versions = LegalDocumentVersions(
+      termsVersion: termsVersion,
+      privacyVersion: privacyVersion,
+    );
+    if (!versions.isComplete) {
+      throw const FormatException('Legal document versions are incomplete.');
+    }
+    return versions;
+  }
+
+  Future<LegalAcceptance> loadLegalAcceptance({
+    required String workspaceId,
+  }) async {
+    final selectedWorkspaceId = _requiredWorkspaceId(workspaceId);
+    final response = await _api.get<Object>(
+      '/api/v1/auth/legal-acceptance',
+      queryParameters: {'workspace_id': selectedWorkspaceId},
+    );
+    return _legalAcceptanceFromResponse(response.data);
+  }
+
+  Future<LegalAcceptance> acceptLegalDocuments({
+    required String workspaceId,
+    required String termsVersion,
+    required String privacyVersion,
+  }) async {
+    final selectedWorkspaceId = _requiredWorkspaceId(workspaceId);
+    final response = await _api.post<Object>(
+      '/api/v1/auth/legal-acceptance',
+      data: {
+        'workspace_id': selectedWorkspaceId,
+        'terms_accepted': true,
+        'terms_version': termsVersion.trim(),
+        'privacy_accepted': true,
+        'privacy_version': privacyVersion.trim(),
+      },
+    );
+    return _legalAcceptanceFromResponse(response.data);
+  }
 
   Future<AuthSession> login({
     required String identifier,
@@ -34,6 +93,10 @@ final class AuthRemoteDataSource {
     required String username,
     required String password,
     String inviteToken = '',
+    bool termsAccepted = false,
+    String termsVersion = '',
+    bool privacyAccepted = false,
+    String privacyVersion = '',
     required DeviceIdentity device,
   }) async {
     final cleanInviteToken = inviteToken.trim();
@@ -45,19 +108,12 @@ final class AuthRemoteDataSource {
         'username': username,
         'password': password,
         if (cleanInviteToken.isNotEmpty) 'invite_token': cleanInviteToken,
+        'terms_accepted': termsAccepted,
+        'terms_version': termsVersion.trim(),
+        'privacy_accepted': privacyAccepted,
+        'privacy_version': privacyVersion.trim(),
         'device_name': device.displayName,
       },
-    );
-    return _authSessionFromResponse(response.data);
-  }
-
-  Future<AuthSession> loginWithGoogle({
-    required String credential,
-    required DeviceIdentity device,
-  }) async {
-    final response = await _api.post<Object>(
-      '/api/v1/auth/google',
-      data: {'credential': credential, 'device_name': device.displayName},
     );
     return _authSessionFromResponse(response.data);
   }
@@ -147,6 +203,49 @@ final class AuthRemoteDataSource {
   Future<void> revokeAllSessions() async {
     await _api.delete<Object>('/api/v1/auth/sessions');
   }
+}
+
+String _requiredWorkspaceId(String value) {
+  final workspaceId = value.trim();
+  if (workspaceId.isEmpty) {
+    throw ArgumentError.value(value, 'workspaceId', 'must not be empty');
+  }
+  return workspaceId;
+}
+
+LegalAcceptance _legalAcceptanceFromResponse(Object? value) {
+  final acceptance = envelopeItem(value, 'legal_acceptance');
+  final terms = jsonMap(field(acceptance, const ['terms']));
+  final privacy = jsonMap(field(acceptance, const ['privacy']));
+  final result = LegalAcceptance(
+    workspaceId: stringField(acceptance, const [
+      'workspace_id',
+      'workspaceId',
+    ]).trim(),
+    serverComplete: boolField(acceptance, const ['complete']),
+    terms: LegalDocumentAcceptance(
+      version: stringField(terms, const ['version']).trim(),
+      accepted: boolField(terms, const ['accepted']),
+      acceptedAt: nullableDateTimeField(terms, const [
+        'accepted_at',
+        'acceptedAt',
+      ]),
+    ),
+    privacy: LegalDocumentAcceptance(
+      version: stringField(privacy, const ['version']).trim(),
+      accepted: boolField(privacy, const ['accepted']),
+      acceptedAt: nullableDateTimeField(privacy, const [
+        'accepted_at',
+        'acceptedAt',
+      ]),
+    ),
+  );
+  if (result.workspaceId.isEmpty ||
+      result.terms.version.isEmpty ||
+      result.privacy.version.isEmpty) {
+    throw const FormatException('Legal acceptance versions are incomplete.');
+  }
+  return result;
 }
 
 AuthSession _authSessionFromResponse(Object? value, {String? refreshToken}) {

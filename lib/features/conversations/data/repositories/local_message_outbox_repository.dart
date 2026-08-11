@@ -21,6 +21,11 @@ final class LocalMessageOutboxRepository implements MessageOutboxRepository {
   }
 
   @override
+  Future<bool> canDispatch(MessageOutboxItem item) {
+    return _dataSource.canDispatch(item);
+  }
+
+  @override
   Future<void> delete({
     required String workspaceId,
     required String channelId,

@@ -64,22 +64,6 @@ Base URL không nằm trong widget. Cấu hình mặc định của cả 3 flavo
 flutter run --flavor dev -t lib/main_dev.dart --dart-define=WEBTUI_API_BASE_URL=http://10.0.2.2:8080
 ```
 
-## Google Sign-In
-
-Nút Google lấy ID token bằng plugin `google_sign_in`, sau đó gửi token tới backend qua `POST /api/v1/auth/google`. Cấu hình OAuth client bằng `--dart-define`:
-
-```sh
-flutter run --flavor prod -t lib/main_prod.dart \
-  --dart-define=GOOGLE_OAUTH_CLIENT_ID=your-platform-client-id.apps.googleusercontent.com \
-  --dart-define=GOOGLE_OAUTH_SERVER_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
-```
-
-`GOOGLE_OAUTH_SERVER_CLIENT_ID` phải trùng với `GOOGLE_CLIENT_ID` trên backend để backend xác minh đúng audience của ID token. Android vẫn cần khai báo package name và SHA-1/SHA-256 của app trong Google Cloud/Firebase Console.
-
-Nút Google chỉ hiện khi cả hai client ID được cấu hình. Trên iOS, nút này được
-ẩn cho tới khi Sign in with Apple và URL scheme native của Google được triển
-khai, kiểm thử và rà soát theo App Store Review Guideline 4.8.
-
 ## Kết Nối API Mobile
 
 Flutter chạy native trên Android/iOS không bị chính sách CORS của trình duyệt. Khi app báo không thể kết nối máy chủ, kiểm tra DNS, chứng chỉ HTTPS, firewall và Nginx trước. Base URL production hiện là `https://chat.vpsttt.com`.

@@ -15,6 +15,8 @@ import 'package:webtui_chat/features/auth/domain/entities/auth_session.dart';
 import 'package:webtui_chat/features/auth/domain/entities/auth_tokens.dart';
 import 'package:webtui_chat/features/auth/domain/entities/auth_user.dart';
 import 'package:webtui_chat/features/auth/domain/entities/device_identity.dart';
+import 'package:webtui_chat/features/auth/domain/entities/legal_acceptance.dart';
+import 'package:webtui_chat/features/auth/domain/entities/legal_document_versions.dart';
 import 'package:webtui_chat/features/auth/domain/entities/oidc_provider.dart';
 import 'package:webtui_chat/features/auth/domain/entities/user_session.dart';
 import 'package:webtui_chat/features/auth/domain/repositories/auth_repository.dart';
@@ -104,6 +106,85 @@ void main() {
     expect(find.byKey(const Key('register_submit_button')), findsOneWidget);
   });
 
+  testWidgets('registration requires one explicit acceptance for both links', (
+    tester,
+  ) async {
+    await _pumpLogin(tester, authRepository: _WidgetAuthRepository());
+    await _connectServer(tester);
+    final registerLink = find.text('Đăng ký ngay');
+    await tester.ensureVisible(registerLink);
+    await tester.tap(registerLink);
+    await tester.pumpAndSettle();
+
+    final checkbox = find.byKey(
+      const Key('register_legal_acceptance_checkbox'),
+    );
+    await tester.ensureVisible(checkbox);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('register_terms_link')), findsOneWidget);
+    expect(find.byKey(const Key('register_privacy_link')), findsOneWidget);
+    expect(tester.widget<Checkbox>(checkbox).value, isFalse);
+
+    await tester.tap(checkbox);
+    await tester.pump();
+    expect(tester.widget<Checkbox>(checkbox).value, isTrue);
+  });
+
+  testWidgets('registration is fail-closed when legal discovery fails', (
+    tester,
+  ) async {
+    var attempts = 0;
+    await _pumpLogin(
+      tester,
+      authRepository: _WidgetAuthRepository(
+        legalHandler: () async {
+          attempts++;
+          if (attempts == 1) {
+            return const FailureResult(
+              Failure(
+                kind: FailureKind.network,
+                message: 'Legal documents are unavailable.',
+              ),
+            );
+          }
+          return const Success(
+            LegalDocumentVersions(
+              termsVersion: '2026-08-07',
+              privacyVersion: '2026-08-07',
+            ),
+          );
+        },
+      ),
+    );
+    await _connectServer(tester);
+    final registerLink = find.text('Đăng ký ngay');
+    await tester.ensureVisible(registerLink);
+    await tester.tap(registerLink);
+    await tester.pumpAndSettle();
+
+    final checkbox = find.byKey(
+      const Key('register_legal_acceptance_checkbox'),
+    );
+    expect(
+      find.byKey(const Key('register_legal_versions_error')),
+      findsOneWidget,
+    );
+    expect(tester.widget<Checkbox>(checkbox).onChanged, isNull);
+
+    final retry = find.byKey(const Key('register_legal_versions_retry'));
+    await tester.ensureVisible(retry);
+    await tester.tap(retry);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('register_legal_versions_ready')),
+      findsOneWidget,
+    );
+    expect(tester.widget<Checkbox>(checkbox).onChanged, isNotNull);
+    expect(attempts, 2);
+  });
+
   testWidgets('restores the selected server and organization branding', (
     tester,
   ) async {
@@ -111,12 +192,24 @@ void main() {
       tester,
       authRepository: const _WidgetAuthRepository(),
       initialDiscovery: SelfHostedServerDiscovery(
+        instanceId: '11111111-1111-4111-8111-111111111111',
+        discoveryVersion: '1',
         domain: 'localhost',
         name: 'Company Chat',
         apiBaseUri: Uri.parse('http://localhost:8080'),
         wsBaseUri: Uri.parse('ws://localhost:8080/ws'),
         registrationMode: 'open',
         appVersion: 'test',
+        apiContractVersion: 1,
+        serverVersion: 'test',
+        minimumSupportedMobileVersion: '1.0.0',
+        capabilities: const SelfHostedCapabilities(
+          moderation: true,
+          reporting: true,
+          blocking: true,
+          accountDeletion: true,
+          legalAcceptance: true,
+        ),
         logoUrl: 'https://cdn.example.com/company.png',
       ),
     );
@@ -124,6 +217,44 @@ void main() {
     expect(find.byKey(const Key('server_domain_field')), findsNothing);
     expect(find.byKey(const Key('login_identifier_field')), findsOneWidget);
     expect(find.textContaining('Company Chat'), findsOneWidget);
+  });
+
+  testWidgets('live-bound durable session resumes exactly once', (
+    tester,
+  ) async {
+    var successCount = 0;
+    await _pumpLogin(
+      tester,
+      authRepository: const _WidgetAuthRepository(),
+      initialDiscovery: _discovery(),
+      tokenRepository: _WidgetTokenRepository(accessToken: 'stored-access'),
+      onLoginSuccess: () => successCount += 1,
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(successCount, 1);
+  });
+
+  testWidgets('stale generation never resumes a stored session', (
+    tester,
+  ) async {
+    var successCount = 0;
+    await _pumpLogin(
+      tester,
+      authRepository: const _WidgetAuthRepository(),
+      initialDiscovery: _discovery(),
+      tokenRepository: _WidgetTokenRepository(
+        accessToken: 'stale-access',
+        current: false,
+      ),
+      onLoginSuccess: () => successCount += 1,
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(successCount, 0);
+    expect(find.byKey(const Key('login_identifier_field')), findsOneWidget);
   });
 
   testWidgets('password recovery explains the self-hosted admin flow', (
@@ -148,45 +279,86 @@ Future<void> _pumpLogin(
   required AuthRepository authRepository,
   VoidCallback? onLoginSuccess,
   SelfHostedServerDiscovery? initialDiscovery,
+  AuthTokenRepository? tokenRepository,
 }) async {
+  final tokens = tokenRepository ?? _WidgetTokenRepository();
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        authRepositoryProvider.overrideWithValue(authRepository),
         appConfigProvider.overrideWithValue(
           AppConfig(
             flavor: AppFlavor.dev,
             apiBaseUri: Uri.parse('http://localhost:8080'),
             wsBaseUri: Uri.parse('ws://localhost:8080/ws'),
+            termsUrl: 'https://example.com/terms',
+            privacyPolicyUrl: 'https://example.com/privacy',
           ),
         ),
         if (initialDiscovery != null)
           initialServerDiscoveryProvider.overrideWithValue(initialDiscovery),
+        authTokenRepositoryProvider.overrideWithValue(tokens),
         serverConnectorProvider.overrideWithValue(
           (_) async => SelfHostedServerDiscovery(
+            instanceId: '11111111-1111-4111-8111-111111111111',
+            discoveryVersion: '1',
             domain: 'localhost',
             name: 'Company Chat',
             apiBaseUri: Uri.parse('http://localhost:8080'),
             wsBaseUri: Uri.parse('ws://localhost:8080/ws'),
             registrationMode: 'open',
             appVersion: 'test',
+            apiContractVersion: 1,
+            serverVersion: 'test',
+            minimumSupportedMobileVersion: '1.0.0',
+            capabilities: const SelfHostedCapabilities(
+              moderation: true,
+              reporting: true,
+              blocking: true,
+              accountDeletion: true,
+              legalAcceptance: true,
+            ),
           ),
         ),
         loginUseCaseProvider.overrideWithValue(
           LoginUseCase(
             authRepository: authRepository,
-            tokenRepository: _WidgetTokenRepository(),
+            tokenRepository: tokens,
             deviceIdentityRepository: _WidgetDeviceIdentityRepository(),
           ),
         ),
         registerUseCaseProvider.overrideWithValue(
           RegisterUseCase(
             authRepository: authRepository,
-            tokenRepository: _WidgetTokenRepository(),
+            tokenRepository: tokens,
             deviceIdentityRepository: _WidgetDeviceIdentityRepository(),
           ),
         ),
       ],
       child: MaterialApp(home: LoginScreen(onLoginSuccess: onLoginSuccess)),
+    ),
+  );
+}
+
+SelfHostedServerDiscovery _discovery() {
+  return SelfHostedServerDiscovery(
+    instanceId: '11111111-1111-4111-8111-111111111111',
+    discoveryVersion: '1',
+    domain: 'localhost',
+    name: 'Company Chat',
+    apiBaseUri: Uri.parse('http://localhost:8080'),
+    wsBaseUri: Uri.parse('ws://localhost:8080/ws'),
+    registrationMode: 'open',
+    appVersion: 'test',
+    apiContractVersion: 1,
+    serverVersion: 'test',
+    minimumSupportedMobileVersion: '1.0.0',
+    capabilities: const SelfHostedCapabilities(
+      moderation: true,
+      reporting: true,
+      blocking: true,
+      accountDeletion: true,
+      legalAcceptance: true,
     ),
   );
 }
@@ -234,9 +406,37 @@ AuthSession _session() {
 }
 
 final class _WidgetAuthRepository implements AuthRepository {
-  const _WidgetAuthRepository({this.loginHandler});
+  const _WidgetAuthRepository({this.loginHandler, this.legalHandler});
 
   final Future<Result<AuthSession>> Function()? loginHandler;
+  final Future<Result<LegalDocumentVersions>> Function()? legalHandler;
+
+  @override
+  Future<Result<LegalAcceptance>> loadLegalAcceptance({
+    required String workspaceId,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Result<LegalAcceptance>> acceptLegalDocuments({
+    required String workspaceId,
+    required String termsVersion,
+    required String privacyVersion,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Result<LegalDocumentVersions>> loadLegalDocumentVersions() async {
+    return legalHandler?.call() ??
+        const Success(
+          LegalDocumentVersions(
+            termsVersion: '2026-08-07',
+            privacyVersion: '2026-08-07',
+          ),
+        );
+  }
 
   @override
   Future<Result<AuthSession>> login({
@@ -254,14 +454,10 @@ final class _WidgetAuthRepository implements AuthRepository {
     required String username,
     required String password,
     String inviteToken = '',
-    required DeviceIdentity device,
-  }) {
-    return loginHandler?.call() ?? Future.value(Success(_session()));
-  }
-
-  @override
-  Future<Result<AuthSession>> loginWithGoogle({
-    required String credential,
+    bool termsAccepted = false,
+    String termsVersion = '',
+    bool privacyAccepted = false,
+    String privacyVersion = '',
     required DeviceIdentity device,
   }) {
     return loginHandler?.call() ?? Future.value(Success(_session()));
@@ -318,17 +514,55 @@ final class _WidgetAuthRepository implements AuthRepository {
 }
 
 final class _WidgetTokenRepository implements AuthTokenRepository {
+  _WidgetTokenRepository({this.accessToken, this.current = true});
+
+  final String? accessToken;
+  final bool current;
+  static const _guard = AuthTokenMutationGuard(
+    instanceScopeId: 'scope-widget',
+    generation: 'generation-widget',
+  );
+
+  @override
+  Future<AuthTokenMutationGuard?> captureMutationGuard() async =>
+      current ? _guard : null;
+
   @override
   Future<void> clearTokens() async {}
 
   @override
-  Future<String?> readAccessToken() async => null;
+  Future<bool> clearTokensIfCurrent(AuthTokenMutationGuard guard) async =>
+      current && guard == _guard;
+
+  @override
+  Future<bool> isMutationGuardCurrent(AuthTokenMutationGuard guard) async =>
+      current && guard == _guard;
+
+  @override
+  Future<String?> readAccessToken() async => current ? accessToken : null;
 
   @override
   Future<String?> readRefreshToken() async => null;
 
   @override
+  Future<String?> readAccessTokenIfCurrent(
+    AuthTokenMutationGuard guard,
+  ) async => current && guard == _guard ? accessToken : null;
+
+  @override
+  Future<String?> readRefreshTokenIfCurrent(
+    AuthTokenMutationGuard guard,
+  ) async => null;
+
+  @override
   Future<void> saveTokens(AuthTokens tokens) async {}
+
+  @override
+  Future<bool> saveTokensIfCurrent(
+    AuthTokens tokens,
+    AuthTokenMutationGuard guard, {
+    AuthTokenPersistence? persistence,
+  }) async => current && guard == _guard;
 }
 
 final class _WidgetDeviceIdentityRepository

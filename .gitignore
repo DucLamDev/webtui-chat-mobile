@@ -48,3 +48,14 @@ app.*.map.json
 /android/key.properties
 /android/app/*.jks
 /android/app/*.keystore
+# Local exported upload certificate is an operator backup/Play setup artifact.
+# It is public-key material, but it still does not belong in the app source tree.
+/upload_certificate.pem
+
+# Local Firebase input/output. The Android client JSON contains public client
+# identifiers, but the publisher config stays outside source to avoid project
+# mix-ups. Service-account JSON is always a server secret.
+/google-services.json
+/android/app/google-services.json
+/config/firebase-production.env.local
+/firebase-service-account*.json

@@ -15,6 +15,7 @@ final class MessageOutboxAttachment {
 final class MessageOutboxItem {
   const MessageOutboxItem({
     required this.id,
+    required this.instanceScopeId,
     required this.workspaceId,
     required this.channelId,
     required this.clientMessageId,
@@ -30,6 +31,7 @@ final class MessageOutboxItem {
   });
 
   final String id;
+  final String instanceScopeId;
   final String workspaceId;
   final String channelId;
   final String clientMessageId;
@@ -54,6 +56,7 @@ final class MessageOutboxItem {
   }) {
     return MessageOutboxItem(
       id: id,
+      instanceScopeId: instanceScopeId,
       workspaceId: workspaceId,
       channelId: channelId,
       clientMessageId: clientMessageId,

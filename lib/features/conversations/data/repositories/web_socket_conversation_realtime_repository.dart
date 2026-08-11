@@ -1,8 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
+
+import 'package:crypto/crypto.dart';
 
 import '../../../../core/network/api_response.dart';
+import '../../../../core/security/instance_scope.dart';
 import '../../../auth/domain/repositories/auth_token_repository.dart';
 import '../../domain/entities/call_session.dart';
 import '../../domain/entities/chat_message.dart';
@@ -14,12 +18,23 @@ final class WebSocketConversationRealtimeRepository
   WebSocketConversationRealtimeRepository({
     required Uri apiBaseUri,
     Uri? wsBaseUri,
+    required InstanceScope instanceScope,
     required AuthTokenRepository tokenRepository,
-  }) : _wsBaseUri = wsBaseUri ?? defaultConversationRealtimeWsUri(apiBaseUri),
-       _tokenRepository = tokenRepository;
+    Future<WebSocket> Function(String url, {Map<String, dynamic>? headers})?
+    connectWebSocket,
+  }) : _wsBaseUri = _validatedRealtimeWsBaseUri(
+         wsBaseUri ?? defaultConversationRealtimeWsUri(apiBaseUri),
+         instanceScope,
+       ),
+       _instanceScope = instanceScope,
+       _tokenRepository = tokenRepository,
+       _connectWebSocket = connectWebSocket ?? _defaultConnectWebSocket;
 
   final Uri _wsBaseUri;
+  final InstanceScope _instanceScope;
   final AuthTokenRepository _tokenRepository;
+  final Future<WebSocket> Function(String url, {Map<String, dynamic>? headers})
+  _connectWebSocket;
 
   WebSocket? _socket;
   StreamController<ConversationRealtimeEvent>? _controller;
@@ -96,17 +111,30 @@ final class WebSocketConversationRealtimeRepository
     if (_disposed) {
       return;
     }
-    final token = (await _tokenRepository.readAccessToken())?.trim();
+    final guard = await _tokenRepository.captureMutationGuard();
+    if (_disposed ||
+        guard == null ||
+        guard.instanceScopeId != _instanceScope.storageId) {
+      return;
+    }
+    final token = (await _tokenRepository.readAccessTokenIfCurrent(
+      guard,
+    ))?.trim();
     if (token == null || token.isEmpty) {
+      return;
+    }
+    if (_disposed || !await _tokenRepository.isMutationGuardCurrent(guard)) {
       return;
     }
     final room = _roomFor(workspaceId, channelId);
     try {
-      final socket = await WebSocket.connect(
+      final socket = await _connectWebSocket(
         _webSocketUri().toString(),
         headers: {'Authorization': 'Bearer $token'},
       );
-      if (_disposed || _room != room) {
+      if (_disposed ||
+          _room != room ||
+          !await _tokenRepository.isMutationGuardCurrent(guard)) {
         await socket.close();
         return;
       }
@@ -124,6 +152,13 @@ final class WebSocketConversationRealtimeRepository
     } on Object {
       _scheduleReconnect(workspaceId, channelId);
     }
+  }
+
+  static Future<WebSocket> _defaultConnectWebSocket(
+    String url, {
+    Map<String, dynamic>? headers,
+  }) {
+    return connectWebSocketWithoutRedirects(url, headers: headers);
   }
 
   void _handleSocketData(Object? data, String workspaceId, String channelId) {
@@ -191,6 +226,141 @@ Uri defaultConversationRealtimeWsUri(Uri apiBaseUri) {
 }
 
 Uri conversationRealtimeWebSocketUri(Uri wsBaseUri) => wsBaseUri;
+
+Uri _validatedRealtimeWsBaseUri(Uri candidate, InstanceScope instanceScope) {
+  if ((!candidate.isScheme('ws') && !candidate.isScheme('wss')) ||
+      candidate.host.isEmpty ||
+      candidate.userInfo.isNotEmpty ||
+      candidate.fragment.isNotEmpty) {
+    throw const FormatException('WebSocket discovery URL is not safe.');
+  }
+  final transportOrigin = candidate.replace(
+    scheme: candidate.isScheme('wss') ? 'https' : 'http',
+    path: '',
+    query: '',
+    fragment: '',
+  );
+  if (!serverOriginsMatch(transportOrigin, instanceScope.origin)) {
+    throw const FormatException(
+      'WebSocket discovery URL must use the active instance origin.',
+    );
+  }
+  return candidate;
+}
+
+/// Performs the WebSocket upgrade without following HTTP redirects.
+///
+/// Dart's default WebSocket client follows GET redirects and preserves an
+/// Authorization header for subdomains. A self-hosted instance token must
+/// never leave the exact discovery origin, so every non-101 response is a
+/// terminal handshake failure.
+Future<WebSocket> connectWebSocketWithoutRedirects(
+  String url, {
+  Map<String, dynamic>? headers,
+}) async {
+  final webSocketUri = Uri.parse(url);
+  if (!webSocketUri.isScheme('ws') && !webSocketUri.isScheme('wss')) {
+    throw WebSocketException(
+      "Unsupported WebSocket URL scheme '${webSocketUri.scheme}'.",
+    );
+  }
+  if (webSocketUri.host.isEmpty ||
+      webSocketUri.userInfo.isNotEmpty ||
+      webSocketUri.fragment.isNotEmpty) {
+    throw const WebSocketException('WebSocket URL is not safe.');
+  }
+
+  final requestUri = webSocketUri.replace(
+    scheme: webSocketUri.isScheme('wss') ? 'https' : 'http',
+  );
+  final httpClient = HttpClient()
+    ..connectionTimeout = const Duration(seconds: 15);
+  Socket? upgradedSocket;
+  var handshakeCompleted = false;
+  try {
+    final secureRandom = Random.secure();
+    final nonceBytes = List<int>.generate(
+      16,
+      (_) => secureRandom.nextInt(256),
+      growable: false,
+    );
+    final nonce = base64Encode(nonceBytes);
+    final request = await httpClient
+        .openUrl('GET', requestUri)
+        .timeout(const Duration(seconds: 15));
+    request
+      ..followRedirects = false
+      ..maxRedirects = 0;
+    headers?.forEach((name, value) {
+      if (_webSocketControlledHeaders.contains(name.toLowerCase())) {
+        throw WebSocketException(
+          'Caller cannot override the WebSocket $name header.',
+        );
+      }
+      request.headers.add(name, value);
+    });
+    request.headers
+      ..set(HttpHeaders.connectionHeader, 'Upgrade')
+      ..set(HttpHeaders.upgradeHeader, 'websocket')
+      ..set('Sec-WebSocket-Key', nonce)
+      ..set('Sec-WebSocket-Version', '13')
+      ..set(HttpHeaders.cacheControlHeader, 'no-cache');
+
+    final response = await request.close().timeout(const Duration(seconds: 15));
+    if (response.statusCode != HttpStatus.switchingProtocols) {
+      throw WebSocketException(
+        'WebSocket endpoint refused the direct upgrade.',
+        response.statusCode,
+      );
+    }
+
+    final connectionTokens = response.headers
+        .value(HttpHeaders.connectionHeader)
+        ?.split(',')
+        .map((value) => value.trim().toLowerCase());
+    final upgrade = response.headers
+        .value(HttpHeaders.upgradeHeader)
+        ?.trim()
+        .toLowerCase();
+    final expectedAccept = base64Encode(
+      sha1.convert(utf8.encode('$nonce$_webSocketHandshakeGuid')).bytes,
+    );
+    final actualAccept = response.headers.value('Sec-WebSocket-Accept')?.trim();
+    if (connectionTokens?.contains('upgrade') != true ||
+        upgrade != 'websocket' ||
+        actualAccept != expectedAccept) {
+      final invalidSocket = await response.detachSocket();
+      invalidSocket.destroy();
+      throw const WebSocketException(
+        'WebSocket endpoint returned an invalid upgrade response.',
+      );
+    }
+
+    upgradedSocket = await response.detachSocket();
+    final socket = WebSocket.fromUpgradedSocket(
+      upgradedSocket,
+      serverSide: false,
+    );
+    upgradedSocket = null;
+    handshakeCompleted = true;
+    return socket;
+  } finally {
+    if (upgradedSocket != null) {
+      upgradedSocket.destroy();
+    }
+    httpClient.close(force: !handshakeCompleted);
+  }
+}
+
+const _webSocketHandshakeGuid = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
+const _webSocketControlledHeaders = {
+  'connection',
+  'upgrade',
+  'sec-websocket-key',
+  'sec-websocket-version',
+  'sec-websocket-protocol',
+  'sec-websocket-extensions',
+};
 
 final class ConversationRealtimeEventMapper {
   const ConversationRealtimeEventMapper._();

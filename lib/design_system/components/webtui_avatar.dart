@@ -1,19 +1,35 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
+import '../../core/network/redirect_safe_file_downloader.dart';
 import '../tokens/webtui_colors.dart';
 import '../tokens/webtui_density.dart';
 import '../tokens/webtui_typography.dart';
+import 'webtui_owned_decoded_image.dart';
+
+const webTuiMaxAvatarImageBytes = 512 * 1024;
+const webTuiMaxBrandImageBytes = 1024 * 1024;
+
+typedef WebTuiNetworkImageLoader =
+    Future<Uint8List?> Function(
+      Uri uri, {
+      required int maxBytes,
+      required bool allowPublicRequest,
+    });
 
 class WebTuiAvatarNetworkScope extends InheritedWidget {
   const WebTuiAvatarNetworkScope({
     required super.child,
     this.apiBaseUri,
-    this.headers,
+    this.cacheKey,
+    this.loadBytes,
     super.key,
   });
 
   final Uri? apiBaseUri;
-  final Map<String, String>? headers;
+  final String? cacheKey;
+  final WebTuiNetworkImageLoader? loadBytes;
 
   static WebTuiAvatarNetworkScope? maybeOf(BuildContext context) {
     return context
@@ -22,7 +38,7 @@ class WebTuiAvatarNetworkScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(WebTuiAvatarNetworkScope oldWidget) {
-    return apiBaseUri != oldWidget.apiBaseUri || headers != oldWidget.headers;
+    return apiBaseUri != oldWidget.apiBaseUri || cacheKey != oldWidget.cacheKey;
   }
 }
 
@@ -62,8 +78,6 @@ class WebTuiAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedImageUrl = _resolvedImageUrl(context);
-    final imageHeaders = WebTuiAvatarNetworkScope.maybeOf(context)?.headers;
     return SizedBox.square(
       dimension: size,
       child: Stack(
@@ -73,14 +87,14 @@ class WebTuiAvatar extends StatelessWidget {
             child: ClipOval(
               child: DecoratedBox(
                 decoration: BoxDecoration(color: color),
-                child: resolvedImageUrl != null
-                    ? Image.network(
-                        resolvedImageUrl,
-                        fit: BoxFit.cover,
-                        headers: imageHeaders,
-                        errorBuilder: (_, _, _) => _fallback,
-                      )
-                    : _fallback,
+                child: WebTuiBoundedNetworkImage(
+                  imageUrl: imageUrl,
+                  width: size,
+                  height: size,
+                  maxBytes: webTuiMaxAvatarImageBytes,
+                  fit: BoxFit.cover,
+                  fallback: _fallback,
+                ),
               ),
             ),
           ),
@@ -118,24 +132,6 @@ class WebTuiAvatar extends StatelessWidget {
         .toUpperCase();
   }
 
-  String? _resolvedImageUrl(BuildContext context) {
-    final value = imageUrl?.trim();
-    if (value == null || value.isEmpty) {
-      return null;
-    }
-
-    final parsed = Uri.tryParse(value);
-    if (parsed != null && parsed.hasScheme) {
-      return value;
-    }
-
-    final baseUri = WebTuiAvatarNetworkScope.maybeOf(context)?.apiBaseUri;
-    if (baseUri == null) {
-      return value;
-    }
-    return baseUri.resolve(value).toString();
-  }
-
   Widget get _fallback {
     return Center(
       child: icon == null
@@ -151,4 +147,82 @@ class WebTuiAvatar extends StatelessWidget {
           : Icon(icon, color: foregroundColor, size: size * 0.5),
     );
   }
+}
+
+class WebTuiBoundedNetworkImage extends StatelessWidget {
+  const WebTuiBoundedNetworkImage({
+    required this.imageUrl,
+    required this.width,
+    required this.height,
+    required this.fallback,
+    this.fit = BoxFit.contain,
+    this.maxBytes = webTuiMaxBrandImageBytes,
+    this.allowPublicRequest = false,
+    this.semanticLabel,
+    super.key,
+  });
+
+  final String? imageUrl;
+  final double width;
+  final double height;
+  final Widget fallback;
+  final BoxFit fit;
+  final int maxBytes;
+  final bool allowPublicRequest;
+  final String? semanticLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = WebTuiAvatarNetworkScope.maybeOf(context);
+    final uri = _resolveNetworkImageUri(
+      rawValue: imageUrl,
+      apiBaseUri: scope?.apiBaseUri,
+    );
+    final loader = scope?.loadBytes;
+    if (uri == null || loader == null || width <= 0 || height <= 0) {
+      return fallback;
+    }
+    final boundedMaxBytes = maxBytes.clamp(1, webTuiMaxBrandImageBytes);
+    final requestKey =
+        '${scope?.cacheKey ?? ''}|$uri|$boundedMaxBytes|'
+        '$allowPublicRequest';
+    return WebTuiOwnedDecodedImage(
+      key: ValueKey(requestKey),
+      requestKey: requestKey,
+      loadBytes: () => loader(
+        uri,
+        maxBytes: boundedMaxBytes,
+        allowPublicRequest: allowPublicRequest,
+      ),
+      maxEncodedBytes: boundedMaxBytes,
+      decodeTargetWidth: (width * 3).ceil().clamp(1, 1024),
+      decodeTargetHeight: (height * 3).ceil().clamp(1, 1024),
+      fit: fit,
+      width: width,
+      height: height,
+      semanticLabel: semanticLabel,
+      fallback: fallback,
+      loading: fallback,
+    );
+  }
+}
+
+Uri? _resolveNetworkImageUri({
+  required String? rawValue,
+  required Uri? apiBaseUri,
+}) {
+  final value = rawValue?.trim();
+  if (value == null || value.isEmpty) return null;
+  final parsed = Uri.tryParse(value);
+  final uri = parsed != null && parsed.hasScheme
+      ? parsed
+      : apiBaseUri?.resolve(value);
+  if (uri == null ||
+      !redirectSafeHttpUriAllowed(uri) ||
+      uri.host.isEmpty ||
+      uri.userInfo.isNotEmpty ||
+      uri.fragment.isNotEmpty) {
+    return null;
+  }
+  return uri;
 }

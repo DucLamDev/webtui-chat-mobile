@@ -20,11 +20,14 @@ final class LoadMessageOutboxUseCase {
 final class EnqueueMessageOutboxUseCase {
   const EnqueueMessageOutboxUseCase({
     required MessageOutboxRepository repository,
+    required String instanceScopeId,
     Uuid uuid = const Uuid(),
   }) : _repository = repository,
+       _instanceScopeId = instanceScopeId,
        _uuid = uuid;
 
   final MessageOutboxRepository _repository;
+  final String _instanceScopeId;
   final Uuid _uuid;
 
   Future<MessageOutboxItem> execute({
@@ -42,6 +45,7 @@ final class EnqueueMessageOutboxUseCase {
     final now = DateTime.now().toUtc();
     final item = MessageOutboxItem(
       id: _uuid.v4(),
+      instanceScopeId: _instanceScopeId,
       workspaceId: workspaceId,
       channelId: channelId,
       clientMessageId: clientMessageId,
@@ -57,6 +61,16 @@ final class EnqueueMessageOutboxUseCase {
     );
     await _repository.upsert(item);
     return item;
+  }
+}
+
+final class CanDispatchMessageOutboxItemUseCase {
+  const CanDispatchMessageOutboxItemUseCase(this._repository);
+
+  final MessageOutboxRepository _repository;
+
+  Future<bool> execute(MessageOutboxItem item) {
+    return _repository.canDispatch(item);
   }
 }
 

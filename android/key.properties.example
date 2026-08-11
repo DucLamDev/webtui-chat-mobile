@@ -1,0 +1,6 @@
+# Copy to android/key.properties for a local signed release. Never commit the
+# copied file or the keystore. CI uses ANDROID_* environment variables instead.
+storeFile=app/upload-keystore.jks
+storePassword=REPLACE_WITH_SECRET
+keyAlias=upload
+keyPassword=REPLACE_WITH_SECRET

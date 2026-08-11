@@ -40,7 +40,10 @@ final class ChatMessage {
   final bool isMine;
 
   bool get isDeleted => deletedAt != null;
-  bool get isSystem => kind == 'system' || senderId == null;
+  // Bot and integration content is intentionally senderless but still visible
+  // UGC that users must be able to open and report. Only an explicit system
+  // kind uses the non-interactive system renderer.
+  bool get isSystem => kind == 'system';
   String get clientMessageId =>
       (metadata['client_message_id'] ?? metadata['clientMessageId'] ?? '')
           .toString()

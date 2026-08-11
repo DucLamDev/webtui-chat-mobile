@@ -7,9 +7,24 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../moderation/presentation/controllers/moderation_controller.dart';
 import '../../domain/entities/conversation_summary.dart';
 import '../controllers/conversation_home_controller.dart';
 import '../widgets/collaboration_room_sheet.dart';
+
+bool workspaceToolsSharedContentBlocked(
+  ConversationSummary room,
+  ModerationState moderationState,
+) {
+  if (room.kind != ConversationKind.direct) return false;
+  if (moderationState.isLoadingBlockedUsers ||
+      moderationState.errorMessage != null) {
+    return true;
+  }
+  final peerUserId = room.directCallTargetUserId();
+  if (peerUserId == null || peerUserId.trim().isEmpty) return true;
+  return moderationState.isBlocked(peerUserId);
+}
 
 /// A mobile-first entry point for the shared workspace tools that were
 /// previously only discoverable through an icon inside a conversation.
@@ -30,12 +45,18 @@ class _WorkspaceToolsScreenState extends ConsumerState<WorkspaceToolsScreen> {
   Widget build(BuildContext context) {
     final provider = conversationHomeControllerProvider(widget.workspaceId);
     final state = ref.watch(provider);
+    final moderationState = ref.watch(
+      moderationControllerProvider(widget.workspaceId),
+    );
     final controller = ref.read(provider.notifier);
     final rooms = <ConversationSummary>[
       ...state.channels.where((channel) => channel.isMember),
       ...state.conversations,
     ];
     final selected = _selectedRoom(rooms);
+    final sharedContentBlocked =
+        selected != null &&
+        workspaceToolsSharedContentBlocked(selected, moderationState);
 
     if (state.isLoading && rooms.isEmpty) {
       return const _WorkspaceToolsSkeleton();
@@ -104,6 +125,30 @@ class _WorkspaceToolsScreenState extends ConsumerState<WorkspaceToolsScreen> {
             ),
           ),
           const SizedBox(height: WebTuiSpacing.md),
+          if (sharedContentBlocked) ...[
+            Container(
+              key: const Key('workspace_tools_blocked_notice'),
+              padding: const EdgeInsets.all(WebTuiSpacing.md),
+              decoration: BoxDecoration(
+                color: WebTuiColors.accentAmber.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(WebTuiRadii.md),
+                border: Border.all(color: WebTuiColors.accentAmber),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.block_rounded, size: 20),
+                  SizedBox(width: WebTuiSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      'Công cụ tạo nội dung dùng chung bị tắt cho hội thoại này. Hãy bỏ chặn người dùng trong phần an toàn trước khi tiếp tục.',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: WebTuiSpacing.md),
+          ],
           LayoutBuilder(
             builder: (context, constraints) {
               final width = (constraints.maxWidth - WebTuiSpacing.sm) / 2;
@@ -116,42 +161,54 @@ class _WorkspaceToolsScreenState extends ConsumerState<WorkspaceToolsScreen> {
                     icon: Icons.video_call_outlined,
                     title: 'Họp nhóm',
                     description: 'Họp, phòng chờ và khách ngoài',
-                    onTap: () => _openTools(context, selected, 1),
+                    onTap: sharedContentBlocked
+                        ? null
+                        : () => _openTools(context, selected, 1),
                   ),
                   _ToolCard(
                     width: width,
                     icon: Icons.folder_copy_outlined,
                     title: 'Đã chia sẻ',
                     description: 'Tệp, bình chọn và bản ghi',
-                    onTap: () => _openTools(context, selected, 2),
+                    onTap: sharedContentBlocked
+                        ? null
+                        : () => _openTools(context, selected, 2),
                   ),
                   _ToolCard(
                     width: width,
                     icon: Icons.description_outlined,
                     title: 'Ghi chú chung',
                     description: 'Cùng ghi biên bản và quyết định',
-                    onTap: () => _openTools(context, selected, 3),
+                    onTap: sharedContentBlocked
+                        ? null
+                        : () => _openTools(context, selected, 3),
                   ),
                   _ToolCard(
                     width: width,
                     icon: Icons.draw_outlined,
                     title: 'Bảng trắng',
                     description: 'Phác thảo nhanh cùng mọi người',
-                    onTap: () => _openTools(context, selected, 4),
+                    onTap: sharedContentBlocked
+                        ? null
+                        : () => _openTools(context, selected, 4),
                   ),
                   _ToolCard(
                     width: width,
                     icon: Icons.task_alt_outlined,
                     title: 'Việc cần làm',
                     description: 'Tạo và theo dõi công việc chung',
-                    onTap: () => _openTools(context, selected, 5),
+                    onTap: sharedContentBlocked
+                        ? null
+                        : () => _openTools(context, selected, 5),
                   ),
                   _ToolCard(
                     width: width,
                     icon: Icons.more_horiz_rounded,
                     title: 'Tất cả công cụ',
                     description: 'Xem đầy đủ công cụ của phòng',
-                    onTap: () => _openTools(context, selected, 0),
+                    onTap: sharedContentBlocked
+                        ? null
+                        : () => _openTools(context, selected, 0),
                   ),
                 ],
               );
@@ -311,7 +368,7 @@ class _ToolCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String description;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {

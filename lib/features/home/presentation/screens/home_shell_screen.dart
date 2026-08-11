@@ -7,12 +7,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
+import '../../../../core/error/failure.dart';
 import '../../../../core/notifications/native_incoming_call_service.dart';
+import '../../../../core/security/instance_scope.dart';
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../auth/presentation/controllers/legal_acceptance_controller.dart';
 import '../../../conversations/domain/entities/call_session.dart';
 import '../../../conversations/domain/entities/conversation_realtime_event.dart';
 import '../../../conversations/domain/entities/conversation_summary.dart';
@@ -24,6 +27,31 @@ import '../../../conversations/presentation/widgets/conversation_home_views.dart
 import '../../../notifications/domain/entities/mobile_notification.dart';
 import '../../../notifications/presentation/controllers/notification_center_controller.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
+
+bool nativeRejectActionIsStaleAfterAcceptance({
+  required String reason,
+  required CallStatus currentStatus,
+}) {
+  return (reason == 'timeout' || reason == 'declined') &&
+      currentStatus != CallStatus.ringing;
+}
+
+bool nativeCallActionMatchesInstance({
+  required NativeIncomingCallAction action,
+  required InstanceScope activeInstance,
+}) {
+  if (!action.target.isBoundToInstance(activeInstance.instanceId)) {
+    return false;
+  }
+  try {
+    final actionOrigin = canonicalServerOrigin(
+      Uri.parse(action.serverBaseUrl?.trim() ?? ''),
+    );
+    return actionOrigin == activeInstance.origin;
+  } on FormatException {
+    return false;
+  }
+}
 
 class HomeShellScreen extends ConsumerStatefulWidget {
   const HomeShellScreen({this.initialTabIndex = 0, super.key});
@@ -45,11 +73,13 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   String? _syncWorkspaceId;
   bool _syncInFlight = false;
   bool _incomingCallPollInFlight = false;
+  Timer? _pushRegistrationRetryTimer;
   Timer? _presenceTimer;
   Timer? _incomingCallPollTimer;
   StreamSubscription<NotificationTarget>? _notificationOpenSubscription;
   StreamSubscription<NotificationTarget>? _foregroundNotificationSubscription;
   StreamSubscription<NativeIncomingCallAction>? _nativeCallSubscription;
+  final Set<String> _nativeCallActionsInFlight = <String>{};
   StreamSubscription<ConversationRealtimeEvent>?
   _incomingCallRealtimeSubscription;
   bool _notificationEnabled = true;
@@ -70,6 +100,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _pushRegistrationRetryTimer?.cancel();
     _presenceTimer?.cancel();
     _incomingCallPollTimer?.cancel();
     _notificationOpenSubscription?.cancel();
@@ -145,6 +176,15 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       );
     }
 
+    if (ref.read(legalAcceptanceWorkspaceScopeProvider) != activeWorkspace.id) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ref.read(legalAcceptanceWorkspaceScopeProvider.notifier).state =
+              activeWorkspace.id;
+        }
+      });
+    }
+
     if (_visitedWorkspaceId != activeWorkspace.id ||
         _visitedWorkspaceGeneration != workspaceState.generation) {
       _visitedWorkspaceId = activeWorkspace.id;
@@ -153,16 +193,13 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     }
 
     if (_pushRegisteredWorkspaceId != activeWorkspace.id) {
+      _pushRegistrationRetryTimer?.cancel();
       _pushRegisteredWorkspaceId = activeWorkspace.id;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) {
           return;
         }
-        unawaited(
-          ref
-              .read(pushNotificationServiceProvider)
-              .registerForWorkspace(activeWorkspace.id),
-        );
+        unawaited(_registerPushWorkspace(activeWorkspace.id));
         _listenPushTargets();
         _listenIncomingCalls(activeWorkspace.id);
       });
@@ -316,6 +353,21 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         ),
       ),
     );
+  }
+
+  Future<void> _registerPushWorkspace(String workspaceId) async {
+    try {
+      await ref
+          .read(pushNotificationServiceProvider)
+          .registerForWorkspace(workspaceId);
+    } on Object {
+      if (!mounted || _pushRegisteredWorkspaceId != workspaceId) return;
+      _pushRegistrationRetryTimer?.cancel();
+      _pushRegistrationRetryTimer = Timer(const Duration(seconds: 5), () {
+        if (!mounted || _pushRegisteredWorkspaceId != workspaceId) return;
+        setState(() => _pushRegisteredWorkspaceId = null);
+      });
+    }
   }
 
   void _activatePresence(String workspaceId) {
@@ -518,25 +570,60 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   Future<void> _handleNativeIncomingCallAction(
     NativeIncomingCallAction action,
   ) async {
-    switch (action.type) {
-      case NativeIncomingCallActionType.accept:
-        await _acceptNativeIncomingCall(action.target);
-      case NativeIncomingCallActionType.decline:
-        await _rejectNativeIncomingCall(action.target, reason: 'declined');
-      case NativeIncomingCallActionType.timeout:
-        await _rejectNativeIncomingCall(action.target, reason: 'timeout');
-      case NativeIncomingCallActionType.ended:
-        await _endNativeIncomingCall(action.target);
+    if (!_nativeCallActionsInFlight.add(action.actionId)) return;
+    try {
+      final activeInstance = ref
+          .read(activeServerDiscoveryProvider)
+          ?.instanceScope;
+      if (activeInstance == null ||
+          !nativeCallActionMatchesInstance(
+            action: action,
+            activeInstance: activeInstance,
+          )) {
+        final callId = action.target.callId?.trim();
+        if (callId != null && callId.isNotEmpty) {
+          await NativeIncomingCallService.endCall(callId);
+        }
+        await NativeIncomingCallService.acknowledge(action);
+        return;
+      }
+      final handled = switch (action.type) {
+        NativeIncomingCallActionType.accept => _acceptNativeIncomingCall(
+          action.target,
+        ),
+        NativeIncomingCallActionType.decline => _rejectNativeIncomingCall(
+          action.target,
+          reason: 'declined',
+        ),
+        NativeIncomingCallActionType.timeout => _rejectNativeIncomingCall(
+          action.target,
+          reason: 'timeout',
+        ),
+        NativeIncomingCallActionType.ended => _endNativeIncomingCall(
+          action.target,
+        ),
+      };
+      if (await handled) {
+        await NativeIncomingCallService.acknowledge(action);
+      } else {
+        NativeIncomingCallService.retryLater(action);
+      }
+    } on Object {
+      // Keep the native action durable. It will replay after connectivity,
+      // authentication, or the selected workspace becomes ready again.
+      NativeIncomingCallService.retryLater(action);
+    } finally {
+      _nativeCallActionsInFlight.remove(action.actionId);
     }
   }
 
-  Future<void> _acceptNativeIncomingCall(NotificationTarget target) async {
+  Future<bool> _acceptNativeIncomingCall(NotificationTarget target) async {
     final callId = target.callId?.trim();
     if (!mounted || callId == null || callId.isEmpty) {
-      return;
+      return false;
     }
     if (_activeIncomingCallId == callId) {
-      return;
+      return false;
     }
     _activeIncomingCallId = callId;
     try {
@@ -544,13 +631,20 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           .read(getCallUseCaseProvider)
           .execute(workspaceId: target.workspaceId, callId: callId);
       final currentCall = currentResult.valueOrNull;
-      if (!mounted || currentCall == null || currentCall.isTerminal) {
+      if (currentCall == null) {
+        if (currentResult.failureOrNull?.kind == FailureKind.notFound) {
+          await NativeIncomingCallService.endCall(callId);
+          return true;
+        }
+        return false;
+      }
+      if (currentCall.isTerminal) {
         await NativeIncomingCallService.endCall(callId);
-        return;
+        return true;
       }
 
       if (!mounted) {
-        return;
+        return false;
       }
       await Navigator.of(context, rootNavigator: true).push<void>(
         MaterialPageRoute<void>(
@@ -577,6 +671,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           ),
         ),
       );
+      return true;
     } finally {
       if (_activeIncomingCallId == callId) {
         _activeIncomingCallId = null;
@@ -584,22 +679,47 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     }
   }
 
-  Future<void> _rejectNativeIncomingCall(
+  Future<bool> _rejectNativeIncomingCall(
     NotificationTarget target, {
     required String reason,
   }) async {
     final callId = target.callId?.trim();
     if (callId == null || callId.isEmpty) {
-      return;
+      return false;
     }
     await NativeIncomingCallService.endCall(callId);
-    await ref
-        .read(rejectCallUseCaseProvider)
-        .execute(
-          workspaceId: target.workspaceId,
-          callId: callId,
-          reason: reason,
-        );
+    final currentResult = await ref
+        .read(getCallUseCaseProvider)
+        .execute(workspaceId: target.workspaceId, callId: callId);
+    final current = currentResult.valueOrNull;
+    if (current == null) {
+      return currentResult.failureOrNull?.kind == FailureKind.notFound;
+    }
+    if (current.isTerminal) return true;
+    if (nativeRejectActionIsStaleAfterAcceptance(
+      reason: reason,
+      currentStatus: current.status,
+    )) {
+      return true;
+    }
+    final result = current.status == CallStatus.ringing
+        ? await ref
+              .read(rejectCallUseCaseProvider)
+              .execute(
+                workspaceId: target.workspaceId,
+                callId: callId,
+                reason: reason,
+              )
+        : await ref
+              .read(endCallUseCaseProvider)
+              .execute(
+                workspaceId: target.workspaceId,
+                callId: callId,
+                currentStatus: current.status,
+                reason: reason,
+              );
+    if (result.isSuccess) return true;
+    return _isCallConfirmedTerminal(target.workspaceId, callId);
   }
 
   void _listenIncomingCalls(String workspaceId) {
@@ -685,31 +805,34 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     }
   }
 
-  Future<void> _endNativeIncomingCall(NotificationTarget target) async {
+  Future<bool> _endNativeIncomingCall(NotificationTarget target) async {
     final callId = target.callId?.trim();
     if (callId == null || callId.isEmpty) {
-      return;
+      return false;
     }
     await NativeIncomingCallService.endCall(callId);
-    final current =
-        (await ref
-                .read(getCallUseCaseProvider)
-                .execute(workspaceId: target.workspaceId, callId: callId))
-            .valueOrNull;
-    if (current == null || current.isTerminal) {
-      return;
+    final currentResult = await ref
+        .read(getCallUseCaseProvider)
+        .execute(workspaceId: target.workspaceId, callId: callId);
+    final current = currentResult.valueOrNull;
+    if (current == null) {
+      return currentResult.failureOrNull?.kind == FailureKind.notFound;
+    }
+    if (current.isTerminal) {
+      return true;
     }
     if (current.status == CallStatus.ringing) {
-      await ref
+      final result = await ref
           .read(rejectCallUseCaseProvider)
           .execute(
             workspaceId: target.workspaceId,
             callId: callId,
             reason: 'ended',
           );
-      return;
+      if (result.isSuccess) return true;
+      return _isCallConfirmedTerminal(target.workspaceId, callId);
     }
-    await ref
+    final result = await ref
         .read(endCallUseCaseProvider)
         .execute(
           workspaceId: target.workspaceId,
@@ -717,6 +840,20 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           currentStatus: current.status,
           reason: 'ended',
         );
+    if (result.isSuccess) return true;
+    return _isCallConfirmedTerminal(target.workspaceId, callId);
+  }
+
+  Future<bool> _isCallConfirmedTerminal(
+    String workspaceId,
+    String callId,
+  ) async {
+    final result = await ref
+        .read(getCallUseCaseProvider)
+        .execute(workspaceId: workspaceId, callId: callId);
+    final call = result.valueOrNull;
+    if (call != null) return call.isTerminal;
+    return result.failureOrNull?.kind == FailureKind.notFound;
   }
 
   static const _titles = ['Tin nhắn', 'Bạn bè', 'Kênh', 'Công việc', 'Cài đặt'];
@@ -734,12 +871,15 @@ class _OrganizationMark extends StatelessWidget {
     if (url != null && url.isNotEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: Image.network(
-          url,
+        child: WebTuiBoundedNetworkImage(
+          imageUrl: url,
           width: 30,
           height: 30,
           fit: BoxFit.contain,
-          errorBuilder: (_, _, _) => _fallback(),
+          maxBytes: webTuiMaxBrandImageBytes,
+          allowPublicRequest: true,
+          semanticLabel: name,
+          fallback: _fallback(),
         ),
       );
     }

@@ -15,11 +15,15 @@ if (keystorePropertiesFile.exists()) {
 }
 
 fun signingValue(propertyName: String, envName: String): String? {
+    val envValue = System.getenv(envName)?.trim()?.takeIf { it.isNotEmpty() }
+    if (envValue != null) {
+        return envValue
+    }
     val propertyValue = keystoreProperties[propertyName]?.toString()?.trim()
     if (!propertyValue.isNullOrEmpty()) {
         return propertyValue
     }
-    return System.getenv(envName)?.trim()?.takeIf { it.isNotEmpty() }
+    return null
 }
 
 fun androidSdkValue(propertyName: String, envName: String, fallback: Int): Int {
@@ -53,6 +57,18 @@ val allowUnsignedRelease = providers.gradleProperty("WEBTUI_ALLOW_UNSIGNED_RELEA
 val requestedReleaseTask = gradle.startParameter.taskNames.any {
     it.contains("release", ignoreCase = true)
 }
+val resolvedTargetSdk = androidSdkValue(
+    "WEBTUI_ANDROID_TARGET_SDK",
+    "WEBTUI_ANDROID_TARGET_SDK",
+    flutter.targetSdkVersion,
+)
+
+if (requestedReleaseTask && resolvedTargetSdk < 36) {
+    throw GradleException(
+        "Production releases must target Android API 36 or newer; resolved target SDK is " +
+            resolvedTargetSdk,
+    )
+}
 
 if (requestedReleaseTask && !hasReleaseSigning && !allowUnsignedRelease) {
     throw GradleException(
@@ -72,6 +88,7 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -83,11 +100,7 @@ android {
     defaultConfig {
         applicationId = "com.vpsttt.webtui_chat"
         minSdk = flutter.minSdkVersion
-        targetSdk = androidSdkValue(
-            "WEBTUI_ANDROID_TARGET_SDK",
-            "WEBTUI_ANDROID_TARGET_SDK",
-            flutter.targetSdkVersion,
-        )
+        targetSdk = resolvedTargetSdk
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         manifestPlaceholders["webtuiAppLinkHost"] =
@@ -113,29 +126,35 @@ android {
         create("dev") {
             dimension = "environment"
             applicationIdSuffix = ".dev"
-            resValue("string", "app_name", "WebTui Chat Dev")
+            resValue("string", "app_name", "WebTUI Chat Dev")
         }
         create("staging") {
             dimension = "environment"
             applicationIdSuffix = ".staging"
-            resValue("string", "app_name", "WebTui Chat Staging")
+            resValue("string", "app_name", "WebTUI Chat Staging")
         }
         create("prod") {
             dimension = "environment"
-            resValue("string", "app_name", "WebTui Chat")
+            resValue("string", "app_name", "WebTUI Chat")
         }
     }
 
     buildTypes {
         release {
+            isDebuggable = false
+            isJniDebuggable = false
             isMinifyEnabled = false
             isShrinkResources = false
-            ndk.debugSymbolLevel = "SYMBOL_TABLE"
+            ndk.debugSymbolLevel = "FULL"
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
     }
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
 
 flutter {

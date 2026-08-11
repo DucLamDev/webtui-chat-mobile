@@ -14,25 +14,47 @@ final class RefreshAccessTokenUseCase {
   final AuthRepository _authRepository;
   final AuthTokenRepository _tokenRepository;
   Future<Result<AuthSession>>? _inFlight;
+  AuthTokenMutationGuard? _inFlightGuard;
 
-  Future<Result<AuthSession>> execute() {
+  Future<Result<AuthSession>> execute({
+    AuthTokenMutationGuard? expectedGuard,
+  }) async {
+    final guard =
+        expectedGuard ?? await _tokenRepository.captureMutationGuard();
+    if (guard == null ||
+        !await _tokenRepository.isMutationGuardCurrent(guard)) {
+      return const FailureResult(
+        Failure(
+          kind: FailureKind.unauthorized,
+          message: 'Máy chủ đang hoạt động đã thay đổi.',
+          code: 'AUTH_INSTANCE_CHANGED',
+        ),
+      );
+    }
+
     final running = _inFlight;
-    if (running != null) {
+    if (running != null && _inFlightGuard == guard) {
       return running;
     }
 
-    final refresh = _refreshOnce();
+    final refresh = _refreshOnce(guard);
     _inFlight = refresh;
-    return refresh.whenComplete(() {
+    _inFlightGuard = guard;
+    try {
+      return await refresh;
+    } finally {
       if (identical(_inFlight, refresh)) {
         _inFlight = null;
+        _inFlightGuard = null;
       }
-    });
+    }
   }
 
-  Future<Result<AuthSession>> _refreshOnce() async {
+  Future<Result<AuthSession>> _refreshOnce(AuthTokenMutationGuard guard) async {
     try {
-      final refreshToken = (await _tokenRepository.readRefreshToken())?.trim();
+      final refreshToken = (await _tokenRepository.readRefreshTokenIfCurrent(
+        guard,
+      ))?.trim();
       if (refreshToken == null || refreshToken.isEmpty) {
         return const FailureResult(
           Failure(
@@ -46,11 +68,22 @@ final class RefreshAccessTokenUseCase {
       final result = await _authRepository.refresh(refreshToken);
       switch (result) {
         case Success<AuthSession>(:final value):
-          await _tokenRepository.saveTokens(value.tokens);
+          if (!await _tokenRepository.saveTokensIfCurrent(
+            value.tokens,
+            guard,
+          )) {
+            return const FailureResult(
+              Failure(
+                kind: FailureKind.unauthorized,
+                message: 'Máy chủ đang hoạt động đã thay đổi.',
+                code: 'AUTH_INSTANCE_CHANGED',
+              ),
+            );
+          }
           return result;
         case FailureResult<AuthSession>(failure: final failure):
           if (failure.requiresLogin) {
-            await _tokenRepository.clearTokens();
+            await _tokenRepository.clearTokensIfCurrent(guard);
           }
           return result;
       }

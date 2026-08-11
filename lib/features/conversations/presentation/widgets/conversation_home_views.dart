@@ -5,8 +5,11 @@ import 'package:go_router/go_router.dart';
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
+import '../../../moderation/presentation/controllers/moderation_controller.dart';
+import '../../../moderation/presentation/widgets/moderation_actions.dart';
 import '../../domain/entities/conversation_summary.dart';
 import '../controllers/conversation_home_controller.dart';
+import '../models/conversation_privacy_projection.dart';
 import '../screens/chat_room_screen.dart';
 
 class MessagesHomeView extends ConsumerWidget {
@@ -19,24 +22,61 @@ class MessagesHomeView extends ConsumerWidget {
     final provider = conversationHomeControllerProvider(workspaceId);
     final state = ref.watch(provider);
     final controller = ref.read(provider.notifier);
+    final moderationProvider = moderationControllerProvider(workspaceId);
+    final moderationState = ref.watch(moderationProvider);
+
+    if (moderationState.isLoadingBlockedUsers) {
+      return const WebTuiLoadingState(
+        message: 'Đang áp dụng cài đặt an toàn...',
+      );
+    }
+    if (moderationState.errorMessage != null) {
+      return WebTuiErrorState(
+        title: 'Chưa thể áp dụng cài đặt an toàn',
+        message: moderationState.errorMessage!,
+        onRetry: () => ref.read(moderationProvider.notifier).loadBlockedUsers(),
+      );
+    }
+    final blockedUserIds = moderationState.blockedUserIds;
+    final conversations = privacySafeConversationResults(
+      state.filteredConversations,
+      blockedUserIds,
+      searchQuery: state.searchQuery,
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= 720;
-        final selected =
-            state.selectedConversation ??
-            (state.filteredConversations.isEmpty
-                ? null
-                : state.filteredConversations.first);
+        final selected = _safeSelectedConversation(
+          state.selectedConversation,
+          conversations,
+          blockedUserIds,
+        );
         final list = _MessagesList(
           state: state,
+          conversations: conversations,
+          blockedUserIds: blockedUserIds,
           selectedId: wide ? selected?.id : null,
           onRetry: controller.load,
           onSearch: controller.setSearchQuery,
           onFilterChanged: (index) {
             controller.setMessageFilter(ConversationListFilter.values[index]);
           },
-          onTap: (conversation) {
+          onTap: (conversation) async {
+            final blockedPeerUserId = blockedDirectPeerUserId(
+              conversation,
+              blockedUserIds,
+            );
+            if (blockedPeerUserId != null) {
+              await showUserSafetyActions(
+                context,
+                ref,
+                workspaceId: workspaceId,
+                userId: blockedPeerUserId,
+                userLabel: conversation.title,
+              );
+              return;
+            }
             if (wide) {
               controller.selectConversation(conversation);
             } else {
@@ -89,31 +129,75 @@ class ContactsHomeView extends ConsumerWidget {
     final provider = conversationHomeControllerProvider(workspaceId);
     final state = ref.watch(provider);
     final controller = ref.read(provider.notifier);
+    final moderationState = ref.watch(
+      moderationControllerProvider(workspaceId),
+    );
 
-    return ListView(
-      padding: const EdgeInsets.only(bottom: WebTuiSpacing.lg),
-      children: [
-        _TopSearch(
-          hintText: 'Tìm bạn bè...',
-          onChanged: controller.setSearchQuery,
+    final contacts = state.filteredContacts;
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: _TopSearch(
+            hintText: 'Tìm bạn bè...',
+            onChanged: controller.setSearchQuery,
+          ),
         ),
         if (state.errorMessage != null)
-          WebTuiErrorState(
-            title: 'Không tải được dữ liệu',
-            message: state.errorMessage!,
-            onRetry: controller.load,
+          SliverToBoxAdapter(
+            child: WebTuiErrorState(
+              title: 'Không tải được dữ liệu',
+              message: state.errorMessage!,
+              onRetry: controller.load,
+            ),
           )
-        else
-          _ContactSections(
-            contacts: state.filteredContacts,
-            presenceByUserId: state.presenceByUserId,
-            onTap: (contact) async {
-              final conversation = await controller.openDirect(contact);
-              if (conversation != null && context.mounted) {
-                _openChat(context, conversation);
-              }
+        else if (contacts.isEmpty)
+          const SliverToBoxAdapter(
+            child: WebTuiEmptyState(
+              title: 'Chưa có bạn bè',
+              message: 'Bạn bè đã kết nối sẽ xuất hiện tại đây.',
+              icon: Icons.contacts_outlined,
+            ),
+          )
+        else ...[
+          const SliverToBoxAdapter(child: WebTuiSectionLabel('Bạn bè')),
+          WebTuiSliverListSurface(
+            itemCount: contacts.length,
+            itemBuilder: (context, index) {
+              final contact = contacts[index];
+              return _ContactTile(
+                contact: contact,
+                presence: state.presenceByUserId[contact.userId],
+                blocked: moderationState.blockedUserIds.contains(
+                  contact.userId,
+                ),
+                onTap: () async {
+                  if (moderationState.isBlocked(contact.userId)) {
+                    await showUserSafetyActions(
+                      context,
+                      ref,
+                      workspaceId: workspaceId,
+                      userId: contact.userId,
+                      userLabel: contact.displayName,
+                    );
+                    return;
+                  }
+                  final conversation = await controller.openDirect(contact);
+                  if (conversation != null && context.mounted) {
+                    _openChat(context, conversation);
+                  }
+                },
+                onSafety: () => showUserSafetyActions(
+                  context,
+                  ref,
+                  workspaceId: workspaceId,
+                  userId: contact.userId,
+                  userLabel: contact.displayName,
+                ),
+              );
             },
           ),
+        ],
+        const SliverToBoxAdapter(child: SizedBox(height: WebTuiSpacing.lg)),
       ],
     );
   }
@@ -168,6 +252,8 @@ class ChannelsHomeView extends ConsumerWidget {
 class _MessagesList extends StatelessWidget {
   const _MessagesList({
     required this.state,
+    required this.conversations,
+    required this.blockedUserIds,
     required this.onRetry,
     required this.onSearch,
     required this.onFilterChanged,
@@ -176,6 +262,8 @@ class _MessagesList extends StatelessWidget {
   });
 
   final ConversationHomeState state;
+  final List<ConversationSummary> conversations;
+  final Set<String> blockedUserIds;
   final VoidCallback onRetry;
   final ValueChanged<String> onSearch;
   final ValueChanged<int> onFilterChanged;
@@ -186,47 +274,65 @@ class _MessagesList extends StatelessWidget {
   Widget build(BuildContext context) {
     return RefreshIndicator(
       onRefresh: () async => onRetry(),
-      child: ListView(
-        padding: const EdgeInsets.only(bottom: WebTuiSpacing.lg),
-        children: [
-          _TopSearch(hintText: 'Tìm hội thoại...', onChanged: onSearch),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.lg),
-            child: WebTuiSegmentedTabs(
-              tabs: const ['Tất cả', 'Chưa đọc', 'Yêu thích'],
-              selectedIndex: state.messageFilter.index,
-              onChanged: onFilterChanged,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(
+            child: _TopSearch(
+              hintText: 'Tìm hội thoại...',
+              onChanged: onSearch,
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.lg),
+              child: WebTuiSegmentedTabs(
+                tabs: const ['Tất cả', 'Chưa đọc', 'Yêu thích'],
+                selectedIndex: state.messageFilter.index,
+                onChanged: onFilterChanged,
+              ),
             ),
           ),
           if (state.isLoading)
-            const WebTuiLoadingState(message: 'Đang tải hội thoại...')
-          else if (state.errorMessage != null)
-            WebTuiErrorState(
-              title: 'Không tải được hội thoại',
-              message: state.errorMessage!,
-              onRetry: onRetry,
+            const SliverToBoxAdapter(
+              child: WebTuiLoadingState(message: 'Đang tải hội thoại...'),
             )
-          else if (state.filteredConversations.isEmpty)
-            const WebTuiEmptyState(
-              title: 'Chưa có hội thoại',
-              message: 'Hội thoại và kênh bạn tham gia sẽ xuất hiện tại đây.',
-              icon: Icons.chat_bubble_outline_rounded,
+          else if (state.errorMessage != null)
+            SliverToBoxAdapter(
+              child: WebTuiErrorState(
+                title: 'Không tải được hội thoại',
+                message: state.errorMessage!,
+                onRetry: onRetry,
+              ),
+            )
+          else if (conversations.isEmpty)
+            const SliverToBoxAdapter(
+              child: WebTuiEmptyState(
+                title: 'Chưa có hội thoại',
+                message: 'Hội thoại và kênh bạn tham gia sẽ xuất hiện tại đây.',
+                icon: Icons.chat_bubble_outline_rounded,
+              ),
             )
           else ...[
-            const SizedBox(height: WebTuiSpacing.xs),
-            const WebTuiSectionLabel('Hội thoại gần đây'),
-            WebTuiListSurface(
-              children: [
-                for (final conversation in state.filteredConversations)
-                  _ConversationTile(
-                    conversation: conversation,
-                    presence: state.presenceForConversation(conversation),
-                    selected: selectedId == conversation.id,
-                    onTap: () => onTap(conversation),
-                  ),
-              ],
+            const SliverToBoxAdapter(child: SizedBox(height: WebTuiSpacing.xs)),
+            const SliverToBoxAdapter(
+              child: WebTuiSectionLabel('Hội thoại gần đây'),
+            ),
+            WebTuiSliverListSurface(
+              itemCount: conversations.length,
+              itemBuilder: (context, index) {
+                final conversation = conversations[index];
+                return _ConversationTile(
+                  conversation: conversation,
+                  blockedUserIds: blockedUserIds,
+                  presence: state.presenceForConversation(conversation),
+                  selected: selectedId == conversation.id,
+                  onTap: () => onTap(conversation),
+                );
+              },
             ),
           ],
+          const SliverToBoxAdapter(child: SizedBox(height: WebTuiSpacing.lg)),
         ],
       ),
     );
@@ -236,98 +342,98 @@ class _MessagesList extends StatelessWidget {
 class _ConversationTile extends StatelessWidget {
   const _ConversationTile({
     required this.conversation,
+    required this.blockedUserIds,
     required this.onTap,
     this.presence,
     this.selected = false,
   });
 
   final ConversationSummary conversation;
+  final Set<String> blockedUserIds;
   final VoidCallback onTap;
   final ConversationPresence? presence;
   final bool selected;
 
   @override
   Widget build(BuildContext context) {
+    final privacy = ConversationPrivacyProjection.from(
+      conversation,
+      blockedUserIds,
+    );
     return WebTuiConversationListItem(
       title: conversation.title,
-      preview: conversation.preview,
+      preview: privacy.preview,
       timeLabel: _timeLabel(conversation.updatedAt),
       avatarLabel: conversation.avatarLabel ?? conversation.title,
       avatarUrl: conversation.avatarUrl,
-      unreadCount: conversation.unreadCount,
+      unreadCount: privacy.isBlocked ? 0 : conversation.unreadCount,
       muted: conversation.muted,
-      status: conversation.kind == ConversationKind.direct
+      status: conversation.kind == ConversationKind.direct && !privacy.isBlocked
           ? _presenceStatus(presence)
           : null,
       selected: selected,
       onTap: onTap,
+      onLongPress: privacy.isBlocked ? onTap : null,
+      trailing: privacy.isBlocked
+          ? const Tooltip(
+              message: 'Quản lý người dùng đã chặn',
+              child: Icon(Icons.block_rounded, color: WebTuiColors.danger),
+            )
+          : null,
     );
   }
 }
 
-class _ContactSections extends StatelessWidget {
-  const _ContactSections({
-    required this.contacts,
-    required this.presenceByUserId,
-    required this.onTap,
-  });
-
-  final List<ContactSummary> contacts;
-  final Map<String, ConversationPresence> presenceByUserId;
-  final ValueChanged<ContactSummary> onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    if (contacts.isEmpty) {
-      return const WebTuiEmptyState(
-        title: 'Chưa có bạn bè',
-        message: 'Bạn bè đã kết nối sẽ xuất hiện tại đây.',
-        icon: Icons.contacts_outlined,
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (contacts.isNotEmpty) ...[
-          const WebTuiSectionLabel('Bạn bè'),
-          WebTuiListSurface(
-            children: [
-              for (final contact in contacts)
-                _ContactTile(
-                  contact: contact,
-                  presence: presenceByUserId[contact.userId],
-                  onTap: () => onTap(contact),
-                ),
-            ],
-          ),
-        ],
-      ],
-    );
+ConversationSummary? _safeSelectedConversation(
+  ConversationSummary? selected,
+  List<ConversationSummary> conversations,
+  Set<String> blockedUserIds,
+) {
+  if (selected != null &&
+      blockedDirectPeerUserId(selected, blockedUserIds) == null) {
+    return selected;
   }
+  for (final conversation in conversations) {
+    if (blockedDirectPeerUserId(conversation, blockedUserIds) == null) {
+      return conversation;
+    }
+  }
+  return null;
 }
 
 class _ContactTile extends StatelessWidget {
   const _ContactTile({
     required this.contact,
     required this.onTap,
+    required this.blocked,
+    required this.onSafety,
     this.presence,
   });
 
   final ContactSummary contact;
   final VoidCallback onTap;
+  final bool blocked;
+  final VoidCallback onSafety;
   final ConversationPresence? presence;
 
   @override
   Widget build(BuildContext context) {
     return WebTuiConversationListItem(
       title: contact.displayName,
-      preview: contact.title ?? contact.email,
+      preview: blocked
+          ? 'Đã chặn · Nhấn để quản lý'
+          : contact.title ?? contact.email,
       timeLabel: _presenceLabel(presence),
       avatarLabel: contact.displayName,
       avatarUrl: contact.avatarUrl,
       status: _presenceStatus(presence),
       onTap: onTap,
+      onLongPress: onSafety,
+      trailing: IconButton(
+        tooltip: 'Báo cáo hoặc chặn ${contact.displayName}',
+        onPressed: onSafety,
+        icon: Icon(blocked ? Icons.block_rounded : Icons.shield_outlined),
+      ),
     );
   }
 }

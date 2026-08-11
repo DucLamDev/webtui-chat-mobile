@@ -21,6 +21,8 @@ class WebTuiConversationListItem extends StatelessWidget {
     this.muted = false,
     this.selected = false,
     this.onTap,
+    this.onLongPress,
+    this.trailing,
     super.key,
   });
 
@@ -34,6 +36,8 @@ class WebTuiConversationListItem extends StatelessWidget {
   final bool muted;
   final bool selected;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -43,6 +47,7 @@ class WebTuiConversationListItem extends StatelessWidget {
           : WebTuiColors.surface,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         child: SizedBox(
           height: WebTuiListDensity.conversationItemHeight,
           child: Stack(
@@ -123,27 +128,30 @@ class WebTuiConversationListItem extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: WebTuiSpacing.sm),
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          timeLabel,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: WebTuiTypography.labelSmall.copyWith(
-                            color: unreadCount > 0
-                                ? WebTuiColors.primary
-                                : WebTuiColors.textMuted,
-                            fontWeight: unreadCount > 0
-                                ? FontWeight.w800
-                                : FontWeight.w600,
+                    if (trailing != null)
+                      trailing!
+                    else
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            timeLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: WebTuiTypography.labelSmall.copyWith(
+                              color: unreadCount > 0
+                                  ? WebTuiColors.primary
+                                  : WebTuiColors.textMuted,
+                              fontWeight: unreadCount > 0
+                                  ? FontWeight.w800
+                                  : FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: WebTuiSpacing.sm),
-                        WebTuiUnreadBadge(count: unreadCount),
-                      ],
-                    ),
+                          const SizedBox(height: WebTuiSpacing.sm),
+                          WebTuiUnreadBadge(count: unreadCount),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -295,6 +303,149 @@ class WebTuiListSurface extends StatelessWidget {
             if (index != children.length - 1)
               const Divider(indent: 72, endIndent: WebTuiSpacing.lg),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class WebTuiSliverListSurface extends StatelessWidget {
+  const WebTuiSliverListSurface({
+    required this.itemCount,
+    required this.itemBuilder,
+    super.key,
+  });
+
+  final int itemCount;
+  final IndexedWidgetBuilder itemBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) => _LazySurfaceItem(
+          index: index,
+          itemCount: itemCount,
+          child: itemBuilder(context, index),
+        ),
+        childCount: itemCount,
+      ),
+    );
+  }
+}
+
+class WebTuiLazyListSurface extends StatelessWidget {
+  const WebTuiLazyListSurface({
+    required this.itemCount,
+    required this.itemBuilder,
+    this.estimatedItemExtent = 72,
+    this.maxHeight = 432,
+    super.key,
+  });
+
+  final int itemCount;
+  final IndexedWidgetBuilder itemBuilder;
+  final double estimatedItemExtent;
+  final double maxHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final estimatedHeight = itemCount * estimatedItemExtent;
+    final height = estimatedHeight < maxHeight ? estimatedHeight : maxHeight;
+    return SizedBox(
+      height: height,
+      child: ListView.builder(
+        primary: false,
+        padding: EdgeInsets.zero,
+        itemCount: itemCount,
+        itemBuilder: (context, index) => _LazySurfaceItem(
+          index: index,
+          itemCount: itemCount,
+          child: itemBuilder(context, index),
+        ),
+      ),
+    );
+  }
+}
+
+class WebTuiLazyGridSurface extends StatelessWidget {
+  const WebTuiLazyGridSurface({
+    required this.itemCount,
+    required this.itemBuilder,
+    this.crossAxisCount = 3,
+    this.spacing = 4,
+    this.maxHeight = 432,
+    super.key,
+  });
+
+  final int itemCount;
+  final IndexedWidgetBuilder itemBuilder;
+  final int crossAxisCount;
+  final double spacing;
+  final double maxHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    if (itemCount <= 0 || crossAxisCount <= 0) {
+      return const SizedBox.shrink();
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final totalSpacing = spacing * (crossAxisCount - 1);
+        final tileExtent =
+            (constraints.maxWidth - totalSpacing) / crossAxisCount;
+        final rowCount = (itemCount + crossAxisCount - 1) ~/ crossAxisCount;
+        final naturalHeight = tileExtent * rowCount + spacing * (rowCount - 1);
+        final height = naturalHeight < maxHeight ? naturalHeight : maxHeight;
+        return SizedBox(
+          height: height,
+          child: GridView.builder(
+            primary: false,
+            padding: EdgeInsets.zero,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: spacing,
+              mainAxisSpacing: spacing,
+            ),
+            itemCount: itemCount,
+            itemBuilder: itemBuilder,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _LazySurfaceItem extends StatelessWidget {
+  const _LazySurfaceItem({
+    required this.index,
+    required this.itemCount,
+    required this.child,
+  });
+
+  final int index;
+  final int itemCount;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final border = BorderSide(
+      color: WebTuiColors.border.withValues(alpha: 0.7),
+    );
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: WebTuiColors.surface,
+        border: Border(
+          top: index == 0 ? border : BorderSide.none,
+          bottom: index == itemCount - 1 ? border : BorderSide.none,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          child,
+          if (index != itemCount - 1)
+            const Divider(indent: 72, endIndent: WebTuiSpacing.lg),
         ],
       ),
     );

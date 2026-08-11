@@ -3,6 +3,7 @@ export 'webtui_badges.dart';
 export 'webtui_list_items.dart';
 export 'webtui_message_bubble.dart';
 export 'webtui_mobile_scaffold.dart';
+export 'webtui_owned_decoded_image.dart';
 export 'webtui_search_bar.dart';
 export 'webtui_segmented_tabs.dart';
 export 'webtui_settings.dart';

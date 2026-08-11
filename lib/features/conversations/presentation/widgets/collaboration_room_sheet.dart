@@ -541,7 +541,7 @@ class _CollaborationRoomSheetState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Chat chữ, voice, file, gọi thoại/video và screen share được giữ riêng tư. Muốn có link khách, hãy Promote thành phòng nhóm.',
+                  'Chat chữ, voice, file và gọi thoại/video được giữ riêng tư. Muốn có link khách, hãy Promote thành phòng nhóm.',
                 ),
                 const SizedBox(height: WebTuiSpacing.md),
                 TextField(
@@ -583,8 +583,8 @@ class _CollaborationRoomSheetState
                       label: 'Blur nền',
                     ),
                     _CapabilityChip(
-                      icon: Icons.screen_share_outlined,
-                      label: 'Chia sẻ màn hình',
+                      icon: Icons.privacy_tip_outlined,
+                      label: 'Quyền media theo ngữ cảnh',
                     ),
                   ],
                 ),

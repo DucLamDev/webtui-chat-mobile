@@ -112,7 +112,7 @@ class _AppLockGateState extends ConsumerState<AppLockGate>
                     const Icon(Icons.lock_rounded, size: 58),
                     const SizedBox(height: 18),
                     Text(
-                      'WebTui Chat đã khóa',
+                      'WebTUI Chat đã khóa',
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
                     const SizedBox(height: 8),

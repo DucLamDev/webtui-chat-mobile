@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -7,16 +8,19 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:open_filex/open_filex.dart';
-import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
-import '../../../../core/result/result.dart';
+import '../../../../core/network/redirect_safe_file_downloader.dart';
+import '../../../../core/security/instance_scope.dart';
+import '../../../../design_system/components/webtui_owned_decoded_image.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../auth/domain/repositories/auth_token_repository.dart';
+import '../../application/use_cases/message_attachment_use_cases.dart';
+import '../../data/files/scoped_attachment_file_store.dart';
 import '../../domain/entities/chat_message.dart';
 
 Future<void> openMessageImageGallery(
@@ -150,7 +154,10 @@ class MessageImageAttachmentView extends ConsumerStatefulWidget {
 
 class _MessageImageAttachmentViewState
     extends ConsumerState<MessageImageAttachmentView> {
-  Future<Uint8List?>? _imageFuture;
+  static const _downloader = RedirectSafeFileDownloader();
+
+  Uri? _imageUri;
+  int _loadGeneration = 0;
 
   @override
   void initState() {
@@ -163,26 +170,89 @@ class _MessageImageAttachmentViewState
     super.didUpdateWidget(oldWidget);
     if (oldWidget.attachment.file.downloadPath !=
             widget.attachment.file.downloadPath ||
-        oldWidget.apiBaseUri != widget.apiBaseUri) {
+        oldWidget.attachment.file.byteSize != widget.attachment.file.byteSize ||
+        oldWidget.attachment.file.mimeType != widget.attachment.file.mimeType ||
+        oldWidget.apiBaseUri != widget.apiBaseUri ||
+        oldWidget.maxHeight != widget.maxHeight ||
+        oldWidget.maxWidth != widget.maxWidth) {
       _reload();
     }
   }
 
   void _reload() {
+    _loadGeneration++;
     final uri = attachmentDownloadUri(widget.attachment, widget.apiBaseUri);
-    _imageFuture = uri == null ? Future<Uint8List?>.value() : _load(uri);
+    _imageUri =
+        uri != null &&
+            attachmentPreviewWithinLimit(
+              widget.attachment.file.byteSize,
+              maxBytes: maxImagePreviewBytes,
+            )
+        ? uri
+        : null;
   }
 
-  Future<Uint8List?> _load(Uri uri) async {
-    final result = await ref
-        .read(downloadMessageAttachmentBytesUseCaseProvider)
-        .execute(downloadUri: uri, mimeType: widget.attachment.file.mimeType);
-    final bytes = result.valueOrNull;
-    return bytes == null || bytes.isEmpty ? null : bytes;
+  Future<Uint8List?> _load(Uri uri, int generation) async {
+    final binding = await _captureAttachmentDownloadBinding(
+      ref: ref,
+      attachmentUri: uri,
+      apiBaseUri: widget.apiBaseUri,
+    );
+    if (binding == null) return null;
+    try {
+      return await _imageDownloadGate.run(
+        () => _downloader.downloadBytes(
+          uri: uri,
+          maxBytes: maxImagePreviewBytes,
+          accept: widget.attachment.file.mimeType,
+          bearerToken: binding.bearerToken,
+          isStillCurrent: () async =>
+              mounted &&
+              generation == _loadGeneration &&
+              await binding.isStillCurrent(),
+        ),
+      );
+    } on Object {
+      return null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _loadGeneration += 1;
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final uri = _imageUri;
+    final generation = _loadGeneration;
+    final placeholder = _ImagePlaceholder(
+      height: widget.height,
+      width: widget.maxWidth,
+    );
+    final image = uri == null
+        ? placeholder
+        : WebTuiOwnedDecodedImage(
+            requestKey:
+                '$uri|${widget.attachment.file.byteSize}|'
+                '${widget.attachment.file.mimeType}|$generation',
+            loadBytes: () => _load(uri, generation),
+            maxEncodedBytes: maxImagePreviewBytes,
+            decodeTargetWidth: (widget.maxWidth * 3).ceil().clamp(1, 2048),
+            decodeTargetHeight: widget.maxHeight.isFinite
+                ? (widget.maxHeight * 3).ceil().clamp(1, 2048)
+                : 2048,
+            width: widget.maxWidth,
+            height: widget.height,
+            fit: widget.fit,
+            loading: _ImagePlaceholder(
+              height: widget.height,
+              width: widget.maxWidth,
+              loading: true,
+            ),
+            fallback: placeholder,
+          );
     return Semantics(
       button: widget.onPressed != null,
       label: 'Mở ảnh ${widget.attachment.file.name}',
@@ -196,36 +266,7 @@ class _MessageImageAttachmentViewState
               maxHeight: widget.maxHeight,
               maxWidth: widget.maxWidth,
             ),
-            child: FutureBuilder<Uint8List?>(
-              future: _imageFuture,
-              builder: (context, snapshot) {
-                final bytes = snapshot.data;
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return _ImagePlaceholder(
-                    height: widget.height,
-                    width: widget.maxWidth,
-                    loading: true,
-                  );
-                }
-                if (bytes == null || bytes.isEmpty) {
-                  return _ImagePlaceholder(
-                    height: widget.height,
-                    width: widget.maxWidth,
-                  );
-                }
-                return Image.memory(
-                  bytes,
-                  fit: widget.fit,
-                  height: widget.height,
-                  width: widget.maxWidth,
-                  gaplessPlayback: true,
-                  errorBuilder: (_, _, _) => _ImagePlaceholder(
-                    height: widget.height,
-                    width: widget.maxWidth,
-                  ),
-                );
-              },
-            ),
+            child: image,
           ),
         ),
       ),
@@ -250,6 +291,8 @@ class MessageVoiceAttachmentView extends ConsumerStatefulWidget {
 
 class _MessageVoiceAttachmentViewState
     extends ConsumerState<MessageVoiceAttachmentView> {
+  static const _downloader = RedirectSafeFileDownloader();
+  static const _fileStore = ScopedAttachmentFileStore();
   static const _waveform = <double>[
     8,
     15,
@@ -282,7 +325,9 @@ class _MessageVoiceAttachmentViewState
   final AudioPlayer _player = AudioPlayer();
   final GlobalKey _waveformKey = GlobalKey();
   final List<StreamSubscription<dynamic>> _subscriptions = [];
-  Uint8List? _bytes;
+  File? _audioFile;
+  _AttachmentDownloadBinding? _binding;
+  int _loadGeneration = 0;
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
   PlayerState _playerState = PlayerState.stopped;
@@ -325,11 +370,29 @@ class _MessageVoiceAttachmentViewState
 
   @override
   void dispose() {
+    _loadGeneration += 1;
     for (final subscription in _subscriptions) {
       unawaited(subscription.cancel());
     }
-    unawaited(_player.dispose());
+    unawaited(_disposeAudio(_player, _audioFile));
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant MessageVoiceAttachmentView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.attachment.file.downloadPath !=
+            widget.attachment.file.downloadPath ||
+        oldWidget.apiBaseUri != widget.apiBaseUri) {
+      _loadGeneration += 1;
+      final previousFile = _audioFile;
+      _audioFile = null;
+      _binding = null;
+      _loading = false;
+      _failed = false;
+      unawaited(_player.stop());
+      if (previousFile != null) unawaited(_deleteFile(previousFile));
+    }
   }
 
   Future<void> _togglePlayback() async {
@@ -337,13 +400,22 @@ class _MessageVoiceAttachmentViewState
       await _player.pause();
       return;
     }
-    if (_bytes == null) {
+    final binding = _binding;
+    if (_audioFile == null || binding == null) {
       await _loadAndPlay();
+      return;
+    }
+    if (!await binding.isStillCurrent()) {
+      await _player.stop();
+      if (mounted) setState(() => _failed = true);
       return;
     }
     if (_playerState == PlayerState.completed) {
       await _player.play(
-        BytesSource(_bytes!, mimeType: widget.attachment.file.mimeType),
+        DeviceFileSource(
+          _audioFile!.path,
+          mimeType: widget.attachment.file.mimeType,
+        ),
       );
       return;
     }
@@ -351,8 +423,13 @@ class _MessageVoiceAttachmentViewState
   }
 
   Future<void> _loadAndPlay() async {
+    final generation = ++_loadGeneration;
     final uri = attachmentDownloadUri(widget.attachment, widget.apiBaseUri);
-    if (uri == null) {
+    if (uri == null ||
+        !attachmentPreviewWithinLimit(
+          widget.attachment.file.byteSize,
+          maxBytes: maxVoicePlaybackBytes,
+        )) {
       setState(() => _failed = true);
       return;
     }
@@ -360,22 +437,73 @@ class _MessageVoiceAttachmentViewState
       _loading = true;
       _failed = false;
     });
-    final result = await ref
-        .read(downloadMessageAttachmentBytesUseCaseProvider)
-        .execute(downloadUri: uri, mimeType: widget.attachment.file.mimeType);
-    if (!mounted) return;
-    switch (result) {
-      case Success<Uint8List>(value: final bytes) when bytes.isNotEmpty:
-        _bytes = bytes;
-        setState(() => _loading = false);
-        await _player.play(
-          BytesSource(bytes, mimeType: widget.attachment.file.mimeType),
+    File? downloaded;
+    try {
+      final binding = await _captureAttachmentDownloadBinding(
+        ref: ref,
+        attachmentUri: uri,
+        apiBaseUri: widget.apiBaseUri,
+      );
+      if (binding == null) throw StateError('instance binding unavailable');
+      Future<bool> operationIsCurrent() async {
+        return mounted &&
+            generation == _loadGeneration &&
+            await binding.isStillCurrent();
+      }
+
+      final target = await _fileStore.fileFor(
+        instanceScope: binding.instanceScope,
+        sessionGeneration: binding.guard.generation,
+        fileId: widget.attachment.fileId,
+        originalName: widget.attachment.file.name,
+        purpose: 'voice${identityHashCode(this)}',
+      );
+      if (!await target.exists() ||
+          await target.length() != widget.attachment.file.byteSize) {
+        downloaded = await _voiceDownloadGate.run(
+          () => _downloader.download(
+            uri: uri,
+            target: target,
+            maxBytes: maxVoicePlaybackBytes,
+            expectedBytes: widget.attachment.file.byteSize,
+            accept: widget.attachment.file.mimeType,
+            bearerToken: binding.bearerToken,
+            isStillCurrent: operationIsCurrent,
+          ),
         );
-      default:
+      } else {
+        downloaded = target;
+      }
+      final readyFile = downloaded;
+      if (readyFile == null) throw StateError('audio download unavailable');
+      if (!mounted ||
+          generation != _loadGeneration ||
+          !await operationIsCurrent()) {
+        throw StateError('instance binding changed');
+      }
+      final previousFile = _audioFile;
+      _audioFile = readyFile;
+      _binding = binding;
+      setState(() => _loading = false);
+      await _player.play(
+        DeviceFileSource(
+          readyFile.path,
+          mimeType: widget.attachment.file.mimeType,
+        ),
+      );
+      if (previousFile != null && previousFile.path != readyFile.path) {
+        await _deleteFile(previousFile);
+      }
+    } on Object {
+      if (downloaded != null && downloaded.path != _audioFile?.path) {
+        await _deleteFile(downloaded);
+      }
+      if (mounted && generation == _loadGeneration) {
         setState(() {
           _loading = false;
           _failed = true;
         });
+      }
     }
   }
 
@@ -537,14 +665,19 @@ class MessageVideoAttachmentView extends ConsumerStatefulWidget {
 
 class _MessageVideoAttachmentViewState
     extends ConsumerState<MessageVideoAttachmentView> {
+  static const _downloader = RedirectSafeFileDownloader();
+  static const _fileStore = ScopedAttachmentFileStore();
+
   VideoPlayerController? _controller;
-  bool _loading = true;
+  File? _videoFile;
+  _AttachmentDownloadBinding? _binding;
+  int _initializationGeneration = 0;
+  bool _loading = false;
   bool _failed = false;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_initialize());
   }
 
   @override
@@ -553,70 +686,160 @@ class _MessageVideoAttachmentViewState
     if (oldWidget.attachment.file.downloadPath !=
             widget.attachment.file.downloadPath ||
         oldWidget.apiBaseUri != widget.apiBaseUri) {
-      unawaited(_initialize());
+      _initializationGeneration += 1;
+      final previous = _controller;
+      final previousFile = _videoFile;
+      _controller = null;
+      _videoFile = null;
+      _binding = null;
+      _loading = false;
+      _failed = false;
+      unawaited(_disposeVideo(previous, previousFile));
     }
   }
 
-  Future<void> _initialize() async {
-    final uri = attachmentDownloadUri(widget.attachment, widget.apiBaseUri);
-    if (uri == null) {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _failed = true;
-        });
-      }
+  void _requestDownload() {
+    if (_loading || _controller != null) return;
+    if (!attachmentPreviewWithinLimit(
+      widget.attachment.file.byteSize,
+      maxBytes: maxVideoPlaybackBytes,
+    )) {
+      setState(() => _failed = true);
       return;
     }
-    final token =
-        (await ref.read(authTokenRepositoryProvider).readAccessToken())?.trim();
-    final next = VideoPlayerController.networkUrl(
-      uri,
-      httpHeaders: {
-        'Accept': widget.attachment.file.mimeType,
-        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
-      },
-      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    unawaited(_initialize());
+  }
+
+  Future<void> _initialize() async {
+    final generation = ++_initializationGeneration;
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _failed = false;
+      });
+    }
+    final uri = attachmentDownloadUri(widget.attachment, widget.apiBaseUri);
+    if (uri == null) {
+      _markVideoFailure(generation);
+      return;
+    }
+
+    final binding = await _captureAttachmentDownloadBinding(
+      ref: ref,
+      attachmentUri: uri,
+      apiBaseUri: widget.apiBaseUri,
     );
+    if (binding == null ||
+        generation != _initializationGeneration ||
+        !mounted) {
+      _markVideoFailure(generation);
+      return;
+    }
+
+    File? downloaded;
+    VideoPlayerController? next;
     try {
+      Future<bool> operationIsCurrent() async {
+        return mounted &&
+            generation == _initializationGeneration &&
+            await binding.isStillCurrent();
+      }
+
+      final target = await _fileStore.fileFor(
+        instanceScope: binding.instanceScope,
+        sessionGeneration: binding.guard.generation,
+        fileId: widget.attachment.fileId,
+        originalName: widget.attachment.file.name,
+        purpose: 'video${identityHashCode(this)}',
+      );
+      if (!await target.exists() ||
+          await target.length() != widget.attachment.file.byteSize) {
+        downloaded = await _videoDownloadGate.run(
+          () => _downloader.download(
+            uri: uri,
+            target: target,
+            maxBytes: maxVideoPlaybackBytes,
+            expectedBytes: widget.attachment.file.byteSize,
+            accept: widget.attachment.file.mimeType,
+            bearerToken: binding.bearerToken,
+            isStillCurrent: operationIsCurrent,
+          ),
+        );
+      } else {
+        downloaded = target;
+      }
+      final readyFile = downloaded;
+      if (readyFile == null) {
+        throw const RedirectSafeDownloadException('video download unavailable');
+      }
+      if (!await operationIsCurrent() ||
+          generation != _initializationGeneration ||
+          !mounted) {
+        throw const RedirectSafeDownloadException('instance binding changed');
+      }
+
+      next = VideoPlayerController.file(
+        readyFile,
+        videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+      );
       await next.initialize();
       await next.setLooping(false);
-      final previous = _controller;
-      if (!mounted) {
-        await next.dispose();
-        return;
+      if (!await operationIsCurrent() ||
+          generation != _initializationGeneration ||
+          !mounted) {
+        throw const RedirectSafeDownloadException('instance binding changed');
       }
+      final previous = _controller;
+      final previousFile = _videoFile;
       setState(() {
         _controller = next;
+        _videoFile = readyFile;
+        _binding = binding;
         _loading = false;
         _failed = false;
       });
       if (previous != null) {
         await previous.dispose();
       }
-    } on Object {
-      await next.dispose();
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _failed = true;
-        });
+      if (previousFile != null && previousFile.path != readyFile.path) {
+        await _deleteFile(previousFile);
       }
+    } on Object {
+      await next?.dispose();
+      if (downloaded != null && downloaded.path != _videoFile?.path) {
+        await _deleteFile(downloaded);
+      }
+      _markVideoFailure(generation);
     }
+  }
+
+  void _markVideoFailure(int generation) {
+    if (!mounted || generation != _initializationGeneration) return;
+    setState(() {
+      _loading = false;
+      _failed = true;
+    });
   }
 
   @override
   void dispose() {
-    final controller = _controller;
-    if (controller != null) {
-      unawaited(controller.dispose());
-    }
+    _initializationGeneration += 1;
+    unawaited(_disposeVideo(_controller, _videoFile));
     super.dispose();
   }
 
   Future<void> _togglePlayback() async {
     final controller = _controller;
-    if (controller == null) return;
+    final binding = _binding;
+    if (controller == null ||
+        binding == null ||
+        !await binding.isStillCurrent()) {
+      if (controller?.value.isPlaying == true) {
+        await controller?.pause();
+      }
+      if (mounted) setState(() => _failed = true);
+      return;
+    }
     if (controller.value.isPlaying) {
       await controller.pause();
     } else {
@@ -628,12 +851,21 @@ class _MessageVideoAttachmentViewState
     if (mounted) setState(() {});
   }
 
-  void _openFullscreen() {
+  Future<void> _openFullscreen() async {
     final controller = _controller;
-    if (controller != null && controller.value.isPlaying) {
-      unawaited(controller.pause());
+    final binding = _binding;
+    if (controller == null ||
+        binding == null ||
+        !await binding.isStillCurrent() ||
+        !mounted) {
+      return;
     }
-    Navigator.of(context).push<void>(
+    if (controller.value.isPlaying) {
+      await controller.pause();
+    }
+    if (!await binding.isStillCurrent() || !mounted) return;
+    final navigator = Navigator.of(context);
+    await navigator.push<void>(
       MaterialPageRoute<void>(
         fullscreenDialog: true,
         builder: (_) => Scaffold(
@@ -695,10 +927,16 @@ class _MessageVideoAttachmentViewState
                                 strokeWidth: 2,
                                 color: Colors.white,
                               )
-                            : const Icon(
-                                CupertinoIcons.exclamationmark_triangle,
-                                color: Colors.white70,
-                                size: 32,
+                            : IconButton.filled(
+                                tooltip: _failed
+                                    ? 'Video quá lớn hoặc không khả dụng'
+                                    : 'Tải video để phát',
+                                onPressed: _failed ? null : _requestDownload,
+                                icon: Icon(
+                                  _failed
+                                      ? CupertinoIcons.exclamationmark_triangle
+                                      : CupertinoIcons.arrow_down_circle_fill,
+                                ),
                               ),
                       ),
                     if (activeController != null)
@@ -813,32 +1051,35 @@ class _MessageFileAttachmentViewState
     }
     setState(() => _opening = true);
     try {
-      final directory = await getTemporaryDirectory();
-      final safeName = widget.attachment.file.name.replaceAll(
-        RegExp(r'[<>:"/\\|?*\x00-\x1F]'),
-        '_',
+      final binding = await _captureAttachmentDownloadBinding(
+        ref: ref,
+        attachmentUri: uri,
+        apiBaseUri: widget.apiBaseUri,
       );
-      final target = File(
-        path.join(
-          directory.path,
-          'webtui-attachments',
-          '${widget.attachment.fileId}-$safeName',
-        ),
+      if (binding == null) {
+        throw StateError('instance binding unavailable');
+      }
+      final target = await const ScopedAttachmentFileStore().fileFor(
+        instanceScope: binding.instanceScope,
+        sessionGeneration: binding.guard.generation,
+        fileId: widget.attachment.fileId,
+        originalName: widget.attachment.file.name,
+        purpose: 'file',
       );
       if (!await target.exists() ||
           await target.length() != widget.attachment.file.byteSize) {
-        final result = await ref
-            .read(downloadMessageAttachmentBytesUseCaseProvider)
-            .execute(
-              downloadUri: uri,
-              mimeType: widget.attachment.file.mimeType,
-            );
-        final bytes = result.valueOrNull;
-        if (bytes == null || bytes.isEmpty) {
-          throw StateError('empty attachment');
-        }
-        await target.parent.create(recursive: true);
-        await target.writeAsBytes(bytes, flush: true);
+        await const RedirectSafeFileDownloader().download(
+          uri: uri,
+          target: target,
+          maxBytes: UploadMessageAttachmentUseCase.maxBytes,
+          expectedBytes: widget.attachment.file.byteSize,
+          accept: widget.attachment.file.mimeType,
+          bearerToken: binding.bearerToken,
+          isStillCurrent: binding.isStillCurrent,
+        );
+      }
+      if (!await binding.isStillCurrent()) {
+        throw StateError('instance binding changed');
       }
       final opened = await OpenFilex.open(target.path);
       if (opened.type != ResultType.done) {
@@ -969,7 +1210,149 @@ Uri? attachmentDownloadUri(MessageAttachment attachment, Uri? apiBaseUri) {
   if (rawPath.isEmpty) return null;
   final uri = Uri.tryParse(rawPath);
   if (uri == null) return null;
-  return uri.hasScheme ? uri : apiBaseUri?.resolve(rawPath);
+  final resolved = uri.hasScheme ? uri : apiBaseUri?.resolve(rawPath);
+  if (resolved == null ||
+      !redirectSafeHttpUriAllowed(resolved) ||
+      resolved.host.isEmpty ||
+      resolved.userInfo.isNotEmpty ||
+      resolved.fragment.isNotEmpty) {
+    return null;
+  }
+  return resolved;
+}
+
+bool attachmentUriCanUseInstanceCredentials({
+  required Uri attachmentUri,
+  required Uri apiBaseUri,
+  required Uri activeInstanceOrigin,
+}) {
+  return serverOriginsMatch(attachmentUri, apiBaseUri) &&
+      serverOriginsMatch(apiBaseUri, activeInstanceOrigin);
+}
+
+Future<_AttachmentDownloadBinding?> _captureAttachmentDownloadBinding({
+  required WidgetRef ref,
+  required Uri attachmentUri,
+  required Uri? apiBaseUri,
+}) async {
+  final instanceScope = ref.read(activeServerDiscoveryProvider)?.instanceScope;
+  if (instanceScope == null ||
+      (apiBaseUri != null &&
+          !serverOriginsMatch(apiBaseUri, instanceScope.origin))) {
+    return null;
+  }
+  final tokenRepository = ref.read(authTokenRepositoryProvider);
+  final guard = await tokenRepository.captureMutationGuard();
+  if (guard == null || guard.instanceScopeId != instanceScope.storageId) {
+    return null;
+  }
+
+  final usesInstanceCredentials =
+      apiBaseUri != null &&
+      attachmentUriCanUseInstanceCredentials(
+        attachmentUri: attachmentUri,
+        apiBaseUri: apiBaseUri,
+        activeInstanceOrigin: instanceScope.origin,
+      );
+  String? bearerToken;
+  if (usesInstanceCredentials) {
+    bearerToken = (await tokenRepository.readAccessTokenIfCurrent(
+      guard,
+    ))?.trim();
+    if (bearerToken == null || bearerToken.isEmpty) return null;
+  }
+  if (!await tokenRepository.isMutationGuardCurrent(guard)) return null;
+  return _AttachmentDownloadBinding(
+    instanceScope: instanceScope,
+    guard: guard,
+    bearerToken: bearerToken,
+    tokenRepository: tokenRepository,
+  );
+}
+
+final class _AttachmentDownloadBinding {
+  const _AttachmentDownloadBinding({
+    required this.instanceScope,
+    required this.guard,
+    required this.bearerToken,
+    required AuthTokenRepository tokenRepository,
+  }) : _tokenRepository = tokenRepository;
+
+  final InstanceScope instanceScope;
+  final AuthTokenMutationGuard guard;
+  final String? bearerToken;
+  final AuthTokenRepository _tokenRepository;
+
+  Future<bool> isStillCurrent() {
+    return _tokenRepository.isMutationGuardCurrent(guard);
+  }
+}
+
+Future<void> _disposeVideo(
+  VideoPlayerController? controller,
+  File? file,
+) async {
+  try {
+    await controller?.dispose();
+  } finally {
+    if (file != null) await _deleteFile(file);
+  }
+}
+
+Future<void> _disposeAudio(AudioPlayer player, File? file) async {
+  try {
+    await player.dispose();
+  } finally {
+    if (file != null) await _deleteFile(file);
+  }
+}
+
+Future<void> _deleteFile(File file) async {
+  try {
+    if (await file.exists()) await file.delete();
+  } on Object {
+    // Session-scoped cache cleanup is the final best-effort fallback.
+  }
+}
+
+const int maxImagePreviewBytes = 5 * 1024 * 1024;
+const int maxVoicePlaybackBytes = 100 * 1024 * 1024;
+const int maxVideoPlaybackBytes = 250 * 1024 * 1024;
+
+final _imageDownloadGate = _BoundedAsyncGate(3);
+final _voiceDownloadGate = _BoundedAsyncGate(2);
+final _videoDownloadGate = _BoundedAsyncGate(2);
+
+final class _BoundedAsyncGate {
+  _BoundedAsyncGate(this.maximumConcurrent);
+
+  final int maximumConcurrent;
+  final Queue<Completer<void>> _waiters = Queue<Completer<void>>();
+  int _active = 0;
+
+  Future<T> run<T>(Future<T> Function() operation) async {
+    if (_active < maximumConcurrent) {
+      _active += 1;
+    } else {
+      final waiter = Completer<void>();
+      _waiters.addLast(waiter);
+      await waiter.future;
+    }
+    try {
+      return await operation();
+    } finally {
+      if (_waiters.isNotEmpty) {
+        // Transfer this occupied slot directly to the oldest waiter.
+        _waiters.removeFirst().complete();
+      } else {
+        _active -= 1;
+      }
+    }
+  }
+}
+
+bool attachmentPreviewWithinLimit(int byteSize, {required int maxBytes}) {
+  return byteSize > 0 && byteSize <= maxBytes;
 }
 
 String _formatDuration(Duration value) {

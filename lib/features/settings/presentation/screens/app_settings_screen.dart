@@ -23,6 +23,9 @@ class AppSettingsScreen extends ConsumerWidget {
     final workspaceId = ref.watch(
       workspaceControllerProvider.select((value) => value.activeWorkspace?.id),
     );
+    final notificationPermission = ref.watch(
+      notificationPermissionStatusProvider,
+    );
     if (workspaceId?.trim().isNotEmpty == true) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         controller.loadNotificationPreference(workspaceId!);
@@ -84,12 +87,47 @@ class AppSettingsScreen extends ConsumerWidget {
             WebTuiListSurface(
               children: [
                 WebTuiSettingRow(
+                  title: 'Quyền thông báo hệ thống',
+                  subtitle: _notificationPermissionLabel(
+                    notificationPermission.valueOrNull,
+                  ),
+                  icon: Icons.notifications_active_outlined,
+                  trailing: notificationPermission.isLoading
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : TextButton(
+                          onPressed: workspaceId == null
+                              ? null
+                              : () => _requestNotificationPermission(
+                                  context,
+                                  ref,
+                                  workspaceId,
+                                ),
+                          child: Text(
+                            notificationPermission.valueOrNull == 'granted' ||
+                                    notificationPermission.valueOrNull ==
+                                        'provisional'
+                                ? 'Kiểm tra lại'
+                                : 'Cho phép',
+                          ),
+                        ),
+                ),
+                WebTuiSettingRow(
                   title: 'Nhận thông báo',
                   subtitle: 'Tin nhắn, kênh và cảnh báo workspace',
                   icon: Icons.notifications_none_rounded,
                   trailing: WebTuiToggle(
                     value: settings.notificationsEnabled,
-                    onChanged: (value) {
+                    onChanged: (value) async {
+                      if (value && workspaceId != null) {
+                        await _requestNotificationPermission(
+                          context,
+                          ref,
+                          workspaceId,
+                        );
+                      }
                       controller.update(
                         settings.copyWith(notificationsEnabled: value),
                         workspaceId: workspaceId,
@@ -236,6 +274,38 @@ class AppSettingsScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+Future<void> _requestNotificationPermission(
+  BuildContext context,
+  WidgetRef ref,
+  String workspaceId,
+) async {
+  final permission = await ref
+      .read(pushNotificationServiceProvider)
+      .requestNotificationPermissionForWorkspace(workspaceId);
+  ref.invalidate(notificationPermissionStatusProvider);
+  if (!context.mounted) {
+    return;
+  }
+  final message = switch (permission) {
+    'granted' => 'Đã bật thông báo hệ thống.',
+    'provisional' => 'Thông báo tạm thời đã được bật.',
+    'denied' =>
+      'Quyền thông báo đang bị từ chối. Hãy bật trong Cài đặt hệ thống.',
+    _ => 'Không xác định được trạng thái quyền thông báo.',
+  };
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+}
+
+String _notificationPermissionLabel(String? permission) {
+  return switch (permission) {
+    'granted' => 'Đã cho phép thông báo tin nhắn và cuộc gọi',
+    'provisional' => 'Đang cho phép thông báo tạm thời',
+    'denied' => 'Đã từ chối trong cài đặt hệ thống',
+    'unknown' || null => 'Chỉ hỏi quyền khi bạn chọn Cho phép',
+    _ => 'Trạng thái chưa xác định',
+  };
 }
 
 Future<void> _setAppLock(

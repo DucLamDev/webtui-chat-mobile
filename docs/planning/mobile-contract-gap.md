@@ -38,7 +38,7 @@ Tài liệu này hoàn thành phần phân tích Phase M0 cho mobile app Flutter
 
 | Nhóm | Web hiện có | Mobile cần đạt | Contract hiện tại | Gap/owner |
 |---|---|---|---|---|
-| Auth/session | Login, Google login, refresh, logout, session list/revoke | Login, refresh tự động, session list/revoke, logout sạch device | OpenAPI và Go route đã có | P0: liên kết logout với unregister push device. Owner: `auth`, `mobile_devices` |
+| Auth/session | Login, OIDC, refresh, logout, session list/revoke | Login, OIDC, refresh tự động, session list/revoke, logout sạch device | OpenAPI và Go route đã có | P0: liên kết logout với unregister push device. Owner: `auth`, `mobile_devices` |
 | User/profile | Hồ sơ user, cập nhật hồ sơ | Hồ sơ, avatar, thiết bị đăng nhập | OpenAPI có `users/me`; Go route có thêm update/delete user | P1: rà đủ update/delete trong OpenAPI. Owner: `users` |
 | Workspace | List mine, get/update/create, member, settings, invite | Chọn workspace, switch tenant, cache tách theo workspace | Có nền tốt | P0: mọi payload push/deep link/sync phải mang workspace context |
 | RBAC | Permission gate web | Ẩn/hiện màn theo permission, backend vẫn quyết định cuối | Có permissions, roles, check, member roles | P0: mobile cần manifest permission theo màn hình, không tự suy đoán |
@@ -285,7 +285,7 @@ Quyết định M0:
 - Android là nền tảng phát hành trước.
 - `applicationId` production cần chốt ở M1 và không đổi sau khi đưa lên Play Console.
 - Target SDK/API phải kiểm tra lại trước release vì Google cập nhật hằng năm.
-- Build nội bộ dùng Firebase App Distribution và APK signed trên `chat.vpsttt.com/download/`; CH Play làm ở M12.
+- Build nội bộ dùng Firebase App Distribution và APK signed trên `download.vpsttt.com/download/`; CH Play làm ở M12.
 
 ## 11. Privacy và data retention
 

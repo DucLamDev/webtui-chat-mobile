@@ -2,6 +2,8 @@ import '../../../../core/result/result.dart';
 import '../../../../core/result/result_guard.dart';
 import '../../domain/entities/auth_session.dart';
 import '../../domain/entities/device_identity.dart';
+import '../../domain/entities/legal_acceptance.dart';
+import '../../domain/entities/legal_document_versions.dart';
 import '../../domain/entities/oidc_provider.dart';
 import '../../domain/entities/user_session.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -11,6 +13,35 @@ final class AuthRepositoryImpl implements AuthRepository {
   const AuthRepositoryImpl(this._remote);
 
   final AuthRemoteDataSource _remote;
+
+  @override
+  Future<Result<LegalDocumentVersions>> loadLegalDocumentVersions() {
+    return guardResult(_remote.loadLegalDocumentVersions);
+  }
+
+  @override
+  Future<Result<LegalAcceptance>> loadLegalAcceptance({
+    required String workspaceId,
+  }) {
+    return guardResult(
+      () => _remote.loadLegalAcceptance(workspaceId: workspaceId),
+    );
+  }
+
+  @override
+  Future<Result<LegalAcceptance>> acceptLegalDocuments({
+    required String workspaceId,
+    required String termsVersion,
+    required String privacyVersion,
+  }) {
+    return guardResult(
+      () => _remote.acceptLegalDocuments(
+        workspaceId: workspaceId,
+        termsVersion: termsVersion,
+        privacyVersion: privacyVersion,
+      ),
+    );
+  }
 
   @override
   Future<Result<AuthSession>> login({
@@ -34,6 +65,10 @@ final class AuthRepositoryImpl implements AuthRepository {
     required String username,
     required String password,
     String inviteToken = '',
+    bool termsAccepted = false,
+    String termsVersion = '',
+    bool privacyAccepted = false,
+    String privacyVersion = '',
     required DeviceIdentity device,
   }) {
     return guardResult(
@@ -43,18 +78,12 @@ final class AuthRepositoryImpl implements AuthRepository {
         username: username,
         password: password,
         inviteToken: inviteToken,
+        termsAccepted: termsAccepted,
+        termsVersion: termsVersion,
+        privacyAccepted: privacyAccepted,
+        privacyVersion: privacyVersion,
         device: device,
       ),
-    );
-  }
-
-  @override
-  Future<Result<AuthSession>> loginWithGoogle({
-    required String credential,
-    required DeviceIdentity device,
-  }) {
-    return guardResult(
-      () => _remote.loginWithGoogle(credential: credential, device: device),
     );
   }
 

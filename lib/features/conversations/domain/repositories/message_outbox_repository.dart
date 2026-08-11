@@ -8,6 +8,8 @@ abstract interface class MessageOutboxRepository {
 
   Future<void> upsert(MessageOutboxItem item);
 
+  Future<bool> canDispatch(MessageOutboxItem item);
+
   Future<void> delete({
     required String workspaceId,
     required String channelId,

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:uuid/uuid.dart';
 
+import '../../../../core/security/instance_scope.dart';
 import '../../../../core/security/secure_key_value_store.dart';
 import '../../domain/entities/device_identity.dart';
 import '../../domain/repositories/device_identity_repository.dart';
@@ -9,20 +10,33 @@ import '../../domain/repositories/device_identity_repository.dart';
 final class SecureDeviceIdentityRepository implements DeviceIdentityRepository {
   const SecureDeviceIdentityRepository({
     required SecureKeyValueStore secureStore,
+    required InstanceScope Function() loadInstanceScope,
     Uuid uuid = const Uuid(),
   }) : _secureStore = secureStore,
+       _loadInstanceScope = loadInstanceScope,
        _uuid = uuid;
 
   final SecureKeyValueStore _secureStore;
+  final InstanceScope Function() _loadInstanceScope;
   final Uuid _uuid;
 
   @override
   Future<DeviceIdentity> currentDevice() async {
-    var deviceId = await _secureStore.read(SecureStoreKey.deviceId);
-    if (deviceId == null || deviceId.trim().isEmpty) {
-      deviceId = _uuid.v4();
-      await _secureStore.write(SecureStoreKey.deviceId, deviceId);
+    final instanceScope = _loadInstanceScope();
+    var masterSecret = await _secureStore.read(
+      SecureStoreKey.deviceMasterSecret,
+    );
+    if (masterSecret == null || masterSecret.trim().isEmpty) {
+      // Do not reuse the old global device_id: it may already have been
+      // disclosed to multiple independent servers and is therefore linkable.
+      masterSecret = _uuid.v4();
+      await _secureStore.write(SecureStoreKey.deviceMasterSecret, masterSecret);
+      await _secureStore.delete(SecureStoreKey.deviceId);
     }
+    final deviceId = _uuid.v5(
+      Namespace.url.value,
+      '$masterSecret:${instanceScope.storageId}',
+    );
 
     final platform = Platform.operatingSystem;
     return DeviceIdentity(

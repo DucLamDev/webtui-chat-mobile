@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../design_system/components/webtui_avatar.dart';
 import '../../design_system/tokens/webtui_colors.dart';
 import '../../design_system/tokens/webtui_spacing.dart';
 import '../../design_system/tokens/webtui_typography.dart';
@@ -154,12 +155,15 @@ class _PrivacyOrganizationMark extends StatelessWidget {
       return fallback;
     }
     return ClipOval(
-      child: Image.network(
-        source,
+      child: WebTuiBoundedNetworkImage(
+        imageUrl: source,
         width: 48,
         height: 48,
         fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => fallback,
+        maxBytes: webTuiMaxBrandImageBytes,
+        allowPublicRequest: true,
+        semanticLabel: name,
+        fallback: fallback,
       ),
     );
   }

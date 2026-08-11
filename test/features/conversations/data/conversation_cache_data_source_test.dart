@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/core/database/app_database.dart';
+import 'package:webtui_chat/core/security/instance_scope.dart';
 import 'package:webtui_chat/features/conversations/data/datasources/conversation_cache_data_source.dart';
 import 'package:webtui_chat/features/conversations/domain/entities/chat_message.dart';
 import 'package:webtui_chat/features/conversations/domain/entities/conversation_summary.dart';
@@ -8,7 +9,7 @@ void main() {
   test('restores cached conversations and latest message page', () async {
     final database = AppDatabase(createInMemoryDriftConnection());
     addTearDown(database.close);
-    final cache = ConversationCacheDataSource(database);
+    final cache = ConversationCacheDataSource(database, _instanceA);
     final updatedAt = DateTime.utc(2026, 7, 17, 8);
     final createdAt = DateTime.utc(2026, 7, 17, 8, 30);
 
@@ -113,7 +114,7 @@ void main() {
   test('persists a sent message before a latest page exists', () async {
     final database = AppDatabase(createInMemoryDriftConnection());
     addTearDown(database.close);
-    final cache = ConversationCacheDataSource(database);
+    final cache = ConversationCacheDataSource(database, _instanceA);
     final message = ChatMessage(
       id: 'message-new',
       workspaceId: 'workspace-1',
@@ -145,7 +146,7 @@ void main() {
     () async {
       final database = AppDatabase(createInMemoryDriftConnection());
       addTearDown(database.close);
-      final cache = ConversationCacheDataSource(database);
+      final cache = ConversationCacheDataSource(database, _instanceA);
       final now = DateTime.utc(2026, 8, 3, 8, 30);
       final justSent = ChatMessage(
         id: 'message-new',
@@ -177,7 +178,7 @@ void main() {
   test('does not keep an expired local send over the server page', () async {
     final database = AppDatabase(createInMemoryDriftConnection());
     addTearDown(database.close);
-    final cache = ConversationCacheDataSource(database);
+    final cache = ConversationCacheDataSource(database, _instanceA);
     final now = DateTime.utc(2026, 8, 3, 8, 30);
     final oldLocalMessage = ChatMessage(
       id: 'message-old',
@@ -203,4 +204,47 @@ void main() {
 
     expect(reconciled.messages, isEmpty);
   });
+
+  test('same workspace and channel IDs never leak across servers', () async {
+    final database = AppDatabase(createInMemoryDriftConnection());
+    addTearDown(database.close);
+    final serverA = ConversationCacheDataSource(database, _instanceA);
+    final serverB = ConversationCacheDataSource(database, _instanceB);
+    final createdAt = DateTime.utc(2026, 8, 10);
+
+    await serverA.saveLatestMessagePage(
+      workspaceId: 'shared-workspace-id',
+      channelId: 'shared-channel-id',
+      page: MessagePage(
+        messages: [
+          ChatMessage(
+            id: 'shared-message-id',
+            workspaceId: 'shared-workspace-id',
+            channelId: 'shared-channel-id',
+            kind: 'text',
+            body: 'server-a-secret',
+            createdAt: createdAt,
+          ),
+        ],
+      ),
+    );
+
+    expect(
+      await serverB.readLatestMessagePage(
+        workspaceId: 'shared-workspace-id',
+        channelId: 'shared-channel-id',
+      ),
+      isNull,
+    );
+  });
 }
+
+final _instanceA = InstanceScope(
+  instanceId: '11111111-1111-4111-8111-111111111111',
+  serverOrigin: Uri.parse('https://one.example'),
+);
+
+final _instanceB = InstanceScope(
+  instanceId: '22222222-2222-4222-8222-222222222222',
+  serverOrigin: Uri.parse('https://two.example'),
+);

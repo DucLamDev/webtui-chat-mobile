@@ -7,6 +7,9 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../moderation/presentation/controllers/moderation_controller.dart';
+import '../../../moderation/presentation/widgets/moderation_actions.dart';
+import '../../../profile/presentation/controllers/profile_controller.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
 import '../../domain/entities/channel_file.dart';
 import '../../domain/entities/chat_message.dart';
@@ -65,6 +68,12 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
     final provider = channelDetailControllerProvider(scope);
     final state = ref.watch(provider);
     final controller = ref.read(provider.notifier);
+    final moderationState = ref.watch(
+      moderationControllerProvider(workspaceId),
+    );
+    final currentUserId = ref.watch(
+      profileControllerProvider.select((state) => state.profile?.id),
+    );
 
     return Scaffold(
       backgroundColor: WebTuiColors.background,
@@ -140,6 +149,15 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
                       },
                       onApprove: controller.approveJoinRequest,
                       onReject: controller.rejectJoinRequest,
+                      currentUserId: currentUserId,
+                      blockedUserIds: moderationState.blockedUserIds,
+                      onSafety: (member) => showUserSafetyActions(
+                        context,
+                        ref,
+                        workspaceId: workspaceId,
+                        userId: member.userId,
+                        userLabel: member.displayName,
+                      ),
                     ),
                     1 => _PinnedTab(
                       messages: state.pinnedMessages,
@@ -283,6 +301,9 @@ class _MembersTab extends StatelessWidget {
     required this.onInvite,
     required this.onApprove,
     required this.onReject,
+    required this.currentUserId,
+    required this.blockedUserIds,
+    required this.onSafety,
   });
 
   final ChannelDetailState state;
@@ -290,6 +311,9 @@ class _MembersTab extends StatelessWidget {
   final VoidCallback onInvite;
   final ValueChanged<String> onApprove;
   final ValueChanged<String> onReject;
+  final String? currentUserId;
+  final Set<String> blockedUserIds;
+  final ValueChanged<ChannelMember> onSafety;
 
   @override
   Widget build(BuildContext context) {
@@ -326,15 +350,17 @@ class _MembersTab extends StatelessWidget {
           ),
         if (state.joinRequests.isNotEmpty) ...[
           const WebTuiSectionLabel('Yêu cầu tham gia'),
-          WebTuiListSurface(
-            children: [
-              for (final request in state.joinRequests)
-                _JoinRequestTile(
-                  member: request,
-                  onApprove: () => onApprove(request.userId),
-                  onReject: () => onReject(request.userId),
-                ),
-            ],
+          WebTuiLazyListSurface(
+            itemCount: state.joinRequests.length,
+            estimatedItemExtent: 65,
+            itemBuilder: (context, index) {
+              final request = state.joinRequests[index];
+              return _JoinRequestTile(
+                member: request,
+                onApprove: () => onApprove(request.userId),
+                onReject: () => onReject(request.userId),
+              );
+            },
           ),
         ],
         if (state.membersErrorMessage != null)
@@ -350,20 +376,37 @@ class _MembersTab extends StatelessWidget {
           )
         else ...[
           const WebTuiSectionLabel('Thành viên'),
-          WebTuiListSurface(
-            children: [
-              for (final member in state.members)
-                WebTuiConversationListItem(
-                  title: member.displayName,
-                  preview: member.email,
-                  timeLabel: member.status,
-                  avatarLabel: member.displayName,
-                  avatarUrl: member.avatarUrl,
-                  status: member.status == 'active'
-                      ? WebTuiPresenceStatus.online
-                      : null,
-                ),
-            ],
+          WebTuiLazyListSurface(
+            itemCount: state.members.length,
+            itemBuilder: (context, index) {
+              final member = state.members[index];
+              return WebTuiConversationListItem(
+                title: member.displayName,
+                preview: blockedUserIds.contains(member.userId)
+                    ? 'Đã chặn · Nội dung đang được ẩn'
+                    : member.email,
+                timeLabel: member.status,
+                avatarLabel: member.displayName,
+                avatarUrl: member.avatarUrl,
+                status: member.status == 'active'
+                    ? WebTuiPresenceStatus.online
+                    : null,
+                onLongPress: member.userId == currentUserId
+                    ? null
+                    : () => onSafety(member),
+                trailing: member.userId == currentUserId
+                    ? const Text('Bạn')
+                    : IconButton(
+                        tooltip: 'Báo cáo hoặc chặn ${member.displayName}',
+                        onPressed: () => onSafety(member),
+                        icon: Icon(
+                          blockedUserIds.contains(member.userId)
+                              ? Icons.block_rounded
+                              : Icons.shield_outlined,
+                        ),
+                      ),
+              );
+            },
           ),
         ],
       ],
@@ -513,14 +556,7 @@ class _MediaTab extends StatelessWidget {
     final apiBaseUri = WebTuiAvatarNetworkScope.maybeOf(context)?.apiBaseUri;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.lg),
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          crossAxisSpacing: 4,
-          mainAxisSpacing: 4,
-        ),
+      child: WebTuiLazyGridSurface(
         itemCount: attachments.length,
         itemBuilder: (context, index) {
           return LayoutBuilder(

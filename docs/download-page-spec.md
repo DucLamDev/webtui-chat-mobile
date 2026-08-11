@@ -1,8 +1,9 @@
 # Download Page Spec
 
-The public Android download entrypoint should live at
-`https://chat.vpsttt.com/download/` on the same project subdomain. This page is
-the first distribution surface while Google Play is prepared later.
+The public Android entrypoint should live at
+`https://download.vpsttt.com/download/` on the publisher portal. CH Play is the
+primary production surface. A direct APK action remains disabled until the
+artifact is signed by the same app-signing certificate used by Play.
 
 ## Source Metadata
 
@@ -27,8 +28,9 @@ and download link fields used by the mobile Settings version gate.
 
 ## Routing
 
-- Android users: show the signed APK download first until Google Play is ready.
-- Google Play: show only when `store_url` exists in the manifest.
+- Android users: show Google Play first when `store_url` exists.
+- Direct APK: show only after the release manager has verified the APK signer
+  against the Play app-signing SHA-256.
 - iOS users: show TestFlight/App Store later; until then, keep Android as the
   only primary action.
 - Desktop users: link the existing desktop release/download flow later.
@@ -43,8 +45,10 @@ The APK fallback must show:
 - SHA-256 checksum.
 - Release notes.
 - Install guidance for internal testers.
-- Warning to install only from `chat.vpsttt.com/download/` or trusted
+- Warning to install only from `download.vpsttt.com/download/` or trusted
   Firebase/Play links.
+- Explicit confirmation that the signer matches the Play app-signing
+  certificate; an upload-key signature is insufficient.
 
 ## Required Links
 
@@ -52,13 +56,16 @@ The APK fallback must show:
 - SHA-256 checksum URL or visible checksum value.
 - Privacy policy.
 - Support contact.
-- Google Play link later, after Play Console is ready.
+- Google Play link as the primary production action.
 - Firebase App Distribution link for internal testers when enabled.
 
 ## Acceptance
 
 - The page never links to an unsigned APK.
+- The page never links to a CI upload-key APK when Play uses a different
+  app-signing certificate.
 - The checksum is visible beside the direct APK link.
 - The page can be updated from CI artifact metadata without editing app code.
 - The page does not expose secrets, signing material, or private tester emails.
-- The first viewport gives Android users a clear APK download action.
+- The first viewport gives Android users a clear CH Play action; a direct APK
+  is secondary and appears only after the signer gate passes.

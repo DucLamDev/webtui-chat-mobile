@@ -1,17 +1,25 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:async';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
+
+import '../../../../app/flavor/app_config.dart';
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/network/self_hosted_server_discovery.dart';
 import '../../../../core/network/self_hosted_server_discovery_client.dart';
 import '../../../../core/result/result.dart';
+import '../../../../core/security/instance_session_mutation_lock.dart';
 import '../../../../core/security/secure_key_value_store.dart';
 import '../../../../core/security/server_account_registry.dart';
 import '../../application/use_cases/login_use_case.dart';
 import '../../application/use_cases/register_use_case.dart';
 import '../../domain/entities/auth_session.dart';
+import '../../domain/entities/legal_document_versions.dart';
 import '../../domain/entities/oidc_provider.dart';
 
 enum AuthFormMode { login, register }
+
+enum LegalDocumentsStatus { idle, loading, ready, error }
 
 typedef ServerConnector =
     Future<SelfHostedServerDiscovery> Function(String domain);
@@ -26,6 +34,7 @@ final loginControllerProvider =
       final activeServer = ref.read(activeServerUriProvider);
       final activeDiscovery = ref.read(activeServerDiscoveryProvider);
       final oidc = ref.read(oidcLoginUseCaseProvider);
+      final config = ref.read(appConfigProvider);
       final controller = LoginController(
         initialServer: activeDiscovery == null
             ? ''
@@ -35,23 +44,44 @@ final loginControllerProvider =
         login: (command) => ref.read(loginUseCaseProvider).execute(command),
         register: (command) =>
             ref.read(registerUseCaseProvider).execute(command),
-        googleLogin: () => ref.read(googleLoginUseCaseProvider).execute(),
+        loadLegalDocumentVersions: () =>
+            ref.read(loadLegalDocumentVersionsUseCaseProvider).execute(),
         oidcProviders: oidc.providers,
         oidcStart: ({required domain, required providerId}) =>
             oidc.start(domain: domain, providerId: providerId),
-        oidcComplete: ({required code, required domain}) =>
-            oidc.complete(code: code, domain: domain),
+        oidcComplete:
+            ({
+              required code,
+              required domain,
+              required instanceScopeId,
+              required attemptId,
+              required remember,
+            }) => oidc.complete(
+              code: code,
+              domain: domain,
+              instanceScopeId: instanceScopeId,
+              attemptId: attemptId,
+              remember: remember,
+            ),
         openExternalUrl: (uri) =>
             ref.read(externalUrlLauncherProvider).open(uri.toString()),
         recentServers: () => ref.read(serverAccountRegistryProvider).list(),
         hasStoredSession: () async {
-          final token = await ref
-              .read(authTokenRepositoryProvider)
-              .readAccessToken();
-          return token?.trim().isNotEmpty == true;
+          final repository = ref.read(authTokenRepositoryProvider);
+          final guard = await repository.captureMutationGuard();
+          if (guard == null) return false;
+          final token = await repository.readAccessTokenIfCurrent(guard);
+          return token?.trim().isNotEmpty == true &&
+              await repository.isMutationGuardCurrent(guard);
         },
+        expectedTermsVersion: config.termsVersion,
+        expectedPrivacyVersion: config.privacyPolicyVersion,
       );
       Future<void>.microtask(controller.loadRecentServers);
+      if (activeDiscovery != null) {
+        Future<void>.microtask(controller.resumeStoredSession);
+        Future<void>.microtask(controller.refreshLegalDocumentVersions);
+      }
       if (activeDiscovery?.capabilities.sso == true) {
         Future<void>.microtask(controller.loadOidcProviders);
       }
@@ -69,11 +99,14 @@ final class LoginState {
     this.identifier = '',
     this.password = '',
     this.confirmPassword = '',
+    this.legalAccepted = false,
+    this.legalDocumentsStatus = LegalDocumentsStatus.idle,
+    this.legalDocumentVersions,
+    this.legalDocumentsError,
     this.remember = true,
     this.showPassword = false,
     this.showConfirmPassword = false,
     this.isLoading = false,
-    this.isGoogleLoading = false,
     this.oidcProviders = const [],
     this.loadingOidcProviderId,
     this.recentServers = const [],
@@ -94,11 +127,14 @@ final class LoginState {
   final String identifier;
   final String password;
   final String confirmPassword;
+  final bool legalAccepted;
+  final LegalDocumentsStatus legalDocumentsStatus;
+  final LegalDocumentVersions? legalDocumentVersions;
+  final String? legalDocumentsError;
   final bool remember;
   final bool showPassword;
   final bool showConfirmPassword;
   final bool isLoading;
-  final bool isGoogleLoading;
   final List<OidcProvider> oidcProviders;
   final String? loadingOidcProviderId;
   final List<ServerAccountSummary> recentServers;
@@ -122,7 +158,10 @@ final class LoginState {
         email.trim().isNotEmpty &&
         username.trim().isNotEmpty &&
         password.trim().isNotEmpty &&
-        confirmPassword.trim().isNotEmpty;
+        confirmPassword.trim().isNotEmpty &&
+        legalDocumentsStatus == LegalDocumentsStatus.ready &&
+        legalDocumentVersions?.isComplete == true &&
+        legalAccepted;
   }
 
   bool get canConnectServer => !isLoading && domain.trim().isNotEmpty;
@@ -137,11 +176,16 @@ final class LoginState {
     String? identifier,
     String? password,
     String? confirmPassword,
+    bool? legalAccepted,
+    LegalDocumentsStatus? legalDocumentsStatus,
+    LegalDocumentVersions? legalDocumentVersions,
+    bool clearLegalDocumentVersions = false,
+    String? legalDocumentsError,
+    bool clearLegalDocumentsError = false,
     bool? remember,
     bool? showPassword,
     bool? showConfirmPassword,
     bool? isLoading,
-    bool? isGoogleLoading,
     List<OidcProvider>? oidcProviders,
     String? loadingOidcProviderId,
     bool clearOidcLoading = false,
@@ -165,11 +209,18 @@ final class LoginState {
       identifier: identifier ?? this.identifier,
       password: password ?? this.password,
       confirmPassword: confirmPassword ?? this.confirmPassword,
+      legalAccepted: legalAccepted ?? this.legalAccepted,
+      legalDocumentsStatus: legalDocumentsStatus ?? this.legalDocumentsStatus,
+      legalDocumentVersions: clearLegalDocumentVersions
+          ? null
+          : legalDocumentVersions ?? this.legalDocumentVersions,
+      legalDocumentsError: clearLegalDocumentsError
+          ? null
+          : legalDocumentsError ?? this.legalDocumentsError,
       remember: remember ?? this.remember,
       showPassword: showPassword ?? this.showPassword,
       showConfirmPassword: showConfirmPassword ?? this.showConfirmPassword,
       isLoading: isLoading ?? this.isLoading,
-      isGoogleLoading: isGoogleLoading ?? this.isGoogleLoading,
       oidcProviders: oidcProviders ?? this.oidcProviders,
       loadingOidcProviderId: clearOidcLoading
           ? null
@@ -196,7 +247,8 @@ final class LoginController extends StateNotifier<LoginState> {
     required Future<Result<AuthSession>> Function(LoginCommand command) login,
     required Future<Result<AuthSession>> Function(RegisterCommand command)
     register,
-    required Future<Result<AuthSession>> Function() googleLogin,
+    required Future<Result<LegalDocumentVersions>> Function()
+    loadLegalDocumentVersions,
     required Future<Result<List<OidcProvider>>> Function(String domain)
     oidcProviders,
     required Future<Result<Uri>> Function({
@@ -207,21 +259,28 @@ final class LoginController extends StateNotifier<LoginState> {
     required Future<Result<AuthSession>> Function({
       required String code,
       required String domain,
+      required String instanceScopeId,
+      required String attemptId,
+      required bool remember,
     })
     oidcComplete,
     required Future<bool> Function(Uri uri) openExternalUrl,
     required Future<List<ServerAccountSummary>> Function() recentServers,
     required Future<bool> Function() hasStoredSession,
+    required String expectedTermsVersion,
+    required String expectedPrivacyVersion,
   }) : _connectToServer = connectToServer,
        _login = login,
        _register = register,
-       _googleLogin = googleLogin,
+       _loadLegalDocumentVersions = loadLegalDocumentVersions,
        _oidcProviders = oidcProviders,
        _oidcStart = oidcStart,
        _oidcComplete = oidcComplete,
        _openExternalUrl = openExternalUrl,
        _recentServers = recentServers,
        _hasStoredSession = hasStoredSession,
+       _expectedTermsVersion = expectedTermsVersion.trim(),
+       _expectedPrivacyVersion = expectedPrivacyVersion.trim(),
        super(
          LoginState(
            domain: initialServer,
@@ -236,7 +295,8 @@ final class LoginController extends StateNotifier<LoginState> {
   _connectToServer;
   final Future<Result<AuthSession>> Function(LoginCommand command) _login;
   final Future<Result<AuthSession>> Function(RegisterCommand command) _register;
-  final Future<Result<AuthSession>> Function() _googleLogin;
+  final Future<Result<LegalDocumentVersions>> Function()
+  _loadLegalDocumentVersions;
   final Future<Result<List<OidcProvider>>> Function(String domain)
   _oidcProviders;
   final Future<Result<Uri>> Function({
@@ -247,20 +307,52 @@ final class LoginController extends StateNotifier<LoginState> {
   final Future<Result<AuthSession>> Function({
     required String code,
     required String domain,
+    required String instanceScopeId,
+    required String attemptId,
+    required bool remember,
   })
   _oidcComplete;
   final Future<bool> Function(Uri uri) _openExternalUrl;
   final Future<List<ServerAccountSummary>> Function() _recentServers;
   final Future<bool> Function() _hasStoredSession;
+  final String _expectedTermsVersion;
+  final String _expectedPrivacyVersion;
+  int _legalRequestGeneration = 0;
+  bool _resumeStarted = false;
+
+  Future<void> resumeStoredSession() async {
+    if (_resumeStarted || !state.serverConnected || state.succeeded) return;
+    _resumeStarted = true;
+    state = state.copyWith(isLoading: true, clearError: true);
+    var restored = false;
+    try {
+      restored = await _hasStoredSession();
+    } on Object {
+      restored = false;
+    }
+    if (!mounted) return;
+    state = state.copyWith(isLoading: false, succeeded: restored);
+  }
 
   void showLogin() => _setMode(AuthFormMode.login);
-  void showRegister() => _setMode(AuthFormMode.register);
+  void showRegister() {
+    _setMode(AuthFormMode.register);
+    if (state.serverConnected &&
+        state.legalDocumentsStatus == LegalDocumentsStatus.idle) {
+      unawaited(refreshLegalDocumentVersions());
+    }
+  }
 
   void _setMode(AuthFormMode mode) {
     if (state.mode == mode || state.isLoading) {
       return;
     }
-    state = state.copyWith(mode: mode, clearError: true, succeeded: false);
+    state = state.copyWith(
+      mode: mode,
+      legalAccepted: false,
+      clearError: true,
+      succeeded: false,
+    );
   }
 
   void updateDisplayName(String value) {
@@ -288,6 +380,7 @@ final class LoginController extends StateNotifier<LoginState> {
   }
 
   void updateDomain(String value) {
+    _legalRequestGeneration++;
     state = state.copyWith(
       domain: value,
       serverConnected: false,
@@ -296,6 +389,10 @@ final class LoginController extends StateNotifier<LoginState> {
       clearError: true,
       succeeded: false,
       clearServer: true,
+      legalAccepted: false,
+      legalDocumentsStatus: LegalDocumentsStatus.idle,
+      clearLegalDocumentVersions: true,
+      clearLegalDocumentsError: true,
     );
   }
 
@@ -313,8 +410,13 @@ final class LoginController extends StateNotifier<LoginState> {
         serverName: server.name,
         logoUrl: server.logoUrl,
         registrationMode: server.registrationMode,
+        legalAccepted: false,
+        legalDocumentsStatus: LegalDocumentsStatus.loading,
+        clearLegalDocumentVersions: true,
+        clearLegalDocumentsError: true,
       );
       await loadOidcProviders();
+      await refreshLegalDocumentVersions();
       await loadRecentServers();
       if (await _hasStoredSession()) {
         state = state.copyWith(succeeded: true);
@@ -336,6 +438,7 @@ final class LoginController extends StateNotifier<LoginState> {
     if (state.isLoading) {
       return;
     }
+    _legalRequestGeneration++;
     state = state.copyWith(
       mode: AuthFormMode.login,
       serverConnected: false,
@@ -343,6 +446,10 @@ final class LoginController extends StateNotifier<LoginState> {
       clearOidcLoading: true,
       clearError: true,
       succeeded: false,
+      legalAccepted: false,
+      legalDocumentsStatus: LegalDocumentsStatus.idle,
+      clearLegalDocumentVersions: true,
+      clearLegalDocumentsError: true,
     );
   }
 
@@ -379,6 +486,15 @@ final class LoginController extends StateNotifier<LoginState> {
     );
   }
 
+  void updateLegalAcceptance(bool value) {
+    state = state.copyWith(
+      legalAccepted:
+          value && state.legalDocumentsStatus == LegalDocumentsStatus.ready,
+      clearError: true,
+      succeeded: false,
+    );
+  }
+
   void updateRemember(bool value) {
     state = state.copyWith(remember: value, clearError: true);
   }
@@ -409,11 +525,13 @@ final class LoginController extends StateNotifier<LoginState> {
       );
       return;
     }
+    final legalVersions = state.legalDocumentVersions;
     final result = state.isLogin
         ? await _login(
             LoginCommand(
               identifier: state.identifier,
               password: state.password,
+              remember: state.remember,
             ),
           )
         : await _register(
@@ -424,6 +542,13 @@ final class LoginController extends StateNotifier<LoginState> {
               password: state.password,
               confirmPassword: state.confirmPassword,
               inviteToken: state.inviteToken,
+              termsAccepted: state.legalAccepted,
+              termsVersion: legalVersions?.termsVersion ?? '',
+              privacyAccepted: state.legalAccepted,
+              privacyVersion: legalVersions?.privacyVersion ?? '',
+              // Registration has no remember toggle. Its explicit policy is a
+              // durable session, matching the account-creation expectation.
+              remember: true,
             ),
           );
 
@@ -433,35 +558,6 @@ final class LoginController extends StateNotifier<LoginState> {
       case FailureResult<AuthSession>(failure: final failure):
         state = state.copyWith(
           isLoading: false,
-          errorMessage: failure.message,
-          succeeded: false,
-        );
-    }
-  }
-
-  Future<void> loginWithGoogle() async {
-    if (state.isLoading || !state.serverConnected) {
-      return;
-    }
-
-    state = state.copyWith(
-      isLoading: true,
-      isGoogleLoading: true,
-      clearError: true,
-      succeeded: false,
-    );
-    final result = await _googleLogin();
-    switch (result) {
-      case Success<AuthSession>():
-        state = state.copyWith(
-          isLoading: false,
-          isGoogleLoading: false,
-          succeeded: true,
-        );
-      case FailureResult<AuthSession>(failure: final failure):
-        state = state.copyWith(
-          isLoading: false,
-          isGoogleLoading: false,
           errorMessage: failure.message,
           succeeded: false,
         );
@@ -479,6 +575,64 @@ final class LoginController extends StateNotifier<LoginState> {
       case FailureResult<List<OidcProvider>>():
         state = state.copyWith(oidcProviders: const []);
     }
+  }
+
+  Future<void> refreshLegalDocumentVersions() async {
+    if (!state.serverConnected) {
+      return;
+    }
+    final generation = ++_legalRequestGeneration;
+    final domain = state.domain.trim().toLowerCase();
+    state = state.copyWith(
+      legalAccepted: false,
+      legalDocumentsStatus: LegalDocumentsStatus.loading,
+      clearLegalDocumentVersions: true,
+      clearLegalDocumentsError: true,
+    );
+    final result = await _loadLegalDocumentVersions();
+    if (generation != _legalRequestGeneration ||
+        !state.serverConnected ||
+        state.domain.trim().toLowerCase() != domain) {
+      return;
+    }
+    switch (result) {
+      case Success<LegalDocumentVersions>(value: final versions)
+          when versions.isComplete && _matchesPublisherVersions(versions):
+        state = state.copyWith(
+          legalDocumentsStatus: LegalDocumentsStatus.ready,
+          legalDocumentVersions: versions,
+          clearLegalDocumentsError: true,
+        );
+      case Success<LegalDocumentVersions>(value: final versions)
+          when versions.isComplete:
+        state = state.copyWith(
+          legalDocumentsStatus: LegalDocumentsStatus.error,
+          clearLegalDocumentVersions: true,
+          legalDocumentsError:
+              'Phiên bản chính sách của máy chủ không tương thích với tài liệu '
+              'được ứng dụng công bố. Không thể đăng ký an toàn.',
+        );
+      case Success<LegalDocumentVersions>():
+        state = state.copyWith(
+          legalDocumentsStatus: LegalDocumentsStatus.error,
+          clearLegalDocumentVersions: true,
+          legalDocumentsError:
+              'Máy chủ chưa cung cấp đủ phiên bản tài liệu pháp lý.',
+        );
+      case FailureResult<LegalDocumentVersions>(failure: final failure):
+        state = state.copyWith(
+          legalDocumentsStatus: LegalDocumentsStatus.error,
+          clearLegalDocumentVersions: true,
+          legalDocumentsError: failure.message,
+        );
+    }
+  }
+
+  bool _matchesPublisherVersions(LegalDocumentVersions versions) {
+    return _expectedTermsVersion.isNotEmpty &&
+        _expectedPrivacyVersion.isNotEmpty &&
+        versions.termsVersion.trim() == _expectedTermsVersion &&
+        versions.privacyVersion.trim() == _expectedPrivacyVersion;
   }
 
   Future<void> loginWithOidc(OidcProvider provider) async {
@@ -543,12 +697,20 @@ final class LoginController extends StateNotifier<LoginState> {
       return;
     }
     final code = uri.queryParameters['oidc_code']?.trim() ?? '';
+    final instanceScopeId = uri.queryParameters['instance_scope']?.trim() ?? '';
+    final attemptId = uri.queryParameters['attempt']?.trim() ?? '';
     state = state.copyWith(
       isLoading: true,
       clearError: true,
       clearOidcLoading: true,
     );
-    final result = await _oidcComplete(code: code, domain: callbackDomain);
+    final result = await _oidcComplete(
+      code: code,
+      domain: callbackDomain,
+      instanceScopeId: instanceScopeId,
+      attemptId: attemptId,
+      remember: state.remember,
+    );
     switch (result) {
       case Success<AuthSession>():
         state = state.copyWith(isLoading: false, succeeded: true);
@@ -568,50 +730,100 @@ Future<SelfHostedServerDiscovery> _connectToServer(
   String rawDomain,
 ) async {
   final discovery = await discoveryClient.discover(rawDomain);
-  final activeServer = ref.read(activeServerUriProvider);
-  final registry = ref.read(serverAccountRegistryProvider);
-  if (activeServer != discovery.apiBaseUri) {
-    await registry.stashActiveSession();
-    await ref.read(sessionStateRepositoryProvider).resetForLogout();
-    await registry.activate(discovery.apiBaseUri);
+  final previousServer = ref.read(activeServerUriProvider);
+  final previousDiscovery = ref.read(activeServerDiscoveryProvider);
+  final willSwitch =
+      previousServer != discovery.apiBaseUri ||
+      previousDiscovery?.instanceScope != discovery.instanceScope;
+  if (willSwitch && previousDiscovery != null) {
+    try {
+      await ref.read(pushNotificationServiceProvider).unregister();
+    } on Object {
+      // The old server may be offline. Stale payload actions remain blocked
+      // by their required instance_id even when remote cleanup cannot run.
+    }
   }
-  await ref
-      .read(secureKeyValueStoreProvider)
-      .write(SecureStoreKey.instanceBaseUrl, discovery.apiBaseUri.toString());
-  await ref
-      .read(secureKeyValueStoreProvider)
-      .write(SecureStoreKey.instanceWsBaseUrl, discovery.wsBaseUri.toString());
-  await ref
-      .read(secureKeyValueStoreProvider)
-      .write(SecureStoreKey.instanceOrganizationName, discovery.name);
-  if (discovery.logoUrl case final logoUrl?) {
-    await ref
-        .read(secureKeyValueStoreProvider)
-        .write(SecureStoreKey.instanceOrganizationLogoUrl, logoUrl);
-  } else {
-    await ref
-        .read(secureKeyValueStoreProvider)
-        .delete(SecureStoreKey.instanceOrganizationLogoUrl);
-  }
-  await ref
-      .read(secureKeyValueStoreProvider)
-      .write(
-        SecureStoreKey.instanceRegistrationMode,
-        discovery.registrationMode,
+  return InstanceSessionMutationLock.runExclusive(() async {
+    final activeServer = ref.read(activeServerUriProvider);
+    final activeDiscovery = ref.read(activeServerDiscoveryProvider);
+    final registry = ref.read(serverAccountRegistryProvider);
+    final serverChanged =
+        activeServer != discovery.apiBaseUri ||
+        activeDiscovery?.instanceScope != discovery.instanceScope;
+    if (serverChanged) {
+      await registry.stashActiveSession();
+      await ref.read(sessionStateRepositoryProvider).resetForServerSwitch();
+      await registry.activate(discovery.instanceScope);
+    }
+    final secureStore = ref.read(secureKeyValueStoreProvider);
+    await secureStore.delete(SecureStoreKey.instanceDiscoverySnapshot);
+    await secureStore.write(
+      SecureStoreKey.instanceBaseUrl,
+      discovery.apiBaseUri.toString(),
+    );
+    await secureStore.write(
+      SecureStoreKey.instanceWsBaseUrl,
+      discovery.wsBaseUri.toString(),
+    );
+    await secureStore.write(
+      SecureStoreKey.instanceOrganizationName,
+      discovery.name,
+    );
+    await secureStore.write(SecureStoreKey.instanceId, discovery.instanceId);
+    await secureStore.write(
+      SecureStoreKey.activeInstanceScopeId,
+      discovery.instanceScope.storageId,
+    );
+    await secureStore.write(
+      SecureStoreKey.activeInstanceGeneration,
+      const Uuid().v4(),
+    );
+    if (discovery.logoUrl case final logoUrl?) {
+      await secureStore.write(
+        SecureStoreKey.instanceOrganizationLogoUrl,
+        logoUrl,
       );
-  await ref
-      .read(secureKeyValueStoreProvider)
-      .write(SecureStoreKey.instanceAppVersion, discovery.appVersion);
-  await registry.rememberServer(
-    baseUrl: discovery.apiBaseUri,
-    wsBaseUrl: discovery.wsBaseUri,
-    name: discovery.name,
-    logoUrl: discovery.logoUrl,
-  );
-  ref.read(activeServerUriProvider.notifier).state = discovery.apiBaseUri;
-  ref.read(activeServerWsUriProvider.notifier).state = discovery.wsBaseUri;
-  ref.read(activeServerDiscoveryProvider.notifier).state = discovery;
-  return discovery;
+    } else {
+      await secureStore.delete(SecureStoreKey.instanceOrganizationLogoUrl);
+    }
+    await secureStore.write(
+      SecureStoreKey.instanceRegistrationMode,
+      discovery.registrationMode,
+    );
+    await secureStore.write(
+      SecureStoreKey.instanceAppVersion,
+      discovery.appVersion,
+    );
+    await secureStore.write(
+      SecureStoreKey.instanceDiscoverySnapshot,
+      discovery.toStorageSnapshot(),
+    );
+    await secureStore.write(
+      SecureStoreKey.liveDiscoveryValidatedScopeId,
+      discovery.instanceScope.storageId,
+    );
+    final durableSession =
+        await secureStore.read(SecureStoreKey.sessionPersistence) ==
+            durableSessionPersistenceValue &&
+        await registry.hasDurableSessionForScopeId(
+          discovery.instanceScope.storageId,
+        );
+    await ref
+        .read(nativeInstanceBindingServiceProvider)
+        .setValidatedInstance(
+          discovery.instanceScope,
+          durableSession: durableSession,
+        );
+    await registry.rememberServer(
+      instanceScope: discovery.instanceScope,
+      wsBaseUrl: discovery.wsBaseUri,
+      name: discovery.name,
+      logoUrl: discovery.logoUrl,
+    );
+    ref.read(activeServerRuntimeProvider.notifier).state =
+        ActiveServerRuntime.fromDiscovery(discovery);
+    return discovery;
+  });
 }
 
 String _serverError(Object error) {

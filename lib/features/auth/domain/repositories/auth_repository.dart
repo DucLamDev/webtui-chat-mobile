@@ -1,10 +1,24 @@
 import '../../../../core/result/result.dart';
 import '../entities/auth_session.dart';
 import '../entities/device_identity.dart';
+import '../entities/legal_acceptance.dart';
+import '../entities/legal_document_versions.dart';
 import '../entities/oidc_provider.dart';
 import '../entities/user_session.dart';
 
 abstract interface class AuthRepository {
+  Future<Result<LegalDocumentVersions>> loadLegalDocumentVersions();
+
+  Future<Result<LegalAcceptance>> loadLegalAcceptance({
+    required String workspaceId,
+  });
+
+  Future<Result<LegalAcceptance>> acceptLegalDocuments({
+    required String workspaceId,
+    required String termsVersion,
+    required String privacyVersion,
+  });
+
   Future<Result<AuthSession>> login({
     required String identifier,
     required String password,
@@ -17,11 +31,10 @@ abstract interface class AuthRepository {
     required String username,
     required String password,
     String inviteToken,
-    required DeviceIdentity device,
-  });
-
-  Future<Result<AuthSession>> loginWithGoogle({
-    required String credential,
+    bool termsAccepted = false,
+    String termsVersion = '',
+    bool privacyAccepted = false,
+    String privacyVersion = '',
     required DeviceIdentity device,
   });
 

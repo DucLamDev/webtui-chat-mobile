@@ -19,13 +19,23 @@ final class LogoutUseCase {
 
   Future<Result<void>> execute() async {
     try {
-      final refreshToken = (await _tokenRepository.readRefreshToken())?.trim();
-      if (refreshToken != null && refreshToken.isNotEmpty) {
-        await _authRepository.logout(refreshToken);
+      final cleanupGuard = await _sessionStateRepository
+          .captureActiveSessionGuard();
+      final guard = await _tokenRepository.captureMutationGuard();
+      if (cleanupGuard == null) {
+        await _sessionStateRepository.resetForLogout();
+        return const Success(null);
+      }
+      if (guard != null && guard == cleanupGuard) {
+        final refreshToken = (await _tokenRepository.readRefreshTokenIfCurrent(
+          guard,
+        ))?.trim();
+        if (refreshToken != null && refreshToken.isNotEmpty) {
+          await _authRepository.logout(refreshToken);
+        }
       }
 
-      await _tokenRepository.clearTokens();
-      await _sessionStateRepository.resetForLogout();
+      await _sessionStateRepository.resetForLogoutIfCurrent(cleanupGuard);
       return const Success(null);
     } on Object catch (error) {
       return FailureResult(

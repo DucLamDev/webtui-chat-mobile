@@ -12,15 +12,21 @@ import '../../core/network/api_transport.dart';
 import '../../core/network/request_id.dart';
 import '../../core/network/self_hosted_server_discovery.dart';
 import '../../core/network/self_hosted_server_discovery_client.dart';
+import '../../core/notifications/native_incoming_call_service.dart';
 import '../../core/notifications/push_notification_service.dart';
+import '../../core/notifications/scoped_local_notification_service.dart';
 import '../../core/platform/biometric_auth_service.dart';
 import '../../core/platform/external_url_launcher.dart';
 import '../../core/platform/native_deep_link_service.dart';
+import '../../core/platform/native_instance_binding_service.dart';
+import '../../core/security/instance_scope.dart';
 import '../../core/security/secure_key_value_store.dart';
 import '../../core/security/server_account_registry.dart';
+import '../../features/auth/application/legal_acceptance_access_policy.dart';
 import '../../features/auth/application/use_cases/app_lock_use_cases.dart';
 import '../../features/auth/application/use_cases/delete_account_use_case.dart';
-import '../../features/auth/application/use_cases/google_login_use_case.dart';
+import '../../features/auth/application/use_cases/legal_acceptance_use_cases.dart';
+import '../../features/auth/application/use_cases/load_legal_document_versions_use_case.dart';
 import '../../features/auth/application/use_cases/login_use_case.dart';
 import '../../features/auth/application/use_cases/logout_use_case.dart';
 import '../../features/auth/application/use_cases/oidc_login_use_case.dart';
@@ -28,7 +34,7 @@ import '../../features/auth/application/use_cases/refresh_access_token_use_case.
 import '../../features/auth/application/use_cases/register_use_case.dart';
 import '../../features/auth/application/use_cases/session_use_cases.dart';
 import '../../features/auth/data/datasources/auth_remote_data_source.dart';
-import '../../features/auth/data/google/google_sign_in_identity_provider.dart';
+import '../../features/auth/data/interceptors/legal_acceptance_interceptor.dart';
 import '../../features/auth/data/network/auth_refresh_interceptor.dart';
 import '../../features/auth/data/repositories/account_repository_impl.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
@@ -41,7 +47,6 @@ import '../../features/auth/domain/repositories/app_lock_repository.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/domain/repositories/auth_token_repository.dart';
 import '../../features/auth/domain/repositories/device_identity_repository.dart';
-import '../../features/auth/domain/repositories/google_identity_provider.dart';
 import '../../features/auth/domain/repositories/session_state_repository.dart';
 import '../../features/business/application/use_cases/business_dashboard_use_cases.dart';
 import '../../features/business/data/datasources/business_remote_data_source.dart';
@@ -60,6 +65,7 @@ import '../../features/conversations/data/datasources/conversation_cache_data_so
 import '../../features/conversations/data/datasources/conversation_remote_data_source.dart';
 import '../../features/conversations/data/datasources/message_attachment_remote_data_source.dart';
 import '../../features/conversations/data/datasources/message_outbox_data_source.dart';
+import '../../features/conversations/data/files/scoped_attachment_file_store.dart';
 import '../../features/conversations/data/repositories/audio_message_attachment_repository.dart';
 import '../../features/conversations/data/repositories/caching_conversation_repository.dart';
 import '../../features/conversations/data/repositories/call_repository_impl.dart';
@@ -73,6 +79,10 @@ import '../../features/conversations/domain/repositories/call_repository.dart';
 import '../../features/conversations/domain/repositories/conversation_repository.dart';
 import '../../features/conversations/domain/repositories/message_attachment_repository.dart';
 import '../../features/conversations/domain/repositories/message_outbox_repository.dart';
+import '../../features/moderation/application/use_cases/moderation_use_cases.dart';
+import '../../features/moderation/data/datasources/moderation_remote_data_source.dart';
+import '../../features/moderation/data/repositories/moderation_repository_impl.dart';
+import '../../features/moderation/domain/repositories/moderation_repository.dart';
 import '../../features/notifications/application/use_cases/notification_use_cases.dart';
 import '../../features/notifications/data/datasources/notification_remote_data_source.dart';
 import '../../features/notifications/data/repositories/notification_repository_impl.dart';
@@ -116,26 +126,80 @@ final requestIdGeneratorProvider = Provider<RequestIdGenerator>((_) {
   return const UuidRequestIdGenerator();
 });
 
-final activeServerUriProvider = StateProvider<Uri>((ref) {
-  return ref.watch(appConfigProvider).apiBaseUri;
-});
+final class ActiveServerRuntime {
+  const ActiveServerRuntime({
+    required this.apiBaseUri,
+    required this.wsBaseUri,
+    required this.discovery,
+  });
 
-final selfHostedServerDiscoveryClientProvider =
-    Provider<SelfHostedServerDiscoveryClient>((ref) {
-      return SelfHostedServerDiscoveryClient();
-    });
+  factory ActiveServerRuntime.fromDiscovery(
+    SelfHostedServerDiscovery discovery,
+  ) {
+    return ActiveServerRuntime(
+      apiBaseUri: discovery.apiBaseUri,
+      wsBaseUri: discovery.wsBaseUri,
+      discovery: discovery,
+    );
+  }
 
-final activeServerWsUriProvider = StateProvider<Uri>((ref) {
-  return ref.watch(appConfigProvider).wsBaseUri;
-});
+  final Uri apiBaseUri;
+  final Uri wsBaseUri;
+  final SelfHostedServerDiscovery? discovery;
+}
 
 final initialServerDiscoveryProvider = Provider<SelfHostedServerDiscovery?>(
   (_) => null,
 );
 
-final activeServerDiscoveryProvider = StateProvider<SelfHostedServerDiscovery?>(
-  (ref) => ref.watch(initialServerDiscoveryProvider),
-);
+final activeServerRuntimeProvider = StateProvider<ActiveServerRuntime>((ref) {
+  final discovery = ref.watch(initialServerDiscoveryProvider);
+  if (discovery != null) {
+    return ActiveServerRuntime.fromDiscovery(discovery);
+  }
+  final config = ref.watch(appConfigProvider);
+  return ActiveServerRuntime(
+    apiBaseUri: config.apiBaseUri,
+    wsBaseUri: config.wsBaseUri,
+    discovery: null,
+  );
+});
+
+final activeServerUriProvider = Provider<Uri>((ref) {
+  return ref.watch(activeServerRuntimeProvider).apiBaseUri;
+});
+
+final activeServerWsUriProvider = Provider<Uri>((ref) {
+  return ref.watch(activeServerRuntimeProvider).wsBaseUri;
+});
+
+final activeServerDiscoveryProvider = Provider<SelfHostedServerDiscovery?>((
+  ref,
+) {
+  return ref.watch(activeServerRuntimeProvider).discovery;
+});
+
+final selfHostedServerDiscoveryClientProvider =
+    Provider<SelfHostedServerDiscoveryClient>((ref) {
+      return SelfHostedServerDiscoveryClient(
+        mobileVersion: ref.watch(appConfigProvider).appVersion,
+      );
+    });
+
+final activeInstanceScopeProvider = Provider<InstanceScope>((ref) {
+  final discovery = ref.watch(activeServerDiscoveryProvider);
+  if (discovery == null) {
+    throw StateError('A validated server discovery is required.');
+  }
+  return discovery.instanceScope;
+});
+
+final legalAcceptanceAccessPolicyProvider =
+    Provider<LegalAcceptanceAccessPolicy>((ref) {
+      final policy = LegalAcceptanceAccessPolicy();
+      ref.onDispose(policy.dispose);
+      return policy;
+    });
 
 final dioProvider = Provider<Dio>((ref) {
   final activeServerUri = ref.watch(activeServerUriProvider);
@@ -150,11 +214,14 @@ final dioProvider = Provider<Dio>((ref) {
     RequestIdInterceptor(requestIds),
     AuthRefreshInterceptor(
       dio: dio,
+      expectedInstanceScope: ref.watch(activeInstanceScopeProvider),
       tokenRepository: tokenRepository,
       refreshAccessTokenUseCase: refreshUseCase,
     ),
+    LegalAcceptanceInterceptor(ref.watch(legalAcceptanceAccessPolicyProvider)),
     RedactingDioLogInterceptor(logger),
   ]);
+  ref.onDispose(() => dio.close(force: true));
 
   return dio;
 });
@@ -169,6 +236,7 @@ final authDioProvider = Provider<Dio>((ref) {
     RequestIdInterceptor(requestIds),
     RedactingDioLogInterceptor(logger),
   ]);
+  ref.onDispose(() => dio.close(force: true));
   return dio;
 });
 
@@ -211,12 +279,18 @@ final pushNotificationServiceProvider = Provider<PushNotificationService>((
   final service = PushNotificationService(
     api: ref.watch(apiTransportProvider),
     deviceIdentityRepository: ref.watch(deviceIdentityRepositoryProvider),
+    instanceScope: ref.watch(activeInstanceScopeProvider),
   );
   ref.onDispose(() {
     unawaited(service.dispose());
   });
   return service;
 });
+
+final notificationPermissionStatusProvider = FutureProvider.autoDispose<String>(
+  (ref) =>
+      ref.watch(pushNotificationServiceProvider).notificationPermissionStatus(),
+);
 
 final externalUrlLauncherProvider = Provider<ExternalUrlLauncher>((_) {
   return const MethodChannelExternalUrlLauncher();
@@ -231,6 +305,11 @@ final nativeDeepLinkServiceProvider = Provider<NativeDeepLinkService>((ref) {
   ref.onDispose(() => unawaited(service.dispose()));
   return service;
 });
+
+final nativeInstanceBindingServiceProvider =
+    Provider<NativeInstanceBindingService>((_) {
+      return const NativeInstanceBindingService();
+    });
 
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
   final database = AppDatabase(createDriftConnection());
@@ -261,7 +340,12 @@ final authSessionRepositoryProvider = Provider<AuthRepository>((ref) {
 });
 
 final authTokenRepositoryProvider = Provider<AuthTokenRepository>((ref) {
-  return SecureAuthTokenRepository(ref.watch(secureKeyValueStoreProvider));
+  return SecureAuthTokenRepository(
+    ref.watch(secureKeyValueStoreProvider),
+    setNativeSessionDurable: (durable) => ref
+        .read(nativeInstanceBindingServiceProvider)
+        .setSessionDurability(durable),
+  );
 });
 
 final authAccessTokenProvider = FutureProvider<String?>((ref) {
@@ -273,17 +357,23 @@ final deviceIdentityRepositoryProvider = Provider<DeviceIdentityRepository>((
 ) {
   return SecureDeviceIdentityRepository(
     secureStore: ref.watch(secureKeyValueStoreProvider),
+    loadInstanceScope: () => ref.read(activeInstanceScopeProvider),
   );
-});
-
-final googleIdentityProvider = Provider<GoogleIdentityProvider>((_) {
-  return GoogleSignInIdentityProvider();
 });
 
 final sessionStateRepositoryProvider = Provider<SessionStateRepository>((ref) {
   return LocalSessionStateRepository(
     secureStore: ref.watch(secureKeyValueStoreProvider),
     database: ref.watch(appDatabaseProvider),
+    loadInstanceScope: () =>
+        ref.read(activeServerDiscoveryProvider)?.instanceScope,
+    clearNativeInstanceBinding: () =>
+        ref.read(nativeInstanceBindingServiceProvider).clear(),
+    terminateNativeCalls:
+        NativeIncomingCallService.terminateCallsForSessionInvalidation,
+    clearMessageNotifications: () =>
+        ScopedLocalNotificationService.instance.clearMessageNotifications(),
+    clearScopedAttachmentFiles: const ScopedAttachmentFileStore().clearScope,
     serverAccountRegistry: ref.watch(serverAccountRegistryProvider),
   );
 });
@@ -308,20 +398,33 @@ final registerUseCaseProvider = Provider<RegisterUseCase>((ref) {
   );
 });
 
-final googleLoginUseCaseProvider = Provider<GoogleLoginUseCase>((ref) {
-  return GoogleLoginUseCase(
-    identityProvider: ref.watch(googleIdentityProvider),
-    authRepository: ref.watch(authRepositoryProvider),
-    tokenRepository: ref.watch(authTokenRepositoryProvider),
-    deviceIdentityRepository: ref.watch(deviceIdentityRepositoryProvider),
-  );
-});
+final loadLegalDocumentVersionsUseCaseProvider =
+    Provider<LoadLegalDocumentVersionsUseCase>((ref) {
+      return LoadLegalDocumentVersionsUseCase(
+        ref.watch(authRepositoryProvider),
+      );
+    });
+
+final loadLegalAcceptanceUseCaseProvider = Provider<LoadLegalAcceptanceUseCase>(
+  (ref) {
+    return LoadLegalAcceptanceUseCase(ref.watch(authSessionRepositoryProvider));
+  },
+);
+
+final acceptLegalDocumentsUseCaseProvider =
+    Provider<AcceptLegalDocumentsUseCase>((ref) {
+      return AcceptLegalDocumentsUseCase(
+        ref.watch(authSessionRepositoryProvider),
+      );
+    });
 
 final oidcLoginUseCaseProvider = Provider<OidcLoginUseCase>((ref) {
   return OidcLoginUseCase(
     authRepository: ref.watch(authRepositoryProvider),
     tokenRepository: ref.watch(authTokenRepositoryProvider),
     deviceIdentityRepository: ref.watch(deviceIdentityRepositoryProvider),
+    loadExpectedServerOrigin: () =>
+        ref.read(activeServerDiscoveryProvider)?.instanceScope.origin,
   );
 });
 
@@ -349,6 +452,7 @@ final accountRepositoryProvider = Provider<AccountRepository>((ref) {
 final deleteAccountUseCaseProvider = Provider<DeleteAccountUseCase>((ref) {
   return DeleteAccountUseCase(
     accountRepository: ref.watch(accountRepositoryProvider),
+    tokenRepository: ref.watch(authTokenRepositoryProvider),
     sessionStateRepository: ref.watch(sessionStateRepositoryProvider),
     appLockRepository: ref.watch(appLockRepositoryProvider),
   );
@@ -423,6 +527,7 @@ final workspaceSessionRepositoryProvider = Provider<WorkspaceSessionRepository>(
     return LocalWorkspaceSessionRepository(
       secureStore: ref.watch(secureKeyValueStoreProvider),
       database: ref.watch(appDatabaseProvider),
+      instanceScope: ref.watch(activeInstanceScopeProvider),
     );
   },
 );
@@ -545,7 +650,10 @@ final saveAppSettingsUseCaseProvider = Provider<SaveAppSettingsUseCase>((ref) {
 
 final clearWorkspaceCacheUseCaseProvider = Provider<ClearWorkspaceCacheUseCase>(
   (ref) {
-    return ClearWorkspaceCacheUseCase(ref.watch(appDatabaseProvider));
+    return ClearWorkspaceCacheUseCase(
+      ref.watch(appDatabaseProvider),
+      ref.watch(activeInstanceScopeProvider),
+    );
   },
 );
 
@@ -574,7 +682,10 @@ final conversationRemoteDataSourceProvider =
 
 final conversationCacheDataSourceProvider =
     Provider<ConversationCacheDataSource>((ref) {
-      return ConversationCacheDataSource(ref.watch(appDatabaseProvider));
+      return ConversationCacheDataSource(
+        ref.watch(appDatabaseProvider),
+        ref.watch(activeInstanceScopeProvider),
+      );
     });
 
 final conversationRepositoryProvider = Provider<ConversationRepository>((ref) {
@@ -629,6 +740,37 @@ final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
   );
 });
 
+final moderationRemoteDataSourceProvider = Provider<ModerationRemoteDataSource>(
+  (ref) => ModerationRemoteDataSource(ref.watch(apiTransportProvider)),
+);
+
+final moderationRepositoryProvider = Provider<ModerationRepository>((ref) {
+  return ModerationRepositoryImpl(
+    ref.watch(moderationRemoteDataSourceProvider),
+  );
+});
+
+final createModerationReportUseCaseProvider =
+    Provider<CreateModerationReportUseCase>((ref) {
+      return CreateModerationReportUseCase(
+        ref.watch(moderationRepositoryProvider),
+      );
+    });
+
+final listBlockedUsersUseCaseProvider = Provider<ListBlockedUsersUseCase>((
+  ref,
+) {
+  return ListBlockedUsersUseCase(ref.watch(moderationRepositoryProvider));
+});
+
+final blockUserUseCaseProvider = Provider<BlockUserUseCase>((ref) {
+  return BlockUserUseCase(ref.watch(moderationRepositoryProvider));
+});
+
+final unblockUserUseCaseProvider = Provider<UnblockUserUseCase>((ref) {
+  return UnblockUserUseCase(ref.watch(moderationRepositoryProvider));
+});
+
 final workspaceSyncRemoteDataSourceProvider =
     Provider<WorkspaceSyncRemoteDataSource>((ref) {
       return WorkspaceSyncRemoteDataSource(ref.watch(apiTransportProvider));
@@ -636,7 +778,10 @@ final workspaceSyncRemoteDataSourceProvider =
 
 final localWorkspaceSyncCursorDataSourceProvider =
     Provider<LocalWorkspaceSyncCursorDataSource>((ref) {
-      return LocalWorkspaceSyncCursorDataSource(ref.watch(appDatabaseProvider));
+      return LocalWorkspaceSyncCursorDataSource(
+        ref.watch(appDatabaseProvider),
+        ref.watch(activeInstanceScopeProvider),
+      );
     });
 
 final workspaceSyncRepositoryProvider = Provider<WorkspaceSyncRepository>((
@@ -663,6 +808,7 @@ final conversationRealtimeRepositoryProvider =
       final repository = WebSocketConversationRealtimeRepository(
         apiBaseUri: activeServerUri,
         wsBaseUri: activeServerWsUri,
+        instanceScope: ref.watch(activeInstanceScopeProvider),
         tokenRepository: ref.watch(authTokenRepositoryProvider),
       );
       ref.onDispose(() {
@@ -676,6 +822,7 @@ final incomingCallRealtimeRepositoryProvider =
       final repository = WebSocketConversationRealtimeRepository(
         apiBaseUri: ref.watch(activeServerUriProvider),
         wsBaseUri: ref.watch(activeServerWsUriProvider),
+        instanceScope: ref.watch(activeInstanceScopeProvider),
         tokenRepository: ref.watch(authTokenRepositoryProvider),
       );
       ref.onDispose(() {
@@ -693,13 +840,20 @@ final updatePresenceUseCaseProvider = Provider<UpdatePresenceUseCase>((ref) {
 
 final conversationDraftRepositoryProvider =
     Provider<ConversationDraftRepository>((ref) {
-      return LocalConversationDraftRepository(ref.watch(appDatabaseProvider));
+      return LocalConversationDraftRepository(
+        ref.watch(appDatabaseProvider),
+        ref.watch(activeInstanceScopeProvider),
+      );
     });
 
 final messageOutboxDataSourceProvider = Provider<MessageOutboxDataSource>((
   ref,
 ) {
-  return MessageOutboxDataSource(ref.watch(appDatabaseProvider));
+  return MessageOutboxDataSource(
+    ref.watch(appDatabaseProvider),
+    ref.watch(activeInstanceScopeProvider),
+    ref.watch(secureKeyValueStoreProvider),
+  );
 });
 
 final messageOutboxRepositoryProvider = Provider<MessageOutboxRepository>((
@@ -720,12 +874,20 @@ final enqueueMessageOutboxUseCaseProvider =
     Provider<EnqueueMessageOutboxUseCase>((ref) {
       return EnqueueMessageOutboxUseCase(
         repository: ref.watch(messageOutboxRepositoryProvider),
+        instanceScopeId: ref.watch(activeInstanceScopeProvider).storageId,
       );
     });
 
 final saveMessageOutboxItemUseCaseProvider =
     Provider<SaveMessageOutboxItemUseCase>((ref) {
       return SaveMessageOutboxItemUseCase(
+        ref.watch(messageOutboxRepositoryProvider),
+      );
+    });
+
+final canDispatchMessageOutboxItemUseCaseProvider =
+    Provider<CanDispatchMessageOutboxItemUseCase>((ref) {
+      return CanDispatchMessageOutboxItemUseCase(
         ref.watch(messageOutboxRepositoryProvider),
       );
     });
@@ -1036,6 +1198,7 @@ Dio _configuredDio(Uri activeServerUri) {
   return Dio(
     BaseOptions(
       baseUrl: activeServerUri.toString(),
+      followRedirects: false,
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 30),
       sendTimeout: const Duration(seconds: 30),

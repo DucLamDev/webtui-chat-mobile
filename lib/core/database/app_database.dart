@@ -133,6 +133,18 @@ final class AppDatabase implements QueryExecutorUser {
         PRIMARY KEY (scope, key)
       );
     ''');
+    // Version 1 wrote server-derived data without an instance boundary. It is
+    // impossible to attribute those rows safely after enabling multi-instance
+    // self-hosting, so migrate by deleting them instead of guessing ownership.
+    await _executor.runDelete('''
+      DELETE FROM key_value_entries
+      WHERE scope IN ('conversation_drafts', 'workspace_runtime', 'session')
+         OR scope LIKE 'conversation_cache:%'
+         OR scope LIKE 'message_cache:%'
+         OR scope LIKE 'message_outbox:%'
+         OR scope LIKE 'workspace_sync:%'
+         OR scope LIKE 'workspace:%';
+      ''', const []);
     _schemaReady = true;
   }
 }

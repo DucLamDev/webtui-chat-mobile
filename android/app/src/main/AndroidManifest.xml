@@ -17,7 +17,6 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <!-- Chat, file access, and text-only use remain available on devices that
          do not advertise optional call/capture hardware. -->
     <uses-feature
@@ -32,8 +31,7 @@
     <uses-feature
         android:name="android.hardware.bluetooth"
         android:required="false" />
-    <!-- These broad/special permissions are contributed by third-party plugins,
-         but WebTui uses system pickers and a user-visible media projection FGS. -->
+    <!-- Remove broad/special plugin permissions that WebTUI does not use. -->
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         tools:node="remove" />
@@ -91,6 +89,10 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- AppDeepLinkCoordinator owns validation, auth gating and routing. -->
+            <meta-data
+                android:name="flutter_deeplinking_enabled"
+                android:value="false" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -117,11 +119,15 @@
                 <data
                     android:scheme="https"
                     android:host="${webtuiAppLinkHost}"
-                    android:pathPrefix="/conversations" />
+                    android:path="/conversations" />
                 <data
                     android:scheme="https"
                     android:host="${webtuiAppLinkHost}"
-                    android:pathPrefix="/notifications" />
+                    android:pathPrefix="/conversations/" />
+                <data
+                    android:scheme="https"
+                    android:host="${webtuiAppLinkHost}"
+                    android:path="/notifications" />
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
@@ -129,11 +135,6 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        <service
-            android:name="de.julianassmann.flutter_background.IsolateHolderService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="mediaProjection" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

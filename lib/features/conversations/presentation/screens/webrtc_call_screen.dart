@@ -1,15 +1,16 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_background/flutter_background.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/network/api_response.dart';
+import '../../../../core/notifications/native_incoming_call_service.dart';
+import '../../../../core/security/instance_scope.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../auth/presentation/controllers/legal_acceptance_controller.dart';
 import '../../domain/entities/call_session.dart';
 import '../../domain/entities/conversation_realtime_event.dart';
 
@@ -45,7 +46,6 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   final List<RTCIceCandidate> _pendingCandidates = [];
   RTCPeerConnection? _peer;
   MediaStream? _localStream;
-  MediaStream? _screenShareStream;
   StreamSubscription<ConversationRealtimeEvent>? _signals;
   Timer? _stateTimer;
   Timer? _disconnectTimer;
@@ -67,12 +67,13 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   bool _usingFrontCamera = true;
   bool _reconnecting = false;
   bool _iceRestartAttempted = false;
-  bool _sharingScreen = false;
   Offset? _localPreviewPosition;
+  late final InstanceScope _instanceScope;
 
   @override
   void initState() {
     super.initState();
+    _instanceScope = ref.read(activeInstanceScopeProvider);
     _speakerEnabled = widget.mode == CallMode.video;
     unawaited(_initialize());
     _stateTimer = Timer.periodic(
@@ -90,13 +91,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     for (final track in _localStream?.getTracks() ?? <MediaStreamTrack>[]) {
       track.stop();
     }
-    for (final track
-        in _screenShareStream?.getTracks() ?? <MediaStreamTrack>[]) {
-      track.stop();
-    }
-    if (Platform.isAndroid && FlutterBackground.isBackgroundExecutionEnabled) {
-      unawaited(FlutterBackground.disableBackgroundExecution());
-    }
+    unawaited(NativeIncomingCallService.endCall(widget.callId));
     unawaited(_localRenderer.dispose());
     unawaited(_remoteRenderer.dispose());
     super.dispose();
@@ -104,6 +99,11 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
 
   Future<void> _initialize() async {
     try {
+      if (!ref.read(legalAcceptanceControllerProvider).canCreateUserContent) {
+        throw StateError(
+          'Cần đồng ý Điều khoản và Chính sách quyền riêng tư trước khi bắt đầu hoặc nhận cuộc gọi.',
+        );
+      }
       await _localRenderer.initialize();
       await _remoteRenderer.initialize();
       final appSettings = await ref
@@ -137,6 +137,20 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
               }
             : false,
       });
+      // getUserMedia is the visible, contextual runtime permission boundary.
+      // Keep the stream reachable so any native lifecycle failure below is
+      // cleaned up when the screen closes.
+      _localStream = stream;
+      if (!widget.incoming) {
+        await NativeIncomingCallService.startOutgoingCall(
+          instanceScope: _instanceScope,
+          callId: widget.callId,
+          workspaceId: widget.workspaceId,
+          channelId: widget.channelId,
+          title: widget.title,
+          isVideo: widget.mode == CallMode.video,
+        );
+      }
       for (final track in stream.getAudioTracks()) {
         track.enabled = _microphoneEnabled;
       }
@@ -194,6 +208,14 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       });
       if (widget.incoming) {
         await _acceptIncomingCall();
+        await NativeIncomingCallService.activateMediaCapture(
+          instanceScope: _instanceScope,
+          callId: widget.callId,
+          workspaceId: widget.workspaceId,
+          channelId: widget.channelId,
+          title: widget.title,
+          isVideo: widget.mode == CallMode.video,
+        );
         await widget.onConnected?.call();
         await _sendSignal(CallSignalType.ready, const {});
       }
@@ -472,6 +494,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   Future<void> _notifyLeave() async {
     if (_leaveCallbackCalled) return;
     _leaveCallbackCalled = true;
+    await NativeIncomingCallService.endCall(widget.callId);
     await widget.onLeave?.call();
   }
 
@@ -520,123 +543,6 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     await Helper.switchCamera(tracks.first);
     if (mounted) {
       setState(() => _usingFrontCamera = !_usingFrontCamera);
-    }
-  }
-
-  Future<void> _toggleScreenShare() async {
-    if (_sharingScreen) {
-      await _stopScreenShare();
-      return;
-    }
-    final peer = _peer;
-    if (peer == null || widget.mode != CallMode.video) return;
-    try {
-      if (Platform.isAndroid) {
-        const backgroundConfig = FlutterBackgroundAndroidConfig(
-          notificationTitle: 'Đang chia sẻ màn hình',
-          notificationText:
-              'WebTui Chat đang chia sẻ màn hình trong cuộc gọi video.',
-          notificationImportance: AndroidNotificationImportance.normal,
-          notificationIcon: AndroidResource(
-            name: 'ic_launcher',
-            defType: 'mipmap',
-          ),
-          showBadge: false,
-          shouldRequestBatteryOptimizationsOff: false,
-        );
-        final initialized = await FlutterBackground.initialize(
-          androidConfig: backgroundConfig,
-        );
-        if (!initialized) {
-          throw StateError(
-            'Không thể bật foreground service chia sẻ màn hình.',
-          );
-        }
-        if (!FlutterBackground.isBackgroundExecutionEnabled) {
-          final enabled = await FlutterBackground.enableBackgroundExecution();
-          if (!enabled) {
-            throw StateError(
-              'Không thể giữ phiên chia sẻ màn hình ở foreground.',
-            );
-          }
-        }
-      }
-      final screenStream = await navigator.mediaDevices.getDisplayMedia({
-        'audio': false,
-        'video': true,
-      });
-      final screenTracks = screenStream.getVideoTracks();
-      if (screenTracks.isEmpty) {
-        throw StateError('Thiết bị không trả về luồng chia sẻ màn hình.');
-      }
-      RTCRtpSender? videoSender;
-      for (final sender in await peer.getSenders()) {
-        if (sender.track?.kind == 'video') {
-          videoSender = sender;
-          break;
-        }
-      }
-      if (videoSender == null) {
-        for (final track in screenStream.getTracks()) {
-          track.stop();
-        }
-        throw StateError('Cuộc gọi chưa có kênh video để chia sẻ màn hình.');
-      }
-      final screenTrack = screenTracks.first;
-      await videoSender.replaceTrack(screenTrack);
-      screenTrack.onEnded = () {
-        if (mounted && _sharingScreen) {
-          unawaited(_stopScreenShare());
-        }
-      };
-      if (!mounted) {
-        for (final track in screenStream.getTracks()) {
-          track.stop();
-        }
-        return;
-      }
-      setState(() {
-        _screenShareStream = screenStream;
-        _localRenderer.srcObject = screenStream;
-        _sharingScreen = true;
-      });
-    } on Object catch (error) {
-      if (Platform.isAndroid &&
-          FlutterBackground.isBackgroundExecutionEnabled) {
-        await FlutterBackground.disableBackgroundExecution();
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_friendlyScreenShareError(error))),
-        );
-      }
-    }
-  }
-
-  Future<void> _stopScreenShare() async {
-    final peer = _peer;
-    final cameraTrack = _localStream?.getVideoTracks().firstOrNull;
-    if (peer != null && cameraTrack != null) {
-      for (final sender in await peer.getSenders()) {
-        if (sender.track?.kind == 'video') {
-          await sender.replaceTrack(cameraTrack);
-          break;
-        }
-      }
-    }
-    for (final track
-        in _screenShareStream?.getTracks() ?? <MediaStreamTrack>[]) {
-      track.stop();
-    }
-    if (Platform.isAndroid && FlutterBackground.isBackgroundExecutionEnabled) {
-      await FlutterBackground.disableBackgroundExecution();
-    }
-    if (mounted) {
-      setState(() {
-        _screenShareStream = null;
-        _localRenderer.srcObject = _localStream;
-        _sharingScreen = false;
-      });
     }
   }
 
@@ -837,19 +743,10 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
                           _toggleCamera,
                           active: !_cameraEnabled,
                         ),
-                        if (!_sharingScreen)
-                          _control(
-                            Icons.cameraswitch_outlined,
-                            'Đổi cam',
-                            () => unawaited(_switchCamera()),
-                          ),
                         _control(
-                          _sharingScreen
-                              ? Icons.stop_screen_share_outlined
-                              : Icons.screen_share_outlined,
-                          _sharingScreen ? 'Dừng share' : 'Chia sẻ',
-                          () => unawaited(_toggleScreenShare()),
-                          active: _sharingScreen,
+                          Icons.cameraswitch_outlined,
+                          'Đổi cam',
+                          () => unawaited(_switchCamera()),
                         ),
                       ],
                       _control(
@@ -955,7 +852,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
                     borderRadius: BorderRadius.circular(12),
                     child: RTCVideoView(
                       _localRenderer,
-                      mirror: !_sharingScreen && _usingFrontCamera,
+                      mirror: _usingFrontCamera,
                       objectFit:
                           RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
                     ),
@@ -1073,19 +970,4 @@ String _friendlyError(Object error) {
     return 'Cần cấp quyền camera và microphone để thực hiện cuộc gọi.';
   }
   return message.trim().isEmpty ? 'Không thể bắt đầu cuộc gọi.' : message;
-}
-
-String _friendlyScreenShareError(Object error) {
-  final message = error.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
-  if (message.contains('NotAllowed') ||
-      message.contains('Permission') ||
-      message.contains('permission')) {
-    return 'Bạn chưa cấp quyền ghi/chia sẻ màn hình.';
-  }
-  if (Platform.isIOS) {
-    return 'Chia sẻ màn hình trên iOS cần Broadcast Upload Extension khi build bản phân phối.';
-  }
-  return message.trim().isEmpty
-      ? 'Thiết bị hiện không hỗ trợ chia sẻ màn hình.'
-      : message;
 }

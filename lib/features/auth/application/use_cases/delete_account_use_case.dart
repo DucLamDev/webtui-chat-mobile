@@ -2,18 +2,22 @@ import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
 import '../../domain/repositories/account_repository.dart';
 import '../../domain/repositories/app_lock_repository.dart';
+import '../../domain/repositories/auth_token_repository.dart';
 import '../../domain/repositories/session_state_repository.dart';
 
 final class DeleteAccountUseCase {
   const DeleteAccountUseCase({
     required AccountRepository accountRepository,
+    required AuthTokenRepository tokenRepository,
     required SessionStateRepository sessionStateRepository,
     required AppLockRepository appLockRepository,
   }) : _accountRepository = accountRepository,
+       _tokenRepository = tokenRepository,
        _sessionStateRepository = sessionStateRepository,
        _appLockRepository = appLockRepository;
 
   final AccountRepository _accountRepository;
+  final AuthTokenRepository _tokenRepository;
   final SessionStateRepository _sessionStateRepository;
   final AppLockRepository _appLockRepository;
 
@@ -32,6 +36,18 @@ final class DeleteAccountUseCase {
       );
     }
 
+    final guard = await _tokenRepository.captureMutationGuard();
+    if (guard == null ||
+        !await _tokenRepository.isMutationGuardCurrent(guard)) {
+      return const FailureResult(
+        Failure(
+          kind: FailureKind.unauthorized,
+          code: 'AUTH_INSTANCE_CHANGED',
+          message: 'Máy chủ đang hoạt động đã thay đổi.',
+        ),
+      );
+    }
+
     final deletion = await _accountRepository.deleteAccount(
       confirmation: normalizedConfirmation,
       ownershipSuccessorEmail: ownershipSuccessorEmail?.trim(),
@@ -41,13 +57,18 @@ final class DeleteAccountUseCase {
     }
 
     Object? cleanupError;
+    var clearedActiveSession = false;
     try {
-      await _sessionStateRepository.resetForLogout();
+      clearedActiveSession = await _sessionStateRepository
+          .resetForLogoutIfCurrent(guard);
     } on Object catch (error) {
       cleanupError = error;
     }
     try {
-      await _appLockRepository.disable();
+      if (clearedActiveSession &&
+          !await _sessionStateRepository.hasAnySavedSession()) {
+        await _appLockRepository.disable();
+      }
     } on Object catch (error) {
       cleanupError ??= error;
     }

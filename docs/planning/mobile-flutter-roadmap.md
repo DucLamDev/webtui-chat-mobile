@@ -367,7 +367,6 @@ Acceptance cho planning thiết kế mobile:
 | M2.2 | Login email/username | M2.1 | Error/rate-limit/loading đúng | P0 |
 | M2.3 | Refresh queue | M2.1 | Nhiều request 401 chỉ refresh một lần | P0 |
 | M2.4 | Logout và clear local state | M2.2 | Token/cache nhạy cảm/outbox theo policy được xử lý | P0 |
-| M2.5 | Google Sign-In | Backend/provider config | OAuth native và backend exchange an toàn | P1 |
 | M2.6 | Session list/revoke | M2.2 | Thu hồi thiết bị hiện tại làm app logout | P0 |
 | M2.7 | Device identity | M2.2 | Device ID ổn định, không dùng hardware identifier nhạy cảm | P0 |
 | M2.8 | Biometric/PIN app lock tùy chọn | M2.1 | Không thay thế backend auth; chỉ bảo vệ app cục bộ | P1 |
@@ -537,13 +536,13 @@ Tiến độ hiện tại 2026-07-17: M11 đã có test bổ sung cho mobile rel
 | M11.11 | Build signed AAB/APK | M11.10 | Sinh được `.aab` cho CH Play và `.apk` cho tải trực tiếp/test; versionCode tăng tự động | P0 |
 | M11.12 | Debug symbols/mapping | M11.11 | Upload mapping/native symbols nếu có để đọc crash/ANR đúng | P1 |
 | M11.13 | Firebase App Distribution | M11.11 | Nhóm nội bộ nhận email/link và cài được bản test trên thiết bị thật | P0 |
-| M11.14 | Direct APK download fallback | M11.11 | Upload APK lên `chat.vpsttt.com/downloads/files/android/stable/`, có checksum SHA-256, version, release notes và hướng dẫn cài | P0 |
+| M11.14 | Direct APK download fallback | M11.11 | Upload APK lên `download.vpsttt.com/downloads/files/android/stable/`, có checksum SHA-256, version, release notes và hướng dẫn cài | P0 |
 | M11.15 | Mobile update metadata | Backend version API | Web/mobile hiển thị bản mới, minimum version, recommended version và link tải phù hợp | P0 |
 | M11.16 | Tài liệu cài Android nội bộ | M11.13-M11.14 | Có hướng dẫn rõ cho Firebase, CH Play internal test và APK sideload | P0 |
 
 ## Phase M12: CH Play và kênh tải Android
 
-Tiến độ hiện tại 2026-07-17: M12 đã có Play Console readiness doc, privacy policy draft, permission/data safety checklist, download page spec, download host manifest example, release readiness gate trong `tool/check_mobile_release.dart` và source trang tải Android-first ở `deploy/download/`. Trước mắt ưu tiên `chat.vpsttt.com/download/` cho APK signed kèm SHA-256/release notes; CH Play bật sau bằng `store_url` trong manifest. Ghi chú policy mới nhất: nguồn Google chính thức hiện nêu từ 31/08/2026 app mới/cập nhật phải target Android 16/API 36; trước mỗi release phải kiểm tra lại trang chính sách vì deadline có thể thay đổi. Phần còn cần môi trường ngoài repo là tạo Play Console app thật, enroll Play App Signing, upload AAB lên Internal/Closed track, chạy Pre-launch report, public privacy/support URLs và triển khai path tải trên `chat.vpsttt.com`.
+Tiến độ hiện tại 2026-08-07: M12 đã có Play Console readiness doc, privacy policy draft, permission/data safety checklist, download page spec, release readiness gate trong `tool/check_mobile_release.dart` và source portal. Play Internal/Closed là kênh đầu tiên. APK do CI ký bằng upload key chỉ dùng QA; fallback tại `download.vpsttt.com/download/` chỉ được bật với universal APK Play-signed hoặc artifact có signer trùng chính xác Play app-signing certificate. Nguồn Google chính thức hiện nêu từ 31/08/2026 app mới/cập nhật phải target Android 16/API 36; trước mỗi release phải kiểm tra lại vì deadline có thể thay đổi. Phần còn cần môi trường ngoài repo là tạo Play Console app thật, enroll Play App Signing, upload AAB, chạy Pre-launch report và public privacy/support URLs.
 
 | Task | Công việc | Phụ thuộc | Kết quả/Acceptance | Ưu tiên |
 |---|---|---|---|---|
@@ -557,9 +556,9 @@ Tiến độ hiện tại 2026-07-17: M12 đã có Play Console readiness doc, p
 | M12.8 | Internal testing track | M11.11 | Tối đa nhóm tester nội bộ cài qua Play Store; link opt-in hoạt động | P0 |
 | M12.9 | Closed/open testing track | M12.8 | Nhóm khách hàng/thử nghiệm nhận build qua Play, feedback được thu thập | P0 |
 | M12.10 | Pre-launch report và Android vitals | M12.8 | Không còn crash/blocker lớn trong pre-launch report; crash/ANR metric đạt ngưỡng | P0 |
-| M12.11 | Production staged rollout | M12.9-M12.10 | Rollout theo phần trăm, có khả năng pause/halt; monitoring active | P0 |
+| M12.11 | Production launch/update rollout | M12.9-M12.10 | Bản đầu kiểm soát qua testing và quốc gia/khu vực, không có staged rollout theo phần trăm; bản cập nhật sau rollout theo phần trăm, có pause/halt; monitoring active | P0 |
 | M12.12 | Managed Google Play/private app | M12.1 | Nếu bán B2B theo workspace, có phương án private app cho tổ chức cần quản lý thiết bị | P1 |
-| M12.13 | APK download public fallback | M11.14 | Nếu chưa public CH Play, người dùng vẫn tải được APK signed tại `chat.vpsttt.com/download/` kèm checksum | P0 |
+| M12.13 | APK download public fallback | M11.14 | Nếu chưa public CH Play, người dùng vẫn tải được APK signed tại `download.vpsttt.com/download/` kèm checksum | P0 |
 | M12.14 | Landing/download page | M12.8/M12.13 | Đã có source static Android-first ở `deploy/download/`; trang đọc manifest, hiện APK signed, checksum, release notes và bật CH Play sau bằng `store_url` | P1 |
 
 Ghi chú chính sách Android tại thời điểm cập nhật roadmap: Google Play yêu cầu app mới và bản cập nhật nhắm Android 15/API 35 hoặc cao hơn để gửi lên Play, trừ một số ngoại lệ thiết bị; cần kiểm tra lại yêu cầu này trước ngày release vì Google cập nhật hằng năm.
@@ -614,7 +613,7 @@ Tạo `.github/workflows/mobile.yml` gồm:
 5. Build signed APK và AAB cho staging/release bằng GitHub Environment secrets.
 6. Upload APK staging lên Firebase App Distribution cho nhóm tester.
 7. Upload AAB lên Play Internal/Closed track bằng Play Developer API khi release manager approve.
-8. Upload APK fallback lên `chat.vpsttt.com/downloads/files/android/stable/` kèm SHA-256 checksum và release notes.
+8. Upload APK fallback lên `download.vpsttt.com/downloads/files/android/stable/` kèm SHA-256 checksum và release notes.
 9. Chạy integration test trên emulator/device farm theo lịch.
 10. macOS job riêng build/sign IPA và upload TestFlight.
 
@@ -638,7 +637,8 @@ Tạo `.github/workflows/mobile.yml` gồm:
 - [ ] APK download public có SHA-256 checksum, release notes và hướng dẫn cài đặt rõ.
 - [ ] Play Console có privacy policy, data safety, content rating, permission declaration và store listing đầy đủ.
 - [ ] Internal/closed testing hoặc Firebase App Distribution đã chạy tối thiểu một vòng trên thiết bị thật.
-- [ ] Production rollout có kế hoạch pause/rollback và monitoring crash/ANR.
+- [ ] Bản Production đầu có phạm vi quốc gia/khu vực và kế hoạch halt/unpublish;
+      bản cập nhật sau có staged rollout, pause/rollback và monitoring crash/ANR.
 - [ ] Có tài liệu hỗ trợ đăng nhập, notification, microphone, cache và logout.
 - [ ] Các màn mobile P0 đã đối chiếu screenshot với `docs/design/mobile/references/webtui-mobile-zalo-reference.png`.
 - [ ] Domain layer không import Flutter/Dio/Drift/Firebase/generated DTO.
@@ -662,4 +662,4 @@ Với hai lập trình viên Flutter và một backend hỗ trợ bán thời gi
 | M12 CH Play và kênh tải Android | 2–3 tuần, tùy tốc độ review và chuẩn bị tài khoản |
 | M13 iOS release | 2–3 tuần |
 
-Android MVP nội bộ nên được phát hành sau M8 qua Firebase App Distribution hoặc APK signed trên `chat.vpsttt.com/download/`. Production “đầy đủ toàn bộ chức năng” chỉ đạt khi M9-M13 và các backend backlog P0 hoàn thành.
+Android MVP nội bộ nên được phát hành sau M8 qua Firebase App Distribution hoặc APK signed trên `download.vpsttt.com/download/`. Production “đầy đủ toàn bộ chức năng” chỉ đạt khi M9-M13 và các backend backlog P0 hoàn thành.

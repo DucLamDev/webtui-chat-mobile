@@ -3,12 +3,16 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:uuid/uuid.dart';
 
 import '../core/network/self_hosted_server_discovery.dart';
-import '../core/network/self_hosted_server_uri.dart';
+import '../core/network/self_hosted_server_discovery_client.dart';
 import '../core/notifications/native_incoming_call_service.dart';
 import '../core/notifications/push_notification_service.dart';
+import '../core/notifications/scoped_local_notification_service.dart';
+import '../core/platform/native_instance_binding_service.dart';
 import '../core/security/secure_key_value_store.dart';
+import '../core/security/server_account_registry.dart';
 import 'app.dart';
 import 'flavor/app_config.dart';
 import 'flavor/app_flavor.dart';
@@ -16,60 +20,98 @@ import 'providers/foundation_providers.dart';
 
 Future<void> bootstrap({required AppFlavor flavor}) async {
   WidgetsFlutterBinding.ensureInitialized();
+  await ScopedLocalNotificationService.instance.initialize();
+  await ScopedLocalNotificationService.instance.clearMessageNotifications(
+    clearPendingTaps: false,
+  );
   configureFirebaseBackgroundMessaging();
   NativeIncomingCallService.ensureStarted();
+  await NativeIncomingCallService.registerBackgroundActionHandler();
   // Push setup is not required to draw the first frame. The notification
   // service awaits the same idempotent initializer before it reads a token.
   unawaited(ensureFirebaseRuntime());
 
   var config = AppConfig.fromFlavor(flavor);
   const secureStorage = FlutterSecureStorage();
+  const secureStore = FlutterSecureKeyValueStore(secureStorage);
+  const serverAccountRegistry = SecureServerAccountRegistry(secureStore);
+  const nativeInstanceBinding = NativeInstanceBindingService();
+  // A prior process's successful check is never authoritative for a new cold
+  // start: the server may have raised its minimum mobile version or disabled a
+  // mandatory safety capability in the meantime.
+  await secureStorage.delete(
+    key: SecureStoreKey.liveDiscoveryValidatedScopeId.value,
+  );
   final storedValues = await Future.wait<String?>([
-    secureStorage.read(key: SecureStoreKey.instanceBaseUrl.value),
-    secureStorage.read(key: SecureStoreKey.instanceWsBaseUrl.value),
-    secureStorage.read(key: SecureStoreKey.instanceOrganizationName.value),
-    secureStorage.read(key: SecureStoreKey.instanceOrganizationLogoUrl.value),
-    secureStorage.read(key: SecureStoreKey.instanceRegistrationMode.value),
-    secureStorage.read(key: SecureStoreKey.instanceAppVersion.value),
+    secureStorage.read(key: SecureStoreKey.instanceDiscoverySnapshot.value),
+    secureStorage.read(key: SecureStoreKey.instanceId.value),
+    secureStorage.read(key: SecureStoreKey.activeInstanceScopeId.value),
+    secureStorage.read(key: SecureStoreKey.sessionPersistence.value),
   ]);
-  final storedServer = storedValues[0];
-  final storedWebSocket = storedValues[1];
-  final storedOrganizationName = storedValues[2];
-  final storedOrganizationLogoUrl = storedValues[3];
-  final storedRegistrationMode = storedValues[4];
-  final storedAppVersion = storedValues[5];
+  final storedSnapshot = storedValues[0];
+  final storedInstanceId = storedValues[1];
+  final storedScopeId = storedValues[2];
   SelfHostedServerDiscovery? initialDiscovery;
-  if (storedServer != null) {
+  if (storedSnapshot != null && storedSnapshot.trim().isNotEmpty) {
+    SelfHostedServerDiscovery? cachedDiscovery;
     try {
-      final serverUri = parseSelfHostedServerUri(storedServer);
-      final wsUri = storedWebSocket == null
-          ? null
-          : parseSelfHostedWebSocketUri(storedWebSocket);
-      if (wsUri != null &&
-          wsUri.host.toLowerCase() != serverUri.host.toLowerCase()) {
-        throw const FormatException(
-          'WebSocket đã lưu không thuộc server đang active.',
-        );
-      }
-      config = config.forServer(serverUri, wsBaseUri: wsUri);
-      initialDiscovery = SelfHostedServerDiscovery(
-        domain: serverUri.host,
-        name: storedOrganizationName?.trim().isNotEmpty == true
-            ? storedOrganizationName!.trim()
-            : serverUri.host,
-        apiBaseUri: config.apiBaseUri,
-        wsBaseUri: config.wsBaseUri,
-        registrationMode: storedRegistrationMode?.trim().isNotEmpty == true
-            ? storedRegistrationMode!.trim()
-            : 'closed',
-        appVersion: storedAppVersion?.trim() ?? '',
-        logoUrl: _validatedCachedLogoUrl(storedOrganizationLogoUrl),
+      cachedDiscovery = SelfHostedServerDiscovery.fromStorageSnapshot(
+        encodedSnapshot: storedSnapshot,
+        mobileVersion: config.appVersion,
       );
-    } on FormatException {
+      if (storedInstanceId != cachedDiscovery.instanceId ||
+          storedScopeId != cachedDiscovery.instanceScope.storageId) {
+        throw const FormatException('Stored instance binding is invalid.');
+      }
+    } on Object {
       await _clearStoredServer(secureStorage);
+      await nativeInstanceBinding.clear();
     }
-  } else if (storedWebSocket != null) {
+    if (cachedDiscovery != null) {
+      try {
+        final liveDiscovery = await SelfHostedServerDiscoveryClient(
+          mobileVersion: config.appVersion,
+        ).discover(cachedDiscovery.apiBaseUri.toString());
+        if (liveDiscovery.instanceScope != cachedDiscovery.instanceScope) {
+          throw StateError('Live discovery instance binding changed.');
+        }
+        await secureStorage.write(
+          key: SecureStoreKey.instanceDiscoverySnapshot.value,
+          value: liveDiscovery.toStorageSnapshot(),
+        );
+        await secureStorage.write(
+          key: SecureStoreKey.liveDiscoveryValidatedScopeId.value,
+          value: liveDiscovery.instanceScope.storageId,
+        );
+        await secureStorage.write(
+          key: SecureStoreKey.activeInstanceGeneration.value,
+          value: const Uuid().v4(),
+        );
+        final durableSession =
+            storedValues[3] == durableSessionPersistenceValue &&
+            await serverAccountRegistry.hasDurableSessionForScopeId(
+              liveDiscovery.instanceScope.storageId,
+            );
+        await nativeInstanceBinding.setValidatedInstance(
+          liveDiscovery.instanceScope,
+          durableSession: durableSession,
+        );
+        config = config.forServer(
+          liveDiscovery.apiBaseUri,
+          wsBaseUri: liveDiscovery.wsBaseUri,
+        );
+        initialDiscovery = liveDiscovery;
+      } on Object {
+        // Keep the signed snapshot/account record for a later retry, but do not
+        // expose its tokens or construct authenticated providers in this run.
+        initialDiscovery = null;
+      }
+    }
+  } else {
+    // Legacy releases stored an origin but not the server-signed instance
+    // identity/capabilities. Those sessions cannot be safely restored.
     await _clearStoredServer(secureStorage);
+    await nativeInstanceBinding.clear();
   }
 
   runApp(
@@ -83,21 +125,6 @@ Future<void> bootstrap({required AppFlavor flavor}) async {
   );
 }
 
-String? _validatedCachedLogoUrl(String? value) {
-  final parsed = Uri.tryParse(value?.trim() ?? '');
-  if (parsed == null || parsed.host.isEmpty || parsed.userInfo.isNotEmpty) {
-    return null;
-  }
-  final isLocal =
-      parsed.host == 'localhost' ||
-      parsed.host == '127.0.0.1' ||
-      parsed.host.endsWith('.localhost');
-  if (parsed.scheme != 'https' && !(isLocal && parsed.scheme == 'http')) {
-    return null;
-  }
-  return parsed.toString();
-}
-
 Future<void> _clearStoredServer(FlutterSecureStorage storage) async {
   await Future.wait(
     [
@@ -107,6 +134,17 @@ Future<void> _clearStoredServer(FlutterSecureStorage storage) async {
       SecureStoreKey.instanceOrganizationLogoUrl,
       SecureStoreKey.instanceRegistrationMode,
       SecureStoreKey.instanceAppVersion,
+      SecureStoreKey.instanceId,
+      SecureStoreKey.activeInstanceScopeId,
+      SecureStoreKey.liveDiscoveryValidatedScopeId,
+      SecureStoreKey.activeInstanceGeneration,
+      SecureStoreKey.instanceDiscoverySnapshot,
+      SecureStoreKey.accessToken,
+      SecureStoreKey.refreshToken,
+      SecureStoreKey.sessionInstanceScopeId,
+      SecureStoreKey.sessionPersistence,
+      SecureStoreKey.activeWorkspaceId,
+      SecureStoreKey.activeWorkspaceInstanceScopeId,
     ].map((key) => storage.delete(key: key.value)),
   );
 }

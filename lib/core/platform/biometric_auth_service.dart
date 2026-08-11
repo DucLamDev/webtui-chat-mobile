@@ -16,7 +16,7 @@ final class BiometricAuthService {
   }
 
   Future<bool> authenticate({
-    String reason = 'Xác thực để mở khóa WebTui Chat',
+    String reason = 'Xác thực để mở khóa WebTUI Chat',
   }) async {
     try {
       return await _channel.invokeMethod<bool>('authenticate', {

@@ -1,22 +1,13 @@
-import 'dart:async';
-import 'dart:math' as math;
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/flavor/app_config.dart';
 import '../../../../app/providers/foundation_providers.dart';
+import '../../../../design_system/components/webtui_avatar.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../controllers/login_controller.dart';
-import '../google_sign_in_visibility.dart';
-
-const _privacyPolicyUrl = String.fromEnvironment('WEBTUI_PRIVACY_POLICY_URL');
-const _googleOAuthClientId = String.fromEnvironment('GOOGLE_OAUTH_CLIENT_ID');
-const _googleOAuthServerClientId = String.fromEnvironment(
-  'GOOGLE_OAUTH_SERVER_CLIENT_ID',
-);
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({this.onLoginSuccess, super.key});
@@ -28,34 +19,6 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  StreamSubscription<Uri>? _deepLinkSubscription;
-
-  @override
-  void initState() {
-    super.initState();
-    Future<void>.microtask(() async {
-      if (!mounted) {
-        return;
-      }
-      final service = ref.read(nativeDeepLinkServiceProvider);
-      _deepLinkSubscription = service.urls.listen(_handleDeepLink);
-      final initialUri = await service.getInitialUri();
-      if (initialUri != null && mounted) {
-        await _handleDeepLink(initialUri);
-      }
-    });
-  }
-
-  Future<void> _handleDeepLink(Uri uri) {
-    return ref.read(loginControllerProvider.notifier).handleDeepLink(uri);
-  }
-
-  @override
-  void dispose() {
-    _deepLinkSubscription?.cancel();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     ref.listen<LoginState>(loginControllerProvider, (previous, next) {
@@ -67,6 +30,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final state = ref.watch(loginControllerProvider);
     final controller = ref.read(loginControllerProvider.notifier);
+    final config = ref.watch(appConfigProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6FAFF),
@@ -104,9 +68,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     : _RegisterContent(
                         state: state,
                         controller: controller,
-                        onOpenPrivacy: _privacyPolicyUrl.isEmpty
+                        legalLinksConfigured: config.hasPublicLegalUrls,
+                        onOpenTerms: !_isHttpsUrl(config.termsUrl)
                             ? null
-                            : () => _openPrivacyPolicy(context),
+                            : () => _openLegalDocument(
+                                context,
+                                config.termsUrl,
+                                'Điều khoản sử dụng',
+                              ),
+                        onOpenPrivacy: !_isHttpsUrl(config.privacyPolicyUrl)
+                            ? null
+                            : () => _openLegalDocument(
+                                context,
+                                config.privacyPolicyUrl,
+                                'Chính sách quyền riêng tư',
+                              ),
                       ),
               ),
             ),
@@ -116,16 +92,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  Future<void> _openPrivacyPolicy(BuildContext context) async {
-    final opened = await ref
-        .read(externalUrlLauncherProvider)
-        .open(_privacyPolicyUrl);
+  Future<void> _openLegalDocument(
+    BuildContext context,
+    String url,
+    String label,
+  ) async {
+    final opened = await ref.read(externalUrlLauncherProvider).open(url);
     if (context.mounted && !opened) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Không mở được chính sách quyền riêng tư.'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Không mở được $label.')));
     }
   }
 }
@@ -237,13 +213,7 @@ class _LoginContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final showGoogleSignIn = canShowGoogleSignIn(
-      targetPlatform: defaultTargetPlatform,
-      clientId: _googleOAuthClientId,
-      serverClientId: _googleOAuthServerClientId,
-    );
-    final hasAlternativeSignIn =
-        showGoogleSignIn || state.oidcProviders.isNotEmpty;
+    final hasAlternativeSignIn = state.oidcProviders.isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -333,16 +303,8 @@ class _LoginContent extends StatelessWidget {
           const _DividerLabel('Hoặc tiếp tục với'),
           const SizedBox(height: 18),
         ],
-        if (showGoogleSignIn)
-          _SocialButton(
-            label: 'Đăng nhập bằng Google',
-            icon: const _GoogleLogo(),
-            loading: state.isGoogleLoading,
-            onPressed: state.isLoading ? null : controller.loginWithGoogle,
-          ),
         for (final provider in state.oidcProviders) ...[
-          if (showGoogleSignIn || provider != state.oidcProviders.first)
-            const SizedBox(height: 12),
+          if (provider != state.oidcProviders.first) const SizedBox(height: 12),
           _SocialButton(
             label: 'Đăng nhập bằng ${provider.name}',
             icon: const Icon(Icons.corporate_fare_rounded, size: 21),
@@ -384,15 +346,20 @@ class _RegisterContent extends StatelessWidget {
   const _RegisterContent({
     required this.state,
     required this.controller,
+    required this.legalLinksConfigured,
+    required this.onOpenTerms,
     required this.onOpenPrivacy,
   });
 
   final LoginState state;
   final LoginController controller;
+  final bool legalLinksConfigured;
+  final VoidCallback? onOpenTerms;
   final VoidCallback? onOpenPrivacy;
 
   @override
   Widget build(BuildContext context) {
+    final legalReady = state.legalDocumentsStatus == LegalDocumentsStatus.ready;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -512,26 +479,152 @@ class _RegisterContent extends StatelessWidget {
           onSubmitted: (_) => controller.submit(),
         ),
         const SizedBox(height: 18),
-        Text(
-          'Khi đăng ký, bạn đồng ý với điều khoản và chính sách quyền riêng tư của ${state.serverName ?? 'tổ chức'}.',
-          textAlign: TextAlign.center,
-          style: WebTuiTypography.bodySmall.copyWith(
-            color: WebTuiColors.textMuted,
-            height: 1.45,
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color:
+                legalLinksConfigured &&
+                    state.legalDocumentsStatus != LegalDocumentsStatus.error
+                ? const Color(0xFFF2F7FF)
+                : const Color(0xFFFFF4E5),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color:
+                  legalLinksConfigured &&
+                      state.legalDocumentsStatus != LegalDocumentsStatus.error
+                  ? const Color(0xFFD7E5F7)
+                  : const Color(0xFFF2C97D),
+            ),
           ),
-        ),
-        TextButton.icon(
-          onPressed: onOpenPrivacy,
-          icon: const Icon(Icons.open_in_new_rounded, size: 16),
-          label: Text(
-            onOpenPrivacy == null
-                ? 'Chính sách chưa được cấu hình'
-                : 'Xem chính sách quyền riêng tư',
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Checkbox(
+                      key: const Key('register_legal_acceptance_checkbox'),
+                      value: state.legalAccepted,
+                      onChanged:
+                          state.isLoading ||
+                              !legalLinksConfigured ||
+                              !legalReady
+                          ? null
+                          : (value) => controller.updateLegalAcceptance(
+                              value ?? false,
+                            ),
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Text(
+                          'Tôi đã đọc và đồng ý với Điều khoản sử dụng và Chính sách quyền riêng tư.',
+                          style: WebTuiTypography.bodySmall.copyWith(
+                            color: WebTuiColors.textPrimary,
+                            height: 1.4,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  children: [
+                    TextButton.icon(
+                      key: const Key('register_terms_link'),
+                      onPressed: onOpenTerms,
+                      icon: const Icon(Icons.gavel_outlined, size: 16),
+                      label: const Text('Điều khoản sử dụng'),
+                    ),
+                    TextButton.icon(
+                      key: const Key('register_privacy_link'),
+                      onPressed: onOpenPrivacy,
+                      icon: const Icon(Icons.policy_outlined, size: 16),
+                      label: const Text('Chính sách riêng tư'),
+                    ),
+                  ],
+                ),
+                if (!legalLinksConfigured)
+                  Text(
+                    'Bản dựng chưa cấu hình đủ hai URL HTTPS. Đăng ký được tạm khóa để bảo vệ sự đồng ý của người dùng.',
+                    textAlign: TextAlign.center,
+                    style: WebTuiTypography.bodySmall.copyWith(
+                      color: const Color(0xFF8A5A00),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  )
+                else if (state.legalDocumentsStatus ==
+                        LegalDocumentsStatus.loading ||
+                    state.legalDocumentsStatus == LegalDocumentsStatus.idle)
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      SizedBox(width: 10),
+                      Flexible(
+                        child: Text(
+                          'Đang xác minh phiên bản điều khoản từ máy chủ...',
+                          key: Key('register_legal_versions_loading'),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  )
+                else if (state.legalDocumentsStatus ==
+                    LegalDocumentsStatus.error)
+                  Column(
+                    children: [
+                      Text(
+                        state.legalDocumentsError ??
+                            'Không tải được phiên bản tài liệu pháp lý.',
+                        key: const Key('register_legal_versions_error'),
+                        textAlign: TextAlign.center,
+                        style: WebTuiTypography.bodySmall.copyWith(
+                          color: const Color(0xFF8A5A00),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      TextButton.icon(
+                        key: const Key('register_legal_versions_retry'),
+                        onPressed: state.isLoading
+                            ? null
+                            : controller.refreshLegalDocumentVersions,
+                        icon: const Icon(Icons.refresh_rounded, size: 18),
+                        label: const Text('Thử tải lại điều khoản'),
+                      ),
+                    ],
+                  )
+                else if (state.legalDocumentVersions case final versions?)
+                  Text(
+                    'Phiên bản Điều khoản: ${versions.termsVersion} · '
+                    'Quyền riêng tư: ${versions.privacyVersion}',
+                    key: const Key('register_legal_versions_ready'),
+                    textAlign: TextAlign.center,
+                    style: WebTuiTypography.bodySmall.copyWith(
+                      color: WebTuiColors.textMuted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ],
     );
   }
+}
+
+bool _isHttpsUrl(String value) {
+  final uri = Uri.tryParse(value.trim());
+  return uri != null && uri.scheme == 'https' && uri.host.isNotEmpty;
 }
 
 class _AuthFooter extends StatelessWidget {
@@ -575,7 +668,7 @@ class _AuthFooter extends StatelessWidget {
                   enabled: state.serverConnected
                       ? state.canSubmit
                       : state.canConnectServer,
-                  loading: state.isLoading && !state.isGoogleLoading,
+                  loading: state.isLoading,
                   icon: !state.serverConnected
                       ? Icons.arrow_forward_rounded
                       : state.isLogin
@@ -744,19 +837,23 @@ class _BrandLogo extends StatelessWidget {
       builder: (context, value, child) {
         return Transform.scale(scale: value, child: child);
       },
-      child: SizedBox.square(dimension: size, child: _logoContent()),
+      child: SizedBox.square(dimension: size, child: _logoContent(context)),
     );
   }
 
-  Widget _logoContent() {
+  Widget _logoContent(BuildContext context) {
     final url = imageUrl?.trim();
     final organization = name?.trim();
     if (url != null && url.isNotEmpty) {
-      return Image.network(
-        url,
+      return WebTuiBoundedNetworkImage(
+        imageUrl: url,
+        width: size,
+        height: size,
         fit: BoxFit.contain,
+        maxBytes: webTuiMaxBrandImageBytes,
+        allowPublicRequest: true,
         semanticLabel: organization,
-        errorBuilder: (_, _, _) => _organizationFallback(organization),
+        fallback: _organizationFallback(organization),
       );
     }
     if (organization != null && organization.isNotEmpty) {
@@ -1169,61 +1266,9 @@ class _SocialButton extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           : icon,
-      label: Text(loading ? 'Đang mở Google...' : label),
+      label: Text(loading ? 'Đang mở...' : label),
     );
   }
-}
-
-class _GoogleLogo extends StatelessWidget {
-  const _GoogleLogo();
-
-  @override
-  Widget build(BuildContext context) {
-    return const SizedBox.square(
-      dimension: 22,
-      child: CustomPaint(painter: _GoogleLogoPainter()),
-    );
-  }
-}
-
-class _GoogleLogoPainter extends CustomPainter {
-  const _GoogleLogoPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final stroke = size.width * 0.18;
-    final rect = Rect.fromLTWH(
-      stroke / 2,
-      stroke / 2,
-      size.width - stroke,
-      size.height - stroke,
-    );
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
-      ..strokeCap = StrokeCap.butt;
-
-    paint.color = const Color(0xFF4285F4);
-    canvas.drawArc(rect, -0.2 * math.pi, 0.72 * math.pi, false, paint);
-    paint.color = const Color(0xFF34A853);
-    canvas.drawArc(rect, 0.52 * math.pi, 0.5 * math.pi, false, paint);
-    paint.color = const Color(0xFFFBBC05);
-    canvas.drawArc(rect, 1.02 * math.pi, 0.42 * math.pi, false, paint);
-    paint.color = const Color(0xFFEA4335);
-    canvas.drawArc(rect, 1.44 * math.pi, 0.36 * math.pi, false, paint);
-
-    paint
-      ..color = const Color(0xFF4285F4)
-      ..strokeCap = StrokeCap.square;
-    canvas.drawLine(
-      Offset(size.width * 0.53, size.height * 0.52),
-      Offset(size.width * 0.93, size.height * 0.52),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _ModeSwitch extends StatelessWidget {

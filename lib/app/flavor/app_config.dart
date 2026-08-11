@@ -14,6 +14,10 @@ final class AppConfig {
     this.appVersion = '1.0.0',
     this.releaseChannel = 'internal',
     this.releaseServiceBaseUrl = 'https://download.vpsttt.com',
+    this.termsUrl = '',
+    this.privacyPolicyUrl = '',
+    this.termsVersion = '2026-08-07',
+    this.privacyPolicyVersion = '2026-08-07',
   });
 
   factory AppConfig.fromFlavor(AppFlavor flavor) {
@@ -37,6 +41,22 @@ final class AppConfig {
       'WEBTUI_RELEASE_SERVICE_URL',
       defaultValue: 'https://download.vpsttt.com',
     );
+    const configuredTermsUrl = String.fromEnvironment(
+      'WEBTUI_TERMS_URL',
+      defaultValue: '',
+    );
+    const configuredPrivacyPolicyUrl = String.fromEnvironment(
+      'WEBTUI_PRIVACY_POLICY_URL',
+      defaultValue: '',
+    );
+    const configuredTermsVersion = String.fromEnvironment(
+      'WEBTUI_TERMS_VERSION',
+      defaultValue: '2026-08-07',
+    );
+    const configuredPrivacyPolicyVersion = String.fromEnvironment(
+      'WEBTUI_PRIVACY_VERSION',
+      defaultValue: '2026-08-07',
+    );
 
     final apiBaseUri = configuredBaseUrl.isEmpty
         ? flavor.defaultApiBaseUri
@@ -53,6 +73,10 @@ final class AppConfig {
           ? _defaultReleaseChannel(flavor)
           : configuredReleaseChannel,
       releaseServiceBaseUrl: configuredReleaseServiceUrl,
+      termsUrl: configuredTermsUrl,
+      privacyPolicyUrl: configuredPrivacyPolicyUrl,
+      termsVersion: configuredTermsVersion,
+      privacyPolicyVersion: configuredPrivacyPolicyVersion,
     );
   }
 
@@ -64,6 +88,13 @@ final class AppConfig {
   // Publisher-controlled release origin. It deliberately does not change when
   // the user connects to a different self-hosted instance.
   final String releaseServiceBaseUrl;
+  final String termsUrl;
+  final String privacyPolicyUrl;
+  final String termsVersion;
+  final String privacyPolicyVersion;
+
+  bool get hasPublicLegalUrls =>
+      _isPublicHttpsUrl(termsUrl) && _isPublicHttpsUrl(privacyPolicyUrl);
 
   AppConfig forServer(Uri serverUri, {Uri? wsBaseUri}) {
     return AppConfig(
@@ -73,14 +104,23 @@ final class AppConfig {
       appVersion: appVersion,
       releaseChannel: releaseChannel,
       releaseServiceBaseUrl: releaseServiceBaseUrl,
+      termsUrl: termsUrl,
+      privacyPolicyUrl: privacyPolicyUrl,
+      termsVersion: termsVersion,
+      privacyPolicyVersion: privacyPolicyVersion,
     );
   }
 
   String get appTitle {
-    return 'Ứng dụng chat';
+    return 'WebTUI Chat';
   }
 
   bool get showDebugBanner => flavor != AppFlavor.prod;
+}
+
+bool _isPublicHttpsUrl(String value) {
+  final uri = Uri.tryParse(value.trim());
+  return uri != null && uri.scheme == 'https' && uri.host.isNotEmpty;
 }
 
 Uri _defaultRealtimeWsUri(Uri apiBaseUri) {

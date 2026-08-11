@@ -137,7 +137,7 @@ class MainActivity : FlutterActivity() {
             }
         }
         val prompt = BiometricPrompt.Builder(this)
-            .setTitle("Mở khóa WebTui Chat")
+            .setTitle("Mở khóa WebTUI Chat")
             .setSubtitle(reason?.takeIf { it.isNotBlank() } ?: "Xác thực sinh trắc học")
             .setNegativeButton("Dùng mã PIN", mainExecutor) { _, _ -> finish(false) }
             .build()

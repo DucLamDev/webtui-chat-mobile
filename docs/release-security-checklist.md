@@ -26,12 +26,23 @@ Use this checklist before any internal, beta, or production Android release.
 
 ## Release Gates
 
+- Third-party GitHub Actions in the release workflow are pinned to reviewed
+  immutable commit SHAs; version comments are informational only.
 - `dart format --set-exit-if-changed lib test integration_test tool`
 - `dart run tool/check_architecture.dart`
+- `dart run tool/check_mobile_release.dart`
+- `dart run tool/check_production_config.dart --platform=android` with the protected production environment loaded.
+- `dart run tool/check_public_release_endpoints.dart --platform=android` after backend/portal deployment.
 - `flutter analyze`
 - `flutter test`
 - `flutter test integration_test`
 - Signed APK/AAB SHA-256 checksum generated and stored with the artifact.
-- Mobile release manifest generated for `/mobile/releases` publishing.
-- Direct download page reads the same manifest and shows the APK checksum before install.
-- `chat.vpsttt.com/download/` and `/downloads/files/` contain only signed APK artifacts, checksums, static page assets, and public metadata.
+- Merged production manifest and 16 KB ZIP/ELF alignment checks pass.
+- AAB signature is verified and Play App Signing fingerprints match public `assetlinks.json`.
+- The CI upload-key APK is used only for in-job checks and is neither retained
+  in the release artifact nor published as a customer download.
+- If direct download is enabled, its APK signer exactly matches the Play
+  app-signing SHA-256; checksum and manifest are regenerated from that verified
+  Play-signed artifact.
+- `download.vpsttt.com/download/` and `/downloads/files/` contain only verified
+  app-signing-key APK artifacts, checksums, static assets, and public metadata.

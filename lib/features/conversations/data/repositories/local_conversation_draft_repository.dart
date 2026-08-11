@@ -1,13 +1,15 @@
 import '../../../../core/database/app_database.dart';
+import '../../../../core/security/instance_scope.dart';
 import '../../domain/repositories/conversation_repository.dart';
 
 final class LocalConversationDraftRepository
     implements ConversationDraftRepository {
-  const LocalConversationDraftRepository(this._database);
-
-  static const _scope = 'conversation_drafts';
+  const LocalConversationDraftRepository(this._database, this._instanceScope);
 
   final AppDatabase _database;
+  final InstanceScope _instanceScope;
+
+  String get _scope => _instanceScope.localScope('conversation_drafts');
 
   @override
   Future<String> readDraft({

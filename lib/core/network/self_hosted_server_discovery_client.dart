@@ -8,18 +8,22 @@ final class SelfHostedServerConnectionException implements Exception {
 }
 
 final class SelfHostedServerDiscoveryClient {
-  SelfHostedServerDiscoveryClient({Dio? dio})
-    : _dio =
+  SelfHostedServerDiscoveryClient({required String mobileVersion, Dio? dio})
+    : _mobileVersion = mobileVersion,
+      _dio =
           dio ??
           Dio(
             BaseOptions(
               connectTimeout: const Duration(seconds: 10),
               receiveTimeout: const Duration(seconds: 10),
-              followRedirects: true,
+              // Discovery establishes the trust boundary for every subsequent
+              // request. Never let another host answer through a redirect.
+              followRedirects: false,
             ),
           );
 
   final Dio _dio;
+  final String _mobileVersion;
 
   Future<SelfHostedServerDiscovery> discover(String rawDomain) async {
     final serverUri = parseSelfHostedServerUri(rawDomain);
@@ -35,6 +39,7 @@ final class SelfHostedServerDiscoveryClient {
       return SelfHostedServerDiscovery.fromApiResponse(
         payload: response.data,
         requestedServer: serverUri,
+        mobileVersion: _mobileVersion,
       );
     } on DioException {
       throw const SelfHostedServerConnectionException();

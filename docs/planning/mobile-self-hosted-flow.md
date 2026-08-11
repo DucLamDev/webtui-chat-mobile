@@ -1,6 +1,6 @@
 # Luồng mobile cho mô hình self-hosted
 
-Ngày cập nhật: 2026-07-24
+Ngày cập nhật: 2026-08-10
 
 ## Kết luận ngắn
 
@@ -153,8 +153,8 @@ Khuyến nghị cho MVP doanh nghiệp nhỏ:
 
 ## SSO/OIDC trên mobile
 
-Native Google Sign-In build-time không phù hợp làm cơ chế chung cho mọi server
-self-hosted, vì mỗi customer có cấu hình IdP/client khác nhau.
+Ứng dụng không tích hợp đăng nhập Google riêng. Mọi SSO của instance self-hosted
+được thực hiện qua contract OIDC chuẩn để mỗi customer tự cấu hình IdP/client.
 
 Luồng nên dùng:
 
@@ -173,14 +173,16 @@ của self-host.
 
 Mobile phải coi mỗi server là một ranh giới dữ liệu:
 
-- đổi server phải logout hoặc yêu cầu xác nhận;
-- xóa access token, refresh token, workspace id, WebSocket subscription;
+- đổi server phải đóng transport/WebSocket của runtime cũ trước khi kích hoạt
+  runtime mới;
+- cất phiên server cũ theo instance scope; logout chỉ xóa phiên đang active;
 - cache local phải scope theo server + workspace;
 - draft/outbox không được gửi nhầm sang server khác;
 - deep link phải khớp server hiện tại hoặc yêu cầu chuyển server trước.
 
-MVP có thể chỉ hỗ trợ một server active tại một thời điểm. Multi-account/multi-
-server là P1.
+App chỉ có một server active tại một thời điểm nhưng đã giữ được nhiều account/
+server trong secure registry. Mỗi lần khôi phục vẫn phải discovery live và khớp
+`instance_id + origin` trước khi đọc token, cache hoặc outbox của phiên đó.
 
 ## Refactor đã chốt trong code
 
@@ -193,18 +195,21 @@ server là P1.
 - Login controller lưu cả `runtime.api_base_url` và `runtime.ws_base_url` vào
   secure storage; realtime dùng WebSocket URL đang active.
 - UI chặn đăng ký mở khi server trả `registration_mode=invite_only|closed`.
-- Khi discovery sang server khác thành công, app xóa token, workspace và cache
-  phiên cũ trước khi kích hoạt runtime mới.
+- Khi discovery sang server khác thành công, app đóng runtime cũ, cất phiên cũ,
+  cô lập token/workspace/cache/draft/outbox theo instance scope rồi mới kích hoạt
+  runtime mới. Không xóa dữ liệu hợp lệ của account khác.
 - UI auth đổi label từ "Domain server" sang "Địa chỉ server".
 
 ## Refactor tiếp theo nên làm
 
 1. Tách màn "Chọn server" thành bước riêng trước login/register.
-2. Lưu đầy đủ discovery snapshot gồm capabilities và RTC ICE, không chỉ API/WS.
+2. Discovery snapshot typed, capability safety và instance scope đã có; tiếp tục
+   chaos-test restore/offline/process-death trên thiết bị thật.
 3. Ẩn/hiện SSO theo `/auth/oidc/providers`, không hiện Google button mặc định.
 4. Thêm scan QR server/invite.
-5. Bổ sung UI xác nhận server switch và hỗ trợ multi-account/multi-server.
-6. Chốt chiến lược push: không push nền, push relay, hoặc customer-branded build.
+5. Bổ sung UI xác nhận rõ hơn trước server switch và quản lý/xóa từng account đã lưu.
+6. Chạy ma trận push relay official và direct push của custom-branded build trên
+   Android/iOS thật; mọi payload bắt buộc mang authoritative `instance_id`.
 
 ## Acceptance cho mobile self-host MVP
 

@@ -13,6 +13,11 @@ final class RegisterCommand {
     required this.password,
     required this.confirmPassword,
     this.inviteToken = '',
+    this.termsAccepted = false,
+    this.termsVersion = '',
+    this.privacyAccepted = false,
+    this.privacyVersion = '',
+    this.remember = true,
   });
 
   final String displayName;
@@ -21,6 +26,11 @@ final class RegisterCommand {
   final String password;
   final String confirmPassword;
   final String inviteToken;
+  final bool termsAccepted;
+  final String termsVersion;
+  final bool privacyAccepted;
+  final String privacyVersion;
+  final bool remember;
 }
 
 final class RegisterUseCase {
@@ -43,6 +53,8 @@ final class RegisterUseCase {
     final password = command.password.trim();
     final confirmPassword = command.confirmPassword.trim();
     final inviteToken = command.inviteToken.trim();
+    final termsVersion = command.termsVersion.trim();
+    final privacyVersion = command.privacyVersion.trim();
 
     if (displayName.isEmpty || email.isEmpty || username.isEmpty) {
       return const FailureResult(
@@ -80,18 +92,50 @@ final class RegisterUseCase {
         ),
       );
     }
+    if (!command.termsAccepted ||
+        !command.privacyAccepted ||
+        termsVersion.isEmpty ||
+        privacyVersion.isEmpty) {
+      return const FailureResult(
+        Failure(
+          kind: FailureKind.validation,
+          message:
+              'Bạn cần đồng ý với Điều khoản sử dụng và Chính sách quyền riêng tư.',
+          code: 'REGISTER_LEGAL_ACCEPTANCE_REQUIRED',
+        ),
+      );
+    }
     try {
+      final guard = await _tokenRepository.captureMutationGuard();
+      if (guard == null) {
+        throw StateError('Active instance is not live validated.');
+      }
       final device = await _deviceIdentityRepository.currentDevice();
+      if (await _tokenRepository.captureMutationGuard() != guard) {
+        throw StateError('Active instance changed during registration.');
+      }
       final result = await _authRepository.register(
         displayName: displayName,
         email: email,
         username: username,
         password: password,
         inviteToken: inviteToken,
+        termsAccepted: command.termsAccepted,
+        termsVersion: termsVersion,
+        privacyAccepted: command.privacyAccepted,
+        privacyVersion: privacyVersion,
         device: device,
       );
       if (result case Success<AuthSession>(:final value)) {
-        await _tokenRepository.saveTokens(value.tokens);
+        if (!await _tokenRepository.saveTokensIfCurrent(
+          value.tokens,
+          guard,
+          persistence: command.remember
+              ? AuthTokenPersistence.durable
+              : AuthTokenPersistence.sessionOnly,
+        )) {
+          throw StateError('Active instance changed during registration.');
+        }
       }
       return result;
     } on Object catch (error) {

@@ -108,6 +108,7 @@ final class PushDeviceRegistration {
 final class NotificationTarget {
   const NotificationTarget({
     required this.workspaceId,
+    this.instanceId,
     this.channelId,
     this.messageId,
     this.deepLink,
@@ -140,6 +141,9 @@ final class NotificationTarget {
     ], fallback: linkTarget?.workspaceId ?? workspaceId);
     return NotificationTarget(
       workspaceId: resolvedWorkspaceId ?? '',
+      instanceId: _firstString(data, const [
+        'instance_id',
+      ], fallback: linkTarget?.instanceId),
       channelId: _firstString(data, const [
         'channel_id',
         'channelId',
@@ -196,6 +200,7 @@ final class NotificationTarget {
           uri.queryParameters['workspaceId'] ??
           uri.queryParameters['workspace_id'] ??
           fallbackWorkspaceId,
+      instanceId: uri.queryParameters['instance_id'],
       channelId: channelId ?? uri.queryParameters['channelId'],
       messageId:
           uri.queryParameters['messageId'] ?? uri.queryParameters['message_id'],
@@ -205,6 +210,7 @@ final class NotificationTarget {
   }
 
   final String workspaceId;
+  final String? instanceId;
   final String? channelId;
   final String? messageId;
   final String? deepLink;
@@ -219,6 +225,12 @@ final class NotificationTarget {
 
   bool get canOpenConversation =>
       workspaceId.trim().isNotEmpty && channelId?.trim().isNotEmpty == true;
+
+  bool isBoundToInstance(String activeInstanceId) {
+    final payloadInstanceId = instanceId?.trim().toLowerCase() ?? '';
+    return payloadInstanceId.isNotEmpty &&
+        payloadInstanceId == activeInstanceId.trim().toLowerCase();
+  }
 
   bool get isIncomingCall =>
       targetType == 'call' &&
