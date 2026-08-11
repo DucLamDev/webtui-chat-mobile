@@ -87,7 +87,8 @@ the backend or release infrastructure and must never be passed through
 `--dart-define`.
 
 The three known Android identifiers are fixed directly in the release workflow.
-Only `MOBILE_FIREBASE_API_KEY` must be added as a GitHub environment variable.
+Add `MOBILE_FIREBASE_API_KEY` as either a GitHub secret or a GitHub environment
+variable; the workflow prefers the secret when both are present.
 To print the exact five variable lines from the downloaded config without
 guessing or opening it manually, run:
 
