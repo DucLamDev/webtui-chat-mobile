@@ -44,5 +44,5 @@ Use this checklist before any internal, beta, or production Android release.
 - If direct download is enabled, its APK signer exactly matches the Play
   app-signing SHA-256; checksum and manifest are regenerated from that verified
   Play-signed artifact.
-- `download.vpsttt.com/download/` and `/downloads/files/` contain only verified
+- `download.webtui.vn/download/` and `/downloads/files/` contain only verified
   app-signing-key APK artifacts, checksums, static assets, and public metadata.

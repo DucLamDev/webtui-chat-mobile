@@ -13,7 +13,7 @@ final class AppConfig {
     required this.wsBaseUri,
     this.appVersion = '1.0.0',
     this.releaseChannel = 'internal',
-    this.releaseServiceBaseUrl = 'https://download.vpsttt.com',
+    this.releaseServiceBaseUrl = 'https://download.webtui.vn',
     this.termsUrl = '',
     this.privacyPolicyUrl = '',
     this.termsVersion = '2026-08-07',
@@ -39,7 +39,7 @@ final class AppConfig {
     );
     const configuredReleaseServiceUrl = String.fromEnvironment(
       'WEBTUI_RELEASE_SERVICE_URL',
-      defaultValue: 'https://download.vpsttt.com',
+      defaultValue: 'https://download.webtui.vn',
     );
     const configuredTermsUrl = String.fromEnvironment(
       'WEBTUI_TERMS_URL',

@@ -34,7 +34,7 @@ thủ công, còn URL API dưới đây là reference/reviewer instance của pu
 - Reference/reviewer API: `https://chat.vpsttt.com`.
 - Publisher-controlled App/Universal Link host: `chat.vpsttt.com`; customer
   domains được nhập thủ công và không cần association file của official app.
-- Portal/policy origin: `https://download.vpsttt.com`.
+- Portal/policy origin: `https://download.webtui.vn`.
 - Legal version của portal phải khớp chính xác version backend trả tại
   `/api/v1/auth/legal-documents`.
 - `MOBILE_TERMS_VERSION` và `MOBILE_PRIVACY_VERSION` phải khớp version hiển thị
@@ -53,7 +53,7 @@ Người sở hữu hệ thống phải cung cấp:
   support/privacy/safety;
 - Firebase Android/iOS client config, FCM service account; APNs/VoIP keys nếu
   phát hành iOS;
-- DNS/TLS và quyền deploy `chat.vpsttt.com`, `download.vpsttt.com`;
+- DNS/TLS và quyền deploy `chat.vpsttt.com`, `download.webtui.vn`;
 - reviewer workspace với một tài khoản chính không OTP và một tài khoản xóa
   thử riêng, không tài khoản nào chứa dữ liệu người dùng thật.
 
@@ -67,11 +67,11 @@ bộ `CHANGE_ME`. Sau deploy, năm URL public phải trả HTTP 200, TLS hợp l
 không yêu cầu đăng nhập:
 
 ```text
-https://download.vpsttt.com/privacy
-https://download.vpsttt.com/terms
-https://download.vpsttt.com/acceptable-use
-https://download.vpsttt.com/account-deletion
-https://download.vpsttt.com/support
+https://download.webtui.vn/privacy
+https://download.webtui.vn/terms
+https://download.webtui.vn/acceptable-use
+https://download.webtui.vn/account-deletion
+https://download.webtui.vn/support
 ```
 
 Với CH-Play, URL Android sau phải trả trực tiếp HTTP 200, JSON đúng, không

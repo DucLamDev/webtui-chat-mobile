@@ -531,7 +531,7 @@ void main() {
       label: 'Download page plan',
       file: File('docs/download-page-spec.md'),
       mustContain: const [
-        'download.vpsttt.com/download/',
+        'download.webtui.vn/download/',
         'SHA-256',
         'mobile-release-manifest.json',
       ],
@@ -542,7 +542,7 @@ void main() {
       mustContain: const [
         'Android Direct Download Plan',
         'signed Android APK',
-        'download.vpsttt.com/downloads/files/android/stable/',
+        'download.webtui.vn/downloads/files/android/stable/',
       ],
     ),
   ];

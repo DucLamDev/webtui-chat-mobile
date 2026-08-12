@@ -8,7 +8,7 @@ does not publish the CI upload-key APK.
 
 - Use Play Internal/Closed testing as the primary delivery channel.
 - If an approved public fallback is needed, give users one trusted URL:
-  `https://download.vpsttt.com/download/`.
+  `https://download.webtui.vn/download/`.
 - Publish only a universal APK exported from Play Console, or another APK whose
   signer is proven identical to the Play app-signing certificate.
 - Show version, channel, release notes, and SHA-256 checksum on the download
@@ -40,7 +40,7 @@ The page attempts to read manifests in this order:
 - Show Google Play only when `store_url` is present in the manifest.
 - Surface checksum, version, channel, and release notes near the action.
 - Use warning copy for sideload trust: install only from
-  `download.vpsttt.com/download/`, Firebase App Distribution, or Google Play links
+  `download.webtui.vn/download/`, Firebase App Distribution, or Google Play links
   controlled by the team.
 
 ## Publish Flow
@@ -52,9 +52,9 @@ The page attempts to read manifests in this order:
 4. Generate a fresh SHA-256 checksum and release manifest from that exported
    APK; do not reuse the CI upload-key APK checksum.
 5. Upload the verified APK and checksum to:
-   `download.vpsttt.com/downloads/files/android/stable/`.
+   `download.webtui.vn/downloads/files/android/stable/`.
 6. Upload the manifest as:
-   `download.vpsttt.com/download/android/stable/mobile-release-manifest.json`.
+   `download.webtui.vn/download/android/stable/mobile-release-manifest.json`.
 7. Keep the same manifest fields in the backend
    `/mobile/releases/{platform}/{channel}/{current_version}` response.
 8. On physical devices, prove direct-to-Play and Play-to-direct updates preserve

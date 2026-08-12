@@ -285,7 +285,7 @@ Quyết định M0:
 - Android là nền tảng phát hành trước.
 - `applicationId` production cần chốt ở M1 và không đổi sau khi đưa lên Play Console.
 - Target SDK/API phải kiểm tra lại trước release vì Google cập nhật hằng năm.
-- Build nội bộ dùng Firebase App Distribution và APK signed trên `download.vpsttt.com/download/`; CH Play làm ở M12.
+- Build nội bộ dùng Firebase App Distribution và APK signed trên `download.webtui.vn/download/`; CH Play làm ở M12.
 
 ## 11. Privacy và data retention
 

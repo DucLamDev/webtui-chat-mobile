@@ -1,7 +1,7 @@
 # Download Page Spec
 
 The public Android entrypoint should live at
-`https://download.vpsttt.com/download/` on the publisher portal. CH Play is the
+`https://download.webtui.vn/download/` on the publisher portal. CH Play is the
 primary production surface. A direct APK action remains disabled until the
 artifact is signed by the same app-signing certificate used by Play.
 
@@ -45,7 +45,7 @@ The APK fallback must show:
 - SHA-256 checksum.
 - Release notes.
 - Install guidance for internal testers.
-- Warning to install only from `download.vpsttt.com/download/` or trusted
+- Warning to install only from `download.webtui.vn/download/` or trusted
   Firebase/Play links.
 - Explicit confirmation that the signer matches the Play app-signing
   certificate; an upload-key signature is insufficient.

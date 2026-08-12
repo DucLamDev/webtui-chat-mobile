@@ -107,7 +107,7 @@ jobs:
           DEFINES=(
             --dart-define="WEBTUI_APP_VERSION=$VERSION"
             --dart-define=WEBTUI_RELEASE_CHANNEL=stable
-            --dart-define=WEBTUI_RELEASE_SERVICE_URL=https://download.vpsttt.com
+            --dart-define=WEBTUI_RELEASE_SERVICE_URL=https://download.webtui.vn
             --dart-define="WEBTUI_API_BASE_URL=$WEBTUI_API_BASE_URL"
             --dart-define="WEBTUI_PRIVACY_POLICY_URL=$WEBTUI_PRIVACY_POLICY_URL"
             --dart-define="WEBTUI_TERMS_URL=$WEBTUI_TERMS_URL"
@@ -227,7 +227,7 @@ jobs:
           DEFINES=(
             --dart-define="WEBTUI_APP_VERSION=$BOOTSTRAP_VERSION"
             --dart-define=WEBTUI_RELEASE_CHANNEL=stable
-            --dart-define=WEBTUI_RELEASE_SERVICE_URL=https://download.vpsttt.com
+            --dart-define=WEBTUI_RELEASE_SERVICE_URL=https://download.webtui.vn
             --dart-define="WEBTUI_API_BASE_URL=$WEBTUI_API_BASE_URL"
             --dart-define="WEBTUI_PRIVACY_POLICY_URL=$WEBTUI_PRIVACY_POLICY_URL"
             --dart-define="WEBTUI_TERMS_URL=$WEBTUI_TERMS_URL"
@@ -339,7 +339,7 @@ jobs:
             --build-number "$BUILD_NUMBER" \
             --dart-define="WEBTUI_APP_VERSION=$VERSION" \
             --dart-define=WEBTUI_RELEASE_CHANNEL=stable \
-            --dart-define=WEBTUI_RELEASE_SERVICE_URL=https://download.vpsttt.com \
+            --dart-define=WEBTUI_RELEASE_SERVICE_URL=https://download.webtui.vn \
             --dart-define="WEBTUI_API_BASE_URL=$WEBTUI_API_BASE_URL" \
             --dart-define="WEBTUI_PRIVACY_POLICY_URL=$WEBTUI_PRIVACY_POLICY_URL" \
             --dart-define="WEBTUI_TERMS_URL=$WEBTUI_TERMS_URL" \

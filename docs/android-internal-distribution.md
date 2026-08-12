@@ -44,13 +44,13 @@ Only after comparing the APK signer SHA-256 to the Play app-signing certificate
 may a release manager publish this layout:
 
 ```text
-download.vpsttt.com/download/
+download.webtui.vn/download/
   index.html
   styles.css
   app.js
   assets/android-chat-preview.png
 
-download.vpsttt.com/downloads/files/
+download.webtui.vn/downloads/files/
   android/stable/app-prod-release.apk
   android/stable/app-prod-release.apk.sha256
   android/stable/mobile-release-manifest.json
