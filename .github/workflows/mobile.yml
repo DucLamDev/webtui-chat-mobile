@@ -82,6 +82,12 @@ jobs:
         run: |
           test -n "$ANDROID_KEYSTORE_BASE64"
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/release.jks
+      - name: Validate Android signing key
+        run: |
+          if ! keytool -list -keystore android/app/release.jks -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 must be the base64 content of android/app/upload-keystore.jks, and ANDROID_KEYSTORE_PASSWORD/ANDROID_KEY_ALIAS must match that keystore."
+            exit 1
+          fi
       - run: flutter pub get --enforce-lockfile
       - name: Validate production configuration
         run: dart run tool/check_production_config.dart --platform=android
@@ -200,6 +206,12 @@ jobs:
           test -n "$ANDROID_KEYSTORE_BASE64"
           umask 077
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/release.jks
+      - name: Validate permanent Android upload key
+        run: |
+          if ! keytool -list -keystore android/app/release.jks -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 must be the base64 content of android/app/upload-keystore.jks, and ANDROID_KEYSTORE_PASSWORD/ANDROID_KEY_ALIAS must match that keystore."
+            exit 1
+          fi
       - run: flutter pub get --enforce-lockfile
       - name: Validate Internal-only Play signing bootstrap configuration
         run: dart run tool/check_production_config.dart --platform=android --play-signing-bootstrap
