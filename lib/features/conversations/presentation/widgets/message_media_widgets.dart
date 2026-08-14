@@ -157,6 +157,7 @@ class _MessageImageAttachmentViewState
   static const _downloader = RedirectSafeFileDownloader();
 
   Uri? _imageUri;
+  File? _localImageFile;
   int _loadGeneration = 0;
 
   @override
@@ -170,6 +171,8 @@ class _MessageImageAttachmentViewState
     super.didUpdateWidget(oldWidget);
     if (oldWidget.attachment.file.downloadPath !=
             widget.attachment.file.downloadPath ||
+        oldWidget.attachment.file.localPath !=
+            widget.attachment.file.localPath ||
         oldWidget.attachment.file.byteSize != widget.attachment.file.byteSize ||
         oldWidget.attachment.file.mimeType != widget.attachment.file.mimeType ||
         oldWidget.apiBaseUri != widget.apiBaseUri ||
@@ -181,6 +184,15 @@ class _MessageImageAttachmentViewState
 
   void _reload() {
     _loadGeneration++;
+    final localPath = widget.attachment.file.localPath?.trim();
+    if (widget.attachment.isImage &&
+        localPath != null &&
+        localPath.isNotEmpty) {
+      _localImageFile = File(localPath);
+      _imageUri = null;
+      return;
+    }
+    _localImageFile = null;
     final uri = attachmentDownloadUri(widget.attachment, widget.apiBaseUri);
     _imageUri =
         uri != null &&
@@ -226,12 +238,21 @@ class _MessageImageAttachmentViewState
   @override
   Widget build(BuildContext context) {
     final uri = _imageUri;
+    final localImageFile = _localImageFile;
     final generation = _loadGeneration;
     final placeholder = _ImagePlaceholder(
       height: widget.height,
       width: widget.maxWidth,
     );
-    final image = uri == null
+    final image = localImageFile != null
+        ? Image.file(
+            localImageFile,
+            width: widget.maxWidth,
+            height: widget.height,
+            fit: widget.fit,
+            errorBuilder: (_, _, _) => placeholder,
+          )
+        : uri == null
         ? placeholder
         : WebTuiOwnedDecodedImage(
             requestKey:

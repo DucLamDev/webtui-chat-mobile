@@ -30,8 +30,9 @@ final class ImagePickerMessageAttachmentRepository
         source: source == MessageAttachmentPickSource.camera
             ? ImageSource.camera
             : ImageSource.gallery,
-        imageQuality: 86,
-        maxWidth: 1920,
+        imageQuality: 82,
+        maxHeight: 1600,
+        maxWidth: 1600,
       );
       if (image == null) {
         return const Success(null);

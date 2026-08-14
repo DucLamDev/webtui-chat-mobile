@@ -5,11 +5,19 @@ final class MessageOutboxAttachment {
     required this.fileId,
     required this.name,
     this.sortOrder = 0,
+    this.mimeType = '',
+    this.byteSize = 0,
+    this.downloadPath = '',
+    this.localPath,
   });
 
   final String fileId;
   final String name;
   final int sortOrder;
+  final String mimeType;
+  final int byteSize;
+  final String downloadPath;
+  final String? localPath;
 }
 
 final class MessageOutboxItem {

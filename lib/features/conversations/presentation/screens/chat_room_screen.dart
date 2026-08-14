@@ -604,78 +604,16 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
     ChatRoomController controller,
     String initialQuery,
   ) async {
-    final textController = TextEditingController(text: initialQuery);
     final query = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       backgroundColor: WebTuiColors.surface,
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              WebTuiSpacing.lg,
-              WebTuiSpacing.sm,
-              WebTuiSpacing.lg,
-              MediaQuery.viewInsetsOf(context).bottom + WebTuiSpacing.lg,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Tìm trong tin nhắn',
-                  style: WebTuiTypography.titleMedium.copyWith(
-                    color: WebTuiColors.textPrimary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: WebTuiSpacing.md),
-                TextField(
-                  controller: textController,
-                  autofocus: true,
-                  textInputAction: TextInputAction.search,
-                  onSubmitted: (value) => Navigator.of(context).pop(value),
-                  decoration: InputDecoration(
-                    hintText: 'Nhập từ khóa...',
-                    prefixIcon: const Icon(CupertinoIcons.search, size: 19),
-                    filled: true,
-                    fillColor: WebTuiColors.backgroundMuted,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(WebTuiRadii.lg),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: WebTuiSpacing.md,
-                      vertical: WebTuiSpacing.sm,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: WebTuiSpacing.md),
-                Row(
-                  children: [
-                    TextButton(
-                      onPressed: () {
-                        controller.clearSearch();
-                        Navigator.of(context).pop();
-                      },
-                      child: const Text('Xóa tìm kiếm'),
-                    ),
-                    const Spacer(),
-                    FilledButton(
-                      onPressed: () =>
-                          Navigator.of(context).pop(textController.text),
-                      child: const Text('Tìm'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+      builder: (_) => _MessageSearchSheet(
+        initialQuery: initialQuery,
+        onClear: controller.clearSearch,
+      ),
     );
-    textController.dispose();
     final normalized = query?.trim();
     if (normalized != null && normalized.isNotEmpty) {
       await controller.search(normalized);
@@ -882,6 +820,101 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         );
       }
     }
+  }
+}
+
+class _MessageSearchSheet extends StatefulWidget {
+  const _MessageSearchSheet({
+    required this.initialQuery,
+    required this.onClear,
+  });
+
+  final String initialQuery;
+  final VoidCallback onClear;
+
+  @override
+  State<_MessageSearchSheet> createState() => _MessageSearchSheetState();
+}
+
+class _MessageSearchSheetState extends State<_MessageSearchSheet> {
+  late final TextEditingController _textController;
+
+  @override
+  void initState() {
+    super.initState();
+    _textController = TextEditingController(text: widget.initialQuery);
+  }
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          WebTuiSpacing.lg,
+          WebTuiSpacing.sm,
+          WebTuiSpacing.lg,
+          MediaQuery.viewInsetsOf(context).bottom + WebTuiSpacing.lg,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Tìm trong tin nhắn',
+              style: WebTuiTypography.titleMedium.copyWith(
+                color: WebTuiColors.textPrimary,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: WebTuiSpacing.md),
+            TextField(
+              controller: _textController,
+              autofocus: true,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (value) => Navigator.of(context).pop(value),
+              decoration: InputDecoration(
+                hintText: 'Nhập từ khóa...',
+                prefixIcon: const Icon(CupertinoIcons.search, size: 19),
+                filled: true,
+                fillColor: WebTuiColors.backgroundMuted,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(WebTuiRadii.lg),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: WebTuiSpacing.md,
+                  vertical: WebTuiSpacing.sm,
+                ),
+              ),
+            ),
+            const SizedBox(height: WebTuiSpacing.md),
+            Row(
+              children: [
+                TextButton(
+                  onPressed: () {
+                    widget.onClear();
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Xóa tìm kiếm'),
+                ),
+                const Spacer(),
+                FilledButton(
+                  onPressed: () =>
+                      Navigator.of(context).pop(_textController.text),
+                  child: const Text('Tìm'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -3198,26 +3231,29 @@ class _MessageRow extends StatelessWidget {
       );
     }
     if (outgoing) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (showBody)
-            WebTuiMessageBubble(
-              text: text,
-              textSpan: message.isDeleted
-                  ? null
-                  : _messageTextSpan(message, true),
-              timeLabel: timeLabel,
-              outgoing: true,
-              statusLabel: _deliveryStatusLabel(message),
-              reactions: reactions,
-            ),
-          if (message.attachments.isNotEmpty)
-            _MessageAttachmentList(
-              attachments: message.attachments,
-              outgoing: true,
-            ),
-        ],
+      return Align(
+        alignment: Alignment.centerRight,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            if (showBody)
+              WebTuiMessageBubble(
+                text: text,
+                textSpan: message.isDeleted
+                    ? null
+                    : _messageTextSpan(message, true),
+                timeLabel: timeLabel,
+                outgoing: true,
+                statusLabel: _deliveryStatusLabel(message),
+                reactions: reactions,
+              ),
+            if (message.attachments.isNotEmpty)
+              _MessageAttachmentList(
+                attachments: message.attachments,
+                outgoing: true,
+              ),
+          ],
+        ),
       );
     }
     return Row(

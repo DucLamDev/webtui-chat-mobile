@@ -239,59 +239,68 @@ class _CollaborationRoomSheetState
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: MediaQuery.sizeOf(context).height * 0.92,
-      child: Column(
-        children: [
-          _buildHeader(),
-          if (_loading)
-            const Expanded(child: Center(child: CircularProgressIndicator()))
-          else if (_error != null)
-            Expanded(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(WebTuiSpacing.xl),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.cloud_off_rounded,
-                        color: WebTuiColors.textMuted,
-                        size: 38,
-                      ),
-                      const SizedBox(height: WebTuiSpacing.md),
-                      Text(
-                        _error!,
-                        textAlign: TextAlign.center,
-                        style: WebTuiTypography.bodySmall,
-                      ),
-                      const SizedBox(height: WebTuiSpacing.md),
-                      FilledButton(
-                        onPressed: _load,
-                        child: const Text('Thử lại'),
-                      ),
-                    ],
+    final media = MediaQuery.of(context);
+    final safeHeight = media.size.height - media.padding.top;
+    final sheetHeight = (safeHeight - WebTuiSpacing.sm).clamp(
+      media.size.height * 0.78,
+      media.size.height * 0.9,
+    );
+    return SafeArea(
+      top: false,
+      child: SizedBox(
+        height: sheetHeight,
+        child: Column(
+          children: [
+            _buildHeader(),
+            if (_loading)
+              const Expanded(child: Center(child: CircularProgressIndicator()))
+            else if (_error != null)
+              Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(WebTuiSpacing.xl),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.cloud_off_rounded,
+                          color: WebTuiColors.textMuted,
+                          size: 38,
+                        ),
+                        const SizedBox(height: WebTuiSpacing.md),
+                        Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: WebTuiTypography.bodySmall,
+                        ),
+                        const SizedBox(height: WebTuiSpacing.md),
+                        FilledButton(
+                          onPressed: _load,
+                          child: const Text('Thử lại'),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
+              )
+            else ...[
+              _buildTabs(),
+              Expanded(
+                child: IndexedStack(
+                  index: _tab,
+                  children: [
+                    _buildTalkHomeTab(),
+                    _buildMeetingTab(),
+                    _buildSharedItemsTab(),
+                    _buildNotesTab(),
+                    _buildWhiteboardTab(),
+                    _buildTasksTab(),
+                  ],
+                ),
               ),
-            )
-          else ...[
-            _buildTabs(),
-            Expanded(
-              child: IndexedStack(
-                index: _tab,
-                children: [
-                  _buildTalkHomeTab(),
-                  _buildMeetingTab(),
-                  _buildSharedItemsTab(),
-                  _buildNotesTab(),
-                  _buildWhiteboardTab(),
-                  _buildTasksTab(),
-                ],
-              ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -367,18 +376,29 @@ class _CollaborationRoomSheetState
       (Icons.draw_outlined, 'Bảng trắng'),
       (Icons.task_alt_outlined, 'Task'),
     ];
-    return SizedBox(
-      height: 52,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.lg),
-        scrollDirection: Axis.horizontal,
-        itemCount: tabs.length,
-        separatorBuilder: (_, _) => const SizedBox(width: WebTuiSpacing.xs),
-        itemBuilder: (context, index) => ChoiceChip(
-          selected: _tab == index,
-          avatar: Icon(tabs[index].$1, size: 17),
-          label: Text(tabs[index].$2),
-          onSelected: (_) => setState(() => _tab = index),
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: WebTuiColors.surface,
+        border: Border(bottom: BorderSide(color: WebTuiColors.border)),
+      ),
+      child: SizedBox(
+        height: 60,
+        child: ListView.separated(
+          padding: const EdgeInsets.fromLTRB(
+            WebTuiSpacing.lg,
+            WebTuiSpacing.sm,
+            WebTuiSpacing.lg,
+            WebTuiSpacing.sm,
+          ),
+          scrollDirection: Axis.horizontal,
+          itemCount: tabs.length,
+          separatorBuilder: (_, _) => const SizedBox(width: WebTuiSpacing.xs),
+          itemBuilder: (context, index) => ChoiceChip(
+            selected: _tab == index,
+            avatar: Icon(tabs[index].$1, size: 17),
+            label: Text(tabs[index].$2),
+            onSelected: (_) => setState(() => _tab = index),
+          ),
         ),
       ),
     );
@@ -391,7 +411,12 @@ class _CollaborationRoomSheetState
       onRefresh: _loadAdvanced,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(WebTuiSpacing.lg),
+        padding: const EdgeInsets.fromLTRB(
+          WebTuiSpacing.lg,
+          WebTuiSpacing.md,
+          WebTuiSpacing.lg,
+          WebTuiSpacing.lg,
+        ),
         children: [
           _sectionCard(
             icon: Icons.event_available_outlined,

@@ -1481,11 +1481,12 @@ List<ChatMessage> _mergeChronological(
 }
 
 ChatMessage _optimisticMessage(MessageOutboxItem item, String? currentUserId) {
+  final localMessageId = 'local-${item.clientMessageId}';
   return ChatMessage(
-    id: 'local-${item.clientMessageId}',
+    id: localMessageId,
     workspaceId: item.workspaceId,
     channelId: item.channelId,
-    kind: 'text',
+    kind: item.attachments.isEmpty ? 'text' : 'file',
     body: item.body,
     createdAt: item.createdAt,
     senderId: currentUserId?.trim().isNotEmpty == true
@@ -1496,8 +1497,42 @@ ChatMessage _optimisticMessage(MessageOutboxItem item, String? currentUserId) {
       'client_message_id': item.clientMessageId,
       'delivery_status': item.status.name,
     },
+    attachments: _optimisticAttachments(item, messageId: localMessageId),
     isMine: true,
   );
+}
+
+List<MessageAttachment> _optimisticAttachments(
+  MessageOutboxItem item, {
+  required String messageId,
+}) {
+  if (item.attachments.isEmpty) {
+    return const [];
+  }
+  final attachments = [...item.attachments]
+    ..sort((left, right) => left.sortOrder.compareTo(right.sortOrder));
+  return attachments
+      .map(
+        (attachment) => MessageAttachment(
+          id: 'local-${item.clientMessageId}-${attachment.fileId}-${attachment.sortOrder}',
+          workspaceId: item.workspaceId,
+          messageId: messageId,
+          fileId: attachment.fileId,
+          sortOrder: attachment.sortOrder,
+          createdAt: item.createdAt,
+          file: UploadedMessageFile(
+            id: attachment.fileId,
+            name: attachment.name,
+            mimeType: attachment.mimeType,
+            byteSize: attachment.byteSize,
+            downloadPath: attachment.downloadPath,
+            createdAt: item.createdAt,
+            status: 'local-preview',
+            localPath: attachment.localPath,
+          ),
+        ),
+      )
+      .toList(growable: false);
 }
 
 List<ChatMessage> _setOptimisticDeliveryStatus(

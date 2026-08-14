@@ -5,6 +5,7 @@ import 'package:webtui_chat/core/security/secure_key_value_store.dart';
 import 'package:webtui_chat/features/conversations/application/use_cases/message_outbox_use_cases.dart';
 import 'package:webtui_chat/features/conversations/data/datasources/message_outbox_data_source.dart';
 import 'package:webtui_chat/features/conversations/data/repositories/local_message_outbox_repository.dart';
+import 'package:webtui_chat/features/conversations/domain/entities/chat_message.dart';
 import 'package:webtui_chat/features/conversations/domain/entities/message_outbox_item.dart';
 
 void main() {
@@ -31,7 +32,11 @@ void main() {
       silent: true,
       attachments: const [
         MessageOutboxAttachment(
+          byteSize: 12345,
+          downloadPath: '/api/v1/workspaces/workspace-1/files/file-1/download',
           fileId: 'file-1',
+          localPath: '/local/photo.jpg',
+          mimeType: 'image/jpeg',
           name: 'photo.jpg',
           sortOrder: 0,
         ),
@@ -54,6 +59,13 @@ void main() {
     expect(restored, hasLength(1));
     expect(restored.single.clientMessageId, 'client-1');
     expect(restored.single.attachments.single.fileId, 'file-1');
+    expect(restored.single.attachments.single.mimeType, 'image/jpeg');
+    expect(restored.single.attachments.single.byteSize, 12345);
+    expect(
+      restored.single.attachments.single.downloadPath,
+      '/api/v1/workspaces/workspace-1/files/file-1/download',
+    );
+    expect(restored.single.attachments.single.localPath, '/local/photo.jpg');
     expect(restored.single.status, MessageOutboxStatus.failed);
     expect(restored.single.silent, isTrue);
     expect(otherChannel, isEmpty);
@@ -89,6 +101,42 @@ void main() {
     expect(item.attemptCount, 0);
     expect(restored.single.clientMessageId, 'mobile-client-1');
     expect(restored.single.silent, isTrue);
+  });
+
+  test('uploaded outbox attachments keep local image preview metadata', () {
+    final now = DateTime.utc(2026, 8, 13, 10);
+
+    final attachments = uploadedOutboxAttachments([
+      MessageAttachmentUploadItem(
+        clientAttachmentId: 'client-attachment-1',
+        status: MessageAttachmentUploadStatus.uploaded,
+        picked: const PickedMessageAttachment(
+          path: '/device/DCIM/photo.jpg',
+          fileName: 'photo.jpg',
+          mimeType: 'image/jpeg',
+          byteSize: 12345,
+          kind: MessageAttachmentKind.image,
+        ),
+        uploadedFile: UploadedMessageFile(
+          id: 'file-1',
+          name: 'photo.jpg',
+          mimeType: 'image/jpeg',
+          byteSize: 12345,
+          downloadPath: '/api/v1/workspaces/workspace-1/files/file-1/download',
+          createdAt: now,
+        ),
+      ),
+    ]);
+
+    expect(attachments, hasLength(1));
+    expect(attachments.single.fileId, 'file-1');
+    expect(attachments.single.mimeType, 'image/jpeg');
+    expect(attachments.single.byteSize, 12345);
+    expect(
+      attachments.single.downloadPath,
+      '/api/v1/workspaces/workspace-1/files/file-1/download',
+    );
+    expect(attachments.single.localPath, '/device/DCIM/photo.jpg');
   });
 
   test('does not lose outbox items when writes overlap', () async {

@@ -132,6 +132,7 @@ final class UploadedMessageFile {
     required this.downloadPath,
     required this.createdAt,
     this.status = 'ready',
+    this.localPath,
   });
 
   final String id;
@@ -141,6 +142,7 @@ final class UploadedMessageFile {
   final String downloadPath;
   final DateTime createdAt;
   final String status;
+  final String? localPath;
 }
 
 final class MessageAttachment {

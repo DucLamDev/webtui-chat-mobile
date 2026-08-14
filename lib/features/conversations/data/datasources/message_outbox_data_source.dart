@@ -212,6 +212,10 @@ Map<String, Object?> _attachmentToJson(MessageOutboxAttachment attachment) {
     'fileId': attachment.fileId,
     'name': attachment.name,
     'sortOrder': attachment.sortOrder,
+    'mimeType': attachment.mimeType,
+    'byteSize': attachment.byteSize,
+    'downloadPath': attachment.downloadPath,
+    'localPath': attachment.localPath,
   };
 }
 
@@ -220,6 +224,10 @@ MessageOutboxAttachment _attachmentFromJson(Map<String, Object?> json) {
     fileId: _string(json['fileId']),
     name: _string(json['name']),
     sortOrder: _int(json['sortOrder']),
+    mimeType: _string(json['mimeType']),
+    byteSize: _int(json['byteSize']),
+    downloadPath: _string(json['downloadPath']),
+    localPath: _nullableString(json['localPath']),
   );
 }
 

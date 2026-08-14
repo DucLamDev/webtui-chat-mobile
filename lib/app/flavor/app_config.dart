@@ -14,8 +14,8 @@ final class AppConfig {
     this.appVersion = '1.0.0',
     this.releaseChannel = 'internal',
     this.releaseServiceBaseUrl = 'https://download.webtui.vn',
-    this.termsUrl = '',
-    this.privacyPolicyUrl = '',
+    this.termsUrl = 'https://download.webtui.vn/terms',
+    this.privacyPolicyUrl = 'https://download.webtui.vn/privacy',
     this.termsVersion = '2026-08-07',
     this.privacyPolicyVersion = '2026-08-07',
   });
@@ -43,11 +43,11 @@ final class AppConfig {
     );
     const configuredTermsUrl = String.fromEnvironment(
       'WEBTUI_TERMS_URL',
-      defaultValue: '',
+      defaultValue: 'https://download.webtui.vn/terms',
     );
     const configuredPrivacyPolicyUrl = String.fromEnvironment(
       'WEBTUI_PRIVACY_POLICY_URL',
-      defaultValue: '',
+      defaultValue: 'https://download.webtui.vn/privacy',
     );
     const configuredTermsVersion = String.fromEnvironment(
       'WEBTUI_TERMS_VERSION',

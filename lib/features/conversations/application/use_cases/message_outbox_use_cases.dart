@@ -111,14 +111,21 @@ List<MessageOutboxAttachment> uploadedOutboxAttachments(
 ) {
   final result = <MessageOutboxAttachment>[];
   for (var index = 0; index < items.length; index += 1) {
+    final item = items[index];
     final file = items[index].uploadedFile;
-    if (items[index].status == MessageAttachmentUploadStatus.uploaded &&
-        file != null) {
+    final picked = item.picked;
+    if (item.status == MessageAttachmentUploadStatus.uploaded && file != null) {
       result.add(
         MessageOutboxAttachment(
           fileId: file.id,
           name: file.name,
           sortOrder: index,
+          mimeType: file.mimeType,
+          byteSize: file.byteSize,
+          downloadPath: file.downloadPath,
+          localPath: picked?.kind == MessageAttachmentKind.image
+              ? picked?.path
+              : null,
         ),
       );
     }
