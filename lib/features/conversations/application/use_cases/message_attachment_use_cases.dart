@@ -66,7 +66,10 @@ final class UploadMessageAttachmentUseCase {
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'text/csv',
+    'text/markdown',
     'text/plain',
+    'text/x-markdown',
   };
 
   Future<Result<UploadedMessageFile>> execute({

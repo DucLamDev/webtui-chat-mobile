@@ -21,18 +21,19 @@ final class ImagePickerMessageAttachmentRepository
   ) async {
     try {
       if (source == MessageAttachmentPickSource.file) {
-        return _pickFile();
+        return await _pickFile();
       }
       if (source == MessageAttachmentPickSource.video) {
-        return _pickVideo();
+        return await _pickVideo();
       }
+      final documentScan = source == MessageAttachmentPickSource.documentScan;
       final image = await _picker.pickImage(
-        source: source == MessageAttachmentPickSource.camera
+        source: source == MessageAttachmentPickSource.camera || documentScan
             ? ImageSource.camera
             : ImageSource.gallery,
-        imageQuality: 82,
-        maxHeight: 1600,
-        maxWidth: 1600,
+        imageQuality: documentScan ? 92 : 82,
+        maxHeight: documentScan ? 2400 : 1600,
+        maxWidth: documentScan ? 2400 : 1600,
       );
       if (image == null) {
         return const Success(null);
@@ -42,7 +43,11 @@ final class ImagePickerMessageAttachmentRepository
       return Success(
         PickedMessageAttachment(
           path: image.path,
-          fileName: image.name.isEmpty ? _fallbackName(image.path) : image.name,
+          fileName: documentScan
+              ? _scanName(image.path)
+              : image.name.isEmpty
+              ? _fallbackName(image.path)
+              : image.name,
           mimeType: image.mimeType ?? _mimeFromPath(image.path),
           byteSize: stat.size,
           kind: MessageAttachmentKind.image,
@@ -88,11 +93,14 @@ final class ImagePickerMessageAttachmentRepository
       type: FileType.custom,
       allowedExtensions: const [
         'aac',
+        'csv',
         'doc',
         'docx',
         'json',
         'm4a',
         'm4v',
+        'md',
+        'markdown',
         'mkv',
         'mov',
         'mp3',
@@ -135,10 +143,21 @@ String _fallbackName(String path) {
       : name;
 }
 
+String _scanName(String path) {
+  final extension = _extensionFromPath(path);
+  final normalizedExtension = switch (extension) {
+    'jpeg' || 'jpg' => 'jpg',
+    'png' => 'png',
+    _ => 'jpg',
+  };
+  return 'scan_document_${DateTime.now().millisecondsSinceEpoch}.$normalizedExtension';
+}
+
 String _mimeFromPath(String path) {
-  final extension = path.split('.').last.toLowerCase();
+  final extension = _extensionFromPath(path);
   return switch (extension) {
     'aac' => 'audio/aac',
+    'csv' => 'text/csv',
     'doc' => 'application/msword',
     'docx' =>
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -148,6 +167,7 @@ String _mimeFromPath(String path) {
     'json' => 'application/json',
     'm4a' => 'audio/mp4',
     'm4v' => 'video/x-m4v',
+    'md' || 'markdown' => 'text/markdown',
     'mkv' => 'video/x-matroska',
     'mov' => 'video/quicktime',
     'mp3' => 'audio/mpeg',
@@ -168,6 +188,16 @@ String _mimeFromPath(String path) {
     'zip' => 'application/zip',
     _ => 'application/octet-stream',
   };
+}
+
+String _extensionFromPath(String path) {
+  final normalized = path.replaceAll('\\', '/');
+  final name = normalized.split('/').last;
+  final dot = name.lastIndexOf('.');
+  if (dot < 0 || dot == name.length - 1) {
+    return '';
+  }
+  return name.substring(dot + 1).toLowerCase();
 }
 
 MessageAttachmentKind _kindForMime(String mimeType) {

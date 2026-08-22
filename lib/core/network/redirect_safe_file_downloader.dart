@@ -107,7 +107,7 @@ final class RedirectSafeFileDownloader {
       if (await target.exists()) {
         await target.delete();
       }
-      return part.rename(target.path);
+      return await part.rename(target.path);
     } on RedirectSafeDownloadException {
       rethrow;
     } on Object catch (error) {

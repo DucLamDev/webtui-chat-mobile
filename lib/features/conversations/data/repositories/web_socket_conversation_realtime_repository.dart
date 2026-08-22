@@ -38,9 +38,14 @@ final class WebSocketConversationRealtimeRepository
 
   WebSocket? _socket;
   StreamController<ConversationRealtimeEvent>? _controller;
-  String? _room;
+  final Set<String> _joinedRooms = <String>{};
+  String? _activeWorkspaceId;
   bool _disposed = false;
+  bool _connecting = false;
   int _reconnectAttempt = 0;
+  Timer? _reconnectTimer;
+  Timer? _heartbeatTimer;
+  DateTime? _lastPongAt;
 
   @override
   Stream<ConversationRealtimeEvent> subscribeToUser({
@@ -62,22 +67,26 @@ final class WebSocketConversationRealtimeRepository
     required String channelId,
   }) {
     _disposed = false;
-    final nextRoom = _roomFor(workspaceId, channelId);
-    if (_room != null && _room != nextRoom) {
-      _closeCurrentConnection(leaveRoom: true, closeController: true);
+    if (_activeWorkspaceId != null && _activeWorkspaceId != workspaceId) {
+      _closeCurrentConnection(leaveRooms: true, closeController: true);
     }
-    _room = nextRoom;
-    _controller ??= StreamController<ConversationRealtimeEvent>.broadcast(
-      onListen: () {
-        unawaited(_connect(workspaceId: workspaceId, channelId: channelId));
-      },
-      onCancel: () {
-        if (_controller?.hasListener == false) {
-          unawaited(disconnect());
-        }
-      },
+    _activeWorkspaceId = workspaceId;
+    final controller = _ensureController();
+    final normalizedChannelId = channelId.trim();
+    if (normalizedChannelId.isNotEmpty) {
+      final room = _roomFor(workspaceId, normalizedChannelId);
+      _joinedRooms.add(room);
+      _joinRoomIfOpen(room);
+    }
+    unawaited(_ensureConnected(workspaceId: workspaceId));
+
+    final events = controller.stream.where(
+      (event) => event.workspaceId == workspaceId,
     );
-    return _controller!.stream;
+    if (normalizedChannelId.isEmpty) {
+      return events;
+    }
+    return events.where((event) => event.channelId == normalizedChannelId);
   }
 
   @override
@@ -86,71 +95,99 @@ final class WebSocketConversationRealtimeRepository
     required String channelId,
     required bool isTyping,
   }) async {
-    final socket = _socket;
-    if (socket == null || socket.readyState != WebSocket.open) {
+    final room = _roomFor(workspaceId, channelId);
+    _joinedRooms.add(room);
+    _joinRoomIfOpen(room);
+    if (!_sendCommand({
+      'type': isTyping ? 'TypingStarted' : 'TypingStopped',
+      'room': room,
+    })) {
       return;
     }
-    socket.add(
-      jsonEncode({
-        'type': isTyping ? 'TypingStarted' : 'TypingStopped',
-        'room': _roomFor(workspaceId, channelId),
-      }),
-    );
   }
 
   @override
   Future<void> disconnect() async {
     _disposed = true;
-    _closeCurrentConnection(leaveRoom: true, closeController: true);
+    _closeCurrentConnection(leaveRooms: true, closeController: true);
   }
 
-  Future<void> _connect({
-    required String workspaceId,
-    required String channelId,
-  }) async {
-    if (_disposed) {
+  StreamController<ConversationRealtimeEvent> _ensureController() {
+    return _controller ??=
+        StreamController<ConversationRealtimeEvent>.broadcast(
+          onListen: () {
+            final workspaceId = _activeWorkspaceId;
+            if (workspaceId != null && workspaceId.isNotEmpty) {
+              unawaited(_ensureConnected(workspaceId: workspaceId));
+            }
+          },
+          onCancel: () {
+            if (_controller?.hasListener == false) {
+              unawaited(disconnect());
+            }
+          },
+        );
+  }
+
+  Future<void> _ensureConnected({required String workspaceId}) async {
+    if (_disposed || (_controller?.isClosed ?? true)) {
       return;
     }
+    final socket = _socket;
+    if (socket != null && socket.readyState == WebSocket.open) {
+      _joinAllRooms();
+      return;
+    }
+    if (_connecting) {
+      return;
+    }
+    _connecting = true;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     final guard = await _tokenRepository.captureMutationGuard();
     if (_disposed ||
         guard == null ||
         guard.instanceScopeId != _instanceScope.storageId) {
+      _connecting = false;
       return;
     }
     final token = (await _tokenRepository.readAccessTokenIfCurrent(
       guard,
     ))?.trim();
     if (token == null || token.isEmpty) {
+      _connecting = false;
       return;
     }
     if (_disposed || !await _tokenRepository.isMutationGuardCurrent(guard)) {
+      _connecting = false;
       return;
     }
-    final room = _roomFor(workspaceId, channelId);
     try {
       final socket = await _connectWebSocket(
         _webSocketUri().toString(),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (_disposed ||
-          _room != room ||
+          _activeWorkspaceId != workspaceId ||
           !await _tokenRepository.isMutationGuardCurrent(guard)) {
         await socket.close();
+        _connecting = false;
         return;
       }
       _socket = socket;
       _reconnectAttempt = 0;
-      if (channelId.trim().isNotEmpty) {
-        socket.add(jsonEncode({'type': 'join', 'room': room}));
-      }
+      _connecting = false;
+      _joinAllRooms();
+      _startHeartbeat(workspaceId);
       socket.listen(
-        (data) => _handleSocketData(data, workspaceId, channelId),
-        onError: (_) => _scheduleReconnect(workspaceId, channelId),
-        onDone: () => _scheduleReconnect(workspaceId, channelId),
+        (data) => _handleSocketData(data, workspaceId),
+        onError: (_) => _scheduleReconnect(),
+        onDone: () => _scheduleReconnect(),
         cancelOnError: true,
       );
     } on Object {
-      _scheduleReconnect(workspaceId, channelId);
+      _connecting = false;
+      _scheduleReconnect();
     }
   }
 
@@ -161,58 +198,131 @@ final class WebSocketConversationRealtimeRepository
     return connectWebSocketWithoutRedirects(url, headers: headers);
   }
 
-  void _handleSocketData(Object? data, String workspaceId, String channelId) {
+  void _handleSocketData(Object? data, String workspaceId) {
+    if (_socketEventType(data) == 'pong') {
+      _lastPongAt = DateTime.now().toUtc();
+      return;
+    }
     final event = ConversationRealtimeEventMapper.fromSocketData(
       data,
       fallbackWorkspaceId: workspaceId,
-      fallbackChannelId: channelId,
+      fallbackChannelId: '',
     );
     if (event != null && !(_controller?.isClosed ?? true)) {
       _controller?.add(event);
     }
   }
 
-  void _scheduleReconnect(String workspaceId, String channelId) {
+  void _scheduleReconnect() {
+    final workspaceId = _activeWorkspaceId;
     if (_disposed ||
         (_controller?.isClosed ?? true) ||
-        _room != _roomFor(workspaceId, channelId)) {
+        _controller?.hasListener != true ||
+        workspaceId == null ||
+        workspaceId.isEmpty ||
+        _reconnectTimer != null) {
       return;
     }
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+    _socket = null;
     final delay = Duration(
       seconds: _reconnectAttempt < 5 ? 1 << _reconnectAttempt : 16,
     );
     _reconnectAttempt += 1;
-    Timer(delay, () {
-      if (!_disposed && _room == _roomFor(workspaceId, channelId)) {
-        unawaited(_connect(workspaceId: workspaceId, channelId: channelId));
+    _reconnectTimer = Timer(delay, () {
+      _reconnectTimer = null;
+      if (!_disposed && _activeWorkspaceId == workspaceId) {
+        unawaited(_ensureConnected(workspaceId: workspaceId));
       }
     });
   }
 
   void _closeCurrentConnection({
-    required bool leaveRoom,
+    required bool leaveRooms,
     required bool closeController,
   }) {
-    final room = _room;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
     final socket = _socket;
-    if (leaveRoom &&
-        socket != null &&
-        socket.readyState == WebSocket.open &&
-        room != null) {
-      socket.add(jsonEncode({'type': 'leave', 'room': room}));
+    if (leaveRooms && socket != null && socket.readyState == WebSocket.open) {
+      for (final room in _joinedRooms) {
+        try {
+          socket.add(jsonEncode({'type': 'leave', 'room': room}));
+        } on Object {
+          break;
+        }
+      }
     }
     unawaited(socket?.close());
     _socket = null;
+    _connecting = false;
+    _lastPongAt = null;
     if (closeController) {
       unawaited(_controller?.close());
       _controller = null;
+      _joinedRooms.clear();
+      _activeWorkspaceId = null;
     }
   }
 
   Uri _webSocketUri() {
     return conversationRealtimeWebSocketUri(_wsBaseUri);
   }
+
+  void _joinAllRooms() {
+    for (final room in _joinedRooms) {
+      _joinRoomIfOpen(room);
+    }
+  }
+
+  void _joinRoomIfOpen(String room) {
+    final socket = _socket;
+    if (socket == null || socket.readyState != WebSocket.open) {
+      return;
+    }
+    _sendCommand({'type': 'join', 'room': room});
+  }
+
+  bool _sendCommand(Map<String, Object?> command) {
+    final socket = _socket;
+    if (socket == null || socket.readyState != WebSocket.open) {
+      return false;
+    }
+    try {
+      socket.add(jsonEncode(command));
+      return true;
+    } on Object {
+      _scheduleReconnect();
+      return false;
+    }
+  }
+
+  void _startHeartbeat(String workspaceId) {
+    _heartbeatTimer?.cancel();
+    _lastPongAt = DateTime.now().toUtc();
+    _heartbeatTimer = Timer.periodic(_realtimeHeartbeatInterval, (_) {
+      final socket = _socket;
+      if (socket == null || socket.readyState != WebSocket.open) {
+        return;
+      }
+      final lastPongAt = _lastPongAt;
+      if (lastPongAt != null &&
+          DateTime.now().toUtc().difference(lastPongAt) >
+              _realtimeHeartbeatTimeout) {
+        unawaited(socket.close());
+        _scheduleReconnect();
+        return;
+      }
+      _sendCommand({'type': 'ping', 'room': _heartbeatRoom(workspaceId)});
+    });
+  }
 }
+
+const _realtimeHeartbeatInterval = Duration(seconds: 25);
+const _realtimeHeartbeatTimeout = Duration(seconds: 70);
 
 Uri defaultConversationRealtimeWsUri(Uri apiBaseUri) {
   final scheme = apiBaseUri.scheme == 'https' ? 'wss' : 'ws';
@@ -387,6 +497,9 @@ final class ConversationRealtimeEventMapper {
     final message = messageMap.isEmpty
         ? null
         : _messageFromMap(messageMap, fallbackWorkspaceId, fallbackChannelId);
+    final roomChannelId = _channelIdFromRoom(
+      nullableStringField(map, const ['room']),
+    );
     final type = _eventType(stringField(map, const ['type']));
     final callStatus = _callStatusForEvent(type);
     return ConversationRealtimeEvent(
@@ -399,10 +512,13 @@ final class ConversationRealtimeEventMapper {
           ], fallback: fallbackWorkspaceId),
       channelId:
           message?.channelId ??
-          stringField(payload, const [
-            'channel_id',
-            'channelId',
-          ], fallback: fallbackChannelId),
+          stringField(
+            payload,
+            const ['channel_id', 'channelId'],
+            fallback: roomChannelId.isNotEmpty
+                ? roomChannelId
+                : fallbackChannelId,
+          ),
       message: message,
       messageId:
           message?.id ??
@@ -631,4 +747,33 @@ String _roomFor(String workspaceId, String channelId) {
     return 'workspace:$workspaceId:user-events';
   }
   return 'workspace:$workspaceId:channel:$channelId';
+}
+
+String _heartbeatRoom(String workspaceId) {
+  final normalized = workspaceId.trim();
+  return normalized.isEmpty
+      ? 'workspace:heartbeat'
+      : 'workspace:$normalized:heartbeat';
+}
+
+String _channelIdFromRoom(String? room) {
+  final parts = room?.trim().split(':') ?? const <String>[];
+  if (parts.length == 4 && parts[0] == 'workspace' && parts[2] == 'channel') {
+    return parts[3].trim();
+  }
+  return '';
+}
+
+String _socketEventType(Object? data) {
+  try {
+    final decoded = switch (data) {
+      final String value => jsonDecode(value),
+      final List<int> value => jsonDecode(utf8.decode(value)),
+      final Map value => value,
+      _ => null,
+    };
+    return stringField(jsonMap(decoded), const ['type']);
+  } on Object {
+    return '';
+  }
 }

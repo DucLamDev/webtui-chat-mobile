@@ -95,7 +95,7 @@ final class ChatMessage {
 
 enum MessageAttachmentKind { image, video, audio, file }
 
-enum MessageAttachmentPickSource { camera, gallery, video, file }
+enum MessageAttachmentPickSource { camera, gallery, video, file, documentScan }
 
 enum MessageAttachmentUploadStatus {
   queued,

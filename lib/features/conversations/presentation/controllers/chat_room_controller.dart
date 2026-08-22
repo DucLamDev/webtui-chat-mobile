@@ -975,6 +975,10 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     }
   }
 
+  Future<void> queuePickedAttachment(PickedMessageAttachment picked) {
+    return _queueAttachment(picked);
+  }
+
   Future<void> startVoiceRecording() async {
     if (state.isRecordingVoice || state.isSending) {
       return;

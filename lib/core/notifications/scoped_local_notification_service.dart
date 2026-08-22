@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../features/notifications/domain/entities/mobile_notification.dart';
 
@@ -11,6 +12,13 @@ const _messageChannelId = 'webtui_messages';
 const _messageChannelName = 'Tin nhắn';
 const _messageChannelDescription = 'Tin nhắn mới và cập nhật cuộc trò chuyện';
 const _notificationIcon = 'ic_stat_webtui_chat';
+const _quickReplyActionId = 'webtui_quick_reply';
+const _pendingQuickReplyStorageKey = 'pending_notification_quick_replies_v1';
+
+@pragma('vm:entry-point')
+void webTuiNotificationBackgroundResponse(NotificationResponse response) {
+  unawaited(ScopedLocalNotificationService.handleBackgroundResponse(response));
+}
 
 /// A data-only push that is safe to render after the caller has validated the
 /// persisted active instance binding.
@@ -21,6 +29,7 @@ final class ScopedLocalNotification {
     required this.title,
     required this.body,
     required this.encodedRoutingPayload,
+    required this.canQuickReply,
   });
 
   factory ScopedLocalNotification.fromData(Map<String, Object?> data) {
@@ -56,6 +65,7 @@ final class ScopedLocalNotification {
         'schema': 1,
         'data': routingData,
       }),
+      canQuickReply: routingData['channel_id']?.trim().isNotEmpty == true,
     );
   }
 
@@ -67,6 +77,21 @@ final class ScopedLocalNotification {
   /// Contains only instance/workspace/navigation identifiers. Message previews
   /// are never duplicated into the notification tap payload.
   final String encodedRoutingPayload;
+  final bool canQuickReply;
+}
+
+final class ScopedNotificationQuickReply {
+  const ScopedNotificationQuickReply({
+    required this.workspaceId,
+    required this.channelId,
+    required this.body,
+    this.messageId,
+  });
+
+  final String workspaceId;
+  final String channelId;
+  final String body;
+  final String? messageId;
 }
 
 /// Returns a canonical, allowlisted routing payload, or null for calls and
@@ -141,7 +166,10 @@ final class ScopedLocalNotificationService {
       FlutterLocalNotificationsPlugin();
   final StreamController<Map<String, Object?>> _tapController =
       StreamController<Map<String, Object?>>.broadcast();
+  final StreamController<ScopedNotificationQuickReply> _quickReplyController =
+      StreamController<ScopedNotificationQuickReply>.broadcast();
   final List<Map<String, Object?>> _pendingTaps = [];
+  final List<ScopedNotificationQuickReply> _pendingQuickReplies = [];
   Future<void>? _initialization;
 
   Stream<Map<String, Object?>> get taps {
@@ -159,6 +187,28 @@ final class ScopedLocalNotificationService {
     });
   }
 
+  Stream<ScopedNotificationQuickReply> get quickReplies {
+    return Stream.multi((controller) {
+      for (final reply in _pendingQuickReplies) {
+        controller.add(reply);
+      }
+      _pendingQuickReplies.clear();
+      final subscription = _quickReplyController.stream.listen(
+        controller.add,
+        onError: controller.addError,
+        onDone: controller.close,
+      );
+      controller.onCancel = subscription.cancel;
+    });
+  }
+
+  Future<List<ScopedNotificationQuickReply>> drainBackgroundQuickReplies() {
+    if (!Platform.isAndroid) {
+      return Future.value(const []);
+    }
+    return _drainStoredQuickReplies();
+  }
+
   Future<void> initialize({bool inspectLaunchDetails = true}) {
     if (!Platform.isAndroid) return Future.value();
     return _initialization ??=
@@ -173,11 +223,16 @@ final class ScopedLocalNotificationService {
         android: AndroidInitializationSettings(_notificationIcon),
       ),
       onDidReceiveNotificationResponse: _handleResponse,
+      onDidReceiveBackgroundNotificationResponse:
+          webTuiNotificationBackgroundResponse,
     );
     if (!inspectLaunchDetails) return;
     final launchDetails = await _plugin.getNotificationAppLaunchDetails();
     if (launchDetails?.didNotificationLaunchApp == true) {
-      _recordTap(launchDetails?.notificationResponse?.payload);
+      final response = launchDetails?.notificationResponse;
+      if (response != null) {
+        _handleResponse(response);
+      }
     }
   }
 
@@ -210,6 +265,23 @@ final class ScopedLocalNotificationService {
             visibility: NotificationVisibility.private,
             fullScreenIntent: false,
             tag: notification.tag,
+            actions: notification.canQuickReply
+                ? const [
+                    AndroidNotificationAction(
+                      _quickReplyActionId,
+                      'Trả lời',
+                      inputs: [
+                        AndroidNotificationActionInput(
+                          label: 'Nhập trả lời...',
+                        ),
+                      ],
+                      semanticAction: SemanticAction.reply,
+                      showsUserInterface: false,
+                      allowGeneratedReplies: true,
+                      cancelNotification: true,
+                    ),
+                  ]
+                : null,
           ),
         ),
         payload: notification.encodedRoutingPayload,
@@ -222,7 +294,10 @@ final class ScopedLocalNotificationService {
   /// native channels and must survive a chat-server switch/logout long enough
   /// to complete its own terminal lifecycle.
   Future<void> clearMessageNotifications({bool clearPendingTaps = true}) async {
-    if (clearPendingTaps) _pendingTaps.clear();
+    if (clearPendingTaps) {
+      _pendingTaps.clear();
+      _pendingQuickReplies.clear();
+    }
     if (!Platform.isAndroid) return;
     try {
       await initialize(inspectLaunchDetails: false);
@@ -237,7 +312,24 @@ final class ScopedLocalNotificationService {
   }
 
   void _handleResponse(NotificationResponse response) {
+    if (response.actionId == _quickReplyActionId) {
+      _recordQuickReply(response.payload, response.input);
+      return;
+    }
     _recordTap(response.payload);
+  }
+
+  static Future<void> handleBackgroundResponse(
+    NotificationResponse response,
+  ) async {
+    if (response.actionId != _quickReplyActionId) {
+      return;
+    }
+    final reply = _quickReplyFromResponse(response.payload, response.input);
+    if (reply == null) {
+      return;
+    }
+    await _storeQuickReply(reply);
   }
 
   void _recordTap(String? encoded) {
@@ -252,6 +344,133 @@ final class ScopedLocalNotificationService {
     }
     _pendingTaps.add(data);
   }
+
+  void _recordQuickReply(String? encoded, String? input) {
+    final reply = _quickReplyFromResponse(encoded, input);
+    if (reply == null) {
+      return;
+    }
+    if (_quickReplyController.hasListener) {
+      _quickReplyController.add(reply);
+      return;
+    }
+    if (_pendingQuickReplies.length >= 16) {
+      _pendingQuickReplies.removeAt(0);
+    }
+    _pendingQuickReplies.add(reply);
+  }
+}
+
+ScopedNotificationQuickReply? _quickReplyFromResponse(
+  String? encoded,
+  String? input,
+) {
+  final data = decodeScopedNotificationRoutingPayload(encoded);
+  final body = input?.trim();
+  final workspaceId = data?['workspace_id']?.toString().trim();
+  final channelId = data?['channel_id']?.toString().trim();
+  if (body == null ||
+      body.isEmpty ||
+      data == null ||
+      workspaceId == null ||
+      workspaceId.isEmpty ||
+      channelId == null ||
+      channelId.isEmpty) {
+    return null;
+  }
+  final messageId = data['message_id']?.toString().trim();
+  return ScopedNotificationQuickReply(
+    workspaceId: workspaceId,
+    channelId: channelId,
+    body: body,
+    messageId: messageId?.isEmpty == true ? null : messageId,
+  );
+}
+
+Future<void> _storeQuickReply(ScopedNotificationQuickReply reply) async {
+  try {
+    const storage = FlutterSecureStorage();
+    final records = await _readStoredQuickReplyRecords(storage);
+    records.add(_quickReplyToJson(reply));
+    while (records.length > 16) {
+      records.removeAt(0);
+    }
+    await storage.write(
+      key: _pendingQuickReplyStorageKey,
+      value: jsonEncode(records),
+    );
+  } on Object {
+    // Notification callbacks must not crash the background isolate.
+  }
+}
+
+Future<List<ScopedNotificationQuickReply>> _drainStoredQuickReplies() async {
+  try {
+    const storage = FlutterSecureStorage();
+    final records = await _readStoredQuickReplyRecords(storage);
+    await storage.delete(key: _pendingQuickReplyStorageKey);
+    return records
+        .map(_quickReplyFromJson)
+        .whereType<ScopedNotificationQuickReply>()
+        .toList(growable: false);
+  } on Object {
+    return const [];
+  }
+}
+
+Future<List<Map<String, Object?>>> _readStoredQuickReplyRecords(
+  FlutterSecureStorage storage,
+) async {
+  final raw = await storage.read(key: _pendingQuickReplyStorageKey);
+  if (raw == null || raw.trim().isEmpty) {
+    return [];
+  }
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) {
+      return [];
+    }
+    return decoded
+        .whereType<Map>()
+        .map(
+          (item) => <String, Object?>{
+            for (final entry in item.entries) entry.key.toString(): entry.value,
+          },
+        )
+        .toList();
+  } on FormatException {
+    return [];
+  }
+}
+
+Map<String, Object?> _quickReplyToJson(ScopedNotificationQuickReply reply) {
+  return <String, Object?>{
+    'workspace_id': reply.workspaceId,
+    'channel_id': reply.channelId,
+    'body': reply.body,
+    if (reply.messageId != null) 'message_id': reply.messageId,
+  };
+}
+
+ScopedNotificationQuickReply? _quickReplyFromJson(Map<String, Object?> json) {
+  final workspaceId = json['workspace_id']?.toString().trim();
+  final channelId = json['channel_id']?.toString().trim();
+  final body = json['body']?.toString().trim();
+  if (workspaceId == null ||
+      workspaceId.isEmpty ||
+      channelId == null ||
+      channelId.isEmpty ||
+      body == null ||
+      body.isEmpty) {
+    return null;
+  }
+  final messageId = json['message_id']?.toString().trim();
+  return ScopedNotificationQuickReply(
+    workspaceId: workspaceId,
+    channelId: channelId,
+    body: body,
+    messageId: messageId?.isEmpty == true ? null : messageId,
+  );
 }
 
 /// Performs the last display boundary as a small transaction. The post-show

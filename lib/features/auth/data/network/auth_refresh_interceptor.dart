@@ -48,7 +48,10 @@ final class AuthRefreshInterceptor extends Interceptor {
       guard,
     ))?.trim();
     if (token != null && token.isNotEmpty) {
-      options.headers['Authorization'] = 'Bearer $token';
+      options.headers = <String, dynamic>{
+        ...options.headers,
+        'Authorization': 'Bearer $token',
+      };
     }
     handler.next(options);
   }
@@ -86,7 +89,10 @@ final class AuthRefreshInterceptor extends Interceptor {
       ))?.trim();
       if (token != null && token.isNotEmpty) {
         request.extra[_retriedKey] = true;
-        request.headers['Authorization'] = 'Bearer $token';
+        request.headers = <String, dynamic>{
+          ...request.headers,
+          'Authorization': 'Bearer $token',
+        };
         try {
           handler.resolve(await _dio.fetch<dynamic>(request));
           return;

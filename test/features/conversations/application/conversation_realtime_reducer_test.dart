@@ -179,6 +179,23 @@ void main() {
     expect(event?.messageId, 'm-image');
   });
 
+  test('maps room channel when realtime payload omits channel id', () {
+    final event = ConversationRealtimeEventMapper.fromSocketData(
+      jsonEncode({
+        'type': 'TypingStarted',
+        'room': 'workspace:w1:channel:c1',
+        'user_id': 'u2',
+        'payload': {'user_id': 'u2'},
+      }),
+      fallbackWorkspaceId: 'w1',
+      fallbackChannelId: '',
+    );
+
+    expect(event?.type, ConversationRealtimeEventType.typingStarted);
+    expect(event?.channelId, 'c1');
+    expect(event?.userId, 'u2');
+  });
+
   test('maps validated call signaling payloads from the backend', () {
     final offer = ConversationRealtimeEventMapper.fromSocketData(
       jsonEncode({

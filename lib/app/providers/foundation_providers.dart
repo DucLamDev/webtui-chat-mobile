@@ -16,6 +16,7 @@ import '../../core/notifications/native_incoming_call_service.dart';
 import '../../core/notifications/push_notification_service.dart';
 import '../../core/notifications/scoped_local_notification_service.dart';
 import '../../core/platform/biometric_auth_service.dart';
+import '../../core/platform/chat_share_intent_service.dart';
 import '../../core/platform/external_url_launcher.dart';
 import '../../core/platform/native_deep_link_service.dart';
 import '../../core/platform/native_instance_binding_service.dart';
@@ -294,6 +295,12 @@ final notificationPermissionStatusProvider = FutureProvider.autoDispose<String>(
 
 final externalUrlLauncherProvider = Provider<ExternalUrlLauncher>((_) {
   return const MethodChannelExternalUrlLauncher();
+});
+
+final chatShareIntentServiceProvider = Provider<ChatShareIntentService>((ref) {
+  final service = ChatShareIntentService();
+  ref.onDispose(() => unawaited(service.dispose()));
+  return service;
 });
 
 final biometricAuthServiceProvider = Provider<BiometricAuthService>((_) {

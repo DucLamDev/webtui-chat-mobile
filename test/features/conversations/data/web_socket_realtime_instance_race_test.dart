@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -6,6 +7,7 @@ import 'package:webtui_chat/core/security/instance_scope.dart';
 import 'package:webtui_chat/features/auth/domain/entities/auth_tokens.dart';
 import 'package:webtui_chat/features/auth/domain/repositories/auth_token_repository.dart';
 import 'package:webtui_chat/features/conversations/data/repositories/web_socket_conversation_realtime_repository.dart';
+import 'package:webtui_chat/features/conversations/domain/entities/conversation_realtime_event.dart';
 
 void main() {
   test('repository rejects a WebSocket origin outside the instance', () {
@@ -148,6 +150,125 @@ void main() {
       await server.close(force: true);
     }
   });
+
+  test(
+    'repository keeps existing channel subscribers when another room joins',
+    () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final sockets = <WebSocket>[];
+      final joinedRooms = <String>{};
+      final joinedBothRooms = Completer<void>();
+      server.listen((request) async {
+        final socket = await WebSocketTransformer.upgrade(request);
+        sockets.add(socket);
+        socket.listen((data) {
+          final decoded = jsonDecode(data as String) as Map<String, dynamic>;
+          if (decoded['type'] == 'join') {
+            joinedRooms.add(decoded['room'] as String);
+            if (!joinedBothRooms.isCompleted &&
+                joinedRooms.contains(
+                  'workspace:workspace-1:channel:channel-1',
+                ) &&
+                joinedRooms.contains(
+                  'workspace:workspace-1:channel:channel-2',
+                )) {
+              joinedBothRooms.complete();
+            }
+          }
+          if (decoded['type'] == 'ping') {
+            socket.add(
+              jsonEncode({
+                'type': 'pong',
+                'room': decoded['room'],
+                'timestamp': DateTime.now().toUtc().toIso8601String(),
+              }),
+            );
+          }
+        });
+      });
+
+      final origin = Uri.parse('http://${server.address.host}:${server.port}');
+      final instance = InstanceScope(
+        instanceId: '11111111-1111-4111-8111-111111111111',
+        serverOrigin: origin,
+      );
+      final tokens = _DelayedTokenRepository(
+        guard: AuthTokenMutationGuard(
+          instanceScopeId: instance.storageId,
+          generation: 'generation-a',
+        ),
+        delayedAccessToken: Future<String?>.value('token-a'),
+      );
+      final repository = WebSocketConversationRealtimeRepository(
+        apiBaseUri: origin,
+        wsBaseUri: origin.replace(scheme: 'ws', path: '/ws'),
+        instanceScope: instance,
+        tokenRepository: tokens,
+      );
+      final channelOneEvent = Completer<ConversationRealtimeEvent>();
+      final channelTwoEvents = <ConversationRealtimeEvent>[];
+      StreamSubscription<ConversationRealtimeEvent>? channelOne;
+      StreamSubscription<ConversationRealtimeEvent>? channelTwo;
+
+      try {
+        channelOne = repository
+            .subscribeToChannel(
+              workspaceId: 'workspace-1',
+              channelId: 'channel-1',
+            )
+            .listen((event) {
+              if (!channelOneEvent.isCompleted) {
+                channelOneEvent.complete(event);
+              }
+            });
+        channelTwo = repository
+            .subscribeToChannel(
+              workspaceId: 'workspace-1',
+              channelId: 'channel-2',
+            )
+            .listen(channelTwoEvents.add);
+
+        await joinedBothRooms.future.timeout(const Duration(seconds: 2));
+        sockets.single.add(
+          jsonEncode({
+            'type': 'MessageCreated',
+            'room': 'workspace:workspace-1:channel:channel-1',
+            'payload': {
+              'message': {
+                'id': 'message-1',
+                'workspace_id': 'workspace-1',
+                'channel_id': 'channel-1',
+                'sender_id': 'user-web',
+                'kind': 'text',
+                'body': 'hello from web',
+                'created_at': '2026-08-14T02:54:00Z',
+                'updated_at': '2026-08-14T02:54:00Z',
+                'metadata': <String, Object?>{},
+                'mentions': <String>[],
+                'reactions': <Object>[],
+              },
+            },
+          }),
+        );
+
+        final event = await channelOneEvent.future.timeout(
+          const Duration(seconds: 2),
+        );
+        expect(event.messageId, 'message-1');
+        expect(event.channelId, 'channel-1');
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        expect(channelTwoEvents, isEmpty);
+      } finally {
+        await channelOne?.cancel();
+        await channelTwo?.cancel();
+        await repository.disconnect();
+        for (final socket in sockets) {
+          await socket.close();
+        }
+        await server.close(force: true);
+      }
+    },
+  );
 }
 
 final class _DelayedTokenRepository implements AuthTokenRepository {

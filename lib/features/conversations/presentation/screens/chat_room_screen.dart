@@ -2,12 +2,15 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
+import '../../../../core/platform/chat_share_intent_service.dart';
 import '../../../../core/result/result.dart';
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
@@ -21,8 +24,10 @@ import '../../domain/entities/call_session.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/conversation_summary.dart';
 import '../controllers/chat_room_controller.dart';
+import '../controllers/pending_chat_share_controller.dart';
 import '../widgets/collaboration_room_sheet.dart';
 import '../widgets/message_media_widgets.dart';
+import 'qr_scanner_screen.dart';
 import 'webrtc_call_screen.dart';
 
 final _forwardChannelsProvider = FutureProvider.autoDispose
@@ -36,6 +41,117 @@ final _forwardChannelsProvider = FutureProvider.autoDispose
           throw Exception(failure.message),
       };
     });
+
+String _appendDraftText(String current, String addition) {
+  final normalized = addition.trim();
+  if (normalized.isEmpty) {
+    return current;
+  }
+  final base = current.trimRight();
+  return base.isEmpty ? normalized : '$base\n$normalized';
+}
+
+Future<PickedMessageAttachment?> _pickedAttachmentFromSharedFile(
+  SharedChatFile shared,
+) async {
+  final path = shared.path.trim();
+  if (path.isEmpty) {
+    return null;
+  }
+  final file = File(path);
+  if (!await file.exists()) {
+    return null;
+  }
+  final stat = await file.stat();
+  if (stat.type != FileSystemEntityType.file || stat.size <= 0) {
+    return null;
+  }
+  final name = shared.name.trim().isEmpty
+      ? _sharedFileNameFromPath(path)
+      : shared.name.trim();
+  final mimeType = _normalizedSharedMimeType(shared.mimeType, name, path);
+  return PickedMessageAttachment(
+    path: path,
+    fileName: name,
+    mimeType: mimeType,
+    byteSize: stat.size,
+    kind: _sharedAttachmentKindForMime(mimeType),
+  );
+}
+
+String _normalizedSharedMimeType(String declared, String name, String path) {
+  final normalized = declared.trim().toLowerCase();
+  if (normalized.isNotEmpty &&
+      normalized != '*/*' &&
+      !normalized.endsWith('/*')) {
+    return normalized;
+  }
+  final byName = _sharedMimeFromPath(name);
+  if (byName != 'application/octet-stream') {
+    return byName;
+  }
+  return _sharedMimeFromPath(path);
+}
+
+String _sharedFileNameFromPath(String path) {
+  final normalized = path.replaceAll('\\', '/');
+  final name = normalized.split('/').last.trim();
+  return name.isEmpty ? 'shared_file' : name;
+}
+
+String _sharedMimeFromPath(String path) {
+  final extension = _sharedExtensionFromPath(path);
+  return switch (extension) {
+    'aac' => 'audio/aac',
+    'csv' => 'text/csv',
+    'doc' => 'application/msword',
+    'docx' =>
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'gif' => 'image/gif',
+    'heic' || 'heif' => 'image/heic',
+    'jpg' || 'jpeg' => 'image/jpeg',
+    'json' => 'application/json',
+    'm4a' => 'audio/mp4',
+    'm4v' => 'video/x-m4v',
+    'md' || 'markdown' => 'text/markdown',
+    'mkv' => 'video/x-matroska',
+    'mov' => 'video/quicktime',
+    'mp3' => 'audio/mpeg',
+    'mp4' => 'video/mp4',
+    'ogg' => 'audio/ogg',
+    'pdf' => 'application/pdf',
+    'png' => 'image/png',
+    'ppt' => 'application/vnd.ms-powerpoint',
+    'pptx' =>
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'txt' => 'text/plain',
+    'wav' => 'audio/wav',
+    'webm' => 'video/webm',
+    'webp' => 'image/webp',
+    'xls' => 'application/vnd.ms-excel',
+    'xlsx' =>
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'zip' => 'application/zip',
+    _ => 'application/octet-stream',
+  };
+}
+
+MessageAttachmentKind _sharedAttachmentKindForMime(String mimeType) {
+  if (mimeType.startsWith('image/')) return MessageAttachmentKind.image;
+  if (mimeType.startsWith('video/')) return MessageAttachmentKind.video;
+  if (mimeType.startsWith('audio/')) return MessageAttachmentKind.audio;
+  return MessageAttachmentKind.file;
+}
+
+String _sharedExtensionFromPath(String path) {
+  final normalized = path.replaceAll('\\', '/');
+  final name = normalized.split('/').last;
+  final dot = name.lastIndexOf('.');
+  if (dot < 0 || dot == name.length - 1) {
+    return '';
+  }
+  return name.substring(dot + 1).toLowerCase();
+}
 
 enum ChatModerationSafetyStatus { loading, error, ready }
 
@@ -110,6 +226,64 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
     _draftController.value = TextEditingValue(
       text: draft,
       selection: TextSelection.collapsed(offset: draft.length),
+    );
+  }
+
+  Future<void> _openMessageLink(String url) async {
+    final opened = await ref.read(externalUrlLauncherProvider).open(url);
+    if (!mounted || opened) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Không mở được liên kết.')));
+  }
+
+  Future<void> _scanQrCode(ChatRoomController controller) async {
+    final value = await Navigator.of(
+      context,
+    ).push<String>(MaterialPageRoute(builder: (_) => const QrScannerScreen()));
+    if (!mounted || value == null || value.trim().isEmpty) {
+      return;
+    }
+    final next = _appendDraftText(_draftController.text, value.trim());
+    controller.updateDraft(next);
+    _replaceDraftText(next);
+    _draftFocusNode.requestFocus();
+  }
+
+  Future<void> _applySharedPayload(
+    ChatRoomController controller,
+    ChatSharePayload payload,
+  ) async {
+    var appliedCount = 0;
+    var draft = _draftController.text;
+    final text = payload.text?.trim();
+    if (text != null && text.isNotEmpty) {
+      final next = _appendDraftText(draft, text);
+      controller.updateDraft(next);
+      _replaceDraftText(next);
+      draft = next;
+      appliedCount++;
+    }
+
+    for (final file in payload.files) {
+      final picked = await _pickedAttachmentFromSharedFile(file);
+      if (picked == null) {
+        continue;
+      }
+      await controller.queuePickedAttachment(picked);
+      appliedCount++;
+    }
+
+    if (!mounted || appliedCount == 0) {
+      return;
+    }
+    _draftFocusNode.requestFocus();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Đã thêm ${payload.summary} vào cuộc trò chuyện.'),
+      ),
     );
   }
 
@@ -194,6 +368,17 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         safetyTargetUserId != null &&
         moderationState.isBlocked(safetyTargetUserId);
     _chatController = controller;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      final payload = ref
+          .read(pendingChatShareProvider.notifier)
+          .take(workspaceId: workspaceId, channelId: widget.channelId);
+      if (payload != null) {
+        unawaited(_applySharedPayload(controller, payload));
+      }
+    });
     final initialMessageId = widget.initialMessageId?.trim();
     if (initialMessageId != null &&
         initialMessageId.isNotEmpty &&
@@ -238,6 +423,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
                 context,
                 'Máy chủ này không bật tính năng tệp đính kèm.',
               ),
+        onScanQrCode: () => unawaited(_scanQrCode(controller)),
         onStartVoiceRecording: () =>
             unawaited(controller.startVoiceRecording()),
         onStopVoiceRecording: () => unawaited(controller.stopVoiceRecording()),
@@ -258,6 +444,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         ),
         onCreatePoll: () =>
             unawaited(_openPollComposer(context, workspaceId, controller)),
+        onOpenLink: (url) => unawaited(_openMessageLink(url)),
         onSendThread: interactionBlocked
             ? () => _showBlockedSharedContentGuidance(context)
             : controller.sendThreadDraft,
@@ -927,6 +1114,7 @@ class _ChatRoomBody extends StatefulWidget {
     required this.onDraftChanged,
     required this.onThreadDraftChanged,
     required this.onPickAttachment,
+    required this.onScanQrCode,
     required this.onStartVoiceRecording,
     required this.onStopVoiceRecording,
     required this.onCancelVoiceRecording,
@@ -939,6 +1127,7 @@ class _ChatRoomBody extends StatefulWidget {
     required this.onSend,
     required this.onSchedule,
     required this.onCreatePoll,
+    required this.onOpenLink,
     required this.onSendThread,
     required this.onReply,
     required this.onReplyPrivately,
@@ -968,6 +1157,7 @@ class _ChatRoomBody extends StatefulWidget {
   final ValueChanged<String> onDraftChanged;
   final ValueChanged<String> onThreadDraftChanged;
   final ValueChanged<MessageAttachmentPickSource> onPickAttachment;
+  final VoidCallback onScanQrCode;
   final VoidCallback onStartVoiceRecording;
   final VoidCallback onStopVoiceRecording;
   final VoidCallback onCancelVoiceRecording;
@@ -980,6 +1170,7 @@ class _ChatRoomBody extends StatefulWidget {
   final ValueChanged<bool> onSend;
   final VoidCallback onSchedule;
   final VoidCallback onCreatePoll;
+  final ValueChanged<String> onOpenLink;
   final VoidCallback onSendThread;
   final ValueChanged<ChatMessage> onReply;
   final ValueChanged<ChatMessage> onReplyPrivately;
@@ -1217,6 +1408,7 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
                                       reactions: _reactionLabels(
                                         message.reactions,
                                       ),
+                                      onOpenLink: widget.onOpenLink,
                                       onReact: (emoji) =>
                                           widget.onReact(message, emoji),
                                       onRetryAudioCall: widget.onRetryAudioCall,
@@ -1251,6 +1443,7 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
             editingMessage: widget.state.editingMessage,
             onChanged: widget.onDraftChanged,
             onPickAttachment: widget.onPickAttachment,
+            onScanQrCode: widget.onScanQrCode,
             onStartVoiceRecording: widget.onStartVoiceRecording,
             onStopVoiceRecording: widget.onStopVoiceRecording,
             onCancelVoiceRecording: widget.onCancelVoiceRecording,
@@ -1745,6 +1938,7 @@ class _Composer extends StatefulWidget {
     required this.attachments,
     required this.onChanged,
     required this.onPickAttachment,
+    required this.onScanQrCode,
     required this.onStartVoiceRecording,
     required this.onStopVoiceRecording,
     required this.onCancelVoiceRecording,
@@ -1769,6 +1963,7 @@ class _Composer extends StatefulWidget {
   final ChatMessage? editingMessage;
   final ValueChanged<String> onChanged;
   final ValueChanged<MessageAttachmentPickSource> onPickAttachment;
+  final VoidCallback onScanQrCode;
   final VoidCallback onStartVoiceRecording;
   final VoidCallback onStopVoiceRecording;
   final VoidCallback onCancelVoiceRecording;
@@ -2027,6 +2222,26 @@ class _ComposerState extends State<_Composer> {
                       widget.onPickAttachment(
                         MessageAttachmentPickSource.camera,
                       );
+                    },
+                  ),
+                  _AttachmentSourceTile(
+                    icon: Icons.document_scanner_outlined,
+                    title: 'Quét tài liệu',
+                    subtitle: 'Chụp tài liệu bằng camera với chất lượng cao',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      widget.onPickAttachment(
+                        MessageAttachmentPickSource.documentScan,
+                      );
+                    },
+                  ),
+                  _AttachmentSourceTile(
+                    icon: Icons.qr_code_scanner_rounded,
+                    title: 'Quét QR',
+                    subtitle: 'Chèn nội dung mã QR vào tin nhắn',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      widget.onScanQrCode();
                     },
                   ),
                   _AttachmentSourceTile(
@@ -2757,6 +2972,14 @@ class _MessageQuickActions extends StatelessWidget {
               runSpacing: WebTuiSpacing.sm,
               children: [
                 _SheetActionButton(
+                  label: 'Copy tin nhắn',
+                  icon: Icons.copy_rounded,
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    unawaited(_copyMessageToClipboard(hostContext, message));
+                  },
+                ),
+                _SheetActionButton(
                   label: 'Trả lời',
                   icon: Icons.reply_rounded,
                   onPressed: () => _closeThen(context, () => onReply(message)),
@@ -2926,6 +3149,43 @@ class _MessageQuickActions extends StatelessWidget {
       onForward(message, normalized);
     }
   }
+}
+
+Future<void> _copyMessageToClipboard(
+  BuildContext context,
+  ChatMessage message,
+) async {
+  final text = _messageCopyText(message);
+  if (text.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Tin nhắn này không có nội dung để copy.')),
+    );
+    return;
+  }
+  await Clipboard.setData(ClipboardData(text: text));
+  if (!context.mounted) {
+    return;
+  }
+  ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(const SnackBar(content: Text('Đã copy tin nhắn.')));
+}
+
+String _messageCopyText(ChatMessage message) {
+  if (message.isDeleted) {
+    return '';
+  }
+  final lines = <String>[];
+  final body = _displayMessageBody(message).trim();
+  if (body.isNotEmpty) {
+    lines.add(body);
+  }
+  lines.addAll(
+    message.attachments
+        .map((attachment) => attachment.file.name.trim())
+        .where((name) => name.isNotEmpty),
+  );
+  return lines.join('\n');
 }
 
 class _ReactionPicker extends StatelessWidget {
@@ -3166,6 +3426,7 @@ class _MessageRow extends StatelessWidget {
     required this.text,
     required this.timeLabel,
     required this.reactions,
+    required this.onOpenLink,
     required this.onReact,
     required this.onRetryAudioCall,
   });
@@ -3177,6 +3438,7 @@ class _MessageRow extends StatelessWidget {
   final String text;
   final String timeLabel;
   final List<String> reactions;
+  final ValueChanged<String> onOpenLink;
   final ValueChanged<String> onReact;
   final VoidCallback onRetryAudioCall;
 
@@ -3241,7 +3503,7 @@ class _MessageRow extends StatelessWidget {
                 text: text,
                 textSpan: message.isDeleted
                     ? null
-                    : _messageTextSpan(message, true),
+                    : _messageTextSpan(message, true, onOpenLink),
                 timeLabel: timeLabel,
                 outgoing: true,
                 statusLabel: _deliveryStatusLabel(message),
@@ -3275,7 +3537,7 @@ class _MessageRow extends StatelessWidget {
                   text: text,
                   textSpan: message.isDeleted
                       ? null
-                      : _messageTextSpan(message, false),
+                      : _messageTextSpan(message, false, onOpenLink),
                   timeLabel: timeLabel,
                   reactions: reactions,
                 ),
@@ -4521,7 +4783,11 @@ String _formatVoiceDuration(Duration value) {
   return '$minutes:$seconds';
 }
 
-InlineSpan _messageTextSpan(ChatMessage message, bool outgoing) {
+InlineSpan _messageTextSpan(
+  ChatMessage message,
+  bool outgoing,
+  ValueChanged<String> onOpenLink,
+) {
   final baseStyle = WebTuiTypography.bodyMedium.copyWith(
     color: WebTuiColors.textPrimary,
     fontWeight: FontWeight.w500,
@@ -4532,7 +4798,7 @@ InlineSpan _messageTextSpan(ChatMessage message, bool outgoing) {
       ? WebTuiColors.primary.withValues(alpha: 0.10)
       : WebTuiColors.backgroundMuted;
   final pattern = RegExp(
-    r'<@([A-Za-z0-9_-]+)>|(@[A-Za-z0-9_.-]+)|\*\*([^*]+)\*\*|`([^`]+)`',
+    r'<@([A-Za-z0-9_-]+)>|(@[A-Za-z0-9_.-]+)|\*\*([^*]+)\*\*|`([^`]+)`|(https?:\/\/[^\s<]+)',
   );
   final spans = <InlineSpan>[];
   var cursor = 0;
@@ -4545,6 +4811,7 @@ InlineSpan _messageTextSpan(ChatMessage message, bool outgoing) {
     final bareMention = match.group(2);
     final bold = match.group(3);
     final code = match.group(4);
+    final link = match.group(5);
     if (mentionId != null) {
       spans.add(
         TextSpan(
@@ -4582,6 +4849,23 @@ InlineSpan _messageTextSpan(ChatMessage message, bool outgoing) {
           ),
         ),
       );
+    } else if (link != null) {
+      final (url, trailing) = _splitTrailingLinkPunctuation(link);
+      spans.add(
+        TextSpan(
+          text: url,
+          style: baseStyle.copyWith(
+            color: accentColor,
+            decoration: TextDecoration.underline,
+            decorationColor: accentColor,
+            fontWeight: FontWeight.w700,
+          ),
+          recognizer: TapGestureRecognizer()..onTap = () => onOpenLink(url),
+        ),
+      );
+      if (trailing.isNotEmpty) {
+        spans.add(TextSpan(text: trailing));
+      }
     }
     cursor = match.end;
   }
@@ -4590,6 +4874,16 @@ InlineSpan _messageTextSpan(ChatMessage message, bool outgoing) {
     spans.add(TextSpan(text: message.body.substring(cursor)));
   }
   return TextSpan(style: baseStyle, children: spans);
+}
+
+(String, String) _splitTrailingLinkPunctuation(String value) {
+  var url = value;
+  var trailing = '';
+  while (url.isNotEmpty && RegExp(r'[.,!?;:]$').hasMatch(url)) {
+    trailing = '${url.substring(url.length - 1)}$trailing';
+    url = url.substring(0, url.length - 1);
+  }
+  return (url, trailing);
 }
 
 String _mentionLabel(String value) {

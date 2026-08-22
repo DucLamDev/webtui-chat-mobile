@@ -9,6 +9,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/notifications/native_incoming_call_service.dart';
+import '../../../../core/notifications/scoped_local_notification_service.dart';
+import '../../../../core/platform/chat_share_intent_service.dart';
 import '../../../../core/security/instance_scope.dart';
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
@@ -21,6 +23,7 @@ import '../../../conversations/domain/entities/conversation_realtime_event.dart'
 import '../../../conversations/domain/entities/conversation_summary.dart';
 import '../../../conversations/presentation/controllers/chat_room_controller.dart';
 import '../../../conversations/presentation/controllers/conversation_home_controller.dart';
+import '../../../conversations/presentation/controllers/pending_chat_share_controller.dart';
 import '../../../conversations/presentation/screens/webrtc_call_screen.dart';
 import '../../../conversations/presentation/screens/workspace_tools_screen.dart';
 import '../../../conversations/presentation/widgets/conversation_home_views.dart';
@@ -71,6 +74,8 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   String? _pushRegisteredWorkspaceId;
   String? _presenceWorkspaceId;
   String? _syncWorkspaceId;
+  String? _shareIntentWorkspaceId;
+  String? _quickReplyWorkspaceId;
   bool _syncInFlight = false;
   bool _incomingCallPollInFlight = false;
   Timer? _pushRegistrationRetryTimer;
@@ -79,6 +84,8 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   StreamSubscription<NotificationTarget>? _notificationOpenSubscription;
   StreamSubscription<NotificationTarget>? _foregroundNotificationSubscription;
   StreamSubscription<NativeIncomingCallAction>? _nativeCallSubscription;
+  StreamSubscription<ChatSharePayload>? _shareIntentSubscription;
+  StreamSubscription<ScopedNotificationQuickReply>? _quickReplySubscription;
   final Set<String> _nativeCallActionsInFlight = <String>{};
   StreamSubscription<ConversationRealtimeEvent>?
   _incomingCallRealtimeSubscription;
@@ -106,6 +113,8 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     _notificationOpenSubscription?.cancel();
     _foregroundNotificationSubscription?.cancel();
     _nativeCallSubscription?.cancel();
+    _shareIntentSubscription?.cancel();
+    _quickReplySubscription?.cancel();
     _incomingCallRealtimeSubscription?.cancel();
     final workspaceId = _presenceWorkspaceId;
     if (workspaceId != null) {
@@ -124,6 +133,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       _activatePresence(workspaceId);
       _startIncomingCallPolling(workspaceId);
       unawaited(_runWorkspaceCatchUp(workspaceId));
+      unawaited(_drainBackgroundQuickReplies(workspaceId));
       return;
     }
 
@@ -220,6 +230,12 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         }
       });
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _ensureShareIntentListener(activeWorkspace.id);
+        _ensureQuickReplyListener(activeWorkspace.id);
+      }
+    });
     final notificationState = ref.watch(
       notificationCenterControllerProvider(activeWorkspace.id),
     );
@@ -350,6 +366,172 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _ensureShareIntentListener(String workspaceId) {
+    if (_shareIntentWorkspaceId == workspaceId &&
+        _shareIntentSubscription != null) {
+      return;
+    }
+    _shareIntentWorkspaceId = workspaceId;
+    unawaited(_shareIntentSubscription?.cancel());
+    final service = ref.read(chatShareIntentServiceProvider);
+    unawaited(service.start());
+    _shareIntentSubscription = service.payloads.listen((payload) {
+      if (!mounted || _shareIntentWorkspaceId != workspaceId) {
+        return;
+      }
+      unawaited(_handleChatSharePayload(workspaceId, payload));
+    });
+  }
+
+  Future<void> _handleChatSharePayload(
+    String workspaceId,
+    ChatSharePayload payload,
+  ) async {
+    if (payload.isEmpty) {
+      return;
+    }
+    final result = await ref
+        .read(loadConversationHomeUseCaseProvider)
+        .execute(workspaceId: workspaceId);
+    if (!mounted || _shareIntentWorkspaceId != workspaceId) {
+      return;
+    }
+    final data = result.valueOrNull;
+    if (data == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.failureOrNull?.message ??
+                'Chưa thể tải danh sách cuộc trò chuyện.',
+          ),
+        ),
+      );
+      return;
+    }
+    final targets = _shareTargets(data);
+    if (targets.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Chưa có cuộc trò chuyện để gửi vào.')),
+      );
+      return;
+    }
+
+    final selected = await showModalBottomSheet<ConversationSummary>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) =>
+          _ShareTargetPickerSheet(payload: payload, targets: targets),
+    );
+    if (!mounted || selected == null) {
+      return;
+    }
+    ref
+        .read(pendingChatShareProvider.notifier)
+        .put(
+          workspaceId: workspaceId,
+          channelId: selected.channelId,
+          payload: payload,
+        );
+    context.push(_conversationLocation(selected), extra: selected);
+  }
+
+  List<ConversationSummary> _shareTargets(ConversationHomeData data) {
+    final byChannelId = <String, ConversationSummary>{};
+    for (final item in data.conversations) {
+      final channelId = item.channelId.trim();
+      if (channelId.isNotEmpty) {
+        byChannelId[channelId] = item;
+      }
+    }
+    for (final item in data.channels) {
+      final channelId = item.channelId.trim();
+      if (channelId.isNotEmpty && item.isMember) {
+        byChannelId[channelId] = item;
+      }
+    }
+    final targets = byChannelId.values.toList(growable: false);
+    targets.sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
+    return targets;
+  }
+
+  String _conversationLocation(ConversationSummary conversation) {
+    return Uri(
+      path: '/conversations/${conversation.channelId}',
+      queryParameters: {
+        'workspaceId': conversation.workspaceId,
+        'title': conversation.title,
+        if (conversation.avatarUrl?.trim().isNotEmpty == true)
+          'avatarUrl': conversation.avatarUrl!.trim(),
+        if (conversation.peerUserId?.trim().isNotEmpty == true)
+          'peerUserId': conversation.peerUserId!.trim(),
+        if (conversation.participantIds.isNotEmpty)
+          'participantIds': conversation.participantIds.join(','),
+      },
+    ).toString();
+  }
+
+  void _ensureQuickReplyListener(String workspaceId) {
+    if (_quickReplyWorkspaceId == workspaceId &&
+        _quickReplySubscription != null) {
+      return;
+    }
+    _quickReplyWorkspaceId = workspaceId;
+    unawaited(_quickReplySubscription?.cancel());
+    _quickReplySubscription = ScopedLocalNotificationService
+        .instance
+        .quickReplies
+        .listen((reply) {
+          if (!mounted || _quickReplyWorkspaceId != workspaceId) {
+            return;
+          }
+          unawaited(_sendQuickReply(workspaceId, reply));
+        });
+    unawaited(_drainBackgroundQuickReplies(workspaceId));
+  }
+
+  Future<void> _drainBackgroundQuickReplies(String workspaceId) async {
+    final replies = await ScopedLocalNotificationService.instance
+        .drainBackgroundQuickReplies();
+    if (!mounted || _quickReplyWorkspaceId != workspaceId) {
+      return;
+    }
+    for (final reply in replies) {
+      await _sendQuickReply(workspaceId, reply);
+    }
+  }
+
+  Future<void> _sendQuickReply(
+    String activeWorkspaceId,
+    ScopedNotificationQuickReply reply,
+  ) async {
+    if (reply.workspaceId != activeWorkspaceId) {
+      return;
+    }
+    final result = await ref
+        .read(sendMessageUseCaseProvider)
+        .execute(
+          workspaceId: reply.workspaceId,
+          channelId: reply.channelId,
+          body: reply.body,
+        );
+    if (!mounted || _quickReplyWorkspaceId != activeWorkspaceId) {
+      return;
+    }
+    if (result.isSuccess) {
+      ref.invalidate(conversationHomeControllerProvider(activeWorkspaceId));
+      ref.invalidate(notificationCenterControllerProvider(activeWorkspaceId));
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result.failureOrNull?.message ?? 'Chưa gửi được trả lời nhanh.',
         ),
       ),
     );
@@ -857,6 +1039,137 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   }
 
   static const _titles = ['Tin nhắn', 'Bạn bè', 'Kênh', 'Công việc', 'Cài đặt'];
+}
+
+class _ShareTargetPickerSheet extends StatefulWidget {
+  const _ShareTargetPickerSheet({required this.payload, required this.targets});
+
+  final ChatSharePayload payload;
+  final List<ConversationSummary> targets;
+
+  @override
+  State<_ShareTargetPickerSheet> createState() =>
+      _ShareTargetPickerSheetState();
+}
+
+class _ShareTargetPickerSheetState extends State<_ShareTargetPickerSheet> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final targets = _filteredTargets;
+    return SafeArea(
+      child: FractionallySizedBox(
+        heightFactor: 0.86,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            WebTuiSpacing.lg,
+            WebTuiSpacing.xs,
+            WebTuiSpacing.lg,
+            WebTuiSpacing.lg + media.viewInsets.bottom,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Gửi vào chat',
+                style: WebTuiTypography.titleMedium.copyWith(
+                  color: WebTuiColors.textPrimary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: WebTuiSpacing.xs),
+              Text(
+                widget.payload.summary,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: WebTuiTypography.bodySmall.copyWith(
+                  color: WebTuiColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: WebTuiSpacing.md),
+              TextField(
+                controller: _searchController,
+                onChanged: (value) => setState(() => _query = value),
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(CupertinoIcons.search),
+                  hintText: 'Tìm cuộc trò chuyện hoặc kênh',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: WebTuiSpacing.md),
+              Expanded(
+                child: targets.isEmpty
+                    ? const WebTuiEmptyState(
+                        title: 'Không tìm thấy',
+                        message: 'Thử tìm bằng tên khác.',
+                        icon: CupertinoIcons.chat_bubble_2,
+                      )
+                    : ListView.separated(
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        itemCount: targets.length,
+                        separatorBuilder: (_, _) =>
+                            const Divider(height: 1, indent: 56),
+                        itemBuilder: (context, index) {
+                          final target = targets[index];
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: WebTuiAvatar(
+                              label: target.avatarLabel ?? target.title,
+                              imageUrl: target.avatarUrl,
+                              icon: target.kind == ConversationKind.channel
+                                  ? CupertinoIcons.number
+                                  : CupertinoIcons.person,
+                            ),
+                            title: Text(
+                              target.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: WebTuiTypography.bodyMedium.copyWith(
+                                color: WebTuiColors.textPrimary,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            subtitle: Text(
+                              target.kind == ConversationKind.channel
+                                  ? 'Kênh'
+                                  : 'Tin nhắn',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            onTap: () => Navigator.of(context).pop(target),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<ConversationSummary> get _filteredTargets {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) {
+      return widget.targets;
+    }
+    return widget.targets
+        .where(
+          (target) =>
+              '${target.title} ${target.preview}'.toLowerCase().contains(query),
+        )
+        .toList(growable: false);
+  }
 }
 
 class _OrganizationMark extends StatelessWidget {
