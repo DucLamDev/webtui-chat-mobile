@@ -567,6 +567,12 @@ ConversationRealtimeEventType _eventType(String value) {
     'CallCancelled' => ConversationRealtimeEventType.callCancelled,
     'CallEnded' => ConversationRealtimeEventType.callEnded,
     'CallMissed' => ConversationRealtimeEventType.callMissed,
+    'ContactRequestCreated' =>
+      ConversationRealtimeEventType.contactRequestCreated,
+    'ContactRequestUpdated' =>
+      ConversationRealtimeEventType.contactRequestUpdated,
+    'ContactRequestCancelled' =>
+      ConversationRealtimeEventType.contactRequestCancelled,
     _ => ConversationRealtimeEventType.unknown,
   };
 }

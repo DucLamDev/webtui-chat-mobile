@@ -21,6 +21,9 @@ enum ConversationRealtimeEventType {
   callCancelled,
   callEnded,
   callMissed,
+  contactRequestCreated,
+  contactRequestUpdated,
+  contactRequestCancelled,
   unknown,
 }
 
@@ -70,6 +73,13 @@ final class ConversationRealtimeEvent {
     ConversationRealtimeEventType.callCancelled ||
     ConversationRealtimeEventType.callEnded ||
     ConversationRealtimeEventType.callMissed => true,
+    _ => false,
+  };
+
+  bool get isContactEvent => switch (type) {
+    ConversationRealtimeEventType.contactRequestCreated ||
+    ConversationRealtimeEventType.contactRequestUpdated ||
+    ConversationRealtimeEventType.contactRequestCancelled => true,
     _ => false,
   };
 

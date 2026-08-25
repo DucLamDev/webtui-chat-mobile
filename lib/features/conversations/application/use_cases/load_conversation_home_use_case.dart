@@ -35,6 +35,7 @@ final class LoadConversationHomeUseCase {
       workspaceId: activeWorkspaceId,
     );
     final contactsFuture = _conversationRepository.listContacts();
+    final contactRequestsFuture = _conversationRepository.listContactRequests();
     final membersFuture = _conversationRepository.listWorkspaceMembers(
       workspaceId: activeWorkspaceId,
     );
@@ -55,6 +56,7 @@ final class LoadConversationHomeUseCase {
     }
 
     final contactsResult = await contactsFuture;
+    final contactRequestsResult = await contactRequestsFuture;
     final membersResult = await membersFuture;
     final presenceResult = await presenceFuture;
 
@@ -63,12 +65,17 @@ final class LoadConversationHomeUseCase {
         workspaceId: activeWorkspaceId,
         conversations: _sortByUpdated(directsResult.valueOrNull ?? const []),
         channels: _sortByUpdated(channelsResult.valueOrNull ?? const []),
-        contacts: contactsResult.valueOrNull ?? const [],
+        contacts: _mergeContactRelationships(
+          contactsResult.valueOrNull ?? const [],
+          contactRequestsResult.valueOrNull ?? const [],
+        ),
         workspaceMembers: membersResult.valueOrNull ?? const [],
         presenceByUserId: _presenceByUser(
           presenceResult.valueOrNull ?? const [],
         ),
-        contactsErrorMessage: contactsResult.failureOrNull?.message,
+        contactsErrorMessage:
+            contactsResult.failureOrNull?.message ??
+            contactRequestsResult.failureOrNull?.message,
         membersErrorMessage:
             membersResult.failureOrNull?.kind == FailureKind.forbidden
             ? 'Bạn chưa có quyền xem danh sách thành viên workspace.'
@@ -94,6 +101,35 @@ Map<String, ConversationPresence> _presenceByUser(List<PresenceSummary> items) {
     }
   }
   return Map.unmodifiable(result);
+}
+
+List<ContactSummary> _mergeContactRelationships(
+  List<ContactSummary> contacts,
+  List<ContactSummary> requests,
+) {
+  final byUserId = <String, ContactSummary>{};
+  for (final contact in contacts) {
+    byUserId[contact.userId] = contact;
+  }
+  for (final request in requests) {
+    final current = byUserId[request.userId];
+    if (current == null || current.contactStatus != 'accepted') {
+      byUserId[request.userId] = request;
+    }
+  }
+  final merged = byUserId.values.toList(growable: false);
+  final priority = {'accepted': 0, 'pending': 1, 'rejected': 2, 'cancelled': 3};
+  merged.sort((left, right) {
+    final leftPriority = priority[left.contactStatus] ?? 4;
+    final rightPriority = priority[right.contactStatus] ?? 4;
+    if (leftPriority != rightPriority) {
+      return leftPriority.compareTo(rightPriority);
+    }
+    return left.displayName.toLowerCase().compareTo(
+      right.displayName.toLowerCase(),
+    );
+  });
+  return merged;
 }
 
 List<ConversationSummary> _sortByUpdated(List<ConversationSummary> items) {

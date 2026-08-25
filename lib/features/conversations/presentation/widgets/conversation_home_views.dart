@@ -171,6 +171,9 @@ class ContactsHomeView extends ConsumerWidget {
                   contact.userId,
                 ),
                 onTap: () async {
+                  if (!contact.canOpenDirectConversation) {
+                    return;
+                  }
                   if (moderationState.isBlocked(contact.userId)) {
                     await showUserSafetyActions(
                       context,
@@ -418,16 +421,18 @@ class _ContactTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final relationshipLabel = _contactRelationshipLabel(contact);
+    final canOpenChat = contact.canOpenDirectConversation && !blocked;
     return WebTuiConversationListItem(
       title: contact.displayName,
       preview: blocked
           ? 'Đã chặn · Nhấn để quản lý'
-          : contact.title ?? contact.email,
-      timeLabel: _presenceLabel(presence),
+          : relationshipLabel ?? contact.title ?? contact.email,
+      timeLabel: canOpenChat ? _presenceLabel(presence) : '',
       avatarLabel: contact.displayName,
       avatarUrl: contact.avatarUrl,
-      status: _presenceStatus(presence),
-      onTap: onTap,
+      status: canOpenChat ? _presenceStatus(presence) : null,
+      onTap: canOpenChat ? onTap : null,
       onLongPress: onSafety,
       trailing: IconButton(
         tooltip: 'Báo cáo hoặc chặn ${contact.displayName}',
@@ -436,6 +441,25 @@ class _ContactTile extends StatelessWidget {
       ),
     );
   }
+}
+
+String? _contactRelationshipLabel(ContactSummary contact) {
+  final status = contact.contactStatus?.trim();
+  if (status == null || status.isEmpty || status == 'accepted') {
+    return null;
+  }
+  if (status == 'pending') {
+    return contact.isOutgoingContactRequest
+        ? 'Đã gửi lời mời'
+        : 'Lời mời đang chờ';
+  }
+  if (status == 'rejected') {
+    return 'Lời mời đã bị từ chối';
+  }
+  if (status == 'cancelled') {
+    return 'Lời mời đã hủy';
+  }
+  return status;
 }
 
 class _ChannelList extends StatelessWidget {

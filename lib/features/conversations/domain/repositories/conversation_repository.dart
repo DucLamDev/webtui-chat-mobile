@@ -15,6 +15,10 @@ abstract interface class ConversationRepository {
 
   Future<Result<List<ContactSummary>>> listContacts();
 
+  Future<Result<List<ContactSummary>>> listContactRequests({
+    String status = 'all',
+  });
+
   Future<Result<List<ContactSummary>>> listWorkspaceMembers({
     required String workspaceId,
   });

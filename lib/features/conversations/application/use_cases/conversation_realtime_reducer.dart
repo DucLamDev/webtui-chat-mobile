@@ -82,7 +82,10 @@ final class ConversationRealtimeReducer {
       ConversationRealtimeEventType.callRejected ||
       ConversationRealtimeEventType.callCancelled ||
       ConversationRealtimeEventType.callEnded ||
-      ConversationRealtimeEventType.callMissed => state,
+      ConversationRealtimeEventType.callMissed ||
+      ConversationRealtimeEventType.contactRequestCreated ||
+      ConversationRealtimeEventType.contactRequestUpdated ||
+      ConversationRealtimeEventType.contactRequestCancelled => state,
       ConversationRealtimeEventType.unknown => state,
     };
   }

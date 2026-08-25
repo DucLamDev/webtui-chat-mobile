@@ -33,6 +33,13 @@ final class ConversationRepositoryImpl implements ConversationRepository {
   }
 
   @override
+  Future<Result<List<ContactSummary>>> listContactRequests({
+    String status = 'all',
+  }) {
+    return guardResult(() => _remote.listContactRequests(status: status));
+  }
+
+  @override
   Future<Result<List<ContactSummary>>> listWorkspaceMembers({
     required String workspaceId,
   }) {

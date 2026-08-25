@@ -628,6 +628,19 @@ final class ConversationRemoteDataSource {
     ).map(_contactFromMap).toList(growable: false);
   }
 
+  Future<List<ContactSummary>> listContactRequests({
+    String status = 'all',
+  }) async {
+    final response = await _api.get<Object>(
+      '/api/v1/contact-requests',
+      queryParameters: {'status': status},
+    );
+    return envelopeList(
+      response.data,
+      'contact_requests',
+    ).map(_contactFromMap).toList(growable: false);
+  }
+
   Future<List<ContactSummary>> listWorkspaceMembers({
     required String workspaceId,
   }) async {
@@ -1302,6 +1315,7 @@ PresenceSummary _presenceFromMap(JsonMap map) {
 ContactSummary _contactFromMap(JsonMap map) {
   final userMap = jsonMap(field(map, const ['user']));
   final source = userMap.isEmpty ? map : userMap;
+  final contactStatus = stringField(map, const ['status']).trim();
   return ContactSummary(
     userId: stringField(source, const [
       'id',
@@ -1319,6 +1333,9 @@ ContactSummary _contactFromMap(JsonMap map) {
     status: stringField(source, const ['status'], fallback: 'active'),
     avatarUrl: nullableStringField(source, const ['avatar_url', 'avatarUrl']),
     title: nullableStringField(source, const ['title', 'role']),
+    contactRequestId: nullableStringField(map, const ['id']),
+    contactStatus: contactStatus.isEmpty ? null : contactStatus,
+    contactDirection: nullableStringField(map, const ['direction']),
   );
 }
 

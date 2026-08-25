@@ -64,6 +64,13 @@ final class CachingConversationRepository implements ConversationRepository {
   }
 
   @override
+  Future<Result<List<ContactSummary>>> listContactRequests({
+    String status = 'all',
+  }) {
+    return _remote.listContactRequests(status: status);
+  }
+
+  @override
   Future<Result<List<ContactSummary>>> listWorkspaceMembers({
     required String workspaceId,
   }) {

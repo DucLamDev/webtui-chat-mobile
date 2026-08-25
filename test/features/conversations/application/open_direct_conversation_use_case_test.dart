@@ -140,6 +140,13 @@ final class _FakeConversationRepository implements ConversationRepository {
   }
 
   @override
+  Future<Result<List<ContactSummary>>> listContactRequests({
+    String status = 'all',
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<Result<List<ChannelFile>>> listFiles({
     required String workspaceId,
     int limit = 40,

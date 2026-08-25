@@ -909,13 +909,17 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     _incomingCallRealtimeSubscription = ref
         .read(incomingCallRealtimeRepositoryProvider)
         .subscribeToUser(workspaceId: workspaceId)
-        .where(
-          (event) =>
-              event.workspaceId == workspaceId &&
-              event.type == ConversationRealtimeEventType.callInvited,
-        )
         .listen((event) {
-          if (!mounted || event.callId?.trim().isNotEmpty != true) {
+          if (!mounted || event.workspaceId != workspaceId) {
+            return;
+          }
+          if (event.isContactEvent) {
+            ref.invalidate(conversationHomeControllerProvider(workspaceId));
+            ref.invalidate(notificationCenterControllerProvider(workspaceId));
+            return;
+          }
+          if (event.type != ConversationRealtimeEventType.callInvited ||
+              event.callId?.trim().isNotEmpty != true) {
             return;
           }
           final target = NotificationTarget.fromPayload(

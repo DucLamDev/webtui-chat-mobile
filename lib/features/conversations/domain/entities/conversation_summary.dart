@@ -150,6 +150,9 @@ final class ContactSummary {
     required this.status,
     this.avatarUrl,
     this.title,
+    this.contactRequestId,
+    this.contactStatus,
+    this.contactDirection,
   });
 
   final String userId;
@@ -159,6 +162,19 @@ final class ContactSummary {
   final String status;
   final String? avatarUrl;
   final String? title;
+  final String? contactRequestId;
+  final String? contactStatus;
+  final String? contactDirection;
+
+  bool get hasContactRelationship =>
+      contactStatus != null && contactStatus!.trim().isNotEmpty;
+
+  bool get canOpenDirectConversation =>
+      !hasContactRelationship || contactStatus?.trim() == 'accepted';
+
+  bool get isPendingContactRequest => contactStatus?.trim() == 'pending';
+
+  bool get isOutgoingContactRequest => contactDirection?.trim() == 'outgoing';
 
   String get searchableText =>
       '$displayName $username $email ${title ?? ''}'.toLowerCase();

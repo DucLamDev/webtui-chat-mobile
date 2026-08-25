@@ -130,6 +130,13 @@ final class _FakeConversationRepository implements ConversationRepository {
   }
 
   @override
+  Future<Result<List<ContactSummary>>> listContactRequests({
+    String status = 'all',
+  }) async {
+    return const Success([]);
+  }
+
+  @override
   Future<Result<List<ContactSummary>>> listWorkspaceMembers({
     required String workspaceId,
   }) async {
