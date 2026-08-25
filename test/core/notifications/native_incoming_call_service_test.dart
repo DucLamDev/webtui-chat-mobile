@@ -152,9 +152,11 @@ void main() {
   test('end call always forwards the terminal call id', () async {
     await NativeIncomingCallService.endCall(' call-123 ');
 
-    expect(calls, hasLength(1));
-    expect(calls.single.method, 'endCall');
-    expect(calls.single.arguments, <String, Object?>{'id': 'call-123'});
+    expect(calls.map((call) => call.method), <String>[
+      'endCall',
+      'activeCalls',
+    ]);
+    expect(calls.first.arguments, <String, Object?>{'id': 'call-123'});
   });
 
   test('cold-process pending action restores scoped target and stable id', () {
