@@ -517,21 +517,21 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         onClearThread: controller.clearThread,
         onFocusMessage: controller.focusMessage,
         onCancelComposerContext: controller.cancelComposerContext,
-        onRetryAudioCall: callsEnabled
+        onRetryCall: callsEnabled
             ? interactionBlocked
-                  ? () => _showCapabilityUnavailable(
+                  ? (_) => _showCapabilityUnavailable(
                       context,
                       'Hãy bỏ chặn người dùng trước khi gọi.',
                     )
-                  : () => unawaited(
+                  : (mode) => unawaited(
                       _startCallFromCurrentConversation(
                         context,
                         controller,
                         state,
-                        CallMode.audio,
+                        mode,
                       ),
                     )
-            : () => _showCapabilityUnavailable(
+            : (_) => _showCapabilityUnavailable(
                 context,
                 'Máy chủ này không bật cuộc gọi.',
               ),
@@ -1147,7 +1147,7 @@ class _ChatRoomBody extends StatefulWidget {
     required this.onClearThread,
     required this.onFocusMessage,
     required this.onCancelComposerContext,
-    required this.onRetryAudioCall,
+    required this.onRetryCall,
   });
 
   final String workspaceId;
@@ -1190,7 +1190,7 @@ class _ChatRoomBody extends StatefulWidget {
   final VoidCallback onClearThread;
   final ValueChanged<ChatMessage> onFocusMessage;
   final VoidCallback onCancelComposerContext;
-  final VoidCallback onRetryAudioCall;
+  final ValueChanged<CallMode> onRetryCall;
 
   @override
   State<_ChatRoomBody> createState() => _ChatRoomBodyState();
@@ -1349,14 +1349,19 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
                               if (showDay)
                                 const SizedBox(height: WebTuiSpacing.md),
                               if (message.isSystem)
-                                _isMissedCallMessage(message)
-                                    ? _MissedCallCard(
+                                _isCallHistoryMessage(message)
+                                    ? _CallHistoryCard(
+                                        detail: _callHistoryDetail(message),
+                                        missed: _isMissedCallMessage(message),
+                                        mode: _callMessageMode(message),
                                         outgoing: false,
-                                        title: _missedCallTitle(message),
+                                        title: _callHistoryTitle(message),
                                         timeLabel: _timeLabel(
                                           message.createdAt,
                                         ),
-                                        onRetry: widget.onRetryAudioCall,
+                                        onRetry: () => widget.onRetryCall(
+                                          _callMessageMode(message),
+                                        ),
                                       )
                                     : _SystemMessage(text: message.body)
                               else if (senderBlocked)
@@ -1411,7 +1416,7 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
                                       onOpenLink: widget.onOpenLink,
                                       onReact: (emoji) =>
                                           widget.onReact(message, emoji),
-                                      onRetryAudioCall: widget.onRetryAudioCall,
+                                      onRetryCall: widget.onRetryCall,
                                     ),
                                   ),
                                 ),
@@ -3428,7 +3433,7 @@ class _MessageRow extends StatelessWidget {
     required this.reactions,
     required this.onOpenLink,
     required this.onReact,
-    required this.onRetryAudioCall,
+    required this.onRetryCall,
   });
 
   final ChatMessage message;
@@ -3440,17 +3445,20 @@ class _MessageRow extends StatelessWidget {
   final List<String> reactions;
   final ValueChanged<String> onOpenLink;
   final ValueChanged<String> onReact;
-  final VoidCallback onRetryAudioCall;
+  final ValueChanged<CallMode> onRetryCall;
 
   @override
   Widget build(BuildContext context) {
     final showBody = text.trim().isNotEmpty || message.isDeleted;
-    if (_isMissedCallMessage(message)) {
-      return _MissedCallCard(
+    if (_isCallHistoryMessage(message)) {
+      return _CallHistoryCard(
+        detail: _callHistoryDetail(message),
+        missed: _isMissedCallMessage(message),
+        mode: _callMessageMode(message),
         outgoing: outgoing,
-        title: _missedCallTitle(message),
+        title: _callHistoryTitle(message),
         timeLabel: timeLabel,
-        onRetry: onRetryAudioCall,
+        onRetry: () => onRetryCall(_callMessageMode(message)),
       );
     }
     final poll = _pollDefinition(message);
@@ -3994,14 +4002,20 @@ _PollDefinition? _pollDefinition(ChatMessage message) {
   );
 }
 
-class _MissedCallCard extends StatelessWidget {
-  const _MissedCallCard({
+class _CallHistoryCard extends StatelessWidget {
+  const _CallHistoryCard({
+    required this.detail,
+    required this.missed,
+    required this.mode,
     required this.outgoing,
     required this.title,
     required this.timeLabel,
     required this.onRetry,
   });
 
+  final String detail;
+  final bool missed;
+  final CallMode mode;
   final bool outgoing;
   final String title;
   final String timeLabel;
@@ -4015,6 +4029,13 @@ class _MissedCallCard extends StatelessWidget {
     final borderColor = outgoing
         ? WebTuiColors.messageOutgoingBorder
         : WebTuiColors.border;
+    final toneColor = missed ? WebTuiColors.danger : WebTuiColors.primary;
+    final titleColor = missed ? WebTuiColors.danger : WebTuiColors.textPrimary;
+    final icon = missed
+        ? Icons.phone_missed_rounded
+        : mode == CallMode.video
+        ? CupertinoIcons.video_camera
+        : CupertinoIcons.phone;
 
     return Align(
       alignment: outgoing ? Alignment.centerRight : Alignment.centerLeft,
@@ -4025,7 +4046,7 @@ class _MissedCallCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 148, maxWidth: 174),
+            constraints: const BoxConstraints(minWidth: 148, maxWidth: 190),
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: background,
@@ -4056,7 +4077,7 @@ class _MissedCallCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: WebTuiTypography.bodySmall.copyWith(
-                              color: WebTuiColors.danger,
+                              color: titleColor,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -4064,15 +4085,11 @@ class _MissedCallCard extends StatelessWidget {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(
-                                Icons.phone_missed_rounded,
-                                size: 18,
-                                color: WebTuiColors.danger,
-                              ),
+                              Icon(icon, size: 18, color: toneColor),
                               const SizedBox(width: 7),
                               Flexible(
                                 child: Text(
-                                  'Cuộc gọi thoại',
+                                  detail,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: WebTuiTypography.bodySmall.copyWith(
@@ -4598,7 +4615,7 @@ String _displayMessageBody(ChatMessage message) {
   if (message.isDeleted) {
     return 'Tin nhắn đã được thu hồi';
   }
-  if (_isMissedCallMessage(message)) {
+  if (_isCallHistoryMessage(message)) {
     return '';
   }
   if (_isGeneratedAttachmentBody(message.body, message.attachments)) {
@@ -4611,6 +4628,9 @@ bool _isMissedCallMessage(ChatMessage message) {
   if (message.isDeleted || message.attachments.isNotEmpty) {
     return false;
   }
+  if (message.isCallEvent) {
+    return message.callStatus == 'missed';
+  }
   final normalized = _removeVietnameseDiacritics(
     _compactMessageText(message.body),
   );
@@ -4621,7 +4641,49 @@ bool _isMissedCallMessage(ChatMessage message) {
       (normalized.contains('cuoc goi') && normalized.contains('nho'));
 }
 
-String _missedCallTitle(ChatMessage message) {
+bool _isCallHistoryMessage(ChatMessage message) {
+  if (message.isDeleted || message.attachments.isNotEmpty) {
+    return false;
+  }
+  return message.isCallEvent || _isMissedCallMessage(message);
+}
+
+String _callHistoryTitle(ChatMessage message) {
+  if (_isMissedCallMessage(message)) {
+    if (message.isCallEvent) {
+      return message.isMine ? 'Cuộc gọi nhỡ' : 'Bạn bị nhỡ';
+    }
+    return _legacyMissedCallTitle(message);
+  }
+  final modeLabel = _callMessageMode(message) == CallMode.video
+      ? 'video'
+      : 'thoại';
+  final directionLabel = message.isMine ? 'đi' : 'đến';
+  return 'Cuộc gọi $modeLabel $directionLabel';
+}
+
+String _callHistoryDetail(ChatMessage message) {
+  final modeLabel = _callMessageMode(message) == CallMode.video
+      ? 'Cuộc gọi video'
+      : 'Cuộc gọi thoại';
+  if (_isMissedCallMessage(message)) {
+    return modeLabel;
+  }
+  return _formatCallDurationLabel(message.callDurationSeconds);
+}
+
+CallMode _callMessageMode(ChatMessage message) {
+  return message.callMode == 'video' ? CallMode.video : CallMode.audio;
+}
+
+String _formatCallDurationLabel(int durationSeconds) {
+  final safeSeconds = durationSeconds < 0 ? 0 : durationSeconds;
+  final minutes = safeSeconds ~/ 60;
+  final seconds = safeSeconds % 60;
+  return '$minutes phút $seconds giây';
+}
+
+String _legacyMissedCallTitle(ChatMessage message) {
   final normalized = _removeVietnameseDiacritics(
     _compactMessageText(message.body),
   );

@@ -57,6 +57,25 @@ final class ChatMessage {
       kind == 'event' &&
       metadata['message_type']?.toString().trim().toLowerCase() == 'poll' &&
       metadata['poll'] is Map;
+  bool get isCallEvent =>
+      kind == 'event' &&
+      metadata['message_type']?.toString().trim().toLowerCase() == 'call';
+  String get callStatus =>
+      (metadata['call_status'] ?? metadata['callStatus'] ?? '')
+          .toString()
+          .trim()
+          .toLowerCase();
+  String get callMode => (metadata['call_mode'] ?? metadata['callMode'] ?? '')
+      .toString()
+      .trim()
+      .toLowerCase();
+  int get callDurationSeconds {
+    final raw = metadata['duration_seconds'] ?? metadata['durationSeconds'];
+    final value = raw is num
+        ? raw.round()
+        : int.tryParse(raw?.toString().trim() ?? '') ?? 0;
+    return value < 0 ? 0 : value;
+  }
 
   ChatMessage copyWith({
     String? body,

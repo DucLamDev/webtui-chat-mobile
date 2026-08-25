@@ -35,7 +35,13 @@ final appRouterProvider = Provider<GoRouter>((_) {
       GoRoute(
         path: '/',
         name: 'home',
-        builder: (context, state) => const HomeShellScreen(),
+        builder: (context, state) {
+          return HomeShellScreen(
+            initialTabIndex: _homeInitialTabIndex(
+              state.uri.queryParameters['tab'],
+            ),
+          );
+        },
       ),
       GoRoute(
         path: '/conversations/:channel_id',
@@ -102,3 +108,18 @@ final appRouterProvider = Provider<GoRouter>((_) {
     ],
   );
 });
+
+int _homeInitialTabIndex(String? value) {
+  switch (value?.trim().toLowerCase()) {
+    case 'contacts':
+      return 1;
+    case 'channels':
+      return 2;
+    case 'tools':
+      return 3;
+    case 'settings':
+      return 4;
+    default:
+      return 0;
+  }
+}

@@ -1225,6 +1225,24 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     if (state.isStartingCall) {
       return null;
     }
+    final normalizedTargetUserId = targetUserId.trim();
+    final currentUserId = state.currentUserId?.trim();
+    if (normalizedTargetUserId.isEmpty) {
+      state = state.copyWith(
+        errorMessage: 'Chưa có người nhận cuộc gọi.',
+        clearNotice: true,
+      );
+      return null;
+    }
+    if (currentUserId != null &&
+        currentUserId.isNotEmpty &&
+        normalizedTargetUserId == currentUserId) {
+      state = state.copyWith(
+        errorMessage: 'Không thể tự gọi chính mình.',
+        clearNotice: true,
+      );
+      return null;
+    }
     state = state.copyWith(
       isStartingCall: true,
       clearError: true,
@@ -1233,7 +1251,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     final result = await _startCallUseCase.execute(
       workspaceId: state.scope.workspaceId,
       channelId: state.scope.channelId,
-      targetUserId: targetUserId,
+      targetUserId: normalizedTargetUserId,
       mode: mode,
     );
     switch (result) {

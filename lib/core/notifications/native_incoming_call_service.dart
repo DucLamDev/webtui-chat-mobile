@@ -511,6 +511,22 @@ final class NativeIncomingCallService {
       await FlutterCallkitIncoming.endCall(normalizedCallId);
     } on Object {
       // The call may already be gone from native UI.
+    }
+    try {
+      final calls = await FlutterCallkitIncoming.activeCalls();
+      for (final call in calls) {
+        if (call.id == normalizedCallId) {
+          await FlutterCallkitIncoming.endCall(call.id);
+          continue;
+        }
+        final target = _targetFromCallkitBody(call.toJson());
+        if (target?.callId?.trim() == normalizedCallId) {
+          await FlutterCallkitIncoming.endCall(call.id);
+        }
+      }
+    } on Object {
+      // Some platform/plugin versions do not expose active call metadata
+      // consistently. The direct endCall above is still the primary path.
     } finally {
       _targetsByCallId.remove(normalizedCallId);
     }

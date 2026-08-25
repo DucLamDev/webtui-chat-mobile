@@ -192,8 +192,11 @@ final class NotificationTarget {
     }
     final segments = uri.pathSegments;
     String? channelId;
+    String? targetType;
     if (segments.length >= 2 && segments.first == 'conversations') {
       channelId = segments[1];
+    } else if (segments.isNotEmpty && segments.first == 'contacts') {
+      targetType = 'contact';
     }
     return NotificationTarget(
       workspaceId:
@@ -205,7 +208,7 @@ final class NotificationTarget {
       messageId:
           uri.queryParameters['messageId'] ?? uri.queryParameters['message_id'],
       deepLink: value,
-      targetType: uri.queryParameters['targetType'],
+      targetType: uri.queryParameters['targetType'] ?? targetType,
     );
   }
 
@@ -225,6 +228,16 @@ final class NotificationTarget {
 
   bool get canOpenConversation =>
       workspaceId.trim().isNotEmpty && channelId?.trim().isNotEmpty == true;
+
+  bool get canOpenContacts {
+    final normalizedTargetType = targetType?.trim().toLowerCase();
+    final normalizedEventType = eventType?.trim().toLowerCase();
+    return workspaceId.trim().isNotEmpty &&
+        (normalizedTargetType == 'contact' ||
+            normalizedEventType == 'contact_request' ||
+            normalizedEventType == 'contact_request_accepted' ||
+            _deepLinkOpensContacts(deepLink));
+  }
 
   bool isBoundToInstance(String activeInstanceId) {
     final payloadInstanceId = instanceId?.trim().toLowerCase() ?? '';
@@ -268,7 +281,17 @@ bool _isInternalUri(Uri uri) {
     final firstSegment = uri.pathSegments.isEmpty
         ? null
         : uri.pathSegments.first;
-    return firstSegment == 'conversations' || firstSegment == 'notifications';
+    return firstSegment == 'conversations' ||
+        firstSegment == 'contacts' ||
+        firstSegment == 'notifications';
   }
   return scheme == 'webtui';
+}
+
+bool _deepLinkOpensContacts(String? value) {
+  final uri = value == null ? null : Uri.tryParse(value.trim());
+  if (uri == null || !_isInternalUri(uri)) {
+    return false;
+  }
+  return uri.pathSegments.isNotEmpty && uri.pathSegments.first == 'contacts';
 }

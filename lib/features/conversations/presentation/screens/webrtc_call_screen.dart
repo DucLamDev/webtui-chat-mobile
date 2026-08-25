@@ -44,6 +44,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   final RTCVideoRenderer _localRenderer = RTCVideoRenderer();
   final RTCVideoRenderer _remoteRenderer = RTCVideoRenderer();
   final List<RTCIceCandidate> _pendingCandidates = [];
+  Map<String, dynamic>? _pendingOffer;
   RTCPeerConnection? _peer;
   MediaStream? _localStream;
   StreamSubscription<ConversationRealtimeEvent>? _signals;
@@ -60,6 +61,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   bool _fatalErrorHandled = false;
   bool _allowPop = false;
   bool _offerSent = false;
+  bool _remoteReadyReceived = false;
   bool _hasRemoteDescription = false;
   bool _microphoneEnabled = true;
   bool _cameraEnabled = true;
@@ -122,6 +124,9 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
             channelId: widget.channelId,
           )
           .listen(_handleSignal);
+      if (widget.incoming) {
+        await _acceptIncomingCall();
+      }
 
       final peer = await createPeerConnection({
         'iceServers': await _loadIceServers(),
@@ -206,8 +211,9 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
         _localRenderer.srcObject = stream;
         _ready = true;
       });
+      _maybeSendOffer();
+      _maybeReceivePendingOffer();
       if (widget.incoming) {
-        await _acceptIncomingCall();
         await NativeIncomingCallService.activateMediaCapture(
           instanceScope: _instanceScope,
           callId: widget.callId,
@@ -280,7 +286,10 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       case ConversationRealtimeEventType.callAccepted:
         break;
       case ConversationRealtimeEventType.callReady:
-        if (!widget.incoming) _runSignaling(_sendOffer());
+        if (!widget.incoming) {
+          _remoteReadyReceived = true;
+          _maybeSendOffer();
+        }
       case ConversationRealtimeEventType.callOffer:
         if (widget.incoming && event.callSdp.isNotEmpty) {
           _runSignaling(_receiveOffer(event.callSdp));
@@ -311,6 +320,33 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     );
   }
 
+  void _maybeSendOffer() {
+    if (widget.incoming ||
+        !_remoteReadyReceived ||
+        _peer == null ||
+        !_ready ||
+        _offerSent ||
+        _leaving ||
+        _fatalErrorHandled) {
+      return;
+    }
+    _runSignaling(_sendOffer());
+  }
+
+  void _maybeReceivePendingOffer() {
+    final pendingOffer = _pendingOffer;
+    if (!widget.incoming ||
+        pendingOffer == null ||
+        _peer == null ||
+        !_ready ||
+        _leaving ||
+        _fatalErrorHandled) {
+      return;
+    }
+    _pendingOffer = null;
+    _runSignaling(_receiveOffer(pendingOffer));
+  }
+
   Future<void> _sendOffer() async {
     final peer = _peer;
     if (peer == null || _offerSent) return;
@@ -329,7 +365,10 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
 
   Future<void> _receiveOffer(Map<String, dynamic> value) async {
     final peer = _peer;
-    if (peer == null) return;
+    if (peer == null || !_ready) {
+      _pendingOffer = Map<String, dynamic>.from(value);
+      return;
+    }
     await peer.setRemoteDescription(
       RTCSessionDescription(
         value['sdp']?.toString(),
@@ -442,7 +481,15 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     _leaving = true;
     _stateTimer?.cancel();
     _disconnectTimer?.cancel();
-    await _terminateServerCall(reason: 'user_ended');
+    await NativeIncomingCallService.endCall(widget.callId);
+    try {
+      await _terminateServerCall(
+        reason: 'user_ended',
+      ).timeout(const Duration(seconds: 4));
+    } on Object {
+      // The visible call surface must close even if the network/server request
+      // is slow. Realtime catch-up will reconcile the call history afterwards.
+    }
     await _notifyLeave();
     await _closeScreen();
   }

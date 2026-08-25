@@ -219,6 +219,15 @@ class _NotificationTile extends StatelessWidget {
 }
 
 String? _locationFor(NotificationTarget target) {
+  if (target.canOpenContacts) {
+    return Uri(
+      path: '/',
+      queryParameters: <String, String>{
+        'tab': 'contacts',
+        'workspaceId': target.workspaceId,
+      },
+    ).toString();
+  }
   final channelId = target.channelId?.trim();
   if (channelId == null || channelId.isEmpty) {
     return null;

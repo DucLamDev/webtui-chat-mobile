@@ -39,4 +39,26 @@ void main() {
 
     expect(message.isPoll, isFalse);
   });
+
+  test('recognizes a call event from message metadata', () {
+    final message = ChatMessage(
+      id: 'message-3',
+      workspaceId: 'workspace-1',
+      channelId: 'channel-1',
+      kind: 'event',
+      body: 'Cuộc gọi video đã kết thúc',
+      createdAt: DateTime.utc(2026, 8, 25),
+      metadata: const {
+        'message_type': 'call',
+        'call_mode': 'video',
+        'call_status': 'completed',
+        'duration_seconds': 277,
+      },
+    );
+
+    expect(message.isCallEvent, isTrue);
+    expect(message.callMode, 'video');
+    expect(message.callStatus, 'completed');
+    expect(message.callDurationSeconds, 277);
+  });
 }
