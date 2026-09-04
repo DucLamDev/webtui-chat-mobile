@@ -133,7 +133,11 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
         'sdpSemantics': 'unified-plan',
       });
       final stream = await navigator.mediaDevices.getUserMedia({
-        'audio': true,
+        'audio': const {
+          'echoCancellation': true,
+          'noiseSuppression': true,
+          'autoGainControl': true,
+        },
         'video': widget.mode == CallMode.video
             ? {
                 'facingMode': 'user',
@@ -146,6 +150,10 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       // Keep the stream reachable so any native lifecycle failure below is
       // cleaned up when the screen closes.
       _localStream = stream;
+      final audioTracks = stream.getAudioTracks();
+      if (audioTracks.isEmpty) {
+        throw StateError('Không tìm thấy luồng microphone trên thiết bị.');
+      }
       if (!widget.incoming) {
         await NativeIncomingCallService.startOutgoingCall(
           instanceScope: _instanceScope,
@@ -156,7 +164,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
           isVideo: widget.mode == CallMode.video,
         );
       }
-      for (final track in stream.getAudioTracks()) {
+      for (final track in audioTracks) {
         track.enabled = _microphoneEnabled;
       }
       for (final track in stream.getVideoTracks()) {

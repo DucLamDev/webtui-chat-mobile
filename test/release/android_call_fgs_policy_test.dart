@@ -27,6 +27,23 @@ void main() {
     expect(callScreen.toLowerCase(), isNot(contains('screenshare')));
   });
 
+  test('mobile WebRTC call requests stable microphone capture', () {
+    final callScreen = source(
+      'lib/features/conversations/presentation/screens/webrtc_call_screen.dart',
+    );
+
+    expect(callScreen, contains("'echoCancellation': true"));
+    expect(callScreen, contains("'noiseSuppression': true"));
+    expect(callScreen, contains("'autoGainControl': true"));
+    expect(callScreen, contains('final audioTracks = stream.getAudioTracks()'));
+    expect(
+      callScreen,
+      contains(
+        "throw StateError('Không tìm thấy luồng microphone trên thiết bị.')",
+      ),
+    );
+  });
+
   test('outgoing lifecycle begins after contextual media permission flow', () {
     final callScreen = source(
       'lib/features/conversations/presentation/screens/webrtc_call_screen.dart',

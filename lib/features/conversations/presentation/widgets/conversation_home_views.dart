@@ -530,6 +530,7 @@ class _TopSearch extends StatelessWidget {
 
 void _openChat(BuildContext context, ConversationSummary conversation) {
   final queryParameters = {
+    'workspaceId': conversation.workspaceId,
     'title': conversation.title,
     'kind': conversation.kind.name,
   };
