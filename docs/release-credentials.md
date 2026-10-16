@@ -41,6 +41,38 @@ new key for routine releases. The Play app-signing certificate is a separate
 identity in the recommended setup: use that certificate for OAuth/App Links and
 never publish the CI upload-key APK as a customer fallback.
 
+## Apple iOS Secrets (for the signed TestFlight workflow)
+
+The `ios-release` job in `.github/workflows/mobile.yml` builds and uploads a
+signed IPA entirely on a GitHub-hosted macOS runner (no local Mac needed). It is
+gated by the repository variable `ENABLE_IOS_RELEASE=true` and a `mobile-v*` tag.
+Add these to the protected `production` environment:
+
+- `APPLE_DISTRIBUTION_CERT_P12_BASE64`: base64 of the Apple Distribution
+  certificate exported as `.p12` (certificate + private key).
+- `APPLE_DISTRIBUTION_CERT_PASSWORD`: password protecting that `.p12`.
+- `APPLE_PROVISIONING_PROFILE_BASE64`: base64 of the App Store provisioning
+  profile (`.mobileprovision`) for `com.vpsttt.webtuiChat`.
+- `APPSTORE_CONNECT_API_KEY_ID`: App Store Connect API key ID.
+- `APPSTORE_CONNECT_API_ISSUER_ID`: App Store Connect API issuer ID.
+- `APPSTORE_CONNECT_API_PRIVATE_KEY_BASE64`: base64 of the API key `.p8` file
+  (role App Manager). Used only to authenticate the TestFlight upload.
+
+Matching repository variables (not secret):
+
+- `ENABLE_IOS_RELEASE=true` to turn the signed job on.
+- `APPLE_TEAM_ID`: the 10-character Apple team ID.
+- `APPLE_PROVISIONING_PROFILE_NAME`: the exact name of the App Store provisioning
+  profile, as shown in the Apple Developer portal (used by both the signing
+  xcconfig and `ExportOptions.plist`, which CI generates at build time).
+- `MOBILE_FIREBASE_IOS_APP_ID`: the iOS Firebase app ID.
+
+All of the certificate, profile and API key can be produced without a Mac: create
+the CSR and convert the issued `.cer` to `.p12` with `openssl` on Linux, and
+download the profile and API key from the Apple portals. The App Store Connect
+API key, APNs keys and distribution private key are release infrastructure
+secrets and must never be passed through `--dart-define` or committed.
+
 ## Runtime Variables
 
 - `MOBILE_REFERENCE_INSTANCE_URL` (preferred): publisher-operated, always-on

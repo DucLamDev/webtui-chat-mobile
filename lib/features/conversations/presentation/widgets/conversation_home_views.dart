@@ -217,6 +217,9 @@ class ChannelsHomeView extends ConsumerWidget {
     final state = ref.watch(provider);
     final controller = ref.read(provider.notifier);
 
+    final isAutomationTab =
+        state.automationEnabled && state.channelTab == state.automationChannelTab;
+
     return ListView(
       padding: const EdgeInsets.only(bottom: WebTuiSpacing.lg),
       children: [
@@ -227,7 +230,12 @@ class ChannelsHomeView extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.lg),
           child: WebTuiSegmentedTabs(
-            tabs: const ['Tất cả', 'Công khai', 'Riêng tư'],
+            tabs: [
+              'Tất cả',
+              'Công khai',
+              'Riêng tư',
+              if (state.automationEnabled) 'Automation',
+            ],
             selectedIndex: state.channelTab,
             onChanged: controller.setChannelTab,
           ),
@@ -243,8 +251,12 @@ class ChannelsHomeView extends ConsumerWidget {
         else
           _ChannelList(
             channels: state.filteredChannels,
-            emptyTitle: 'Chưa có kênh phù hợp',
-            sectionLabel: 'Kênh trong workspace',
+            emptyTitle: isAutomationTab
+                ? 'Chưa có kênh automation'
+                : 'Chưa có kênh phù hợp',
+            sectionLabel: isAutomationTab
+                ? 'Kênh automation'
+                : 'Kênh trong workspace',
             onTap: (channel) => _handleChannelTap(context, controller, channel),
           ),
       ],
@@ -636,6 +648,9 @@ String _channelTrailing(ConversationSummary channel) {
 }
 
 IconData _channelIcon(ConversationSummary channel) {
+  if (channel.isAutomation) {
+    return Icons.smart_toy_outlined;
+  }
   if (channel.privateSessionMode) {
     return Icons.support_agent_rounded;
   }
@@ -647,6 +662,9 @@ IconData _channelIcon(ConversationSummary channel) {
 }
 
 Color _channelColor(ConversationSummary channel) {
+  if (channel.isAutomation) {
+    return WebTuiColors.chatHeader;
+  }
   if (channel.privateSessionMode) {
     return WebTuiColors.accentAmber;
   }

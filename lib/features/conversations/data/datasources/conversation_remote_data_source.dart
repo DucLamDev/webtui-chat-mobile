@@ -1229,6 +1229,7 @@ ConversationSummary _channelFromMap(JsonMap map) {
       'private_session_mode',
       'privateSessionMode',
     ]),
+    isAutomation: boolField(map, const ['is_automation', 'isAutomation']),
   );
 }
 

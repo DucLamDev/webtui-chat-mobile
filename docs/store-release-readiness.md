@@ -195,9 +195,12 @@ Before store review, deploy them to the final production domains and verify:
 - [ ] Enroll the legal entity, register the permanent bundle ID, enable Push
       Notifications and Background Modes, and create Distribution certificate,
       App Store provisioning profile, and App Store Connect API key.
-- [ ] On macOS, run `pod install`, review and commit `Podfile.lock`, then build a
-      signed archive using the Release entitlement. The current CI job validates
-      an unsigned build only; it does not produce an uploadable IPA.
+- [ ] Review and commit `Podfile.lock`. The `ios-release` job
+      (`.github/workflows/mobile.yml`) builds a signed release IPA and uploads it
+      to TestFlight on a GitHub-hosted macOS runner once the Apple signing
+      secrets and `ENABLE_IOS_RELEASE=true` are set (see
+      `docs/release-credentials.md`). The older `ios-archive-check` job still
+      validates an unsigned build on every `mobile-v*` tag.
 - [ ] Verify the archive's effective `aps-environment=production`, bundle ID,
       version/build number, icons, embedded provisioning profile, SDK privacy
       manifests/signatures, and export-compliance answer.
@@ -235,5 +238,10 @@ Before store review, deploy them to the final production domains and verify:
   monochrome and Android 12 light/dark launch resources.
 - Add native iOS dev/staging schemes if QA needs multiple variants installed at
   once. The production store target already uses `main_prod.dart`.
-- Add a signed iOS archive/upload workflow only after certificates and protected
-  App Store Connect secrets are provisioned.
+- The signed iOS archive/upload workflow (`ios-release`) is implemented. Before
+  it can run, provision the Apple Distribution certificate, App Store
+  provisioning profile and App Store Connect API key, load them as the
+  `APPLE_*` / `APPSTORE_CONNECT_*` secrets and `APPLE_TEAM_ID` /
+  `APPLE_PROVISIONING_PROFILE_NAME` variables, then set `ENABLE_IOS_RELEASE=true`.
+  The first signed run must be verified on the macOS runner (archive signing,
+  `aps-environment=production`, embedded profile) before relying on it.
