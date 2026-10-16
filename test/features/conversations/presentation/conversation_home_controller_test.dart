@@ -71,10 +71,9 @@ void main() {
     expect(controller.state.automationEnabled, isFalse);
     expect(controller.state.channelTabCount, 3);
     // Tab "Tất cả": chỉ còn kênh thường, kênh automation bị ẩn.
-    expect(
-      controller.state.filteredChannels.map((channel) => channel.id),
-      ['channel-1'],
-    );
+    expect(controller.state.filteredChannels.map((channel) => channel.id), [
+      'channel-1',
+    ]);
   });
 
   test(
@@ -102,16 +101,14 @@ void main() {
 
       expect(controller.state.channelTabCount, 4);
       // Tab 0 "Tất cả" chỉ có kênh thường.
-      expect(
-        controller.state.filteredChannels.map((channel) => channel.id),
-        ['channel-1'],
-      );
+      expect(controller.state.filteredChannels.map((channel) => channel.id), [
+        'channel-1',
+      ]);
       // Tab Automation chỉ có kênh automation.
       controller.setChannelTab(controller.state.automationChannelTab);
-      expect(
-        controller.state.filteredChannels.map((channel) => channel.id),
-        ['orders'],
-      );
+      expect(controller.state.filteredChannels.map((channel) => channel.id), [
+        'orders',
+      ]);
     },
   );
 }

@@ -58,8 +58,8 @@ void main() {
         'exact Play app-signing certificate',
       ],
       exactOccurrences: const {
-        'flutter pub get': 4,
-        'flutter pub get --enforce-lockfile': 4,
+        'flutter pub get': 5,
+        'flutter pub get --enforce-lockfile': 5,
       },
       mustNotContain: const [
         'files: release/*',

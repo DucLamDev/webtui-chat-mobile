@@ -218,7 +218,8 @@ class ChannelsHomeView extends ConsumerWidget {
     final controller = ref.read(provider.notifier);
 
     final isAutomationTab =
-        state.automationEnabled && state.channelTab == state.automationChannelTab;
+        state.automationEnabled &&
+        state.channelTab == state.automationChannelTab;
 
     return ListView(
       padding: const EdgeInsets.only(bottom: WebTuiSpacing.lg),
