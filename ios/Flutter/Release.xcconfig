@@ -1,1 +1,4 @@
 #include "Generated.xcconfig"
+// Signing.xcconfig do CI sinh lúc build ký (manual signing). Dùng #include?
+// để build local/PR và job iOS unsigned không bị ảnh hưởng khi file vắng mặt.
+#include? "Signing.xcconfig"

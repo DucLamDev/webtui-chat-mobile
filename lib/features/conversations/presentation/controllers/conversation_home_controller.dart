@@ -12,6 +12,8 @@ final conversationHomeControllerProvider = StateNotifierProvider.autoDispose
       ref,
       workspaceId,
     ) {
+      final discovery = ref.watch(activeServerDiscoveryProvider);
+      final automationEnabled = discovery?.capabilities.automation ?? false;
       return ConversationHomeController(
         workspaceId: workspaceId,
         loadConversationHomeUseCase: ref.watch(
@@ -23,6 +25,7 @@ final conversationHomeControllerProvider = StateNotifierProvider.autoDispose
         openPrivateChannelSessionUseCase: ref.watch(
           openPrivateChannelSessionUseCaseProvider,
         ),
+        automationEnabled: automationEnabled,
       )..load();
     });
 
@@ -48,6 +51,7 @@ final class ConversationHomeState {
     this.channelTab = 0,
     this.searchQuery = '',
     this.selectedConversation,
+    this.automationEnabled = false,
   });
 
   final String workspaceId;
@@ -69,6 +73,16 @@ final class ConversationHomeState {
   final String searchQuery;
   final ConversationSummary? selectedConversation;
 
+  /// Server bật capability `automation` ở /discovery hay không. Khi `false`,
+  /// các kênh automation bị ẩn khỏi mọi tab và tab "Automation" không hiển thị.
+  final bool automationEnabled;
+
+  /// Số tab của màn Kênh: Tất cả/Công khai/Riêng tư, cộng tab Automation khi bật.
+  int get channelTabCount => automationEnabled ? 4 : 3;
+
+  /// Chỉ số tab "Automation" khi được bật (ngược lại trả -1).
+  int get automationChannelTab => automationEnabled ? 3 : -1;
+
   ConversationPresence? presenceForUser(String userId) {
     return presenceByUserId[userId];
   }
@@ -88,13 +102,25 @@ final class ConversationHomeState {
     final query = searchQuery.trim().toLowerCase();
     return channels
         .where((channel) {
-          final matchesTab = switch (channelTab) {
-            1 => channel.channelVisibility == ChannelVisibility.public,
-            2 => channel.channelVisibility == ChannelVisibility.private,
-            _ => true,
-          };
-          if (!matchesTab) {
-            return false;
+          if (channel.isAutomation) {
+            // Kênh automation chỉ xuất hiện khi server bật capability và người
+            // dùng đang ở tab "Automation"; ngược lại luôn ẩn.
+            if (!automationEnabled || channelTab != automationChannelTab) {
+              return false;
+            }
+          } else {
+            // Kênh thường không bao giờ nằm trong tab "Automation".
+            if (channelTab == automationChannelTab) {
+              return false;
+            }
+            final matchesTab = switch (channelTab) {
+              1 => channel.channelVisibility == ChannelVisibility.public,
+              2 => channel.channelVisibility == ChannelVisibility.private,
+              _ => true,
+            };
+            if (!matchesTab) {
+              return false;
+            }
           }
           if (query.isEmpty) {
             return true;
@@ -160,6 +186,7 @@ final class ConversationHomeState {
       selectedConversation: clearSelection
           ? null
           : selectedConversation ?? this.selectedConversation,
+      automationEnabled: automationEnabled,
     );
   }
 }
@@ -171,10 +198,16 @@ final class ConversationHomeController
     required LoadConversationHomeUseCase loadConversationHomeUseCase,
     required OpenDirectConversationUseCase openDirectConversationUseCase,
     required OpenPrivateChannelSessionUseCase openPrivateChannelSessionUseCase,
+    bool automationEnabled = false,
   }) : _loadConversationHomeUseCase = loadConversationHomeUseCase,
        _openDirectConversationUseCase = openDirectConversationUseCase,
        _openPrivateChannelSessionUseCase = openPrivateChannelSessionUseCase,
-       super(ConversationHomeState(workspaceId: workspaceId));
+       super(
+         ConversationHomeState(
+           workspaceId: workspaceId,
+           automationEnabled: automationEnabled,
+         ),
+       );
 
   final LoadConversationHomeUseCase _loadConversationHomeUseCase;
   final OpenDirectConversationUseCase _openDirectConversationUseCase;
@@ -223,7 +256,9 @@ final class ConversationHomeController
   }
 
   void setChannelTab(int index) {
-    state = state.copyWith(channelTab: index.clamp(0, 2).toInt());
+    state = state.copyWith(
+      channelTab: index.clamp(0, state.channelTabCount - 1).toInt(),
+    );
   }
 
   void setSearchQuery(String query) {

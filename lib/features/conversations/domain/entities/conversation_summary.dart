@@ -27,6 +27,7 @@ final class ConversationSummary {
     this.membershipStatus = MembershipStatus.none,
     this.canManage = false,
     this.privateSessionMode = false,
+    this.isAutomation = false,
   });
 
   final String id;
@@ -48,6 +49,7 @@ final class ConversationSummary {
   final MembershipStatus membershipStatus;
   final bool canManage;
   final bool privateSessionMode;
+  final bool isAutomation;
 
   bool get isUnread => unreadCount > 0;
   bool get isMember =>
@@ -101,6 +103,7 @@ final class ConversationSummary {
       membershipStatus: membershipStatus ?? this.membershipStatus,
       canManage: canManage,
       privateSessionMode: privateSessionMode,
+      isAutomation: isAutomation,
     );
   }
 }

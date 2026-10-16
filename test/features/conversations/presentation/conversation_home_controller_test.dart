@@ -46,9 +46,80 @@ void main() {
     expect(controller.state.conversations.single.unreadCount, 0);
     expect(controller.state.selectedConversation?.unreadCount, 0);
   });
+
+  test('automation channels are hidden when automation is disabled', () async {
+    final repository = _FakeConversationRepository(
+      channels: [
+        _summary(
+          id: 'channel-1',
+          channelId: 'channel-1',
+          kind: ConversationKind.channel,
+        ),
+        _summary(
+          id: 'orders',
+          channelId: 'orders',
+          kind: ConversationKind.channel,
+          isAutomation: true,
+        ),
+      ],
+    );
+    final controller = _controller(repository);
+    addTearDown(controller.dispose);
+
+    await controller.load();
+
+    expect(controller.state.automationEnabled, isFalse);
+    expect(controller.state.channelTabCount, 3);
+    // Tab "Tất cả": chỉ còn kênh thường, kênh automation bị ẩn.
+    expect(
+      controller.state.filteredChannels.map((channel) => channel.id),
+      ['channel-1'],
+    );
+  });
+
+  test(
+    'automation channels only appear on the Automation tab when enabled',
+    () async {
+      final repository = _FakeConversationRepository(
+        channels: [
+          _summary(
+            id: 'channel-1',
+            channelId: 'channel-1',
+            kind: ConversationKind.channel,
+          ),
+          _summary(
+            id: 'orders',
+            channelId: 'orders',
+            kind: ConversationKind.channel,
+            isAutomation: true,
+          ),
+        ],
+      );
+      final controller = _controller(repository, automationEnabled: true);
+      addTearDown(controller.dispose);
+
+      await controller.load();
+
+      expect(controller.state.channelTabCount, 4);
+      // Tab 0 "Tất cả" chỉ có kênh thường.
+      expect(
+        controller.state.filteredChannels.map((channel) => channel.id),
+        ['channel-1'],
+      );
+      // Tab Automation chỉ có kênh automation.
+      controller.setChannelTab(controller.state.automationChannelTab);
+      expect(
+        controller.state.filteredChannels.map((channel) => channel.id),
+        ['orders'],
+      );
+    },
+  );
 }
 
-ConversationHomeController _controller(_FakeConversationRepository repository) {
+ConversationHomeController _controller(
+  _FakeConversationRepository repository, {
+  bool automationEnabled = false,
+}) {
   return ConversationHomeController(
     workspaceId: 'workspace-1',
     loadConversationHomeUseCase: LoadConversationHomeUseCase(
@@ -59,6 +130,7 @@ ConversationHomeController _controller(_FakeConversationRepository repository) {
     openPrivateChannelSessionUseCase: OpenPrivateChannelSessionUseCase(
       repository,
     ),
+    automationEnabled: automationEnabled,
   );
 }
 
@@ -67,6 +139,7 @@ ConversationSummary _summary({
   required String channelId,
   ConversationKind kind = ConversationKind.direct,
   int unread = 0,
+  bool isAutomation = false,
 }) {
   return ConversationSummary(
     id: id,
@@ -81,6 +154,7 @@ ConversationSummary _summary({
         ? ChannelVisibility.direct
         : ChannelVisibility.public,
     membershipStatus: MembershipStatus.active,
+    isAutomation: isAutomation,
   );
 }
 

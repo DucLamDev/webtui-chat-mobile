@@ -352,3 +352,169 @@ jobs:
             --dart-define="FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID" \
             --dart-define="FIREBASE_ANDROID_APP_ID=$FIREBASE_ANDROID_APP_ID" \
             --dart-define="FIREBASE_IOS_APP_ID=$FIREBASE_IOS_APP_ID"
+
+  ios-release:
+    # Signed IPA + TestFlight upload. Runs entirely on a GitHub-hosted macOS
+    # runner, so no local Mac is required. Enable only after the Apple signing
+    # assets and App Store Connect API key exist in the production environment.
+    if: startsWith(github.ref, 'refs/tags/mobile-v') && vars.ENABLE_IOS_RELEASE == 'true'
+    needs: verify
+    runs-on: macos-latest
+    environment: production
+    env:
+      FIREBASE_API_KEY: ${{ secrets.MOBILE_FIREBASE_API_KEY || vars.MOBILE_FIREBASE_API_KEY }}
+      FIREBASE_MESSAGING_SENDER_ID: "595077870179"
+      FIREBASE_PROJECT_ID: webtui-chat
+      FIREBASE_ANDROID_APP_ID: "1:595077870179:android:a6f4ff5cc14a0d1485be56"
+      FIREBASE_IOS_APP_ID: ${{ vars.MOBILE_FIREBASE_IOS_APP_ID }}
+      WEBTUI_PRIVACY_POLICY_URL: ${{ vars.MOBILE_PRIVACY_POLICY_URL }}
+      # Always-on publisher reference/reviewer instance. Customer instances are
+      # selected at runtime; legacy MOBILE_API_BASE_URL remains a fallback.
+      WEBTUI_REFERENCE_INSTANCE_URL: ${{ vars.MOBILE_REFERENCE_INSTANCE_URL || vars.MOBILE_API_BASE_URL }}
+      WEBTUI_API_BASE_URL: ${{ vars.MOBILE_REFERENCE_INSTANCE_URL || vars.MOBILE_API_BASE_URL }}
+      WEBTUI_APP_LINK_HOST: ${{ vars.MOBILE_APP_LINK_HOST }}
+      WEBTUI_TERMS_URL: ${{ vars.MOBILE_TERMS_URL }}
+      WEBTUI_TERMS_VERSION: ${{ vars.MOBILE_TERMS_VERSION }}
+      WEBTUI_PRIVACY_VERSION: ${{ vars.MOBILE_PRIVACY_VERSION }}
+      WEBTUI_ACCOUNT_DELETION_URL: ${{ vars.MOBILE_ACCOUNT_DELETION_URL }}
+      WEBTUI_SUPPORT_URL: ${{ vars.MOBILE_SUPPORT_URL }}
+      APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+      APPLE_BUNDLE_ID: com.vpsttt.webtuiChat
+      APPLE_PROVISIONING_PROFILE_NAME: ${{ vars.APPLE_PROVISIONING_PROFILE_NAME }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Require Xcode with iPhoneOS 26 SDK
+        run: |
+          xcodebuild -version
+          SDK_VERSION="$(xcrun --sdk iphoneos --show-sdk-version)"
+          echo "iPhoneOS SDK: $SDK_VERSION"
+          grep -Eq '^26\.' <<<"$SDK_VERSION"
+      - name: Import Apple distribution certificate
+        env:
+          APPLE_DISTRIBUTION_CERT_P12_BASE64: ${{ secrets.APPLE_DISTRIBUTION_CERT_P12_BASE64 }}
+          APPLE_DISTRIBUTION_CERT_PASSWORD: ${{ secrets.APPLE_DISTRIBUTION_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$APPLE_DISTRIBUTION_CERT_P12_BASE64"
+          CERT_PATH="$RUNNER_TEMP/dist_cert.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 24)"
+          printf '%s' "$APPLE_DISTRIBUTION_CERT_P12_BASE64" | base64 --decode > "$CERT_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$APPLE_DISTRIBUTION_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain-db
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" >/dev/null
+          rm -f "$CERT_PATH"
+      - name: Install App Store provisioning profile
+        env:
+          APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          set -euo pipefail
+          test -n "$APPLE_PROVISIONING_PROFILE_BASE64"
+          PROFILES_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$PROFILES_DIR"
+          printf '%s' "$APPLE_PROVISIONING_PROFILE_BASE64" | base64 --decode > "$PROFILES_DIR/webtui_appstore.mobileprovision"
+      - name: Generate signing xcconfig and ExportOptions.plist
+        run: |
+          set -euo pipefail
+          test -n "$APPLE_TEAM_ID"
+          test -n "$APPLE_PROVISIONING_PROFILE_NAME"
+          {
+            echo "CODE_SIGN_STYLE = Manual"
+            echo "DEVELOPMENT_TEAM = $APPLE_TEAM_ID"
+            echo "PROVISIONING_PROFILE_SPECIFIER = $APPLE_PROVISIONING_PROFILE_NAME"
+            echo "CODE_SIGN_IDENTITY = Apple Distribution"
+          } > ios/Flutter/Signing.xcconfig
+          cat > ios/ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>$APPLE_TEAM_ID</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>signingCertificate</key><string>Apple Distribution</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>$APPLE_BUNDLE_ID</key><string>$APPLE_PROVISIONING_PROFILE_NAME</string>
+            </dict>
+            <key>uploadSymbols</key><true/>
+            <key>stripSwiftSymbols</key><true/>
+            <key>destination</key><string>export</string>
+          </dict>
+          </plist>
+          PLIST
+      - run: flutter pub get --enforce-lockfile
+      - name: Require production runtime configuration
+        run: dart run tool/check_production_config.dart --platform=ios
+      - name: Validate public production endpoints
+        run: dart run tool/check_public_release_endpoints.dart --platform=ios
+      - name: Build signed production IPA
+        env:
+          RELEASE_VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          VERSION="${RELEASE_VERSION#mobile-v}"
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          BUILD_NUMBER=$((GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT))
+          test "$BUILD_NUMBER" -le 2100000000
+          flutter build ipa --release --flavor prod -t lib/main_prod.dart \
+            --build-name "$VERSION" \
+            --build-number "$BUILD_NUMBER" \
+            --export-options-plist ios/ExportOptions.plist \
+            --dart-define="WEBTUI_APP_VERSION=$VERSION" \
+            --dart-define=WEBTUI_RELEASE_CHANNEL=stable \
+            --dart-define=WEBTUI_RELEASE_SERVICE_URL=https://download.webtui.vn \
+            --dart-define="WEBTUI_API_BASE_URL=$WEBTUI_API_BASE_URL" \
+            --dart-define="WEBTUI_PRIVACY_POLICY_URL=$WEBTUI_PRIVACY_POLICY_URL" \
+            --dart-define="WEBTUI_TERMS_URL=$WEBTUI_TERMS_URL" \
+            --dart-define="WEBTUI_TERMS_VERSION=$WEBTUI_TERMS_VERSION" \
+            --dart-define="WEBTUI_PRIVACY_VERSION=$WEBTUI_PRIVACY_VERSION" \
+            --dart-define="WEBTUI_ACCOUNT_DELETION_URL=$WEBTUI_ACCOUNT_DELETION_URL" \
+            --dart-define="WEBTUI_SUPPORT_URL=$WEBTUI_SUPPORT_URL" \
+            --dart-define="FIREBASE_API_KEY=$FIREBASE_API_KEY" \
+            --dart-define="FIREBASE_MESSAGING_SENDER_ID=$FIREBASE_MESSAGING_SENDER_ID" \
+            --dart-define="FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID" \
+            --dart-define="FIREBASE_ANDROID_APP_ID=$FIREBASE_ANDROID_APP_ID" \
+            --dart-define="FIREBASE_IOS_APP_ID=$FIREBASE_IOS_APP_ID"
+      - name: Upload build to TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APPSTORE_CONNECT_API_ISSUER_ID }}
+          ASC_API_PRIVATE_KEY_BASE64: ${{ secrets.APPSTORE_CONNECT_API_PRIVATE_KEY_BASE64 }}
+        run: |
+          set -euo pipefail
+          test -n "$ASC_KEY_ID"
+          test -n "$ASC_ISSUER_ID"
+          test -n "$ASC_API_PRIVATE_KEY_BASE64"
+          mkdir -p "$HOME/private_keys"
+          KEY_FILE="$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          printf '%s' "$ASC_API_PRIVATE_KEY_BASE64" | base64 --decode > "$KEY_FILE"
+          IPA_PATH="$(find build/ios/ipa -name '*.ipa' | head -1)"
+          test -f "$IPA_PATH"
+          xcrun altool --validate-app -f "$IPA_PATH" -t ios \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+          xcrun altool --upload-app -f "$IPA_PATH" -t ios \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+          rm -f "$KEY_FILE"
+      - name: Collect IPA artifact
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          IPA_PATH="$(find build/ios/ipa -name '*.ipa' | head -1)"
+          cp "$IPA_PATH" release/
+          shasum -a 256 release/*.ipa > release/ios-ipa.sha256
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ios-production-${{ github.ref_name }}
+          path: |
+            release/*.ipa
+            release/ios-ipa.sha256
+          if-no-files-found: error
+          retention-days: 14
