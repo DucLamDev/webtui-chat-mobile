@@ -43,6 +43,8 @@ never publish the CI upload-key APK as a customer fallback.
 
 ## Apple iOS Secrets (for the signed TestFlight workflow)
 
+Hướng dẫn từng bước (tiếng Việt), gồm tự gửi duyệt App Store: [ios-testflight-release.md](ios-testflight-release.md).
+
 The `ios-release` job in `.github/workflows/mobile.yml` builds and uploads a
 signed IPA entirely on a GitHub-hosted macOS runner (no local Mac needed). It is
 gated by the repository variable `ENABLE_IOS_RELEASE=true` and a `mobile-v*` tag.
@@ -66,6 +68,9 @@ Matching repository variables (not secret):
   profile, as shown in the Apple Developer portal (used by both the signing
   xcconfig and `ExportOptions.plist`, which CI generates at build time).
 - `MOBILE_FIREBASE_IOS_APP_ID`: the iOS Firebase app ID.
+- `IOS_SUBMIT_FOR_REVIEW=true` to submit each tagged build for App Store review after TestFlight processing
+  (`ios/fastlane/Fastfile`); `IOS_AUTOMATIC_RELEASE=true` releases automatically once approved;
+  `IOS_RELEASE_NOTES` is the "What's New" text.
 
 All of the certificate, profile and API key can be produced without a Mac: create
 the CSR and convert the issued `.cer` to `.p12` with `openssl` on Linux, and

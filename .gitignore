@@ -59,3 +59,14 @@ app.*.map.json
 /android/app/google-services.json
 /config/firebase-production.env.local
 /firebase-service-account*.json
+
+# Phát hành iOS: thông tin build / chứng chỉ chỉ nằm ở GitHub Secrets, không commit.
+ios.txt
+*.p12
+*.mobileprovision
+AuthKey_*.p8
+ios/Flutter/Signing.xcconfig
+ios/ExportOptions.plist
+ios/fastlane/report.xml
+ios/fastlane/README.md
+ios/fastlane/*.ipa
