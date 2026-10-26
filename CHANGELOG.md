@@ -3,6 +3,12 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.0.1 · 26/10/2026
+### Sửa lỗi
+- Sửa lỗi kiểm tra định dạng mã làm hỏng bước build trên GitHub
+  Bản 1.0.0 có đoạn test viết sai kiểu định dạng nên bước kiểm tra tự động dừng, không build được app. Bản này sửa
+  lại để GitHub chạy tiếp các bước build Android / iOS.
+
 ## 1.0.0 · 26/10/2026
 ### Tính năng
 - Build iOS lên TestFlight bằng GitHub Actions; chức năng nội bộ VPSTTT chỉ có trên chat.vpsttt.com

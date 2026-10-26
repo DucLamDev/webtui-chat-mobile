@@ -61,18 +61,17 @@ void main() {
     final disabled = _controller(repository);
     addTearDown(disabled.dispose);
     await disabled.load();
-    expect(
-      disabled.state.filteredConversations.map((item) => item.id),
-      ['dm-1'],
-    );
+    expect(disabled.state.filteredConversations.map((item) => item.id), [
+      'dm-1',
+    ]);
 
     final enabled = _controller(repository, automationEnabled: true);
     addTearDown(enabled.dispose);
     await enabled.load();
-    expect(
-      enabled.state.filteredConversations.map((item) => item.id),
-      ['dm-1', 'bot-session'],
-    );
+    expect(enabled.state.filteredConversations.map((item) => item.id), [
+      'dm-1',
+      'bot-session',
+    ]);
   });
 
   test('automation channels are hidden when automation is disabled', () async {
