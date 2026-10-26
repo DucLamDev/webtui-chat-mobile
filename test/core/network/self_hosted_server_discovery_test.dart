@@ -208,7 +208,7 @@ Map<String, Object?> _payload({
           'name': 'Company Chat',
           'status': 'active',
           'registration_mode': 'open',
-          if (zoneKind != null) 'kind': zoneKind,
+          'kind': ?zoneKind,
         },
         'runtime': {
           'app_name': 'Company Chat',
