@@ -47,6 +47,34 @@ void main() {
     expect(controller.state.selectedConversation?.unreadCount, 0);
   });
 
+  test('bot chats are hidden from Messages when disabled', () async {
+    final repository = _FakeConversationRepository(
+      conversations: [
+        _summary(id: 'dm-1', channelId: 'dm-channel'),
+        _summary(
+          id: 'bot-session',
+          channelId: 'bot-session',
+          isAutomation: true,
+        ),
+      ],
+    );
+    final disabled = _controller(repository);
+    addTearDown(disabled.dispose);
+    await disabled.load();
+    expect(
+      disabled.state.filteredConversations.map((item) => item.id),
+      ['dm-1'],
+    );
+
+    final enabled = _controller(repository, automationEnabled: true);
+    addTearDown(enabled.dispose);
+    await enabled.load();
+    expect(
+      enabled.state.filteredConversations.map((item) => item.id),
+      ['dm-1', 'bot-session'],
+    );
+  });
+
   test('automation channels are hidden when automation is disabled', () async {
     final repository = _FakeConversationRepository(
       channels: [

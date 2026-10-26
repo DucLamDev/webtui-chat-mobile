@@ -18,7 +18,13 @@ final class SelfHostedServerDiscovery {
     required this.minimumSupportedMobileVersion,
     required this.capabilities,
     this.logoUrl,
+    this.zoneKind = '',
   });
+
+  /// Host duy nhất được bật chức năng nội bộ VPSTTT (Automation, kênh bot / lệnh
+  /// "/", trợ lý AI soạn lệnh). Instance khác (khách tự host) không bao giờ bật.
+  static const vpstttInternalHost = 'chat.vpsttt.com';
+  static const vpstttInternalZoneKind = 'vpsttt_internal';
 
   factory SelfHostedServerDiscovery.fromApiResponse({
     required Object? payload,
@@ -167,6 +173,7 @@ final class SelfHostedServerDiscovery {
         legalAcceptance: capabilities['legal_acceptance'] == true,
       ),
       logoUrl: logoUrl,
+      zoneKind: _text(zone['kind']).toLowerCase(),
     );
   }
 
@@ -203,6 +210,18 @@ final class SelfHostedServerDiscovery {
   final SelfHostedCapabilities capabilities;
   final String? logoUrl;
 
+  /// `zone.kind` của /discovery (vd. `vpsttt_internal`, `dedicated`); rỗng khi server cũ không trả.
+  final String zoneKind;
+
+  /// Chức năng nội bộ VPSTTT chỉ bật khi đúng host chat.vpsttt.com VÀ server báo
+  /// zone nội bộ; mặc định (mọi server khác, hoặc thiếu thông tin) là tắt.
+  bool get vpstttInternalModules =>
+      domain == vpstttInternalHost && zoneKind == vpstttInternalZoneKind;
+
+  /// Tab / kênh Automation (kênh bot nội bộ) chỉ có trên server nội bộ VPSTTT.
+  bool get automationEnabled =>
+      vpstttInternalModules && capabilities.automation;
+
   bool get canRegister => registrationMode == 'open';
 
   InstanceScope get instanceScope =>
@@ -221,6 +240,7 @@ final class SelfHostedServerDiscovery {
           'name': name,
           'registration_mode': registrationMode,
           'logo_url': logoUrl,
+          'kind': zoneKind,
         },
         'runtime': {
           'api_base_url': apiBaseUri.toString(),
