@@ -5,9 +5,10 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
 
 ## 1.0.1 · 26/10/2026
 ### Sửa lỗi
-- Sửa lỗi kiểm tra định dạng mã làm hỏng bước build trên GitHub
+- Sửa lỗi làm hỏng bước kiểm tra và build trên GitHub
   Bản 1.0.0 có đoạn test viết sai kiểu định dạng nên bước kiểm tra tự động dừng, không build được app. Bản này sửa
-  lại để GitHub chạy tiếp các bước build Android / iOS.
+  lại để GitHub chạy tiếp các bước build Android / iOS. Máy build của GitHub nay mặc định dùng Java 25 làm Gradle báo
+  lỗi khi build Android; workflow cài cố định Java 17 như dự án yêu cầu.
 
 ## 1.0.0 · 26/10/2026
 ### Tính năng
