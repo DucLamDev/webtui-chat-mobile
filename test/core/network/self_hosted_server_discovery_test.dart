@@ -20,6 +20,46 @@ void main() {
     expect(discovery.canRegister, isTrue);
   });
 
+  test('internal VPSTTT modules only on chat.vpsttt.com internal zone', () {
+    SelfHostedServerDiscovery parse(String domain, String? kind) {
+      return SelfHostedServerDiscovery.fromApiResponse(
+        payload: _payload(
+          domain: domain,
+          apiBaseUrl: 'https://$domain',
+          wsBaseUrl: 'wss://$domain/ws',
+          zoneKind: kind,
+        ),
+        requestedServer: Uri.parse('https://$domain'),
+        mobileVersion: '1.2.0',
+      );
+    }
+
+    final internal = parse('chat.vpsttt.com', 'vpsttt_internal');
+    expect(internal.zoneKind, 'vpsttt_internal');
+    expect(internal.vpstttInternalModules, isTrue);
+    expect(internal.automationEnabled, isTrue);
+
+    // Khách tự host bật automation trên server của họ vẫn không có module nội bộ.
+    expect(
+      parse('chat.company.example', 'dedicated').automationEnabled,
+      isFalse,
+    );
+    expect(
+      parse('chat.company.example', 'vpsttt_internal').automationEnabled,
+      isFalse,
+    );
+    // Server cũ không trả kind: mặc định tắt.
+    expect(parse('chat.vpsttt.com', null).automationEnabled, isFalse);
+
+    // Snapshot lưu trên máy giữ nguyên zone kind.
+    final restored = SelfHostedServerDiscovery.fromStorageSnapshot(
+      encodedSnapshot: internal.toStorageSnapshot(),
+      mobileVersion: '1.2.0',
+    );
+    expect(restored.zoneKind, 'vpsttt_internal');
+    expect(restored.automationEnabled, isTrue);
+  });
+
   test('rejects a runtime URL on another host', () {
     expect(
       () => SelfHostedServerDiscovery.fromApiResponse(
@@ -155,6 +195,8 @@ Map<String, Object?> _payload({
   bool files = true,
   bool calls = true,
   String minimumMobileVersion = '1.1.0',
+  String? zoneKind,
+  bool automation = true,
 }) {
   return {
     'data': {
@@ -166,6 +208,7 @@ Map<String, Object?> _payload({
           'name': 'Company Chat',
           'status': 'active',
           'registration_mode': 'open',
+          if (zoneKind != null) 'kind': zoneKind,
         },
         'runtime': {
           'app_name': 'Company Chat',
@@ -182,6 +225,8 @@ Map<String, Object?> _payload({
           'chat': chat,
           'files': files,
           'calls': calls,
+          'bots': true,
+          'automation': automation,
           'moderation': true,
           'reporting': true,
           'blocking': true,

@@ -1,0 +1,60 @@
+# Phát hành iOS từ GitHub Actions (.github/workflows/mobile.yml, job ios-release).
+# Khoá App Store Connect API lấy từ biến môi trường do workflow truyền vào (GitHub Secrets), không lưu trong repo.
+#
+#   fastlane upload_testflight   đẩy IPA lên TestFlight và chờ Apple xử lý xong
+#   fastlane submit_review       gắn bản build vừa xử lý vào phiên bản App Store và gửi duyệt
+
+default_platform(:ios)
+
+BUNDLE_ID = ENV.fetch("APPLE_BUNDLE_ID", "com.vpsttt.webtuiChat")
+
+platform :ios do
+  private_lane :asc_api_key do
+    app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_content: ENV.fetch("ASC_API_PRIVATE_KEY_BASE64"),
+      is_key_content_base64: true,
+      in_house: false
+    )
+  end
+
+  desc "Đẩy IPA lên TestFlight, chờ Apple xử lý xong (cần cho bước gửi duyệt)"
+  lane :upload_testflight do
+    upload_to_testflight(
+      api_key: asc_api_key,
+      ipa: ENV.fetch("IOS_IPA_PATH"),
+      changelog: ENV.fetch("IOS_RELEASE_NOTES", ""),
+      skip_waiting_for_build_processing: false,
+      distribute_external: false
+    )
+  end
+
+  desc "Gửi bản build đã xử lý đi duyệt App Store"
+  lane :submit_review do
+    api_key = asc_api_key
+    app = Spaceship::ConnectAPI::App.find(BUNDLE_ID)
+    UI.user_error!("Chưa có app #{BUNDLE_ID} trên App Store Connect") unless app
+    # "Có gì mới" chỉ nhập được từ phiên bản thứ hai; phiên bản đầu tiên Apple không cho sửa trường này.
+    first_release = app.get_live_app_store_version.nil?
+    notes = ENV.fetch("IOS_RELEASE_NOTES", "").strip
+    upload_to_app_store(
+      api_key: api_key,
+      app_identifier: BUNDLE_ID,
+      app_version: ENV.fetch("IOS_VERSION"),
+      build_number: ENV.fetch("IOS_BUILD_NUMBER"),
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      # Không đè mô tả / từ khoá đang có trên App Store Connect; chỉ gửi "Có gì mới".
+      skip_metadata: first_release || notes.empty?,
+      metadata_path: "fastlane/metadata",
+      release_notes: first_release || notes.empty? ? nil : { "default" => notes },
+      submit_for_review: true,
+      automatic_release: ENV["IOS_AUTOMATIC_RELEASE"] == "true",
+      force: true,
+      run_precheck_before_submit: false,
+      precheck_include_in_app_purchases: false,
+      submission_information: { add_id_info_uses_idfa: false }
+    )
+  end
+end

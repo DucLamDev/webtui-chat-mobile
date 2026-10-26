@@ -13,7 +13,8 @@ final conversationHomeControllerProvider = StateNotifierProvider.autoDispose
       workspaceId,
     ) {
       final discovery = ref.watch(activeServerDiscoveryProvider);
-      final automationEnabled = discovery?.capabilities.automation ?? false;
+      // Automation / kênh bot là chức năng nội bộ VPSTTT: chỉ bật trên chat.vpsttt.com.
+      final automationEnabled = discovery?.automationEnabled ?? false;
       return ConversationHomeController(
         workspaceId: workspaceId,
         loadConversationHomeUseCase: ref.watch(
@@ -73,8 +74,9 @@ final class ConversationHomeState {
   final String searchQuery;
   final ConversationSummary? selectedConversation;
 
-  /// Server bật capability `automation` ở /discovery hay không. Khi `false`,
-  /// các kênh automation bị ẩn khỏi mọi tab và tab "Automation" không hiển thị.
+  /// Bật khi server là chat.vpsttt.com (zone nội bộ VPSTTT) và có capability
+  /// `automation`. Khi `false`, kênh automation / bot bị ẩn khỏi mọi tab (kể cả
+  /// danh sách Tin nhắn) và tab "Automation" không hiển thị.
   final bool automationEnabled;
 
   /// Số tab của màn Kênh: Tất cả/Công khai/Riêng tư, cộng tab Automation khi bật.
@@ -95,7 +97,12 @@ final class ConversationHomeState {
   }
 
   List<ConversationSummary> get filteredConversations {
-    return _filterConversations(conversations, messageFilter, searchQuery);
+    return _filterConversations(
+      conversations,
+      messageFilter,
+      searchQuery,
+      automationEnabled: automationEnabled,
+    );
   }
 
   List<ConversationSummary> get filteredChannels {
@@ -351,11 +358,15 @@ bool _sameConversation(ConversationSummary left, ConversationSummary right) {
 List<ConversationSummary> _filterConversations(
   List<ConversationSummary> source,
   ConversationListFilter filter,
-  String query,
-) {
+  String query, {
+  required bool automationEnabled,
+}) {
   final normalizedQuery = query.trim().toLowerCase();
   return source
       .where((conversation) {
+        if (conversation.isAutomation && !automationEnabled) {
+          return false;
+        }
         final matchesFilter = switch (filter) {
           ConversationListFilter.all => true,
           ConversationListFilter.unread => conversation.isUnread,

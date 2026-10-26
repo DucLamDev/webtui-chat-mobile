@@ -315,8 +315,12 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
-      - name: Require Xcode with iPhoneOS 26 SDK
+      - name: Select Xcode 26 (iPhoneOS 26 SDK)
         run: |
+          set -euo pipefail
+          # Runner có nhiều bản Xcode; chọn bản 26 chính thức mới nhất thay vì bản mặc định của image.
+          XCODE_APP="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -vi beta | sort -V | tail -1 || true)"
+          if [ -n "$XCODE_APP" ]; then sudo xcode-select -s "$XCODE_APP/Contents/Developer"; fi
           xcodebuild -version
           SDK_VERSION="$(xcrun --sdk iphoneos --show-sdk-version)"
           echo "iPhoneOS SDK: $SDK_VERSION"
@@ -387,8 +391,12 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
-      - name: Require Xcode with iPhoneOS 26 SDK
+      - name: Select Xcode 26 (iPhoneOS 26 SDK)
         run: |
+          set -euo pipefail
+          # Runner có nhiều bản Xcode; chọn bản 26 chính thức mới nhất thay vì bản mặc định của image.
+          XCODE_APP="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -vi beta | sort -V | tail -1 || true)"
+          if [ -n "$XCODE_APP" ]; then sudo xcode-select -s "$XCODE_APP/Contents/Developer"; fi
           xcodebuild -version
           SDK_VERSION="$(xcrun --sdk iphoneos --show-sdk-version)"
           echo "iPhoneOS SDK: $SDK_VERSION"
@@ -430,6 +438,7 @@ jobs:
             echo "DEVELOPMENT_TEAM = $APPLE_TEAM_ID"
             echo "PROVISIONING_PROFILE_SPECIFIER = $APPLE_PROVISIONING_PROFILE_NAME"
             echo "CODE_SIGN_IDENTITY = Apple Distribution"
+            echo "CODE_SIGN_IDENTITY[sdk=iphoneos*] = Apple Distribution"
           } > ios/Flutter/Signing.xcconfig
           cat > ios/ExportOptions.plist <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
@@ -464,7 +473,12 @@ jobs:
           [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
           BUILD_NUMBER=$((GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT))
           test "$BUILD_NUMBER" -le 2100000000
-          flutter build ipa --release --flavor prod -t lib/main_prod.dart \
+          {
+            echo "IOS_VERSION=$VERSION"
+            echo "IOS_BUILD_NUMBER=$BUILD_NUMBER"
+          } >> "$GITHUB_ENV"
+          # Dự án iOS chỉ có scheme Runner (không có flavor): không dùng --flavor.
+          flutter build ipa --release -t lib/main_prod.dart \
             --build-name "$VERSION" \
             --build-number "$BUILD_NUMBER" \
             --export-options-plist ios/ExportOptions.plist \
@@ -483,26 +497,39 @@ jobs:
             --dart-define="FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID" \
             --dart-define="FIREBASE_ANDROID_APP_ID=$FIREBASE_ANDROID_APP_ID" \
             --dart-define="FIREBASE_IOS_APP_ID=$FIREBASE_IOS_APP_ID"
-      - name: Upload build to TestFlight
+      - name: Upload build to TestFlight and wait for processing
         env:
           ASC_KEY_ID: ${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.APPSTORE_CONNECT_API_ISSUER_ID }}
           ASC_API_PRIVATE_KEY_BASE64: ${{ secrets.APPSTORE_CONNECT_API_PRIVATE_KEY_BASE64 }}
+          IOS_RELEASE_NOTES: ${{ vars.IOS_RELEASE_NOTES || 'Cải thiện hiệu năng và sửa lỗi.' }}
+          FASTLANE_SKIP_UPDATE_CHECK: "1"
+          FASTLANE_HIDE_CHANGELOG: "1"
         run: |
           set -euo pipefail
           test -n "$ASC_KEY_ID"
           test -n "$ASC_ISSUER_ID"
           test -n "$ASC_API_PRIVATE_KEY_BASE64"
-          mkdir -p "$HOME/private_keys"
-          KEY_FILE="$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
-          printf '%s' "$ASC_API_PRIVATE_KEY_BASE64" | base64 --decode > "$KEY_FILE"
-          IPA_PATH="$(find build/ios/ipa -name '*.ipa' | head -1)"
-          test -f "$IPA_PATH"
-          xcrun altool --validate-app -f "$IPA_PATH" -t ios \
-            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
-          xcrun altool --upload-app -f "$IPA_PATH" -t ios \
-            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
-          rm -f "$KEY_FILE"
+          command -v fastlane >/dev/null || gem install fastlane --no-document
+          IOS_IPA_PATH="$(find "$GITHUB_WORKSPACE/build/ios/ipa" -name '*.ipa' | head -1)"
+          test -f "$IOS_IPA_PATH"
+          export IOS_IPA_PATH
+          cd ios && fastlane upload_testflight
+      - name: Submit the build for App Store review
+        # Bật bằng biến IOS_SUBMIT_FOR_REVIEW=true sau khi phiên bản đầu tiên đã được duyệt / điền đủ thông tin
+        # (ảnh, mô tả, quyền riêng tư, xếp hạng tuổi) trên App Store Connect.
+        if: vars.IOS_SUBMIT_FOR_REVIEW == 'true'
+        env:
+          ASC_KEY_ID: ${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APPSTORE_CONNECT_API_ISSUER_ID }}
+          ASC_API_PRIVATE_KEY_BASE64: ${{ secrets.APPSTORE_CONNECT_API_PRIVATE_KEY_BASE64 }}
+          IOS_RELEASE_NOTES: ${{ vars.IOS_RELEASE_NOTES || 'Cải thiện hiệu năng và sửa lỗi.' }}
+          IOS_AUTOMATIC_RELEASE: ${{ vars.IOS_AUTOMATIC_RELEASE || 'false' }}
+          FASTLANE_SKIP_UPDATE_CHECK: "1"
+          FASTLANE_HIDE_CHANGELOG: "1"
+        run: |
+          set -euo pipefail
+          cd ios && fastlane submit_review
       - name: Collect IPA artifact
         run: |
           set -euo pipefail

@@ -77,6 +77,14 @@ sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
 ```
 
+## Chức Năng Nội Bộ VPSTTT
+
+Tab **Automation** trong màn Kênh và các kênh / phiên bot (`is_automation`) là chức năng nội bộ VPSTTT. App chỉ bật khi
+server là `chat.vpsttt.com` **và** `/api/v1/discovery` trả `zone.kind = "vpsttt_internal"` cùng capability
+`automation` (`SelfHostedServerDiscovery.automationEnabled`). Mọi server khác (khách tự host), hoặc server cũ không trả
+`zone.kind`, đều ẩn tab này và ẩn kênh bot khỏi cả danh sách Tin nhắn. Lệnh "/" gõ trong kênh bot do backend xử lý;
+thẻ xác nhận của trợ lý AI trả lời bằng `ok` / `huỷ`.
+
 ## Firebase Push Notification
 
 Mobile đăng ký thiết bị với backend qua `POST /api/v1/mobile/devices`. Nếu Firebase đã được cấu hình, app sẽ lấy FCM token và gửi lên backend; nếu chưa có cấu hình Firebase, app vẫn chạy và chỉ đăng ký thiết bị với `push_provider=none`.
