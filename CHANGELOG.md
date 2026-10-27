@@ -3,6 +3,12 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.0.4 · 27/10/2026
+### Sửa lỗi
+- Sửa lỗi biên dịch phần nhận cuộc gọi đến trên iOS
+  Đoạn hiện màn hình cuộc gọi đến (CallKit) truyền dữ liệu sai kiểu cho thư viện cuộc gọi nên Xcode không build được
+  app. Đổi sang đúng kiểu thư viện yêu cầu, chức năng không đổi.
+
 ## 1.0.3 · 27/10/2026
 ### Sửa lỗi
 - Sửa lỗi biên dịch Swift làm hỏng bước build iOS

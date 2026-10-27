@@ -408,7 +408,14 @@ import flutter_callkit_incoming
     info["server_base_url"] = activeOrigin
     info["extra"] = extra
 
-    let data = flutter_callkit_incoming.Data(args: info)
+    // Plugin nhận [String: Any?]; payload PushKit có khoá kiểu AnyHashable nên đổi khoá sang String.
+    var args = [String: Any?]()
+    for (key, value) in info {
+      if let key = key as? String {
+        args[key] = value
+      }
+    }
+    let data = flutter_callkit_incoming.Data(args: args)
     SwiftFlutterCallkitIncomingPlugin.sharedInstance?.showCallkitIncoming(
       data,
       fromPushKit: true,
