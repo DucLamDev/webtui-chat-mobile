@@ -808,7 +808,7 @@ class _PhoneSettingsPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     return WebTuiMobileScaffold(
       title: 'Cài đặt',
-      selectedTab: 4,
+      selectedTab: 3,
       onTabSelected: (_) {},
       actions: const [
         IconButton(
@@ -1104,7 +1104,7 @@ class _PhoneChannelsPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     return WebTuiMobileScaffold(
       title: 'Kênh',
-      selectedTab: 2,
+      selectedTab: 0,
       onTabSelected: (_) {},
       actions: const [
         IconButton(

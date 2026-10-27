@@ -11,6 +11,9 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   Danh bạ là mọi thành viên workspace, bấm là nhắn được ngay (không cần kết bạn), tìm bạn bè trong danh sách này. Thêm
   mục Cài đặt → Gửi góp ý. Sửa: hộp thoại Điều khoản hiện liên tục, tải ảnh đại diện không được, ô tìm kiếm không đóng
   được (chạm ra ngoài, kéo danh sách hoặc nút x để đóng). Bỏ chặn chụp / quay màn hình.
+  Tin nhắn và nhóm / kênh gộp chung một hộp thư (bỏ tab Kênh): ghim lên đầu, còn lại theo tin mới nhất; lọc Tất cả /
+  Chưa đọc / Cá nhân / Nhóm / Ghim (Bot khi dùng chat.vpsttt.com); kênh công khai chưa tham gia gợi ý ở cuối; nút soạn
+  để nhắn riêng hoặc tạo nhóm.
 
 ## 1.0.4 · 27/10/2026
 ### Sửa lỗi
