@@ -126,6 +126,14 @@ final class LegalAcceptanceController
       endSession();
       return;
     }
+    // Cùng workspace đã đồng ý (phiên được làm mới, mở lại màn): kiểm tra lại
+    // ngầm, không bật lại hộp thoại chính sách.
+    if (_sessionActive &&
+        _workspaceId == normalizedWorkspaceId &&
+        state.status == LegalAcceptanceStatus.complete) {
+      await _revalidateSilently();
+      return;
+    }
     _sessionActive = true;
     _workspaceId = normalizedWorkspaceId;
     _accessPolicy.reset();
@@ -193,6 +201,20 @@ final class LegalAcceptanceController
           gateVisible: true,
           errorMessage: incompatible ? _incompatibleMessage : failure.message,
         );
+    }
+  }
+
+  /// Hỏi lại máy chủ khi đã ở trạng thái đồng ý: kết quả mới (phiên bản chính
+  /// sách đổi, bị thu hồi) thì áp dụng như bình thường; lỗi mạng thì giữ nguyên
+  /// trạng thái đã đồng ý (máy chủ vẫn chặn tạo nội dung nếu thật sự chưa đồng ý).
+  Future<void> _revalidateSilently() async {
+    final workspaceId = _workspaceId;
+    if (!_sessionActive || workspaceId == null) return;
+    final generation = ++_generation;
+    final result = await _load(workspaceId: workspaceId);
+    if (!_sessionActive || generation != _generation) return;
+    if (result case Success<LegalAcceptance>(value: final acceptance)) {
+      _applyAcceptance(acceptance);
     }
   }
 

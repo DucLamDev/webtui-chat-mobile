@@ -13,7 +13,8 @@ Use this checklist before any internal, beta, or production Android release.
 
 - Refresh token remains in secure storage, access token remains memory-only.
 - Logs redact `Authorization`, cookies, access/refresh tokens, passwords, secrets, and API keys.
-- App switcher privacy is active through `PrivacyGuard` and Android `FLAG_SECURE`.
+- App switcher privacy is active through `PrivacyGuard`. Screenshots / screen recording are allowed (no Android
+  `FLAG_SECURE`, no iOS capture cover): `PrivacyGuard` sends `setSecureScreen(false)`.
 - Push payload opens only internal conversation targets and never arbitrary external URLs.
 - Notification preview obeys the sensitive preview setting.
 

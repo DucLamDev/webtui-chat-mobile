@@ -11,6 +11,7 @@ import '../../features/home/presentation/screens/home_shell_screen.dart';
 import '../../features/notifications/presentation/screens/notifications_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/settings/presentation/screens/app_settings_screen.dart';
+import '../../features/settings/presentation/screens/feedback_screen.dart';
 import '../../features/settings/presentation/screens/privacy_sessions_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -104,6 +105,11 @@ final appRouterProvider = Provider<GoRouter>((_) {
         path: '/privacy',
         name: 'privacy',
         builder: (context, state) => const PrivacySessionsScreen(),
+      ),
+      GoRoute(
+        path: '/feedback',
+        name: 'feedback',
+        builder: (context, state) => const FeedbackScreen(),
       ),
     ],
   );

@@ -9,31 +9,31 @@ final class AvatarRemoteDataSource {
 
   final ApiTransport _api;
 
+  /// Tải ảnh lên API ảnh đại diện (`POST /api/v1/users/me/avatar`, field
+  /// `avatar`). Ảnh lưu công khai theo người dùng, không phải tệp đính kèm riêng
+  /// tư của workspace (bản cũ gửi nhầm vào `/workspaces/{id}/files` nên ảnh
+  /// không hiện được). `workspaceId` giữ lại cho chữ ký cũ.
   Future<UploadedAvatar> upload({
     required String workspaceId,
     required PickedAvatar avatar,
   }) async {
     final form = FormData.fromMap({
-      'file': await MultipartFile.fromFile(
+      'avatar': await MultipartFile.fromFile(
         avatar.path,
         filename: avatar.fileName,
         contentType: DioMediaType.parse(avatar.mimeType),
       ),
     });
     final response = await _api.post<Object>(
-      '/api/v1/workspaces/$workspaceId/files',
+      '/api/v1/users/me/avatar',
       data: form,
       options: Options(contentType: Headers.multipartFormDataContentType),
     );
-    final map = envelopeItem(response.data, 'file');
-    final fileId = stringField(map, const ['id', 'file_id']);
-    return UploadedAvatar(
-      fileId: fileId,
-      downloadPath: stringField(map, const [
-        'download_url',
-        'url',
-        'downloadPath',
-      ], fallback: '/api/v1/workspaces/$workspaceId/files/$fileId/download'),
-    );
+    final map = envelopeItem(response.data, 'avatar');
+    final avatarPath = stringField(map, const ['avatar_path', 'avatar_url']);
+    if (avatarPath.isEmpty) {
+      throw StateError('Máy chủ không trả đường dẫn ảnh đại diện.');
+    }
+    return UploadedAvatar(fileId: avatarPath, downloadPath: avatarPath);
   }
 }

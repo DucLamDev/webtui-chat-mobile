@@ -757,8 +757,10 @@ final class NativeIncomingCallService {
         supportsVideo: isVideo,
         maximumCallGroups: 1,
         maximumCallsPerCallGroup: 1,
-        audioSessionMode: 'default',
-        audioSessionActive: true,
+        // voiceChat: bật khử vọng / tự cân âm cho cuộc gọi; để CallKit tự kích hoạt session rồi báo WebRTC
+        // (AppDelegate.didActivateAudioSession), không kích hoạt sớm làm WebRTC mất tiếng.
+        audioSessionMode: isVideo ? 'videoChat' : 'voiceChat',
+        audioSessionActive: false,
         configureAudioSession: true,
         supportsDTMF: false,
         supportsHolding: false,

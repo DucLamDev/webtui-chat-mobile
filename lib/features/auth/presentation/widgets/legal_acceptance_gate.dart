@@ -51,7 +51,11 @@ class _LegalAcceptanceGateState extends ConsumerState<LegalAcceptanceGate> {
     final path = uri.path == '/'
         ? ''
         : uri.path.replaceFirst(RegExp(r'/$'), '');
-    return '$scheme://$host$port$path|${value.accessToken?.trim() ?? ''}|'
+    // Token được làm mới định kỳ: không đưa vào khoá, nếu không mỗi lần làm mới
+    // token lại kiểm tra từ đầu và bật hộp thoại dù đã đồng ý. Đăng nhập / đăng
+    // xuất vẫn được nhận biết qua _authenticated.
+    final signedIn = value.accessToken?.trim().isNotEmpty == true;
+    return '$scheme://$host$port$path|$signedIn|'
         '${value.workspaceId?.trim() ?? ''}';
   }
 
@@ -94,6 +98,10 @@ class _LegalAcceptanceGateState extends ConsumerState<LegalAcceptanceGate> {
       _scheduleSessionUpdate();
     }
     if (state.canCreateUserContent) return widget.child;
+    // Chưa chọn được workspace (đang tải, lỗi tải): chưa có gì để hỏi nên
+    // không che màn hình bằng hộp thoại "đang kiểm tra". Quyền tạo nội dung
+    // vẫn đóng (policy chưa complete, máy chủ trả 409 nếu chưa đồng ý).
+    if (state.status == LegalAcceptanceStatus.idle) return widget.child;
 
     return Stack(
       fit: StackFit.expand,

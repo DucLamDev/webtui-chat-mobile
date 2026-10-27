@@ -59,23 +59,30 @@ final class LoadConversationHomeUseCase {
     final contactRequestsResult = await contactRequestsFuture;
     final membersResult = await membersFuture;
     final presenceResult = await presenceFuture;
+    // Không còn kết bạn: mọi thành viên trong workspace là bạn bè, nhắn tin được
+    // ngay. Danh bạ kết bạn cũ chỉ dùng khi không tải được danh sách thành viên.
+    final members = membersResult.valueOrNull ?? const <ContactSummary>[];
+    final contacts = members.isNotEmpty
+        ? _sortByName(members)
+        : _mergeContactRelationships(
+            contactsResult.valueOrNull ?? const [],
+            contactRequestsResult.valueOrNull ?? const [],
+          );
 
     return Success(
       ConversationHomeData(
         workspaceId: activeWorkspaceId,
         conversations: _sortByUpdated(directsResult.valueOrNull ?? const []),
         channels: _sortByUpdated(channelsResult.valueOrNull ?? const []),
-        contacts: _mergeContactRelationships(
-          contactsResult.valueOrNull ?? const [],
-          contactRequestsResult.valueOrNull ?? const [],
-        ),
-        workspaceMembers: membersResult.valueOrNull ?? const [],
+        contacts: contacts,
+        workspaceMembers: members,
         presenceByUserId: _presenceByUser(
           presenceResult.valueOrNull ?? const [],
         ),
-        contactsErrorMessage:
-            contactsResult.failureOrNull?.message ??
-            contactRequestsResult.failureOrNull?.message,
+        contactsErrorMessage: members.isNotEmpty
+            ? null
+            : contactsResult.failureOrNull?.message ??
+                  contactRequestsResult.failureOrNull?.message,
         membersErrorMessage:
             membersResult.failureOrNull?.kind == FailureKind.forbidden
             ? 'Bạn chưa có quyền xem danh sách thành viên workspace.'
@@ -130,6 +137,16 @@ List<ContactSummary> _mergeContactRelationships(
     );
   });
   return merged;
+}
+
+List<ContactSummary> _sortByName(List<ContactSummary> items) {
+  final sorted = [...items];
+  sorted.sort((left, right) {
+    return left.displayName.toLowerCase().compareTo(
+      right.displayName.toLowerCase(),
+    );
+  });
+  return sorted;
 }
 
 List<ConversationSummary> _sortByUpdated(List<ConversationSummary> items) {

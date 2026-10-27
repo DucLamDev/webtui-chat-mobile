@@ -46,12 +46,14 @@ class _PrivacyGuardState extends State<PrivacyGuard>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    widget.controller.setSecureScreen(true);
+    // Không chặn chụp / quay màn hình (Android FLAG_SECURE, màn che iOS khi
+    // quay): người dùng cần chụp tin nhắn gửi hỗ trợ. Gửi false để tắt cả bản
+    // cũ đã bật trước đó. Màn che trong trình chuyển ứng dụng vẫn giữ.
+    widget.controller.setSecureScreen(false);
   }
 
   @override
   void dispose() {
-    widget.controller.setSecureScreen(false);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

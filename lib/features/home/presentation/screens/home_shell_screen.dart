@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/error/failure.dart';
+import '../../../../core/notifications/call_tone_player.dart';
 import '../../../../core/notifications/native_incoming_call_service.dart';
 import '../../../../core/notifications/scoped_local_notification_service.dart';
 import '../../../../core/platform/chat_share_intent_service.dart';
@@ -1243,6 +1244,8 @@ class _IncomingCallDialog extends StatefulWidget {
 }
 
 class _IncomingCallDialogState extends State<_IncomingCallDialog> {
+  // Nhạc chuông lặp (kêu cả khi gạt im lặng) thay cho âm báo hệ thống nhỏ.
+  final CallTonePlayer _ringtone = CallTonePlayer.ringtone();
   Timer? _timer;
   int _remainingSeconds = 30;
   bool _checking = false;
@@ -1250,14 +1253,15 @@ class _IncomingCallDialogState extends State<_IncomingCallDialog> {
   @override
   void initState() {
     super.initState();
-    SystemSound.play(SystemSoundType.alert);
+    unawaited(_ringtone.start());
+    unawaited(HapticFeedback.vibrate());
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) {
         return;
       }
       setState(() => _remainingSeconds -= 1);
-      if (_remainingSeconds % 3 == 0 && _remainingSeconds > 0) {
-        SystemSound.play(SystemSoundType.alert);
+      if (_remainingSeconds % 2 == 0 && _remainingSeconds > 0) {
+        unawaited(HapticFeedback.vibrate());
       }
       unawaited(_checkCall());
       if (_remainingSeconds <= 0) {
@@ -1269,6 +1273,8 @@ class _IncomingCallDialogState extends State<_IncomingCallDialog> {
   @override
   void dispose() {
     _timer?.cancel();
+    // Dừng chuông trước khi màn gọi bật micro / WebRTC.
+    unawaited(_ringtone.stop());
     super.dispose();
   }
 

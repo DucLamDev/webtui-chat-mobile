@@ -7,6 +7,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../moderation/presentation/controllers/moderation_controller.dart';
 import '../../../moderation/presentation/widgets/moderation_actions.dart';
+import '../../../profile/presentation/controllers/profile_controller.dart';
 import '../../domain/entities/conversation_summary.dart';
 import '../controllers/conversation_home_controller.dart';
 import '../models/conversation_privacy_projection.dart';
@@ -133,8 +134,15 @@ class ContactsHomeView extends ConsumerWidget {
       moderationControllerProvider(workspaceId),
     );
 
-    final contacts = state.filteredContacts;
+    final currentUserId = ref.watch(
+      profileControllerProvider.select((state) => state.profile?.id),
+    );
+    // Danh bạ là thành viên workspace (gồm cả chính mình): ẩn chính mình.
+    final contacts = state.filteredContacts
+        .where((contact) => contact.userId != currentUserId)
+        .toList(growable: false);
     return CustomScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       slivers: [
         SliverToBoxAdapter(
           child: _TopSearch(
@@ -154,12 +162,14 @@ class ContactsHomeView extends ConsumerWidget {
           const SliverToBoxAdapter(
             child: WebTuiEmptyState(
               title: 'Chưa có bạn bè',
-              message: 'Bạn bè đã kết nối sẽ xuất hiện tại đây.',
+              message: 'Thành viên workspace hiện ở đây, bấm để nhắn ngay.',
               icon: Icons.contacts_outlined,
             ),
           )
         else ...[
-          const SliverToBoxAdapter(child: WebTuiSectionLabel('Bạn bè')),
+          const SliverToBoxAdapter(
+            child: WebTuiSectionLabel('Bạn bè trong workspace'),
+          ),
           WebTuiSliverListSurface(
             itemCount: contacts.length,
             itemBuilder: (context, index) {
@@ -222,6 +232,7 @@ class ChannelsHomeView extends ConsumerWidget {
         state.channelTab == state.automationChannelTab;
 
     return ListView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.only(bottom: WebTuiSpacing.lg),
       children: [
         _TopSearch(
@@ -291,6 +302,7 @@ class _MessagesList extends StatelessWidget {
     return RefreshIndicator(
       onRefresh: () async => onRetry(),
       child: CustomScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverToBoxAdapter(
