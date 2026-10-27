@@ -224,9 +224,10 @@ import flutter_callkit_incoming
       let activities = launchOptions?[.userActivityDictionary]
         as? [AnyHashable: Any]
     else { return nil }
+    // Closure trong điều kiện guard phải đặt trong ngoặc (Swift không nhận trailing closure ở đây).
     guard let url = activities.values
-      .compactMap { $0 as? NSUserActivity }
-      .first { $0.activityType == NSUserActivityTypeBrowsingWeb }?
+      .compactMap({ $0 as? NSUserActivity })
+      .first(where: { $0.activityType == NSUserActivityTypeBrowsingWeb })?
       .webpageURL
     else { return nil }
     return isTrustedUniversalLink(url) ? url : nil
