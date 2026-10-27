@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
+import '../../../../core/error/error_mapper.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
@@ -188,7 +189,7 @@ class _CollaborationRoomSheetState
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = error.toString();
+        _error = userFacingErrorMessage(error);
         _loading = false;
       });
     }
@@ -2084,7 +2085,7 @@ class _CollaborationRoomSheetState
     try {
       await operation();
     } catch (error) {
-      if (!quiet) _notice(error.toString());
+      if (!quiet) _notice(userFacingErrorMessage(error));
     } finally {
       if (mounted) setState(() => _saving = false);
     }

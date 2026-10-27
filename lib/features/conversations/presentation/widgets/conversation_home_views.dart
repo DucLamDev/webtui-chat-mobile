@@ -93,7 +93,11 @@ class MessagesHomeView extends ConsumerWidget {
               controller.selectConversation(conversation);
             } else {
               controller.markConversationOpened(conversation);
-              _openChat(context, conversation);
+              _openChat(
+                context,
+                conversation,
+                onReturn: controller.syncSilently,
+              );
             }
           },
         );
@@ -207,7 +211,11 @@ class ContactsHomeView extends ConsumerWidget {
                   }
                   final conversation = await controller.openDirect(contact);
                   if (conversation != null && context.mounted) {
-                    _openChat(context, conversation);
+                    _openChat(
+                      context,
+                      conversation,
+                      onReturn: controller.syncSilently,
+                    );
                   }
                 },
                 onSafety: () => showUserSafetyActions(
@@ -515,7 +523,13 @@ class _TopSearch extends StatelessWidget {
   }
 }
 
-void _openChat(BuildContext context, ConversationSummary conversation) {
+/// [onReturn] chạy khi người dùng rời phòng chat để danh sách có tin mới nhất,
+/// số chưa đọc đúng (hộp thư chưa nhận sự kiện realtime của từng phòng).
+void _openChat(
+  BuildContext context,
+  ConversationSummary conversation, {
+  Future<void> Function()? onReturn,
+}) {
   final queryParameters = {
     'workspaceId': conversation.workspaceId,
     'title': conversation.title,
@@ -536,13 +550,15 @@ void _openChat(BuildContext context, ConversationSummary conversation) {
   if (participantIds.isNotEmpty) {
     queryParameters['participantIds'] = participantIds;
   }
-  context.push(
-    Uri(
-      path: '/conversations/${conversation.channelId}',
-      queryParameters: queryParameters,
-    ).toString(),
-    extra: conversation,
-  );
+  context
+      .push<void>(
+        Uri(
+          path: '/conversations/${conversation.channelId}',
+          queryParameters: queryParameters,
+        ).toString(),
+        extra: conversation,
+      )
+      .then((_) => onReturn?.call());
 }
 
 void _openChannelDetail(BuildContext context, ConversationSummary channel) {
@@ -564,7 +580,7 @@ Future<void> _handleChannelTap(
     return;
   }
   if (channel.privateSessionMode) {
-    _openChat(context, destination);
+    _openChat(context, destination, onReturn: controller.syncSilently);
   } else {
     _openChannelDetail(context, destination);
   }

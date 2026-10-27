@@ -177,11 +177,16 @@ final class ChatRoomState {
       outboxItems.where((item) => item.isFailed).length;
   int get sendingOutboxCount =>
       outboxItems.where((item) => item.isSending).length;
+  /// Còn tệp đang tải lên: chưa cho gửi, nếu không tệp đó bị bỏ khi gửi.
+  bool get hasUploadingAttachments => pendingAttachments.any(
+    (item) => item.status == MessageAttachmentUploadStatus.uploading,
+  );
   bool get canSend =>
-      draft.trim().isNotEmpty ||
-      pendingAttachments.any(
-        (item) => item.status == MessageAttachmentUploadStatus.uploaded,
-      );
+      !hasUploadingAttachments &&
+      (draft.trim().isNotEmpty ||
+          pendingAttachments.any(
+            (item) => item.status == MessageAttachmentUploadStatus.uploaded,
+          ));
   List<ChatMessage> get pinnedMessages => messages
       .where((message) => message.isPinned && !message.isDeleted)
       .toList(growable: false);
@@ -397,8 +402,10 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     // Subscribe before fetching history so a message committed while the
     // request is in flight cannot fall into the gap between GET and WebSocket.
     _subscribeRealtime();
+    // Tải lại khi đã có tin (quay lại app, cuộc gọi kết thúc): làm ngầm, không
+    // thay danh sách bằng màn "đang tải" và không mất vị trí đang đọc.
     state = state.copyWith(
-      isLoading: true,
+      isLoading: state.messages.isEmpty,
       clearError: true,
       clearNotice: true,
     );
@@ -1339,7 +1346,40 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
         .listen(_handleRealtimeEvent);
   }
 
+  /// Sau khi nối lại realtime: lấy trang tin mới nhất (tin gửi trong lúc mất
+  /// kết nối không được đẩy lại). Giữ bản nháp đang gõ; lỗi mạng thì bỏ qua.
+  Future<void> _catchUpAfterReconnect() async {
+    final result = await _loadMessagesUseCase.execute(
+      workspaceId: state.scope.workspaceId,
+      channelId: state.scope.channelId,
+    );
+    if (!mounted) return;
+    if (result case Success<MessagePage>(value: final page)) {
+      final latest = _chronological(page.messages, state.currentUserId);
+      final knownIds = {for (final message in state.messages) message.id};
+      // Mất kết nối lâu (trang mới nhất không nối tiếp tin đang có): bỏ tin cũ
+      // để không có khoảng trống giữa hai đoạn, cuộn lên sẽ tải tiếp.
+      final hasGap =
+          page.hasMore && !latest.any((m) => knownIds.contains(m.id));
+      final local = hasGap
+          ? state.messages.where((m) => m.isLocalOptimistic).toList()
+          : state.messages;
+      final messages = _mergeChronological(latest, local);
+      state = state.copyWith(
+        messages: messages,
+        nextCursor: hasGap ? page.nextCursor : state.nextCursor,
+        hasMore: hasGap ? page.hasMore : state.hasMore,
+      );
+      unawaited(_hydrateMissingAttachments(messages));
+      unawaited(_markLatestRead());
+    }
+  }
+
   void _handleRealtimeEvent(ConversationRealtimeEvent event) {
+    if (event.type == ConversationRealtimeEventType.reconnected) {
+      unawaited(_catchUpAfterReconnect());
+      return;
+    }
     final reduced = _reducer.reduce(
       ConversationRealtimeState(
         messages: state.messages,
@@ -1579,9 +1619,19 @@ List<ChatMessage> _upsertLocal(
   List<ChatMessage> current,
   ChatMessage incoming,
 ) {
+  // Kết quả reaction / ghim / sửa không kèm danh sách tệp: giữ tệp đã có.
+  var merged = incoming;
+  for (final message in current) {
+    if (message.id == incoming.id &&
+        incoming.attachments.isEmpty &&
+        message.attachments.isNotEmpty &&
+        !incoming.isDeleted) {
+      merged = incoming.copyWith(attachments: message.attachments);
+    }
+  }
   return _mergeChronological(const [], [
     ...current.where((message) => message.id != incoming.id),
-    incoming,
+    merged,
   ]);
 }
 
@@ -1591,7 +1641,8 @@ bool _shouldHydrateAttachments(ChatMessage message) {
       message.attachments.isNotEmpty) {
     return false;
   }
-  if (message.kind == 'file') {
+  // Tin có cả chữ và tệp: backend gắn metadata.has_attachments khi thêm tệp.
+  if (message.kind == 'file' || message.metadata['has_attachments'] == true) {
     return true;
   }
 

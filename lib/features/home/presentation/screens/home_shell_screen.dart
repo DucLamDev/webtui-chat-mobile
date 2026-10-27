@@ -928,6 +928,13 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           if (!mounted || event.workspaceId != workspaceId) {
             return;
           }
+          if (event.type == ConversationRealtimeEventType.reconnected) {
+            // Mỗi phòng đang mở cũng nhận sự kiện này; danh sách chỉ tải 1 lần.
+            if (event.channelId.isNotEmpty) return;
+            final home = conversationHomeControllerProvider(workspaceId);
+            unawaited(ref.read(home.notifier).syncSilently());
+            return;
+          }
           if (event.isContactEvent) {
             ref.invalidate(conversationHomeControllerProvider(workspaceId));
             ref.invalidate(notificationCenterControllerProvider(workspaceId));

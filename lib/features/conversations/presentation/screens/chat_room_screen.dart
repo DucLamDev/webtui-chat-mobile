@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
+import '../../../../core/error/error_mapper.dart';
 import '../../../../core/platform/chat_share_intent_service.dart';
 import '../../../../core/result/result.dart';
 import '../../../../design_system/components/webtui_components.dart';
@@ -751,7 +752,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        ).showSnackBar(SnackBar(content: Text(userFacingErrorMessage(error))));
       }
     }
   }
@@ -781,7 +782,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        ).showSnackBar(SnackBar(content: Text(userFacingErrorMessage(error))));
       }
     }
   }
@@ -965,7 +966,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        ).showSnackBar(SnackBar(content: Text(userFacingErrorMessage(error))));
       }
     }
   }
@@ -1214,11 +1215,13 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
     if (!loadedOlder &&
         (oldWidget.state.messages.length != widget.state.messages.length ||
             (oldWidget.state.isLoading && !widget.state.isLoading))) {
+      final firstLoad = oldWidget.state.isLoading && !widget.state.isLoading;
       final highlightedMessageId = widget.state.highlightedMessageId;
-      if (highlightedMessageId != null) {
+      if (highlightedMessageId != null && firstLoad) {
         _scheduleScrollToMessage(highlightedMessageId);
-      } else {
-        _scheduleScrollToBottom(jump: oldWidget.state.isLoading);
+      } else if (firstLoad || _isNearBottom() || _latestMessageIsMine()) {
+        // Đang đọc tin cũ thì không kéo xuống khi có tin mới của người khác.
+        _scheduleScrollToBottom(jump: firstLoad);
       }
     }
     if (oldWidget.state.highlightedMessageId !=
@@ -1461,6 +1464,17 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
           ),
       ],
     );
+  }
+
+  bool _isNearBottom() {
+    if (!_scrollController.hasClients) return true;
+    final position = _scrollController.position;
+    return position.maxScrollExtent - position.pixels < 150;
+  }
+
+  bool _latestMessageIsMine() {
+    final messages = widget.state.messages;
+    return messages.isNotEmpty && messages.last.isMine;
   }
 
   void _scheduleScrollToBottom({required bool jump}) {
@@ -1984,6 +1998,13 @@ class _Composer extends StatefulWidget {
 }
 
 class _ComposerState extends State<_Composer> {
+  bool get _uploadingAttachments => widget.attachments.any(
+    (item) => item.status == MessageAttachmentUploadStatus.uploading,
+  );
+
+  bool get _composerBusy =>
+      widget.sending || widget.isRecordingVoice || _uploadingAttachments;
+
   bool _showEmojiTray = false;
   bool _silent = false;
   Timer? _voiceTicker;
@@ -2164,13 +2185,19 @@ class _ComposerState extends State<_Composer> {
                   SizedBox.square(
                     dimension: 48,
                     child: IconButton.filled(
-                      tooltip: widget.canSend ? 'Gửi' : 'Ghi âm',
-                      onPressed: widget.sending || widget.isRecordingVoice
+                      tooltip: _uploadingAttachments
+                          ? 'Đang tải tệp lên'
+                          : widget.canSend
+                          ? 'Gửi'
+                          : 'Ghi âm',
+                      // Còn tệp đang tải lên: khoá nút (không gửi thiếu tệp,
+                      // không chuyển thành nút ghi âm).
+                      onPressed: _composerBusy
                           ? null
                           : widget.canSend
                           ? _send
                           : _startVoiceRecording,
-                      icon: widget.sending
+                      icon: widget.sending || _uploadingAttachments
                           ? const SizedBox.square(
                               dimension: 18,
                               child: CircularProgressIndicator(
@@ -2839,7 +2866,7 @@ Future<void> _createMessageReminder(
     if (context.mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(error.toString())));
+      ).showSnackBar(SnackBar(content: Text(userFacingErrorMessage(error))));
     }
   }
 }

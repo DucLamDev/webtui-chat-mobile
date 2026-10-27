@@ -251,6 +251,40 @@ void main() {
 
     expect(uri.toString(), 'wss://example.com/custom/ws?workspace_id=w1');
   });
+
+  test('keeps attachments when a reaction update omits them', () {
+    const reducer = ConversationRealtimeReducer();
+    final now = DateTime.utc(2026, 7, 17, 8);
+    final attachment = MessageAttachment(
+      id: 'a1',
+      workspaceId: 'w1',
+      messageId: 'm1',
+      fileId: 'f1',
+      file: UploadedMessageFile(
+        id: 'f1',
+        name: 'anh.jpg',
+        mimeType: 'image/jpeg',
+        byteSize: 42,
+        downloadPath: '/api/v1/files/f1/download',
+        createdAt: now,
+      ),
+      createdAt: now,
+    );
+    final withFile = _message(id: 'm1').copyWith(attachments: [attachment]);
+
+    final updated = reducer.reduce(
+      ConversationRealtimeState(messages: [withFile]),
+      ConversationRealtimeEvent(
+        type: ConversationRealtimeEventType.reactionChanged,
+        workspaceId: 'w1',
+        channelId: 'c1',
+        message: _message(id: 'm1'),
+      ),
+      currentUserId: 'u1',
+    );
+
+    expect(updated.messages.single.attachments.single.id, 'a1');
+  });
 }
 
 ChatMessage _message({

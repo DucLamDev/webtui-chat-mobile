@@ -24,6 +24,10 @@ enum ConversationRealtimeEventType {
   contactRequestCreated,
   contactRequestUpdated,
   contactRequestCancelled,
+
+  /// Kết nối realtime vừa nối lại sau khi rớt: tin trong lúc mất kết nối không
+  /// được đẩy lại nên màn hình phải tự tải lại.
+  reconnected,
   unknown,
 }
 

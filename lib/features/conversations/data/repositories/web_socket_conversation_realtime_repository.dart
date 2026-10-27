@@ -42,6 +42,7 @@ final class WebSocketConversationRealtimeRepository
   String? _activeWorkspaceId;
   bool _disposed = false;
   bool _connecting = false;
+  bool _hasConnected = false;
   int _reconnectAttempt = 0;
   Timer? _reconnectTimer;
   Timer? _heartbeatTimer;
@@ -177,6 +178,8 @@ final class WebSocketConversationRealtimeRepository
       _socket = socket;
       _reconnectAttempt = 0;
       _connecting = false;
+      final reconnected = _hasConnected;
+      _hasConnected = true;
       _joinAllRooms();
       _startHeartbeat(workspaceId);
       socket.listen(
@@ -185,6 +188,9 @@ final class WebSocketConversationRealtimeRepository
         onDone: () => _scheduleReconnect(),
         cancelOnError: true,
       );
+      if (reconnected) {
+        _emitReconnected(workspaceId);
+      }
     } on Object {
       _connecting = false;
       _scheduleReconnect();
@@ -196,6 +202,26 @@ final class WebSocketConversationRealtimeRepository
     Map<String, dynamic>? headers,
   }) {
     return connectWebSocketWithoutRedirects(url, headers: headers);
+  }
+
+  /// Báo cho mọi người nghe (cả từng phòng chat lẫn luồng của người dùng).
+  void _emitReconnected(String workspaceId) {
+    final controller = _controller;
+    if (controller == null || controller.isClosed) return;
+    final channelIds = {
+      '',
+      for (final room in _joinedRooms)
+        if (_channelIdOfRoom(room) case final channelId?) channelId,
+    };
+    for (final channelId in channelIds) {
+      controller.add(
+        ConversationRealtimeEvent(
+          type: ConversationRealtimeEventType.reconnected,
+          workspaceId: workspaceId,
+          channelId: channelId,
+        ),
+      );
+    }
   }
 
   void _handleSocketData(Object? data, String workspaceId) {
@@ -265,6 +291,7 @@ final class WebSocketConversationRealtimeRepository
       _controller = null;
       _joinedRooms.clear();
       _activeWorkspaceId = null;
+      _hasConnected = false;
     }
   }
 
@@ -746,6 +773,14 @@ MessageReactionSummary _reactionFromMap(JsonMap map) {
     count: intField(map, const ['count']),
     reactedByMe: boolField(map, const ['reacted_by_me', 'reactedByMe']),
   );
+}
+
+String? _channelIdOfRoom(String room) {
+  const marker = ':channel:';
+  final index = room.indexOf(marker);
+  if (index < 0) return null;
+  final channelId = room.substring(index + marker.length);
+  return channelId.isEmpty ? null : channelId;
 }
 
 String _roomFor(String workspaceId, String channelId) {

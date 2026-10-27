@@ -285,21 +285,38 @@ final class ConversationHomeController
     );
     switch (result) {
       case Success<ConversationHomeData>(value: final data):
-        state = state.copyWith(
-          conversations: data.conversations,
-          channels: data.channels,
-          contacts: data.contacts,
-          workspaceMembers: data.workspaceMembers,
-          presenceByUserId: data.presenceByUserId,
-          contactsErrorMessage: data.contactsErrorMessage,
-          membersErrorMessage: data.membersErrorMessage,
-          presenceErrorMessage: data.presenceErrorMessage,
-          isLoading: false,
-          clearError: true,
-        );
+        _applyData(data);
       case FailureResult<ConversationHomeData>(failure: final failure):
         state = state.copyWith(isLoading: false, errorMessage: failure.message);
     }
+  }
+
+  /// Cập nhật danh sách ngầm (khi quay về từ phòng chat): không hiện vòng tải;
+  /// lỗi mạng thì giữ nguyên danh sách đang có.
+  Future<void> syncSilently() async {
+    if (state.isLoading) return;
+    final result = await _loadConversationHomeUseCase.execute(
+      workspaceId: state.workspaceId,
+    );
+    if (!mounted) return;
+    if (result case Success<ConversationHomeData>(value: final data)) {
+      _applyData(data);
+    }
+  }
+
+  void _applyData(ConversationHomeData data) {
+    state = state.copyWith(
+      conversations: data.conversations,
+      channels: data.channels,
+      contacts: data.contacts,
+      workspaceMembers: data.workspaceMembers,
+      presenceByUserId: data.presenceByUserId,
+      contactsErrorMessage: data.contactsErrorMessage,
+      membersErrorMessage: data.membersErrorMessage,
+      presenceErrorMessage: data.presenceErrorMessage,
+      isLoading: false,
+      clearError: true,
+    );
   }
 
   Future<void> refresh() async {

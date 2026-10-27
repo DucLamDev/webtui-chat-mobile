@@ -86,6 +86,7 @@ final class ConversationRealtimeReducer {
       ConversationRealtimeEventType.contactRequestCreated ||
       ConversationRealtimeEventType.contactRequestUpdated ||
       ConversationRealtimeEventType.contactRequestCancelled => state,
+      ConversationRealtimeEventType.reconnected => state,
       ConversationRealtimeEventType.unknown => state,
     };
   }
@@ -121,8 +122,16 @@ List<ChatMessage> _upsertMessage(
     return next;
   }
   final next = [...messages];
+  final current = next[index];
+  // Reaction / ghim / sửa: máy chủ trả tin không kèm danh sách tệp; giữ tệp đã
+  // có để ảnh, voice không biến mất khỏi màn hình.
+  final keepAttachments =
+      incoming.attachments.isEmpty &&
+      current.attachments.isNotEmpty &&
+      !incoming.isDeleted;
   next[index] = incoming.copyWith(
-    isPinned: incoming.isPinned || next[index].isPinned,
+    attachments: keepAttachments ? current.attachments : null,
+    isPinned: incoming.isPinned || current.isPinned,
   );
   return next;
 }

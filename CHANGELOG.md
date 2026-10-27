@@ -14,6 +14,10 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   Tin nhắn và nhóm / kênh gộp chung một hộp thư (bỏ tab Kênh): ghim lên đầu, còn lại theo tin mới nhất; lọc Tất cả /
   Chưa đọc / Cá nhân / Nhóm / Ghim (Bot khi dùng chat.vpsttt.com); kênh công khai chưa tham gia gợi ý ở cuối; nút soạn
   để nhắn riêng hoặc tạo nhóm.
+  Sửa thêm trong phòng chat: tin vừa có chữ vừa có ảnh / tệp hiện đủ tệp; thả cảm xúc, ghim, sửa tin không làm mất
+  ảnh / voice; quay lại app không hiện màn "đang tải" và không tự kéo xuống cuối khi đang đọc tin cũ; chưa cho gửi khi
+  tệp còn đang tải lên (trước đây tệp đó bị bỏ). Danh sách hội thoại cập nhật khi rời phòng chat; mất mạng rồi có lại
+  thì tự lấy bù tin bị lỡ; thông báo lỗi bằng tiếng Việt thay cho chữ kỹ thuật.
 
 ## 1.0.4 · 27/10/2026
 ### Sửa lỗi

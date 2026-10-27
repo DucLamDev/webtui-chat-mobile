@@ -2,6 +2,26 @@ import 'package:dio/dio.dart';
 
 import 'failure.dart';
 
+const _genericErrorMessage = 'Chưa thực hiện được. Vui lòng thử lại.';
+
+/// Câu báo lỗi hiện cho người dùng: không lộ chữ kỹ thuật tiếng Anh
+/// (`DioException [bad response]...`, `Bad state: ...`). Lỗi nội bộ không có
+/// câu tiếng Việt thì dùng câu chung.
+String userFacingErrorMessage(Object error) {
+  final message = switch (error) {
+    DioException() => mapDioExceptionToFailure(error).message,
+    Failure(:final message) => message,
+    StateError(:final message) => message,
+    _ => error.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''),
+  };
+  final trimmed = message.trim();
+  // Chỉ giữ câu có ký tự ngoài ASCII (câu tiếng Việt viết cho người dùng).
+  if (trimmed.isEmpty || !trimmed.runes.any((rune) => rune > 0x7f)) {
+    return _genericErrorMessage;
+  }
+  return trimmed;
+}
+
 Failure mapDioExceptionToFailure(DioException exception) {
   final requestId = _requestIdFrom(exception);
   final host = exception.requestOptions.uri.host;
