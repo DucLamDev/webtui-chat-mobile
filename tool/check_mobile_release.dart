@@ -217,7 +217,7 @@ void main() {
       label: 'iOS CocoaPods project',
       file: File('ios/Podfile'),
       mustContain: const [
-        "platform :ios, '13.0'",
+        "platform :ios, '15.0'",
         'flutter_install_all_ios_pods',
         'flutter_additional_ios_build_settings',
       ],

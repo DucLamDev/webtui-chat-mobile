@@ -3,6 +3,12 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.0.2 · 27/10/2026
+### Sửa lỗi
+- App iOS yêu cầu iOS 15 trở lên để build được bản TestFlight
+  Thư viện thông báo đẩy Firebase bản mới chỉ chạy trên iOS 15 trở lên nên bước build iOS trên GitHub báo lỗi. Nâng
+  phiên bản iOS tối thiểu của app từ 13.0 lên 15.0 (iPhone 6s trở về sau vẫn cài được).
+
 ## 1.0.1 · 26/10/2026
 ### Sửa lỗi
 - Sửa lỗi làm hỏng bước kiểm tra và build trên GitHub
