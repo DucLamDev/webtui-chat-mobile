@@ -3,6 +3,12 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.0.3 · 27/10/2026
+### Sửa lỗi
+- Sửa lỗi biên dịch Swift làm hỏng bước build iOS
+  Đoạn xử lý liên kết mở app (universal link) lúc khởi động viết sai cú pháp Swift nên Xcode không đóng gói được app.
+  Viết lại đúng cú pháp, chức năng không đổi.
+
 ## 1.0.2 · 27/10/2026
 ### Sửa lỗi
 - App iOS yêu cầu iOS 15 trở lên để build được bản TestFlight
