@@ -14,6 +14,29 @@ final class ConversationRealtimeState {
 final class ConversationRealtimeReducer {
   const ConversationRealtimeReducer();
 
+  /// Khung thread đang mở nhận cùng sự kiện: trả lời mới của luồng [rootId],
+  /// sửa / thu hồi / reaction của tin đã có trong luồng. `null` = không đổi.
+  List<ChatMessage>? reduceThread({
+    required String rootId,
+    required List<ChatMessage> messages,
+    required ConversationRealtimeEvent event,
+    required String? currentUserId,
+  }) {
+    final message = event.message;
+    final messageId = event.messageId ?? message?.id;
+    final inThread =
+        message != null &&
+        (message.parentId == rootId || message.threadRootId == rootId);
+    final known =
+        messageId != null && messages.any((item) => item.id == messageId);
+    if (!inThread && !known) return null;
+    return reduce(
+      ConversationRealtimeState(messages: messages),
+      event,
+      currentUserId: currentUserId,
+    ).messages;
+  }
+
   ConversationRealtimeState reduce(
     ConversationRealtimeState state,
     ConversationRealtimeEvent event, {

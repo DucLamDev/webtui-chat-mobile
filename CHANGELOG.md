@@ -17,7 +17,11 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   Sửa thêm trong phòng chat: tin vừa có chữ vừa có ảnh / tệp hiện đủ tệp; thả cảm xúc, ghim, sửa tin không làm mất
   ảnh / voice; quay lại app không hiện màn "đang tải" và không tự kéo xuống cuối khi đang đọc tin cũ; chưa cho gửi khi
   tệp còn đang tải lên (trước đây tệp đó bị bỏ). Danh sách hội thoại cập nhật khi rời phòng chat; mất mạng rồi có lại
-  thì tự lấy bù tin bị lỡ; thông báo lỗi bằng tiếng Việt thay cho chữ kỹ thuật.
+  thì tự lấy bù tin bị lỡ; thông báo lỗi bằng tiếng Việt thay cho chữ kỹ thuật. Khung trả lời theo luồng tự hiện
+  trả lời mới, sửa, thu hồi.
+  Trên chat.vpsttt.com: dải "Nghiệp vụ" ở đầu hộp thư chứa các kênh bot (gia hạn, order, proxy, VPS...), bấm một lần
+  là vào, kênh có tin chưa đọc đứng đầu rồi tới kênh dùng gần nhất; tab Nghiệp vụ đứng ngay sau Tất cả. Mỗi tab ghi số
+  hội thoại chưa đọc. Mở kênh / tin riêng vào phòng ngay, không chờ tải lại danh sách.
 
 ## 1.0.4 · 27/10/2026
 ### Sửa lỗi

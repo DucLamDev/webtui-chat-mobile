@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
+import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../moderation/presentation/controllers/moderation_controller.dart';
 import '../../../moderation/presentation/widgets/moderation_actions.dart';
@@ -262,6 +263,12 @@ class _MessagesList extends StatelessWidget {
   Widget build(BuildContext context) {
     final filterIndex = state.inboxFilters.indexOf(state.messageFilter);
     final joinable = state.joinableChannels;
+    // Dải Nghiệp vụ chỉ ở Tất cả khi không tìm kiếm (tìm thì kết quả đã có).
+    final showQuick =
+        state.messageFilter == ConversationListFilter.all &&
+        state.searchQuery.trim().isEmpty;
+    final quickChannels = [if (showQuick) ...state.quickChannels];
+    final workTab = state.inboxFilters.indexOf(ConversationListFilter.bot);
     return RefreshIndicator(
       onRefresh: () async => onRetry(),
       child: CustomScrollView(
@@ -296,7 +303,9 @@ class _MessagesList extends StatelessWidget {
                 onRetry: onRetry,
               ),
             )
-          else if (conversations.isEmpty && joinable.isEmpty)
+          else if (conversations.isEmpty &&
+              joinable.isEmpty &&
+              quickChannels.isEmpty)
             const SliverToBoxAdapter(
               child: WebTuiEmptyState(
                 title: 'Chưa có hội thoại',
@@ -305,6 +314,14 @@ class _MessagesList extends StatelessWidget {
               ),
             )
           else ...[
+            if (quickChannels.isNotEmpty)
+              SliverToBoxAdapter(
+                child: _QuickChannelStrip(
+                  channels: quickChannels,
+                  onTap: onTap,
+                  onShowAll: () => onFilterChanged(workTab),
+                ),
+              ),
             const SliverToBoxAdapter(child: SizedBox(height: WebTuiSpacing.xs)),
             WebTuiSliverListSurface(
               itemCount: conversations.length,
@@ -334,6 +351,139 @@ class _MessagesList extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Dải kênh nghiệp vụ (gia hạn, order...) đầu hộp thư: bấm một lần là vào.
+/// Kênh có tin chưa đọc đứng đầu, rồi kênh dùng gần nhất.
+class _QuickChannelStrip extends StatelessWidget {
+  const _QuickChannelStrip({
+    required this.channels,
+    required this.onTap,
+    required this.onShowAll,
+  });
+
+  final List<ConversationSummary> channels;
+  final ValueChanged<ConversationSummary> onTap;
+  final VoidCallback onShowAll;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(
+            left: WebTuiSpacing.lg,
+            top: WebTuiSpacing.sm,
+            right: WebTuiSpacing.xs,
+          ),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Nghiệp vụ',
+                  style: TextStyle(
+                    color: WebTuiColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              TextButton(onPressed: onShowAll, child: const Text('Xem tất cả')),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 96,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.md),
+            itemCount: channels.length,
+            separatorBuilder: (context, index) {
+              return const SizedBox(width: WebTuiSpacing.xs);
+            },
+            itemBuilder: (context, index) {
+              final channel = channels[index];
+              return _QuickChannelButton(
+                channel: channel,
+                onTap: () => onTap(channel),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickChannelButton extends StatelessWidget {
+  const _QuickChannelButton({required this.channel, required this.onTap});
+
+  final ConversationSummary channel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final unread = channel.unreadCount;
+    return Semantics(
+      button: true,
+      excludeSemantics: true,
+      label: unread > 0
+          ? '${channel.title}, $unread tin chưa đọc'
+          : channel.title,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(WebTuiRadii.md),
+        child: SizedBox(
+          width: 76,
+          child: Column(
+            children: [
+              const SizedBox(height: WebTuiSpacing.xs),
+              Badge(
+                isLabelVisible: unread > 0,
+                backgroundColor: WebTuiColors.danger,
+                label: Text(unread > 99 ? '99+' : '$unread'),
+                child: CircleAvatar(
+                  radius: 24,
+                  backgroundColor: WebTuiColors.primarySoft,
+                  child: Icon(
+                    _quickChannelIcon(channel.title),
+                    color: WebTuiColors.primary,
+                  ),
+                ),
+              ),
+              const SizedBox(height: WebTuiSpacing.xs),
+              Text(
+                channel.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.2,
+                  color: WebTuiColors.textPrimary,
+                  fontWeight: unread > 0 ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Biểu tượng theo tên kênh để nhận ra nhanh (gia hạn, order, proxy, VPS...).
+IconData _quickChannelIcon(String title) {
+  final text = title.toLowerCase();
+  bool has(List<String> words) => words.any(text.contains);
+  if (has(['gia hạn', 'gia han', 'renew'])) return Icons.autorenew_rounded;
+  if (has(['order', 'đơn', 'mua'])) return Icons.shopping_bag_outlined;
+  if (has(['proxy'])) return Icons.vpn_lock_rounded;
+  if (has(['vps', 'server', 'máy chủ'])) return Icons.dns_rounded;
+  if (has(['ticket', 'hỗ trợ', 'support'])) {
+    return Icons.support_agent_rounded;
+  }
+  return Icons.smart_toy_outlined;
 }
 
 class _ConversationTile extends StatelessWidget {

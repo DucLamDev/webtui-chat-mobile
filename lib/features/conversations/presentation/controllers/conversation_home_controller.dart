@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
@@ -34,13 +36,24 @@ final conversationHomeControllerProvider = StateNotifierProvider.autoDispose
 /// module nội bộ (automation).
 enum ConversationListFilter { all, unread, direct, group, favorite, bot }
 
+/// Thứ tự tab hộp thư: Nghiệp vụ (kênh bot gia hạn, order... của
+/// chat.vpsttt.com) đứng ngay sau Tất cả để vào nhanh nhất.
+const _inboxFilterOrder = [
+  ConversationListFilter.all,
+  ConversationListFilter.bot,
+  ConversationListFilter.unread,
+  ConversationListFilter.direct,
+  ConversationListFilter.group,
+  ConversationListFilter.favorite,
+];
+
 const _inboxFilterLabels = {
   ConversationListFilter.all: 'Tất cả',
   ConversationListFilter.unread: 'Chưa đọc',
   ConversationListFilter.direct: 'Cá nhân',
   ConversationListFilter.group: 'Nhóm',
   ConversationListFilter.favorite: 'Ghim',
-  ConversationListFilter.bot: 'Bot',
+  ConversationListFilter.bot: 'Nghiệp vụ',
 };
 
 final class ConversationHomeState {
@@ -107,20 +120,78 @@ final class ConversationHomeState {
     return peerUserId == null ? null : presenceForUser(peerUserId);
   }
 
-  /// Bộ lọc hiện trên hộp thư theo thứ tự (Bot chỉ khi bật automation).
+  /// Bộ lọc hiện trên hộp thư theo thứ tự (Nghiệp vụ chỉ khi bật automation).
   List<ConversationListFilter> get inboxFilters => [
-    for (final filter in ConversationListFilter.values)
+    for (final filter in _inboxFilterOrder)
       if (filter != ConversationListFilter.bot || automationEnabled) filter,
   ];
 
-  List<String> get inboxFilterLabels => [
-    for (final filter in inboxFilters) _inboxFilterLabels[filter]!,
-  ];
+  /// Nhãn tab kèm số hội thoại chưa đọc trong tab đó (vd. "Chưa đọc 3").
+  List<String> get inboxFilterLabels {
+    final unread = _buildInbox(
+      directs: conversations,
+      channels: channels,
+      filter: ConversationListFilter.unread,
+      query: '',
+      automationEnabled: automationEnabled,
+    );
+    final counts = <ConversationListFilter, int>{};
+    void bump(ConversationListFilter filter) {
+      counts[filter] = (counts[filter] ?? 0) + 1;
+    }
+
+    for (final item in unread) {
+      bump(ConversationListFilter.unread);
+      if (item.kind != ConversationKind.channel) {
+        bump(ConversationListFilter.direct);
+      } else if (!item.isAutomation) {
+        bump(ConversationListFilter.group);
+      }
+      if (item.favorite) bump(ConversationListFilter.favorite);
+    }
+    for (final item in quickChannels) {
+      if (item.isUnread) bump(ConversationListFilter.bot);
+    }
+    return [
+      for (final filter in inboxFilters)
+        switch (counts[filter]) {
+          null => _inboxFilterLabels[filter]!,
+          final count => '${_inboxFilterLabels[filter]} $count',
+        },
+    ];
+  }
+
+  /// Kênh nghiệp vụ (bot gia hạn, order...) cho dải truy cập nhanh đầu hộp
+  /// thư: kênh có tin chưa đọc trước, rồi kênh dùng gần nhất, rồi theo tên.
+  /// Gồm cả kênh chưa tham gia (bấm để mở phiên riêng / tham gia).
+  List<ConversationSummary> get quickChannels {
+    if (!automationEnabled) return const [];
+    final byChannel = <String, ConversationSummary>{};
+    for (final item in [...channels, ...conversations]) {
+      if (!item.isAutomation) continue;
+      final existing = byChannel[item.channelId];
+      // Cùng kênh có trong cả hai danh sách: giữ bản mới hơn / còn chưa đọc.
+      if (existing == null ||
+          item.updatedAt.isAfter(existing.updatedAt) ||
+          item.unreadCount > existing.unreadCount) {
+        byChannel[item.channelId] = item;
+      }
+    }
+    return byChannel.values.toList()..sort(_compareQuickChannel);
+  }
 
   /// Hộp thư gộp: tin nhắn riêng và nhóm / kênh đã tham gia trong một danh
   /// sách, ghim lên đầu, còn lại theo hoạt động gần nhất (tin mới nhất trên
-  /// cùng). Kênh bot / automation chỉ hiện ở bộ lọc Bot.
+  /// cùng). Kênh nghiệp vụ nằm ở dải truy cập nhanh và tab Nghiệp vụ; ở Tất
+  /// cả chỉ hiện khi đang tìm kiếm.
   List<ConversationSummary> get inbox {
+    if (messageFilter == ConversationListFilter.bot) {
+      final query = searchQuery.trim().toLowerCase();
+      return [
+        for (final item in quickChannels)
+          if (query.isEmpty || _matchesQuery(item, query)) item,
+      ];
+    }
     return _buildInbox(
       directs: conversations,
       channels: channels,
@@ -375,7 +446,8 @@ final class ConversationHomeController
           selectedConversation: conversation,
           noticeMessage: 'Đã mở hội thoại với ${contact.displayName}.',
         );
-        await refresh();
+        // Mở phòng ngay; danh sách cập nhật ngầm phía sau.
+        unawaited(syncSilently());
         return conversation;
       case FailureResult<ConversationSummary>(failure: final failure):
         state = state.copyWith(errorMessage: failure.message);
@@ -398,7 +470,8 @@ final class ConversationHomeController
           selectedConversation: conversation,
           noticeMessage: 'Đã mở phiên hỗ trợ riêng tư.',
         );
-        await refresh();
+        // Mở phòng ngay; danh sách cập nhật ngầm phía sau.
+        unawaited(syncSilently());
         return conversation;
       case FailureResult<ConversationSummary>(failure: final failure):
         state = state.copyWith(errorMessage: failure.message);
@@ -486,7 +559,8 @@ List<ConversationSummary> _buildInbox({
         if (item.isAutomation && !automationEnabled) return false;
         final isGroup = item.kind == ConversationKind.channel;
         final matchesFilter = switch (filter) {
-          ConversationListFilter.all => !item.isAutomation,
+          ConversationListFilter.all =>
+            !item.isAutomation || normalizedQuery.isNotEmpty,
           ConversationListFilter.unread => item.isUnread,
           ConversationListFilter.direct => !isGroup,
           ConversationListFilter.group => isGroup && !item.isAutomation,
@@ -502,6 +576,22 @@ List<ConversationSummary> _buildInbox({
       .toList(growable: false);
   result.sort(_compareInbox);
   return result;
+}
+
+bool _matchesQuery(ConversationSummary item, String normalizedQuery) {
+  return '${item.title} ${item.preview}'.toLowerCase().contains(
+    normalizedQuery,
+  );
+}
+
+int _compareQuickChannel(
+  ConversationSummary left,
+  ConversationSummary right,
+) {
+  if (left.isUnread != right.isUnread) return left.isUnread ? -1 : 1;
+  final byTime = right.updatedAt.compareTo(left.updatedAt);
+  if (byTime != 0) return byTime;
+  return left.title.toLowerCase().compareTo(right.title.toLowerCase());
 }
 
 /// Ghim trước; sau đó hội thoại có tin mới nhất trước; bằng thời gian thì

@@ -1349,6 +1349,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   /// Sau khi nối lại realtime: lấy trang tin mới nhất (tin gửi trong lúc mất
   /// kết nối không được đẩy lại). Giữ bản nháp đang gõ; lỗi mạng thì bỏ qua.
   Future<void> _catchUpAfterReconnect() async {
+    unawaited(_refreshOpenThread());
     final result = await _loadMessagesUseCase.execute(
       workspaceId: state.scope.workspaceId,
       channelId: state.scope.channelId,
@@ -1375,6 +1376,34 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     }
   }
 
+  List<ChatMessage>? _reduceThread(ConversationRealtimeEvent event) {
+    final root = state.threadRootMessage;
+    if (root == null) return null;
+    return _reducer.reduceThread(
+      rootId: root.id,
+      messages: state.threadMessages,
+      event: event,
+      currentUserId: state.currentUserId,
+    );
+  }
+
+  /// Tải lại trả lời của thread đang mở (giữ bản nháp đang gõ).
+  Future<void> _refreshOpenThread() async {
+    final root = state.threadRootMessage;
+    if (root == null) return;
+    final result = await _loadThreadUseCase.execute(
+      workspaceId: state.scope.workspaceId,
+      channelId: state.scope.channelId,
+      messageId: root.id,
+    );
+    if (!mounted || state.threadRootMessage?.id != root.id) return;
+    if (result case Success<MessagePage>(value: final page)) {
+      state = state.copyWith(
+        threadMessages: _chronological(page.messages, state.currentUserId),
+      );
+    }
+  }
+
   void _handleRealtimeEvent(ConversationRealtimeEvent event) {
     if (event.type == ConversationRealtimeEventType.reconnected) {
       unawaited(_catchUpAfterReconnect());
@@ -1391,6 +1420,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     state = state.copyWith(
       messages: reduced.messages,
       typingUserIds: reduced.typingUserIds,
+      threadMessages: _reduceThread(event),
     );
     if (event.isCallEvent) {
       _handleRealtimeCallEvent(event);

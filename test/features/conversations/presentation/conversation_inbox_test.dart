@@ -46,8 +46,9 @@ void main() {
     expect(filtered(ConversationListFilter.direct).joinableChannels, isEmpty);
   });
 
-  test('bot channels only appear with automation and the Bot filter', () {
+  test('work channels only appear with automation, right after All', () {
     expect(state.inboxFilters.contains(ConversationListFilter.bot), isFalse);
+    expect(state.quickChannels, isEmpty);
     expect(ids(state.inbox).contains('orders'), isFalse);
 
     final internal = ConversationHomeState(
@@ -57,8 +58,47 @@ void main() {
       automationEnabled: true,
       messageFilter: ConversationListFilter.bot,
     );
-    expect(internal.inboxFilterLabels.last, 'Bot');
+    expect(internal.inboxFilterLabels.take(2), ['Tất cả', 'Nghiệp vụ']);
     expect(ids(internal.inbox), ['orders']);
+    // Ở Tất cả kênh nghiệp vụ nằm ở dải truy cập nhanh, không chen vào danh
+    // sách; tìm kiếm thì vẫn ra.
+    final all = internal.copyWith(messageFilter: ConversationListFilter.all);
+    expect(ids(all.inbox).contains('orders'), isFalse);
+    expect(ids(all.copyWith(searchQuery: 'đơn').inbox), ['orders']);
+  });
+
+  test('quick work channels: unread first, then most recent', () {
+    final internal = ConversationHomeState(
+      workspaceId: 'workspace-1',
+      automationEnabled: true,
+      channels: [
+        _item('renew', 'Gia hạn', hour: 9, group: true, automation: true),
+        _item('order', 'Order', hour: 12, group: true, automation: true),
+        _item(
+          'proxy',
+          'Proxy',
+          hour: 8,
+          group: true,
+          automation: true,
+          unread: 3,
+          member: false,
+        ),
+        _item('team', 'Nhóm team', hour: 13, group: true),
+      ],
+    );
+
+    expect(ids(internal.quickChannels), ['proxy', 'order', 'renew']);
+    expect(internal.inboxFilterLabels[1], 'Nghiệp vụ 1');
+  });
+
+  test('tab labels show unread counts', () {
+    expect(state.inboxFilterLabels, [
+      'Tất cả',
+      'Chưa đọc 1',
+      'Cá nhân 1',
+      'Nhóm',
+      'Ghim',
+    ]);
   });
 
   test('search covers people and groups', () {

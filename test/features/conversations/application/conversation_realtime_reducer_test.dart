@@ -285,12 +285,65 @@ void main() {
 
     expect(updated.messages.single.attachments.single.id, 'a1');
   });
+
+  test('open thread receives its own replies and edits only', () {
+    const reducer = ConversationRealtimeReducer();
+    final thread = [_message(id: 'root'), _message(id: 'r1', parentId: 'root')];
+    ConversationRealtimeEvent event(
+      ConversationRealtimeEventType type,
+      ChatMessage message,
+    ) {
+      return ConversationRealtimeEvent(
+        type: type,
+        workspaceId: 'w1',
+        channelId: 'c1',
+        message: message,
+      );
+    }
+
+    final withReply = reducer.reduceThread(
+      rootId: 'root',
+      messages: thread,
+      event: event(
+        ConversationRealtimeEventType.messageCreated,
+        _message(id: 'r2', body: 'Trả lời mới', parentId: 'root'),
+      ),
+      currentUserId: 'u1',
+    );
+    expect(
+      withReply?.map((message) => message.id),
+      unorderedEquals(['root', 'r1', 'r2']),
+    );
+
+    final edited = reducer.reduceThread(
+      rootId: 'root',
+      messages: thread,
+      event: event(
+        ConversationRealtimeEventType.messageUpdated,
+        _message(id: 'r1', body: 'Đã sửa', parentId: 'root'),
+      ),
+      currentUserId: 'u1',
+    );
+    expect(edited?.firstWhere((message) => message.id == 'r1').body, 'Đã sửa');
+
+    final unrelated = reducer.reduceThread(
+      rootId: 'root',
+      messages: thread,
+      event: event(
+        ConversationRealtimeEventType.messageCreated,
+        _message(id: 'other'),
+      ),
+      currentUserId: 'u1',
+    );
+    expect(unrelated, isNull);
+  });
 }
 
 ChatMessage _message({
   required String id,
   String body = 'Xin chào',
   DateTime? editedAt,
+  String? parentId,
 }) {
   return ChatMessage(
     id: id,
@@ -301,5 +354,6 @@ ChatMessage _message({
     senderId: 'u1',
     createdAt: DateTime.utc(2026, 7, 17, 8),
     editedAt: editedAt,
+    parentId: parentId,
   );
 }
