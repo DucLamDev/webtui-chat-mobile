@@ -269,6 +269,73 @@ void main() {
       }
     },
   );
+
+  test('repository tells subscribers to reload after reconnecting', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final sockets = <WebSocket>[];
+    final firstJoin = Completer<void>();
+    server.listen((request) async {
+      final socket = await WebSocketTransformer.upgrade(request);
+      sockets.add(socket);
+      socket.listen((data) {
+        final decoded = jsonDecode(data as String) as Map<String, dynamic>;
+        if (decoded['type'] == 'join' && !firstJoin.isCompleted) {
+          firstJoin.complete();
+        }
+      });
+    });
+
+    final origin = Uri.parse('http://${server.address.host}:${server.port}');
+    final instance = InstanceScope(
+      instanceId: '11111111-1111-4111-8111-111111111111',
+      serverOrigin: origin,
+    );
+    final tokens = _DelayedTokenRepository(
+      guard: AuthTokenMutationGuard(
+        instanceScopeId: instance.storageId,
+        generation: 'generation-a',
+      ),
+      delayedAccessToken: Future<String?>.value('token-a'),
+    );
+    final repository = WebSocketConversationRealtimeRepository(
+      apiBaseUri: origin,
+      wsBaseUri: origin.replace(scheme: 'ws', path: '/ws'),
+      instanceScope: instance,
+      tokenRepository: tokens,
+    );
+    final reconnected = Completer<ConversationRealtimeEvent>();
+    final events = <ConversationRealtimeEvent>[];
+    StreamSubscription<ConversationRealtimeEvent>? channel;
+
+    try {
+      channel = repository
+          .subscribeToChannel(workspaceId: 'workspace-1', channelId: 'room-1')
+          .listen((event) {
+            events.add(event);
+            if (event.type == ConversationRealtimeEventType.reconnected &&
+                !reconnected.isCompleted) {
+              reconnected.complete(event);
+            }
+          });
+      await firstJoin.future.timeout(const Duration(seconds: 2));
+      expect(events, isEmpty);
+
+      await sockets.single.close();
+      final event = await reconnected.future.timeout(
+        const Duration(seconds: 5),
+      );
+      expect(event.workspaceId, 'workspace-1');
+      expect(event.channelId, 'room-1');
+      expect(sockets, hasLength(2));
+    } finally {
+      await channel?.cancel();
+      await repository.disconnect();
+      for (final socket in sockets) {
+        await socket.close();
+      }
+      await server.close(force: true);
+    }
+  });
 }
 
 final class _DelayedTokenRepository implements AuthTokenRepository {

@@ -66,11 +66,6 @@ class WebTuiMobileScaffold extends StatelessWidget {
             label: 'Bạn bè',
           ),
           NavigationDestination(
-            icon: Icon(CupertinoIcons.number),
-            selectedIcon: Icon(CupertinoIcons.number_circle_fill),
-            label: 'Kênh',
-          ),
-          NavigationDestination(
             icon: Icon(CupertinoIcons.briefcase),
             selectedIcon: Icon(CupertinoIcons.briefcase_fill),
             label: 'Công việc',

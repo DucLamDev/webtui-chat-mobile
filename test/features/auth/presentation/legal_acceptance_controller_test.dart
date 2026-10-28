@@ -233,6 +233,44 @@ void main() {
       policy.dispose();
     },
   );
+
+  test('re-opening the same accepted workspace re-checks silently', () async {
+    var attempts = 0;
+    final policy = LegalAcceptanceAccessPolicy();
+    final controller = _controller(
+      policy: policy,
+      load: ({required workspaceId}) async {
+        attempts++;
+        if (attempts == 2) {
+          return const FailureResult(
+            Failure(kind: FailureKind.network, message: 'Mất mạng.'),
+          );
+        }
+        return Success(
+          _acceptance(complete: attempts == 1, workspaceId: workspaceId),
+        );
+      },
+    );
+
+    await controller.beginSession(workspaceId: 'workspace-1');
+    expect(controller.state.status, LegalAcceptanceStatus.complete);
+
+    // Phiên được làm mới, mạng lỗi: giữ nguyên đã đồng ý, không bật hộp thoại.
+    await controller.beginSession(workspaceId: 'workspace-1');
+    expect(attempts, 2);
+    expect(controller.state.status, LegalAcceptanceStatus.complete);
+    expect(controller.state.gateVisible, isFalse);
+    expect(policy.canCreateUserContent, isTrue);
+
+    // Máy chủ báo chưa đồng ý (chính sách mới): hỏi lại như bình thường.
+    await controller.beginSession(workspaceId: 'workspace-1');
+    expect(attempts, 3);
+    expect(controller.state.status, LegalAcceptanceStatus.required);
+    expect(controller.state.gateVisible, isTrue);
+    expect(policy.canCreateUserContent, isFalse);
+    controller.dispose();
+    policy.dispose();
+  });
 }
 
 LegalAcceptanceController _controller({

@@ -46,4 +46,39 @@ void main() {
     );
     expect(failure.message, isNot(contains('thao tác quá nhanh')));
   });
+
+  test('user-facing message hides technical English errors', () {
+    final options = RequestOptions(path: '/tasks');
+    final dio = DioException(
+      requestOptions: options,
+      response: Response<Object?>(
+        requestOptions: options,
+        statusCode: 422,
+        data: const {
+          'error': {'message': 'Tiêu đề task không được trống.'},
+        },
+      ),
+      type: DioExceptionType.badResponse,
+    );
+
+    expect(userFacingErrorMessage(dio), 'Tiêu đề task không được trống.');
+    expect(
+      userFacingErrorMessage(StateError('Cuộc gọi không còn khả dụng.')),
+      'Cuộc gọi không còn khả dụng.',
+    );
+    expect(
+      userFacingErrorMessage(Exception('Không lưu được ghi chú.')),
+      'Không lưu được ghi chú.',
+    );
+    for (final error in [
+      StateError('instance binding changed'),
+      const FormatException('Unexpected character'),
+      Exception(),
+    ]) {
+      expect(
+        userFacingErrorMessage(error),
+        'Chưa thực hiện được. Vui lòng thử lại.',
+      );
+    }
+  });
 }

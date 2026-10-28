@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
@@ -232,6 +233,17 @@ class AppSettingsScreen extends ConsumerWidget {
                         : () => controller.clearWorkspaceCache(workspaceId),
                     child: const Text('Xóa'),
                   ),
+                ),
+              ],
+            ),
+            const WebTuiSectionLabel('Góp ý'),
+            WebTuiListSurface(
+              children: [
+                WebTuiSettingRow(
+                  title: 'Gửi góp ý',
+                  subtitle: 'Báo lỗi hoặc đề xuất tính năng mới',
+                  icon: Icons.feedback_outlined,
+                  onTap: () => context.push('/feedback'),
                 ),
               ],
             ),

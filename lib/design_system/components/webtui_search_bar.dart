@@ -30,7 +30,13 @@ class WebTuiSearchBar extends StatefulWidget {
 
 class _WebTuiSearchBarState extends State<WebTuiSearchBar> {
   final _focusNode = FocusNode();
+  // Ô tìm luôn có controller để nút đóng xoá được chữ, kể cả khi màn gọi không
+  // truyền controller.
+  TextEditingController? _ownController;
   Timer? _debounceTimer;
+
+  TextEditingController get _controller =>
+      widget.controller ?? (_ownController ??= TextEditingController());
 
   @override
   void initState() {
@@ -41,6 +47,7 @@ class _WebTuiSearchBarState extends State<WebTuiSearchBar> {
   @override
   void dispose() {
     _debounceTimer?.cancel();
+    _ownController?.dispose();
     _focusNode
       ..removeListener(_handleFocusChanged)
       ..dispose();
@@ -100,9 +107,13 @@ class _WebTuiSearchBarState extends State<WebTuiSearchBar> {
                 Expanded(
                   child: interactive
                       ? TextField(
-                          controller: widget.controller,
+                          controller: _controller,
                           focusNode: _focusNode,
                           onChanged: _handleTextChanged,
+                          // Chạm ra ngoài hoặc bấm Tìm trên bàn phím thì đóng
+                          // bàn phím (iOS không tự bỏ focus).
+                          onTapOutside: (_) => _focusNode.unfocus(),
+                          onSubmitted: (_) => _focusNode.unfocus(),
                           maxLines: 1,
                           textInputAction: TextInputAction.search,
                           cursorColor: WebTuiColors.primary,
@@ -135,6 +146,22 @@ class _WebTuiSearchBarState extends State<WebTuiSearchBar> {
                           ),
                         ),
                 ),
+                if (interactive && focused)
+                  IconButton(
+                    tooltip: 'Đóng tìm kiếm',
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    icon: const Icon(
+                      CupertinoIcons.xmark_circle_fill,
+                      size: 18,
+                      color: WebTuiColors.textMuted,
+                    ),
+                    onPressed: _close,
+                  ),
               ],
             ),
           ),
@@ -147,6 +174,16 @@ class _WebTuiSearchBarState extends State<WebTuiSearchBar> {
     if (mounted) {
       setState(() {});
     }
+  }
+
+  /// Xoá chữ, trả danh sách về đầy đủ ngay (không chờ debounce) và đóng bàn phím.
+  void _close() {
+    _debounceTimer?.cancel();
+    if (_controller.text.isNotEmpty) {
+      _controller.clear();
+      widget.onChanged?.call('');
+    }
+    _focusNode.unfocus();
   }
 
   void _handleTextChanged(String value) {

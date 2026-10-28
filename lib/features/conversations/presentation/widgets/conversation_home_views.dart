@@ -4,9 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
+import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../moderation/presentation/controllers/moderation_controller.dart';
 import '../../../moderation/presentation/widgets/moderation_actions.dart';
+import '../../../profile/presentation/controllers/profile_controller.dart';
 import '../../domain/entities/conversation_summary.dart';
 import '../controllers/conversation_home_controller.dart';
 import '../models/conversation_privacy_projection.dart';
@@ -38,8 +40,9 @@ class MessagesHomeView extends ConsumerWidget {
       );
     }
     final blockedUserIds = moderationState.blockedUserIds;
+    // Hộp thư gộp: tin nhắn riêng + nhóm / kênh trong một danh sách.
     final conversations = privacySafeConversationResults(
-      state.filteredConversations,
+      state.inbox,
       blockedUserIds,
       searchQuery: state.searchQuery,
     );
@@ -60,9 +63,19 @@ class MessagesHomeView extends ConsumerWidget {
           onRetry: controller.load,
           onSearch: controller.setSearchQuery,
           onFilterChanged: (index) {
-            controller.setMessageFilter(ConversationListFilter.values[index]);
+            controller.setMessageFilter(state.inboxFilters[index]);
+          },
+          onJoinableTap: (channel) {
+            _handleChannelTap(context, controller, channel);
           },
           onTap: (conversation) async {
+            final isGroup = conversation.kind == ConversationKind.channel;
+            // Phiên hỗ trợ riêng / kênh chưa tham gia: đi luồng kênh như cũ.
+            if (isGroup &&
+                (conversation.privateSessionMode || !conversation.isMember)) {
+              await _handleChannelTap(context, controller, conversation);
+              return;
+            }
             final blockedPeerUserId = blockedDirectPeerUserId(
               conversation,
               blockedUserIds,
@@ -81,7 +94,11 @@ class MessagesHomeView extends ConsumerWidget {
               controller.selectConversation(conversation);
             } else {
               controller.markConversationOpened(conversation);
-              _openChat(context, conversation);
+              _openChat(
+                context,
+                conversation,
+                onReturn: controller.syncSilently,
+              );
             }
           },
         );
@@ -133,8 +150,15 @@ class ContactsHomeView extends ConsumerWidget {
       moderationControllerProvider(workspaceId),
     );
 
-    final contacts = state.filteredContacts;
+    final currentUserId = ref.watch(
+      profileControllerProvider.select((state) => state.profile?.id),
+    );
+    // Danh bạ là thành viên workspace (gồm cả chính mình): ẩn chính mình.
+    final contacts = state.filteredContacts
+        .where((contact) => contact.userId != currentUserId)
+        .toList(growable: false);
     return CustomScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       slivers: [
         SliverToBoxAdapter(
           child: _TopSearch(
@@ -154,12 +178,14 @@ class ContactsHomeView extends ConsumerWidget {
           const SliverToBoxAdapter(
             child: WebTuiEmptyState(
               title: 'Chưa có bạn bè',
-              message: 'Bạn bè đã kết nối sẽ xuất hiện tại đây.',
+              message: 'Thành viên workspace hiện ở đây, bấm để nhắn ngay.',
               icon: Icons.contacts_outlined,
             ),
           )
         else ...[
-          const SliverToBoxAdapter(child: WebTuiSectionLabel('Bạn bè')),
+          const SliverToBoxAdapter(
+            child: WebTuiSectionLabel('Bạn bè trong workspace'),
+          ),
           WebTuiSliverListSurface(
             itemCount: contacts.length,
             itemBuilder: (context, index) {
@@ -186,7 +212,11 @@ class ContactsHomeView extends ConsumerWidget {
                   }
                   final conversation = await controller.openDirect(contact);
                   if (conversation != null && context.mounted) {
-                    _openChat(context, conversation);
+                    _openChat(
+                      context,
+                      conversation,
+                      onReturn: controller.syncSilently,
+                    );
                   }
                 },
                 onSafety: () => showUserSafetyActions(
@@ -206,65 +236,6 @@ class ContactsHomeView extends ConsumerWidget {
   }
 }
 
-class ChannelsHomeView extends ConsumerWidget {
-  const ChannelsHomeView({required this.workspaceId, super.key});
-
-  final String workspaceId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final provider = conversationHomeControllerProvider(workspaceId);
-    final state = ref.watch(provider);
-    final controller = ref.read(provider.notifier);
-
-    final isAutomationTab =
-        state.automationEnabled &&
-        state.channelTab == state.automationChannelTab;
-
-    return ListView(
-      padding: const EdgeInsets.only(bottom: WebTuiSpacing.lg),
-      children: [
-        _TopSearch(
-          hintText: 'Tìm kênh hoặc bot...',
-          onChanged: controller.setSearchQuery,
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.lg),
-          child: WebTuiSegmentedTabs(
-            tabs: [
-              'Tất cả',
-              'Công khai',
-              'Riêng tư',
-              if (state.automationEnabled) 'Automation',
-            ],
-            selectedIndex: state.channelTab,
-            onChanged: controller.setChannelTab,
-          ),
-        ),
-        if (state.isLoading)
-          const WebTuiLoadingState(message: 'Đang tải danh sách kênh...')
-        else if (state.errorMessage != null)
-          WebTuiErrorState(
-            title: 'Không tải được kênh',
-            message: state.errorMessage!,
-            onRetry: controller.load,
-          )
-        else
-          _ChannelList(
-            channels: state.filteredChannels,
-            emptyTitle: isAutomationTab
-                ? 'Chưa có kênh automation'
-                : 'Chưa có kênh phù hợp',
-            sectionLabel: isAutomationTab
-                ? 'Kênh automation'
-                : 'Kênh trong workspace',
-            onTap: (channel) => _handleChannelTap(context, controller, channel),
-          ),
-      ],
-    );
-  }
-}
-
 class _MessagesList extends StatelessWidget {
   const _MessagesList({
     required this.state,
@@ -274,6 +245,7 @@ class _MessagesList extends StatelessWidget {
     required this.onSearch,
     required this.onFilterChanged,
     required this.onTap,
+    required this.onJoinableTap,
     this.selectedId,
   });
 
@@ -284,18 +256,28 @@ class _MessagesList extends StatelessWidget {
   final ValueChanged<String> onSearch;
   final ValueChanged<int> onFilterChanged;
   final ValueChanged<ConversationSummary> onTap;
+  final ValueChanged<ConversationSummary> onJoinableTap;
   final String? selectedId;
 
   @override
   Widget build(BuildContext context) {
+    final filterIndex = state.inboxFilters.indexOf(state.messageFilter);
+    final joinable = state.joinableChannels;
+    // Dải Nghiệp vụ chỉ ở Tất cả khi không tìm kiếm (tìm thì kết quả đã có).
+    final showQuick =
+        state.messageFilter == ConversationListFilter.all &&
+        state.searchQuery.trim().isEmpty;
+    final quickChannels = [if (showQuick) ...state.quickChannels];
+    final workTab = state.inboxFilters.indexOf(ConversationListFilter.bot);
     return RefreshIndicator(
       onRefresh: () async => onRetry(),
       child: CustomScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverToBoxAdapter(
             child: _TopSearch(
-              hintText: 'Tìm hội thoại...',
+              hintText: 'Tìm tin nhắn, nhóm, kênh...',
               onChanged: onSearch,
             ),
           ),
@@ -303,8 +285,8 @@ class _MessagesList extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.lg),
               child: WebTuiSegmentedTabs(
-                tabs: const ['Tất cả', 'Chưa đọc', 'Yêu thích'],
-                selectedIndex: state.messageFilter.index,
+                tabs: state.inboxFilterLabels,
+                selectedIndex: filterIndex < 0 ? 0 : filterIndex,
                 onChanged: onFilterChanged,
               ),
             ),
@@ -321,7 +303,9 @@ class _MessagesList extends StatelessWidget {
                 onRetry: onRetry,
               ),
             )
-          else if (conversations.isEmpty)
+          else if (conversations.isEmpty &&
+              joinable.isEmpty &&
+              quickChannels.isEmpty)
             const SliverToBoxAdapter(
               child: WebTuiEmptyState(
                 title: 'Chưa có hội thoại',
@@ -330,10 +314,15 @@ class _MessagesList extends StatelessWidget {
               ),
             )
           else ...[
+            if (quickChannels.isNotEmpty)
+              SliverToBoxAdapter(
+                child: _QuickChannelStrip(
+                  channels: quickChannels,
+                  onTap: onTap,
+                  onShowAll: () => onFilterChanged(workTab),
+                ),
+              ),
             const SliverToBoxAdapter(child: SizedBox(height: WebTuiSpacing.xs)),
-            const SliverToBoxAdapter(
-              child: WebTuiSectionLabel('Hội thoại gần đây'),
-            ),
             WebTuiSliverListSurface(
               itemCount: conversations.length,
               itemBuilder: (context, index) {
@@ -347,12 +336,154 @@ class _MessagesList extends StatelessWidget {
                 );
               },
             ),
+            if (joinable.isNotEmpty)
+              SliverToBoxAdapter(
+                child: _ChannelList(
+                  channels: joinable,
+                  emptyTitle: '',
+                  sectionLabel: 'Kênh có thể tham gia',
+                  onTap: onJoinableTap,
+                ),
+              ),
           ],
           const SliverToBoxAdapter(child: SizedBox(height: WebTuiSpacing.lg)),
         ],
       ),
     );
   }
+}
+
+/// Dải kênh nghiệp vụ (gia hạn, order...) đầu hộp thư: bấm một lần là vào.
+/// Kênh có tin chưa đọc đứng đầu, rồi kênh dùng gần nhất.
+class _QuickChannelStrip extends StatelessWidget {
+  const _QuickChannelStrip({
+    required this.channels,
+    required this.onTap,
+    required this.onShowAll,
+  });
+
+  final List<ConversationSummary> channels;
+  final ValueChanged<ConversationSummary> onTap;
+  final VoidCallback onShowAll;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(
+            left: WebTuiSpacing.lg,
+            top: WebTuiSpacing.sm,
+            right: WebTuiSpacing.xs,
+          ),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Nghiệp vụ',
+                  style: TextStyle(
+                    color: WebTuiColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              TextButton(onPressed: onShowAll, child: const Text('Xem tất cả')),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 96,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.md),
+            itemCount: channels.length,
+            separatorBuilder: (context, index) {
+              return const SizedBox(width: WebTuiSpacing.xs);
+            },
+            itemBuilder: (context, index) {
+              final channel = channels[index];
+              return _QuickChannelButton(
+                channel: channel,
+                onTap: () => onTap(channel),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickChannelButton extends StatelessWidget {
+  const _QuickChannelButton({required this.channel, required this.onTap});
+
+  final ConversationSummary channel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final unread = channel.unreadCount;
+    return Semantics(
+      button: true,
+      excludeSemantics: true,
+      label: unread > 0
+          ? '${channel.title}, $unread tin chưa đọc'
+          : channel.title,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(WebTuiRadii.md),
+        child: SizedBox(
+          width: 76,
+          child: Column(
+            children: [
+              const SizedBox(height: WebTuiSpacing.xs),
+              Badge(
+                isLabelVisible: unread > 0,
+                backgroundColor: WebTuiColors.danger,
+                label: Text(unread > 99 ? '99+' : '$unread'),
+                child: CircleAvatar(
+                  radius: 24,
+                  backgroundColor: WebTuiColors.primarySoft,
+                  child: Icon(
+                    _quickChannelIcon(channel.title),
+                    color: WebTuiColors.primary,
+                  ),
+                ),
+              ),
+              const SizedBox(height: WebTuiSpacing.xs),
+              Text(
+                channel.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.2,
+                  color: WebTuiColors.textPrimary,
+                  fontWeight: unread > 0 ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Biểu tượng theo tên kênh để nhận ra nhanh (gia hạn, order, proxy, VPS...).
+IconData _quickChannelIcon(String title) {
+  final text = title.toLowerCase();
+  bool has(List<String> words) => words.any(text.contains);
+  if (has(['gia hạn', 'gia han', 'renew'])) return Icons.autorenew_rounded;
+  if (has(['order', 'đơn', 'mua'])) return Icons.shopping_bag_outlined;
+  if (has(['proxy'])) return Icons.vpn_lock_rounded;
+  if (has(['vps', 'server', 'máy chủ'])) return Icons.dns_rounded;
+  if (has(['ticket', 'hỗ trợ', 'support'])) {
+    return Icons.support_agent_rounded;
+  }
+  return Icons.smart_toy_outlined;
 }
 
 class _ConversationTile extends StatelessWidget {
@@ -410,6 +541,7 @@ ConversationSummary? _safeSelectedConversation(
     return selected;
   }
   for (final conversation in conversations) {
+    if (conversation.privateSessionMode) continue;
     if (blockedDirectPeerUserId(conversation, blockedUserIds) == null) {
       return conversation;
     }
@@ -541,7 +673,13 @@ class _TopSearch extends StatelessWidget {
   }
 }
 
-void _openChat(BuildContext context, ConversationSummary conversation) {
+/// [onReturn] chạy khi người dùng rời phòng chat để danh sách có tin mới nhất,
+/// số chưa đọc đúng (hộp thư chưa nhận sự kiện realtime của từng phòng).
+void _openChat(
+  BuildContext context,
+  ConversationSummary conversation, {
+  Future<void> Function()? onReturn,
+}) {
   final queryParameters = {
     'workspaceId': conversation.workspaceId,
     'title': conversation.title,
@@ -562,13 +700,15 @@ void _openChat(BuildContext context, ConversationSummary conversation) {
   if (participantIds.isNotEmpty) {
     queryParameters['participantIds'] = participantIds;
   }
-  context.push(
-    Uri(
-      path: '/conversations/${conversation.channelId}',
-      queryParameters: queryParameters,
-    ).toString(),
-    extra: conversation,
-  );
+  context
+      .push<void>(
+        Uri(
+          path: '/conversations/${conversation.channelId}',
+          queryParameters: queryParameters,
+        ).toString(),
+        extra: conversation,
+      )
+      .then((_) => onReturn?.call());
 }
 
 void _openChannelDetail(BuildContext context, ConversationSummary channel) {
@@ -590,7 +730,7 @@ Future<void> _handleChannelTap(
     return;
   }
   if (channel.privateSessionMode) {
-    _openChat(context, destination);
+    _openChat(context, destination, onReturn: controller.syncSilently);
   } else {
     _openChannelDetail(context, destination);
   }

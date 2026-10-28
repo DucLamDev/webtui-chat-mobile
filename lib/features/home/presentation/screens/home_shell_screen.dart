@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/error/failure.dart';
+import '../../../../core/notifications/call_tone_player.dart';
 import '../../../../core/notifications/native_incoming_call_service.dart';
 import '../../../../core/notifications/scoped_local_notification_service.dart';
 import '../../../../core/platform/chat_share_intent_service.dart';
@@ -269,32 +270,13 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
               '/notifications?workspaceId=${activeWorkspace.id}',
             ),
           ),
-          if (_tabIndex == 2)
+          if (_tabIndex == 0)
             IconButton(
-              tooltip: 'Tạo kênh',
-              onPressed: () => context.push('/channels/new'),
-              icon: const Icon(CupertinoIcons.square_pencil),
-            )
-          else if (_tabIndex == 0)
-            IconButton(
-              tooltip: 'Tạo hội thoại',
-              onPressed: () {
-                setState(() {
-                  _tabIndex = 1;
-                  _visitedTabs.add(1);
-                });
-              },
+              tooltip: 'Tin nhắn mới hoặc tạo nhóm',
+              onPressed: _showComposeOptions,
               icon: const Icon(CupertinoIcons.square_pencil),
             ),
         ],
-        floatingActionButton: switch (_tabIndex) {
-          2 => FloatingActionButton(
-            tooltip: 'Tạo kênh',
-            onPressed: () => context.push('/channels/new'),
-            child: const Icon(CupertinoIcons.plus),
-          ),
-          _ => null,
-        },
         body: Column(
           children: [
             if (_networkDegraded)
@@ -318,14 +300,10 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
                   else
                     const SizedBox.shrink(),
                   if (_visitedTabs.contains(2))
-                    ChannelsHomeView(workspaceId: activeWorkspace.id)
-                  else
-                    const SizedBox.shrink(),
-                  if (_visitedTabs.contains(3))
                     WorkspaceToolsScreen(workspaceId: activeWorkspace.id)
                   else
                     const SizedBox.shrink(),
-                  if (_visitedTabs.contains(4))
+                  if (_visitedTabs.contains(3))
                     _SettingsTab(
                       workspaceName: activeWorkspace.name,
                       notificationEnabled: _notificationEnabled,
@@ -572,6 +550,43 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     } on Object {
       // Presence must never block navigation or messaging.
     }
+  }
+
+  /// Nút soạn ở hộp thư gộp: nhắn riêng (chọn người ở tab Bạn bè) hoặc tạo
+  /// nhóm / kênh mới.
+  Future<void> _showComposeOptions() async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(CupertinoIcons.person),
+              title: const Text('Tin nhắn mới'),
+              subtitle: const Text('Chọn một người trong workspace'),
+              onTap: () => Navigator.of(sheetContext).pop('direct'),
+            ),
+            ListTile(
+              leading: const Icon(CupertinoIcons.person_3),
+              title: const Text('Tạo nhóm / kênh'),
+              subtitle: const Text('Trò chuyện cùng nhiều người'),
+              onTap: () => Navigator.of(sheetContext).pop('group'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || choice == null) return;
+    if (choice == 'group') {
+      unawaited(context.push('/channels/new'));
+      return;
+    }
+    setState(() {
+      _tabIndex = 1;
+      _visitedTabs.add(1);
+    });
   }
 
   Future<void> _runWorkspaceCatchUp(
@@ -913,6 +928,13 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           if (!mounted || event.workspaceId != workspaceId) {
             return;
           }
+          if (event.type == ConversationRealtimeEventType.reconnected) {
+            // Mỗi phòng đang mở cũng nhận sự kiện này; danh sách chỉ tải 1 lần.
+            if (event.channelId.isNotEmpty) return;
+            final home = conversationHomeControllerProvider(workspaceId);
+            unawaited(ref.read(home.notifier).syncSilently());
+            return;
+          }
           if (event.isContactEvent) {
             ref.invalidate(conversationHomeControllerProvider(workspaceId));
             ref.invalidate(notificationCenterControllerProvider(workspaceId));
@@ -1042,7 +1064,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     return result.failureOrNull?.kind == FailureKind.notFound;
   }
 
-  static const _titles = ['Tin nhắn', 'Bạn bè', 'Kênh', 'Công việc', 'Cài đặt'];
+  static const _titles = ['Tin nhắn', 'Bạn bè', 'Công việc', 'Cài đặt'];
 }
 
 class _ShareTargetPickerSheet extends StatefulWidget {
@@ -1243,6 +1265,8 @@ class _IncomingCallDialog extends StatefulWidget {
 }
 
 class _IncomingCallDialogState extends State<_IncomingCallDialog> {
+  // Nhạc chuông lặp (kêu cả khi gạt im lặng) thay cho âm báo hệ thống nhỏ.
+  final CallTonePlayer _ringtone = CallTonePlayer.ringtone();
   Timer? _timer;
   int _remainingSeconds = 30;
   bool _checking = false;
@@ -1250,14 +1274,15 @@ class _IncomingCallDialogState extends State<_IncomingCallDialog> {
   @override
   void initState() {
     super.initState();
-    SystemSound.play(SystemSoundType.alert);
+    unawaited(_ringtone.start());
+    unawaited(HapticFeedback.vibrate());
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) {
         return;
       }
       setState(() => _remainingSeconds -= 1);
-      if (_remainingSeconds % 3 == 0 && _remainingSeconds > 0) {
-        SystemSound.play(SystemSoundType.alert);
+      if (_remainingSeconds % 2 == 0 && _remainingSeconds > 0) {
+        unawaited(HapticFeedback.vibrate());
       }
       unawaited(_checkCall());
       if (_remainingSeconds <= 0) {
@@ -1269,6 +1294,8 @@ class _IncomingCallDialogState extends State<_IncomingCallDialog> {
   @override
   void dispose() {
     _timer?.cancel();
+    // Dừng chuông trước khi màn gọi bật micro / WebRTC.
+    unawaited(_ringtone.stop());
     super.dispose();
   }
 

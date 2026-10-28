@@ -101,6 +101,8 @@ flutter:
 
   assets:
     - assets/branding/logo_webtui.png
+    - assets/sounds/ringback.wav
+    - assets/sounds/ringtone.wav
 
   fonts:
     - family: WebTuiRoboto

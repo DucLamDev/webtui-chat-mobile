@@ -6,6 +6,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/network/api_response.dart';
+import '../../../../core/notifications/call_tone_player.dart';
 import '../../../../core/notifications/native_incoming_call_service.dart';
 import '../../../../core/security/instance_scope.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
@@ -44,6 +45,8 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   final RTCVideoRenderer _localRenderer = RTCVideoRenderer();
   final RTCVideoRenderer _remoteRenderer = RTCVideoRenderer();
   final List<RTCIceCandidate> _pendingCandidates = [];
+  // Chuông chờ phía người gọi, dừng khi bên kia nhận máy hoặc cuộc gọi kết thúc.
+  final CallTonePlayer _ringback = CallTonePlayer.ringback();
   Map<String, dynamic>? _pendingOffer;
   RTCPeerConnection? _peer;
   MediaStream? _localStream;
@@ -86,6 +89,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
 
   @override
   void dispose() {
+    unawaited(_ringback.stop());
     _stateTimer?.cancel();
     _disconnectTimer?.cancel();
     unawaited(_signals?.cancel());
@@ -194,6 +198,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       peer.onConnectionState = (state) {
         if (!mounted) return;
         if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+          unawaited(_ringback.stop());
           _disconnectTimer?.cancel();
           setState(() {
             _status = CallStatus.accepted;
@@ -221,6 +226,9 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       });
       _maybeSendOffer();
       _maybeReceivePendingOffer();
+      if (!widget.incoming && _status == CallStatus.ringing) {
+        unawaited(_ringback.start());
+      }
       if (widget.incoming) {
         await NativeIncomingCallService.activateMediaCapture(
           instanceScope: _instanceScope,
@@ -277,8 +285,10 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
             .map<Map<String, Object?>>(Map<String, Object?>.from)
             .toList(growable: false);
       }
-    } on Object {
-      // Use the instance STUN endpoint as a conservative fallback.
+    } on Object catch (error) {
+      // Use the instance STUN endpoint as a conservative fallback; ghi log vì
+      // thiếu TURN thường làm cuộc gọi kết nối nhưng không có tiếng qua NAT / 4G.
+      debugPrint('Không lấy được ICE servers, chỉ dùng STUN: $error');
     }
     return [
       {'urls': 'stun:${ref.read(activeServerUriProvider).host}:3478'},
@@ -292,7 +302,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     }
     switch (event.type) {
       case ConversationRealtimeEventType.callAccepted:
-        break;
+        unawaited(_ringback.stop());
       case ConversationRealtimeEventType.callReady:
         if (!widget.incoming) {
           _remoteReadyReceived = true;
@@ -468,6 +478,9 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     final elapsed = startedAt == null
         ? Duration.zero
         : DateTime.now().toUtc().difference(startedAt);
+    if (call.status != CallStatus.ringing) {
+      unawaited(_ringback.stop());
+    }
     setState(() {
       _status = call.status;
       _startedAt = startedAt;
@@ -478,6 +491,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   Future<void> _leaveFromRemote() async {
     if (_leaving) return;
     _leaving = true;
+    unawaited(_ringback.stop());
     _stateTimer?.cancel();
     _disconnectTimer?.cancel();
     await _notifyLeave();
@@ -487,6 +501,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   Future<void> _finishLeave() async {
     if (_leaving) return;
     _leaving = true;
+    unawaited(_ringback.stop());
     _stateTimer?.cancel();
     _disconnectTimer?.cancel();
     await NativeIncomingCallService.endCall(widget.callId);
@@ -536,6 +551,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   Future<void> _abortCall(Object error, {required String reason}) async {
     if (_fatalErrorHandled || _leaving) return;
     _fatalErrorHandled = true;
+    unawaited(_ringback.stop());
     _stateTimer?.cancel();
     _disconnectTimer?.cancel();
     if (mounted) {

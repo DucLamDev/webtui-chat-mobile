@@ -86,12 +86,12 @@ class PrivacySessionsScreen extends ConsumerWidget {
               const WebTuiSectionLabel('Thao tác phiên'),
               const _SessionActions(),
             ],
-            const WebTuiSectionLabel('Bảo mật màn hình'),
+            const WebTuiSectionLabel('Riêng tư khi chuyển ứng dụng'),
             WebTuiListSurface(
               children: const [
                 WebTuiSettingRow(
                   title: 'Ẩn nội dung khi app vào nền',
-                  subtitle: 'Đã bật bảo vệ ảnh chụp màn hình',
+                  subtitle: 'Che nội dung trong trình chuyển ứng dụng',
                   icon: Icons.screenshot_monitor_outlined,
                   trailing: Icon(
                     Icons.check_circle_rounded,

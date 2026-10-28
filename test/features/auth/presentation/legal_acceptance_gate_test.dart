@@ -171,7 +171,8 @@ void main() {
     expect(loadedWorkspaces, isEmpty);
     expect(controller.state.status, LegalAcceptanceStatus.idle);
     expect(policy.canCreateUserContent, isFalse);
-    expect(find.byKey(const Key('legal_gate_loading')), findsOneWidget);
+    // Chưa có workspace: không che màn hình bằng hộp thoại "đang kiểm tra".
+    expect(find.byKey(const Key('legal_gate_loading')), findsNothing);
 
     harnessKey.currentState!.setWorkspace('workspace-1');
     await tester.pumpAndSettle();

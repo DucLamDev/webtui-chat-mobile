@@ -11,6 +11,7 @@ import '../../features/home/presentation/screens/home_shell_screen.dart';
 import '../../features/notifications/presentation/screens/notifications_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/settings/presentation/screens/app_settings_screen.dart';
+import '../../features/settings/presentation/screens/feedback_screen.dart';
 import '../../features/settings/presentation/screens/privacy_sessions_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -105,6 +106,11 @@ final appRouterProvider = Provider<GoRouter>((_) {
         name: 'privacy',
         builder: (context, state) => const PrivacySessionsScreen(),
       ),
+      GoRoute(
+        path: '/feedback',
+        name: 'feedback',
+        builder: (context, state) => const FeedbackScreen(),
+      ),
     ],
   );
 });
@@ -113,12 +119,13 @@ int _homeInitialTabIndex(String? value) {
   switch (value?.trim().toLowerCase()) {
     case 'contacts':
       return 1;
+    // Kênh đã gộp vào hộp thư Tin nhắn.
     case 'channels':
-      return 2;
+      return 0;
     case 'tools':
-      return 3;
+      return 2;
     case 'settings':
-      return 4;
+      return 3;
     default:
       return 0;
   }

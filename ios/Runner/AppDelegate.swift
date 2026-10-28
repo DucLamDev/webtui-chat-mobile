@@ -1,11 +1,14 @@
+import AVFoundation
+import CallKit
 import Flutter
 import LocalAuthentication
 import PushKit
 import UIKit
+import WebRTC
 import flutter_callkit_incoming
 
 @main
-@objc class AppDelegate: FlutterAppDelegate, PKPushRegistryDelegate {
+@objc class AppDelegate: FlutterAppDelegate, PKPushRegistryDelegate, CallkitIncomingAppDelegate {
   private var voipRegistry: PKPushRegistry?
   private var privacyProtectionEnabled = false
   private var privacyOverlay: UIView?
@@ -422,4 +425,30 @@ import flutter_callkit_incoming
       completion: completion
     )
   }
+
+  // MARK: - CallKit ↔ WebRTC audio
+  // CallKit tự kích hoạt audio session của cuộc gọi; WebRTC phải được báo để khởi động lại micro / loa, nếu không
+  // cuộc gọi kết nối nhưng câm cả hai chiều. Plugin flutter_callkit_incoming đã tự fulfill các CXAction.
+
+  func didActivateAudioSession(_ audioSession: AVAudioSession) {
+    let rtcSession = RTCAudioSession.sharedInstance()
+    rtcSession.audioSessionDidActivate(audioSession)
+    rtcSession.isAudioEnabled = true
+  }
+
+  func didDeactivateAudioSession(_ audioSession: AVAudioSession) {
+    let rtcSession = RTCAudioSession.sharedInstance()
+    rtcSession.audioSessionDidDeactivate(audioSession)
+    rtcSession.isAudioEnabled = false
+  }
+
+  func onAccept(_ call: Call, _ action: CXAnswerCallAction) {}
+
+  func onDecline(_ call: Call, _ action: CXEndCallAction) {}
+
+  func onEnd(_ call: Call, _ action: CXEndCallAction) {}
+
+  func onTimeOut(_ call: Call) {}
+
+  func providerDidReset() {}
 }
