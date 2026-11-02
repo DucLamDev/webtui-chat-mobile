@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
-import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../moderation/presentation/controllers/moderation_controller.dart';
 import '../../../moderation/presentation/widgets/moderation_actions.dart';
@@ -13,6 +12,7 @@ import '../../domain/entities/conversation_summary.dart';
 import '../controllers/conversation_home_controller.dart';
 import '../models/conversation_privacy_projection.dart';
 import '../screens/chat_room_screen.dart';
+import 'business_channel_grid.dart';
 
 class MessagesHomeView extends ConsumerWidget {
   const MessagesHomeView({required this.workspaceId, super.key});
@@ -269,6 +269,7 @@ class _MessagesList extends StatelessWidget {
         state.searchQuery.trim().isEmpty;
     final quickChannels = [if (showQuick) ...state.quickChannels];
     final workTab = state.inboxFilters.indexOf(ConversationListFilter.bot);
+    final showWorkGrid = state.messageFilter == ConversationListFilter.bot;
     return RefreshIndicator(
       onRefresh: () async => onRetry(),
       child: CustomScrollView(
@@ -323,19 +324,22 @@ class _MessagesList extends StatelessWidget {
                 ),
               ),
             const SliverToBoxAdapter(child: SizedBox(height: WebTuiSpacing.xs)),
-            WebTuiSliverListSurface(
-              itemCount: conversations.length,
-              itemBuilder: (context, index) {
-                final conversation = conversations[index];
-                return _ConversationTile(
-                  conversation: conversation,
-                  blockedUserIds: blockedUserIds,
-                  presence: state.presenceForConversation(conversation),
-                  selected: selectedId == conversation.id,
-                  onTap: () => onTap(conversation),
-                );
-              },
-            ),
+            if (showWorkGrid)
+              BusinessChannelSections(channels: conversations, onTap: onTap)
+            else
+              WebTuiSliverListSurface(
+                itemCount: conversations.length,
+                itemBuilder: (context, index) {
+                  final conversation = conversations[index];
+                  return _ConversationTile(
+                    conversation: conversation,
+                    blockedUserIds: blockedUserIds,
+                    presence: state.presenceForConversation(conversation),
+                    selected: selectedId == conversation.id,
+                    onTap: () => onTap(conversation),
+                  );
+                },
+              ),
             if (joinable.isNotEmpty)
               SliverToBoxAdapter(
                 child: _ChannelList(
@@ -353,8 +357,8 @@ class _MessagesList extends StatelessWidget {
   }
 }
 
-/// Dải kênh nghiệp vụ (gia hạn, order...) đầu hộp thư: bấm một lần là vào.
-/// Kênh có tin chưa đọc đứng đầu, rồi kênh dùng gần nhất.
+/// Dải kênh nghiệp vụ (đơn hàng, gia hạn...) đầu hộp thư: bấm một lần là vào.
+/// Thứ tự cố định theo danh mục nghiệp vụ, tin chưa đọc hiện bằng huy hiệu.
 class _QuickChannelStrip extends StatelessWidget {
   const _QuickChannelStrip({
     required this.channels,
@@ -403,7 +407,7 @@ class _QuickChannelStrip extends StatelessWidget {
             },
             itemBuilder: (context, index) {
               final channel = channels[index];
-              return _QuickChannelButton(
+              return BusinessChannelTile(
                 channel: channel,
                 onTap: () => onTap(channel),
               );
@@ -413,77 +417,6 @@ class _QuickChannelStrip extends StatelessWidget {
       ],
     );
   }
-}
-
-class _QuickChannelButton extends StatelessWidget {
-  const _QuickChannelButton({required this.channel, required this.onTap});
-
-  final ConversationSummary channel;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final unread = channel.unreadCount;
-    return Semantics(
-      button: true,
-      excludeSemantics: true,
-      label: unread > 0
-          ? '${channel.title}, $unread tin chưa đọc'
-          : channel.title,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(WebTuiRadii.md),
-        child: SizedBox(
-          width: 76,
-          child: Column(
-            children: [
-              const SizedBox(height: WebTuiSpacing.xs),
-              Badge(
-                isLabelVisible: unread > 0,
-                backgroundColor: WebTuiColors.danger,
-                label: Text(unread > 99 ? '99+' : '$unread'),
-                child: CircleAvatar(
-                  radius: 24,
-                  backgroundColor: WebTuiColors.primarySoft,
-                  child: Icon(
-                    _quickChannelIcon(channel.title),
-                    color: WebTuiColors.primary,
-                  ),
-                ),
-              ),
-              const SizedBox(height: WebTuiSpacing.xs),
-              Text(
-                channel.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  height: 1.2,
-                  color: WebTuiColors.textPrimary,
-                  fontWeight: unread > 0 ? FontWeight.w600 : FontWeight.w400,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Biểu tượng theo tên kênh để nhận ra nhanh (gia hạn, order, proxy, VPS...).
-IconData _quickChannelIcon(String title) {
-  final text = title.toLowerCase();
-  bool has(List<String> words) => words.any(text.contains);
-  if (has(['gia hạn', 'gia han', 'renew'])) return Icons.autorenew_rounded;
-  if (has(['order', 'đơn', 'mua'])) return Icons.shopping_bag_outlined;
-  if (has(['proxy'])) return Icons.vpn_lock_rounded;
-  if (has(['vps', 'server', 'máy chủ'])) return Icons.dns_rounded;
-  if (has(['ticket', 'hỗ trợ', 'support'])) {
-    return Icons.support_agent_rounded;
-  }
-  return Icons.smart_toy_outlined;
 }
 
 class _ConversationTile extends StatelessWidget {

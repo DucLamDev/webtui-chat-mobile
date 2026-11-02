@@ -1139,6 +1139,19 @@ final markAllNotificationsReadUseCaseProvider =
       );
     });
 
+final deleteNotificationUseCaseProvider = Provider<DeleteNotificationUseCase>((
+  ref,
+) {
+  return DeleteNotificationUseCase(ref.watch(notificationRepositoryProvider));
+});
+
+final deleteAllNotificationsUseCaseProvider =
+    Provider<DeleteAllNotificationsUseCase>((ref) {
+      return DeleteAllNotificationsUseCase(
+        ref.watch(notificationRepositoryProvider),
+      );
+    });
+
 final loadNotificationPreferenceUseCaseProvider =
     Provider<LoadNotificationPreferenceUseCase>((ref) {
       return LoadNotificationPreferenceUseCase(

@@ -1234,6 +1234,10 @@ class _CollaborationRoomSheetState
       child: _sectionCard(
         icon: Icons.draw_outlined,
         title: 'Interactive Whiteboard · v${_whiteboard?.version ?? 1}',
+        // Vùng vẽ chiếm phần cao còn lại của tab: thẻ phải giãn theo chiều
+        // cao, nếu không Expanded bên trong làm hỏng bố cục cả bảng (IndexedStack
+        // dựng mọi tab cùng lúc nên mọi tab đều trắng).
+        fillHeight: true,
         child: Column(
           children: [
             Expanded(
@@ -1353,6 +1357,7 @@ class _CollaborationRoomSheetState
     required IconData icon,
     required String title,
     required Widget child,
+    bool fillHeight = false,
   }) {
     return Container(
       padding: const EdgeInsets.all(WebTuiSpacing.lg),
@@ -1387,7 +1392,7 @@ class _CollaborationRoomSheetState
             ],
           ),
           const SizedBox(height: WebTuiSpacing.md),
-          child,
+          if (fillHeight) Expanded(child: child) else child,
         ],
       ),
     );

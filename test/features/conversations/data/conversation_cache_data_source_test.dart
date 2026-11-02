@@ -111,6 +111,36 @@ void main() {
     expect(unpinnedPage!.messages.single.isPinned, isFalse);
   });
 
+  test('kênh nghiệp vụ giữ cờ bot và slug khi đọc lại từ bộ nhớ đệm', () async {
+    final database = AppDatabase(createInMemoryDriftConnection());
+    addTearDown(database.close);
+    final cache = ConversationCacheDataSource(database, _instanceA);
+
+    await cache.saveChannels(
+      workspaceId: 'workspace-1',
+      items: [
+        ConversationSummary(
+          id: 'channel-orders',
+          workspaceId: 'workspace-1',
+          channelId: 'channel-orders',
+          kind: ConversationKind.channel,
+          title: 'Đơn hàng',
+          preview: '',
+          updatedAt: DateTime.utc(2026, 11, 2),
+          privateSessionMode: true,
+          isAutomation: true,
+          slug: 'orders',
+        ),
+      ],
+    );
+
+    final channels = await cache.readChannels(workspaceId: 'workspace-1');
+
+    expect(channels!.single.isAutomation, isTrue);
+    expect(channels.single.slug, 'orders');
+    expect(channels.single.privateSessionMode, isTrue);
+  });
+
   test('persists a sent message before a latest page exists', () async {
     final database = AppDatabase(createInMemoryDriftConnection());
     addTearDown(database.close);

@@ -28,6 +28,7 @@ final class ConversationSummary {
     this.canManage = false,
     this.privateSessionMode = false,
     this.isAutomation = false,
+    this.slug,
   });
 
   final String id;
@@ -50,6 +51,10 @@ final class ConversationSummary {
   final bool canManage;
   final bool privateSessionMode;
   final bool isAutomation;
+
+  /// Mã cố định của kênh do máy chủ đặt (ví dụ `orders`, `gia-han`); không đổi
+  /// khi quản trị đổi tên kênh. Tin nhắn riêng và kênh người dùng tạo thường không có.
+  final String? slug;
 
   bool get isUnread => unreadCount > 0;
   bool get isMember =>
@@ -104,6 +109,7 @@ final class ConversationSummary {
       canManage: canManage,
       privateSessionMode: privateSessionMode,
       isAutomation: isAutomation,
+      slug: slug,
     );
   }
 }

@@ -278,10 +278,19 @@ final class ChannelMember {
   final String? lastReadMessageId;
 }
 
+/// Kiểu MIME máy chủ lưu được tin trước, đuôi tệp chỉ dùng khi MIME thiếu / chung
+/// chung. `.webm` vừa là video vừa là âm thanh: tin nhắn thoại ghi trên web là
+/// `voice-<thời điểm>.webm` kiểu `audio/webm`, phải hiện thành tin thoại, không
+/// phải trình phát video.
 MessageAttachmentKind _attachmentKind(String mimeType, {String fileName = ''}) {
   final normalized = mimeType.trim().toLowerCase();
-  final nameParts = fileName.trim().toLowerCase().split('.');
+  final name = fileName.trim().toLowerCase();
+  final nameParts = name.split('.');
   final extension = nameParts.length > 1 ? nameParts.last : '';
+  final isVoiceRecording = name.startsWith('voice-') && extension == 'webm';
+  if (normalized.startsWith('audio/') || isVoiceRecording) {
+    return MessageAttachmentKind.audio;
+  }
   if (normalized.startsWith('image/') ||
       const {
         'gif',
@@ -298,8 +307,7 @@ MessageAttachmentKind _attachmentKind(String mimeType, {String fileName = ''}) {
       const {'m4v', 'mov', 'mp4', 'webm'}.contains(extension)) {
     return MessageAttachmentKind.video;
   }
-  if (normalized.startsWith('audio/') ||
-      const {'aac', 'm4a', 'mp3', 'ogg', 'opus', 'wav'}.contains(extension)) {
+  if (const {'aac', 'm4a', 'mp3', 'ogg', 'opus', 'wav'}.contains(extension)) {
     return MessageAttachmentKind.audio;
   }
   return MessageAttachmentKind.file;

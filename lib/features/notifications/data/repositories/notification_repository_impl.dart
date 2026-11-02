@@ -30,6 +30,20 @@ final class NotificationRepositoryImpl implements NotificationRepository {
   }
 
   @override
+  Future<Result<void>> deleteNotification({required String notificationId}) {
+    return guardResult(
+      () => _remote.deleteNotification(notificationId: notificationId),
+    );
+  }
+
+  @override
+  Future<Result<void>> deleteAllNotifications({required String workspaceId}) {
+    return guardResult(
+      () => _remote.deleteAllNotifications(workspaceId: workspaceId),
+    );
+  }
+
+  @override
   Future<Result<NotificationPreference>> getPreference({
     required String workspaceId,
   }) {

@@ -67,27 +67,36 @@ void main() {
     expect(ids(all.copyWith(searchQuery: 'đơn').inbox), ['orders']);
   });
 
-  test('quick work channels: unread first, then most recent', () {
+  test('quick work channels: fixed business order, not unread / recency', () {
     final internal = ConversationHomeState(
       workspaceId: 'workspace-1',
       automationEnabled: true,
       channels: [
-        _item('renew', 'Gia hạn', hour: 9, group: true, automation: true),
-        _item('order', 'Order', hour: 12, group: true, automation: true),
+        _item('custom', 'Bot riêng', hour: 14, group: true, automation: true),
         _item(
           'proxy',
-          'Proxy',
+          'Giám sát Proxy',
           hour: 8,
           group: true,
           automation: true,
           unread: 3,
           member: false,
+          slug: 'monitor-proxy',
+        ),
+        _item('renew', 'Gia hạn', hour: 9, group: true, automation: true),
+        _item(
+          'order',
+          'Đơn VPS', // quản trị đổi tên: vẫn đứng đầu nhờ slug
+          hour: 12,
+          group: true,
+          automation: true,
+          slug: 'orders',
         ),
         _item('team', 'Nhóm team', hour: 13, group: true),
       ],
     );
 
-    expect(ids(internal.quickChannels), ['proxy', 'order', 'renew']);
+    expect(ids(internal.quickChannels), ['order', 'renew', 'proxy', 'custom']);
     expect(internal.inboxFilterLabels[1], 'Nghiệp vụ 1');
   });
 
@@ -116,6 +125,7 @@ ConversationSummary _item(
   bool favorite = false,
   bool member = true,
   bool automation = false,
+  String? slug,
 }) {
   return ConversationSummary(
     id: id,
@@ -132,5 +142,6 @@ ConversationSummary _item(
         : ChannelVisibility.direct,
     membershipStatus: member ? MembershipStatus.active : MembershipStatus.none,
     isAutomation: automation,
+    slug: slug,
   );
 }

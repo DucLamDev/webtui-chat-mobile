@@ -3,6 +3,15 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.2.0 · 02/11/2026
+### Tính năng
+- Xoá thông báo, mục Nghiệp vụ gọn theo nhóm, sửa tin nhắn thoại và tab Công việc
+  Thông báo: vuốt sang trái hoặc giữ lâu để xoá từng cái, nút thùng rác trên cùng để xoá tất cả (có hỏi lại); cần máy
+  chủ bản mới, máy chủ cũ sẽ báo chưa hỗ trợ. Mục Nghiệp vụ hiện dạng lưới ô chia nhóm Bán hàng / Hỗ trợ khách / Giám
+  sát & cảnh báo / Kỹ thuật, thứ tự cố định Đơn hàng, Gia hạn, Kế toán, Doanh thu..., mỗi kênh có biểu tượng riêng;
+  dải Nghiệp vụ ở Tất cả cũng theo thứ tự này. Tin nhắn thoại ghi trên web không còn hiện thành khung video. Tab Công
+  việc: bấm Họp nhóm, Đã chia sẻ, Ghi chú chung, Bảng trắng, Việc cần làm không còn ra màn hình trống.
+
 ## 1.1.0 · 27/10/2026
 ### Tính năng
 - Sửa gọi điện không có tiếng trên iPhone, thêm chuông, góp ý trong app và nhiều lỗi giao diện

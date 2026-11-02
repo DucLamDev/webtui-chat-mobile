@@ -1230,6 +1230,7 @@ ConversationSummary _channelFromMap(JsonMap map) {
       'privateSessionMode',
     ]),
     isAutomation: boolField(map, const ['is_automation', 'isAutomation']),
+    slug: nullableStringField(map, const ['slug']),
   );
 }
 

@@ -314,6 +314,8 @@ Map<String, Object?> _conversationToJson(ConversationSummary item) {
     'membershipStatus': item.membershipStatus.name,
     'canManage': item.canManage,
     'privateSessionMode': item.privateSessionMode,
+    'isAutomation': item.isAutomation,
+    'slug': item.slug,
   };
 }
 
@@ -352,6 +354,8 @@ ConversationSummary _conversationFromJson(Map<String, Object?> json) {
     ),
     canManage: _bool(json['canManage']),
     privateSessionMode: _bool(json['privateSessionMode']),
+    isAutomation: _bool(json['isAutomation']),
+    slug: _nullableString(json['slug']),
   );
 }
 

@@ -32,6 +32,17 @@ final class NotificationRemoteDataSource {
     );
   }
 
+  Future<void> deleteNotification({required String notificationId}) async {
+    await _api.delete<Object>('/api/v1/notifications/${_e(notificationId)}');
+  }
+
+  Future<void> deleteAllNotifications({required String workspaceId}) async {
+    await _api.delete<Object>(
+      '/api/v1/notifications',
+      queryParameters: {'workspace_id': workspaceId},
+    );
+  }
+
   Future<NotificationPreference> getPreference({
     required String workspaceId,
   }) async {

@@ -11,6 +11,10 @@ abstract interface class NotificationRepository {
 
   Future<Result<void>> markAllRead({required String workspaceId});
 
+  Future<Result<void>> deleteNotification({required String notificationId});
+
+  Future<Result<void>> deleteAllNotifications({required String workspaceId});
+
   Future<Result<NotificationPreference>> getPreference({
     required String workspaceId,
   });

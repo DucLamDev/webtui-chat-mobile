@@ -1,3 +1,4 @@
+import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
 import '../../../settings/domain/entities/app_settings.dart';
 import '../../domain/entities/mobile_notification.dart';
@@ -36,6 +37,62 @@ final class MarkAllNotificationsReadUseCase {
 
   Future<Result<void>> execute({required String workspaceId}) {
     return _repository.markAllRead(workspaceId: workspaceId);
+  }
+}
+
+/// Máy chủ cũ chưa có API xoá thông báo trả 404 không kèm mã lỗi của thông báo.
+const notificationDeleteUnsupportedMessage =
+    'Máy chủ chưa hỗ trợ xoá thông báo. Hãy nhờ quản trị cập nhật máy chủ.';
+
+Result<void> _deleteResult(Result<void> result) {
+  return switch (result) {
+    Success<void>() => result,
+    // Thông báo đã bị xoá ở thiết bị khác: coi như xoá xong.
+    FailureResult<void>(failure: Failure(code: 'NOTIFICATION_NOT_FOUND')) =>
+      const Success(null),
+    FailureResult<void>(failure: final failure)
+        when failure.kind == FailureKind.notFound =>
+      FailureResult(
+        failure.copyWith(
+          code: 'NOTIFICATION_DELETE_UNSUPPORTED',
+          message: notificationDeleteUnsupportedMessage,
+        ),
+      ),
+    FailureResult<void>() => result,
+  };
+}
+
+final class DeleteNotificationUseCase {
+  const DeleteNotificationUseCase(this._repository);
+
+  final NotificationRepository _repository;
+
+  Future<Result<void>> execute({required String notificationId}) async {
+    final id = notificationId.trim();
+    if (id.isEmpty) {
+      return const FailureResult(
+        Failure(
+          kind: FailureKind.validation,
+          message: 'Không xác định được thông báo cần xoá.',
+          code: 'NOTIFICATION_ID_REQUIRED',
+        ),
+      );
+    }
+    return _deleteResult(
+      await _repository.deleteNotification(notificationId: id),
+    );
+  }
+}
+
+final class DeleteAllNotificationsUseCase {
+  const DeleteAllNotificationsUseCase(this._repository);
+
+  final NotificationRepository _repository;
+
+  Future<Result<void>> execute({required String workspaceId}) async {
+    return _deleteResult(
+      await _repository.deleteAllNotifications(workspaceId: workspaceId),
+    );
   }
 }
 

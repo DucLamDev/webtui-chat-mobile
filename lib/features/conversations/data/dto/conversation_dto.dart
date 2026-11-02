@@ -75,6 +75,7 @@ final class ChannelDto {
       canManage: canManage,
       privateSessionMode: privateSessionMode,
       isAutomation: isAutomation,
+      slug: slug,
     );
   }
 }

@@ -7,6 +7,7 @@ import '../../../../core/result/result.dart';
 import '../../application/use_cases/channel_use_cases.dart';
 import '../../application/use_cases/load_conversation_home_use_case.dart';
 import '../../application/use_cases/open_direct_conversation_use_case.dart';
+import '../../domain/entities/business_channel_catalog.dart';
 import '../../domain/entities/conversation_summary.dart';
 
 final conversationHomeControllerProvider = StateNotifierProvider.autoDispose
@@ -161,9 +162,11 @@ final class ConversationHomeState {
     ];
   }
 
-  /// Kênh nghiệp vụ (bot gia hạn, order...) cho dải truy cập nhanh đầu hộp
-  /// thư: kênh có tin chưa đọc trước, rồi kênh dùng gần nhất, rồi theo tên.
-  /// Gồm cả kênh chưa tham gia (bấm để mở phiên riêng / tham gia).
+  /// Kênh nghiệp vụ (bot đơn hàng, gia hạn...) cho dải truy cập nhanh đầu hộp
+  /// thư và tab Nghiệp vụ, theo thứ tự cố định của [businessChannelCatalog]
+  /// (Đơn hàng, Gia hạn, Kế toán...) để mỗi kênh luôn ở cùng một chỗ; tin chưa
+  /// đọc hiện bằng huy hiệu số. Gồm cả kênh chưa tham gia (bấm để mở phiên
+  /// riêng / tham gia).
   List<ConversationSummary> get quickChannels {
     if (!automationEnabled) return const [];
     final byChannel = <String, ConversationSummary>{};
@@ -177,7 +180,7 @@ final class ConversationHomeState {
         byChannel[item.channelId] = item;
       }
     }
-    return byChannel.values.toList()..sort(_compareQuickChannel);
+    return byChannel.values.toList()..sort(compareBusinessChannels);
   }
 
   /// Hộp thư gộp: tin nhắn riêng và nhóm / kênh đã tham gia trong một danh
@@ -582,16 +585,6 @@ bool _matchesQuery(ConversationSummary item, String normalizedQuery) {
   return '${item.title} ${item.preview}'.toLowerCase().contains(
     normalizedQuery,
   );
-}
-
-int _compareQuickChannel(
-  ConversationSummary left,
-  ConversationSummary right,
-) {
-  if (left.isUnread != right.isUnread) return left.isUnread ? -1 : 1;
-  final byTime = right.updatedAt.compareTo(left.updatedAt);
-  if (byTime != 0) return byTime;
-  return left.title.toLowerCase().compareTo(right.title.toLowerCase());
 }
 
 /// Ghim trước; sau đó hội thoại có tin mới nhất trước; bằng thời gian thì

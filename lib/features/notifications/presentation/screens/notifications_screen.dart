@@ -55,6 +55,19 @@ class NotificationsScreen extends ConsumerWidget {
                   )
                 : const Text('Đã đọc hết'),
           ),
+          IconButton(
+            key: const Key('notifications_delete_all'),
+            tooltip: 'Xoá tất cả thông báo',
+            onPressed: state.isDeletingAll || state.notifications.isEmpty
+                ? null
+                : () => _confirmDeleteAll(context, controller),
+            icon: state.isDeletingAll
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.delete_sweep_outlined),
+          ),
         ],
       ),
       body: SafeArea(
@@ -99,18 +112,28 @@ class NotificationsScreen extends ConsumerWidget {
                     const SizedBox(height: WebTuiSpacing.sm),
                 itemBuilder: (context, index) {
                   final notification = state.notifications[index];
-                  return _NotificationTile(
-                    notification: notification,
-                    onTap: () async {
-                      await controller.markRead(notification);
-                      if (!context.mounted) {
-                        return;
-                      }
-                      final location = _locationFor(notification.target);
-                      if (location != null) {
-                        context.push(location);
-                      }
-                    },
+                  // Vuốt sang trái để xoá; giữ lâu để mở menu xoá (dễ thấy hơn).
+                  return Dismissible(
+                    key: ValueKey('notification_${notification.id}'),
+                    direction: DismissDirection.endToStart,
+                    background: const _DeleteSwipeBackground(),
+                    onDismissed: (_) =>
+                        _delete(context, controller, notification),
+                    child: _NotificationTile(
+                      notification: notification,
+                      onTap: () async {
+                        await controller.markRead(notification);
+                        if (!context.mounted) {
+                          return;
+                        }
+                        final location = _locationFor(notification.target);
+                        if (location != null) {
+                          context.push(location);
+                        }
+                      },
+                      onLongPress: () =>
+                          _showActions(context, controller, notification),
+                    ),
                   );
                 },
               );
@@ -122,11 +145,121 @@ class NotificationsScreen extends ConsumerWidget {
   }
 }
 
+Future<void> _delete(
+  BuildContext context,
+  NotificationCenterController controller,
+  MobileNotification notification,
+) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final error = await controller.delete(notification);
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(error ?? 'Đã xoá thông báo.')));
+}
+
+Future<void> _showActions(
+  BuildContext context,
+  NotificationCenterController controller,
+  MobileNotification notification,
+) async {
+  final delete = await showModalBottomSheet<bool>(
+    context: context,
+    showDragHandle: true,
+    builder: (sheetContext) => SafeArea(
+      child: ListTile(
+        key: const Key('notification_action_delete'),
+        leading: const Icon(
+          Icons.delete_outline_rounded,
+          color: WebTuiColors.danger,
+        ),
+        title: const Text(
+          'Xoá thông báo này',
+          style: TextStyle(color: WebTuiColors.danger),
+        ),
+        onTap: () => Navigator.of(sheetContext).pop(true),
+      ),
+    ),
+  );
+  if (delete == true && context.mounted) {
+    await _delete(context, controller, notification);
+  }
+}
+
+Future<void> _confirmDeleteAll(
+  BuildContext context,
+  NotificationCenterController controller,
+) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Xoá tất cả thông báo?'),
+      content: const Text(
+        'Mọi thông báo của workspace này sẽ bị xoá và không khôi phục được.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: const Text('Huỷ'),
+        ),
+        FilledButton(
+          key: const Key('notifications_delete_all_confirm'),
+          style: FilledButton.styleFrom(backgroundColor: WebTuiColors.danger),
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: const Text('Xoá tất cả'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true || !context.mounted) return;
+  final messenger = ScaffoldMessenger.of(context);
+  final error = await controller.deleteAll();
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(content: Text(error ?? 'Đã xoá tất cả thông báo.')),
+    );
+}
+
+class _DeleteSwipeBackground extends StatelessWidget {
+  const _DeleteSwipeBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.lg),
+      decoration: BoxDecoration(
+        color: WebTuiColors.danger,
+        borderRadius: BorderRadius.circular(WebTuiRadii.lg),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.delete_outline_rounded, color: WebTuiColors.textOnPrimary),
+          SizedBox(width: WebTuiSpacing.xs),
+          Text(
+            'Xoá',
+            style: TextStyle(
+              color: WebTuiColors.textOnPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _NotificationTile extends StatelessWidget {
-  const _NotificationTile({required this.notification, required this.onTap});
+  const _NotificationTile({
+    required this.notification,
+    required this.onTap,
+    required this.onLongPress,
+  });
 
   final MobileNotification notification;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -136,6 +269,7 @@ class _NotificationTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(WebTuiRadii.lg),
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(WebTuiRadii.lg),
         child: Container(
           padding: const EdgeInsets.all(WebTuiSpacing.md),
