@@ -64,6 +64,8 @@ final appRouterProvider = Provider<GoRouter>((_) {
                 : null,
             peerUserId: state.uri.queryParameters['peerUserId'],
             participantIds: participantIds ?? const [],
+            initialTool: state.uri.queryParameters['tool'],
+            initialTaskId: state.uri.queryParameters['taskId'],
           );
         },
       ),

@@ -93,24 +93,72 @@ final class CollaborationDocument {
   final DateTime updatedAt;
 }
 
+/// Trạng thái công việc theo máy chủ (`open`, `in_progress`, `done`, `cancelled`).
+enum CollaborationTaskStatus {
+  open('open', 'Cần làm'),
+  inProgress('in_progress', 'Đang làm'),
+  done('done', 'Xong'),
+  cancelled('cancelled', 'Đã huỷ');
+
+  const CollaborationTaskStatus(this.apiValue, this.label);
+
+  final String apiValue;
+  final String label;
+
+  bool get isActive => this == open || this == inProgress;
+
+  static CollaborationTaskStatus fromApi(String value) {
+    final normalized = value.trim();
+    for (final status in values) {
+      if (status.apiValue == normalized) return status;
+    }
+    return open;
+  }
+}
+
 final class CollaborationTask {
   const CollaborationTask({
     required this.id,
     required this.title,
     required this.status,
     required this.createdAt,
+    this.workspaceId = '',
+    this.channelId = '',
     this.sourceMessageId,
+    this.description,
     this.assigneeUserId,
     this.dueAt,
+    this.createdBy,
+    this.completedAt,
+    this.updatedAt,
+    this.channelName,
   });
 
   final String id;
+  final String workspaceId;
+  final String channelId;
   final String title;
   final String status;
   final DateTime createdAt;
   final String? sourceMessageId;
+  final String? description;
   final String? assigneeUserId;
   final DateTime? dueAt;
+  final String? createdBy;
+  final DateTime? completedAt;
+  final DateTime? updatedAt;
+
+  /// Tên phòng: chỉ có ở danh sách "Việc của tôi".
+  final String? channelName;
+
+  CollaborationTaskStatus get taskStatus =>
+      CollaborationTaskStatus.fromApi(status);
+
+  bool get isActive => taskStatus.isActive;
+
+  /// Còn đang làm mà đã qua hạn.
+  bool isOverdueAt(DateTime now) =>
+      isActive && dueAt != null && dueAt!.isBefore(now);
 }
 
 final class CollaborationRole {

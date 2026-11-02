@@ -14,7 +14,12 @@ import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../domain/entities/collaboration_room.dart';
 import '../../domain/entities/conversation_summary.dart';
+import '../controllers/collaboration_task_controller.dart';
+import 'collaboration_tasks_panel.dart';
 import 'meeting_scheduler_sheet.dart';
+
+/// Vị trí tab Task trong bảng (Tổng quan, Họp, Đã chia sẻ, Biên bản, Bảng trắng, Task).
+const collaborationTasksTabIndex = 5;
 
 Future<void> showCollaborationRoomSheet(
   BuildContext context, {
@@ -23,6 +28,7 @@ Future<void> showCollaborationRoomSheet(
   required String title,
   required ConversationSummary? conversation,
   int initialTab = 0,
+  String? focusTaskId,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -36,6 +42,7 @@ Future<void> showCollaborationRoomSheet(
       title: title,
       conversation: conversation,
       initialTab: initialTab,
+      focusTaskId: focusTaskId,
     ),
   );
 }
@@ -47,6 +54,7 @@ class CollaborationRoomSheet extends ConsumerStatefulWidget {
     required this.title,
     required this.conversation,
     this.initialTab = 0,
+    this.focusTaskId,
     super.key,
   });
 
@@ -56,6 +64,9 @@ class CollaborationRoomSheet extends ConsumerStatefulWidget {
   final ConversationSummary? conversation;
   final int initialTab;
 
+  /// Mở sẵn việc này ở tab Task (bấm từ thông báo / "Việc của tôi").
+  final String? focusTaskId;
+
   @override
   ConsumerState<CollaborationRoomSheet> createState() =>
       _CollaborationRoomSheetState();
@@ -64,13 +75,11 @@ class CollaborationRoomSheet extends ConsumerStatefulWidget {
 class _CollaborationRoomSheetState
     extends ConsumerState<CollaborationRoomSheet> {
   final _notesController = TextEditingController();
-  final _taskController = TextEditingController();
   final _promoteController = TextEditingController();
   final _breakoutBroadcastController = TextEditingController();
   CollaborationSettings? _settings;
   CollaborationDocument? _notes;
   CollaborationDocument? _whiteboard;
-  List<CollaborationTask> _tasks = const [];
   List<CollaborationGuest> _guests = const [];
   List<CollaborationRole> _roles = const [];
   List<BreakoutRoom> _breakouts = const [];
@@ -104,7 +113,6 @@ class _CollaborationRoomSheetState
   @override
   void dispose() {
     _notesController.dispose();
-    _taskController.dispose();
     _promoteController.dispose();
     _breakoutBroadcastController.dispose();
     super.dispose();
@@ -137,10 +145,6 @@ class _CollaborationRoomSheetState
           workspaceId: widget.workspaceId,
           channelId: widget.channelId,
           kind: 'whiteboard',
-        ),
-        remote.listCollaborationTasks(
-          workspaceId: widget.workspaceId,
-          channelId: widget.channelId,
         ),
         if (!settings.isDirect)
           remote.listCollaborationRoles(
@@ -178,11 +182,10 @@ class _CollaborationRoomSheetState
         _whiteboard = whiteboard;
         _notesController.text = notes.content['text']?.toString() ?? '';
         _strokes = _parseStrokes(whiteboard.content);
-        _tasks = results[2] as List<CollaborationTask>;
-        _roles = results[3] as List<CollaborationRole>;
-        _breakouts = results[4] as List<BreakoutRoom>;
-        _guests = results[5] as List<CollaborationGuest>;
-        _userGroups = results[6] as List<CollaborationUserGroup>;
+        _roles = results[2] as List<CollaborationRole>;
+        _breakouts = results[3] as List<BreakoutRoom>;
+        _guests = results[4] as List<CollaborationGuest>;
+        _userGroups = results[5] as List<CollaborationUserGroup>;
         _currentUserId = profile.valueOrNull?.id;
         _loading = false;
       });
@@ -1293,63 +1296,15 @@ class _CollaborationRoomSheetState
   }
 
   Widget _buildTasksTab() {
-    return ListView(
-      padding: const EdgeInsets.all(WebTuiSpacing.lg),
-      children: [
-        _sectionCard(
-          icon: Icons.task_alt_rounded,
-          title: 'Task công việc',
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _taskController,
-                      maxLength: 240,
-                      decoration: const InputDecoration(
-                        hintText: 'Việc cần làm…',
-                        counterText: '',
-                      ),
-                      onSubmitted: (_) => _createTask(),
-                    ),
-                  ),
-                  const SizedBox(width: WebTuiSpacing.sm),
-                  IconButton.filled(
-                    tooltip: 'Tạo task',
-                    onPressed: _saving ? null : _createTask,
-                    icon: const Icon(Icons.add_rounded),
-                  ),
-                ],
-              ),
-              const SizedBox(height: WebTuiSpacing.sm),
-              if (_tasks.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(WebTuiSpacing.lg),
-                  child: Text('Chưa có task trong phòng.'),
-                )
-              else
-                for (final task in _tasks)
-                  CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: task.status == 'done',
-                    title: Text(
-                      task.title,
-                      style: TextStyle(
-                        decoration: task.status == 'done'
-                            ? TextDecoration.lineThrough
-                            : null,
-                      ),
-                    ),
-                    subtitle: task.sourceMessageId == null
-                        ? null
-                        : const Text('Được tạo từ tin nhắn'),
-                    onChanged: (_) => _toggleTask(task),
-                  ),
-            ],
-          ),
-        ),
-      ],
+    return CollaborationTasksPanel(
+      scope: CollaborationTaskScope(
+        workspaceId: widget.workspaceId,
+        channelId: widget.channelId,
+        canManageRoom:
+            widget.conversation?.canManage == true ||
+            ref.watch(canManageWorkspaceChannelsProvider),
+      ),
+      focusTaskId: widget.focusTaskId,
     );
   }
 
@@ -1974,48 +1929,6 @@ class _CollaborationRoomSheetState
           );
       if (mounted) setState(() => _whiteboard = updated);
     }, quiet: true);
-  }
-
-  Future<void> _createTask() async {
-    final title = _taskController.text.trim();
-    if (title.isEmpty) return;
-    await _guard(() async {
-      await ref
-          .read(conversationRemoteDataSourceProvider)
-          .createCollaborationTask(
-            workspaceId: widget.workspaceId,
-            channelId: widget.channelId,
-            title: title,
-          );
-      _taskController.clear();
-      final tasks = await ref
-          .read(conversationRemoteDataSourceProvider)
-          .listCollaborationTasks(
-            workspaceId: widget.workspaceId,
-            channelId: widget.channelId,
-          );
-      if (mounted) setState(() => _tasks = tasks);
-    });
-  }
-
-  Future<void> _toggleTask(CollaborationTask task) async {
-    await _guard(() async {
-      await ref
-          .read(conversationRemoteDataSourceProvider)
-          .updateCollaborationTask(
-            workspaceId: widget.workspaceId,
-            channelId: widget.channelId,
-            taskId: task.id,
-            status: task.status == 'done' ? 'open' : 'done',
-          );
-      final tasks = await ref
-          .read(conversationRemoteDataSourceProvider)
-          .listCollaborationTasks(
-            workspaceId: widget.workspaceId,
-            channelId: widget.channelId,
-          );
-      if (mounted) setState(() => _tasks = tasks);
-    });
   }
 
   Future<void> _summarizeChannel() async {

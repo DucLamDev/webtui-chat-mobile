@@ -55,6 +55,7 @@ import '../../features/business/data/repositories/business_repository_impl.dart'
 import '../../features/business/domain/repositories/business_repository.dart';
 import '../../features/conversations/application/use_cases/call_use_cases.dart';
 import '../../features/conversations/application/use_cases/channel_use_cases.dart';
+import '../../features/conversations/application/use_cases/collaboration_task_use_cases.dart';
 import '../../features/conversations/application/use_cases/load_conversation_home_use_case.dart';
 import '../../features/conversations/application/use_cases/message_attachment_use_cases.dart';
 import '../../features/conversations/application/use_cases/message_outbox_use_cases.dart';
@@ -70,6 +71,7 @@ import '../../features/conversations/data/files/scoped_attachment_file_store.dar
 import '../../features/conversations/data/repositories/audio_message_attachment_repository.dart';
 import '../../features/conversations/data/repositories/caching_conversation_repository.dart';
 import '../../features/conversations/data/repositories/call_repository_impl.dart';
+import '../../features/conversations/data/repositories/collaboration_task_repository_impl.dart';
 import '../../features/conversations/data/repositories/conversation_repository_impl.dart';
 import '../../features/conversations/data/repositories/image_picker_message_attachment_repository.dart';
 import '../../features/conversations/data/repositories/local_conversation_draft_repository.dart';
@@ -77,6 +79,7 @@ import '../../features/conversations/data/repositories/local_message_outbox_repo
 import '../../features/conversations/data/repositories/message_attachment_repository_impl.dart';
 import '../../features/conversations/data/repositories/web_socket_conversation_realtime_repository.dart';
 import '../../features/conversations/domain/repositories/call_repository.dart';
+import '../../features/conversations/domain/repositories/collaboration_task_repository.dart';
 import '../../features/conversations/domain/repositories/conversation_repository.dart';
 import '../../features/conversations/domain/repositories/message_attachment_repository.dart';
 import '../../features/conversations/domain/repositories/message_outbox_repository.dart';
@@ -956,6 +959,53 @@ final listChannelMembersUseCaseProvider = Provider<ListChannelMembersUseCase>((
   ref,
 ) {
   return ListChannelMembersUseCase(ref.watch(conversationRepositoryProvider));
+});
+
+final collaborationTaskRepositoryProvider =
+    Provider<CollaborationTaskRepository>((ref) {
+      return CollaborationTaskRepositoryImpl(
+        ref.watch(conversationRemoteDataSourceProvider),
+      );
+    });
+
+final listChannelTasksUseCaseProvider = Provider<ListChannelTasksUseCase>((
+  ref,
+) {
+  return ListChannelTasksUseCase(
+    ref.watch(collaborationTaskRepositoryProvider),
+  );
+});
+
+final createChannelTaskUseCaseProvider = Provider<CreateChannelTaskUseCase>((
+  ref,
+) {
+  return CreateChannelTaskUseCase(
+    ref.watch(collaborationTaskRepositoryProvider),
+  );
+});
+
+final updateChannelTaskUseCaseProvider = Provider<UpdateChannelTaskUseCase>((
+  ref,
+) {
+  return UpdateChannelTaskUseCase(
+    ref.watch(collaborationTaskRepositoryProvider),
+  );
+});
+
+final deleteChannelTaskUseCaseProvider = Provider<DeleteChannelTaskUseCase>((
+  ref,
+) {
+  return DeleteChannelTaskUseCase(
+    ref.watch(collaborationTaskRepositoryProvider),
+  );
+});
+
+final listAssignedTasksUseCaseProvider = Provider<ListAssignedTasksUseCase>((
+  ref,
+) {
+  return ListAssignedTasksUseCase(
+    ref.watch(collaborationTaskRepositoryProvider),
+  );
 });
 
 final inviteChannelMemberUseCaseProvider = Provider<InviteChannelMemberUseCase>(

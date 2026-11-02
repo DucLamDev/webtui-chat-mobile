@@ -120,6 +120,7 @@ final class NotificationTarget {
     this.callerName,
     this.organizationName,
     this.organizationLogoUrl,
+    this.taskId,
   });
 
   factory NotificationTarget.fromPayload({
@@ -155,7 +156,10 @@ final class NotificationTarget {
         'messageId',
       ], fallback: messageId ?? linkTarget?.messageId),
       deepLink: linkTarget?.deepLink,
-      targetType: _firstString(data, const ['target_type', 'targetType']),
+      targetType: _firstString(data, const [
+        'target_type',
+        'targetType',
+      ], fallback: linkTarget?.targetType),
       eventType: _firstString(data, const ['event_type', 'eventType']),
       callId: _firstString(data, const ['call_id', 'callId']),
       callMode: _firstString(data, const ['mode', 'call_mode', 'callMode']),
@@ -179,6 +183,10 @@ final class NotificationTarget {
         'organization_logo_url',
         'organizationLogoUrl',
       ]),
+      taskId: _firstString(data, const [
+        'task_id',
+        'taskId',
+      ], fallback: linkTarget?.taskId),
     );
   }
 
@@ -208,7 +216,10 @@ final class NotificationTarget {
       messageId:
           uri.queryParameters['messageId'] ?? uri.queryParameters['message_id'],
       deepLink: value,
-      targetType: uri.queryParameters['targetType'] ?? targetType,
+      targetType:
+          uri.queryParameters['targetType'] ??
+          (uri.queryParameters['tool'] == 'tasks' ? 'task' : targetType),
+      taskId: uri.queryParameters['taskId'] ?? uri.queryParameters['task_id'],
     );
   }
 
@@ -225,6 +236,12 @@ final class NotificationTarget {
   final String? callerName;
   final String? organizationName;
   final String? organizationLogoUrl;
+
+  /// Việc được giao (thông báo `target_type = task`).
+  final String? taskId;
+
+  /// Bấm thông báo giao việc / đổi hạn thì mở tab Task của phòng.
+  bool get opensTasks => targetType == 'task';
 
   bool get canOpenConversation =>
       workspaceId.trim().isNotEmpty && channelId?.trim().isNotEmpty == true;

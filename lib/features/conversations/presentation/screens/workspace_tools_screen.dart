@@ -11,6 +11,7 @@ import '../../../moderation/presentation/controllers/moderation_controller.dart'
 import '../../domain/entities/conversation_summary.dart';
 import '../controllers/conversation_home_controller.dart';
 import '../widgets/collaboration_room_sheet.dart';
+import '../widgets/my_tasks_section.dart';
 
 bool workspaceToolsSharedContentBlocked(
   ConversationSummary room,
@@ -103,6 +104,7 @@ class _WorkspaceToolsScreenState extends ConsumerState<WorkspaceToolsScreen> {
           WebTuiSpacing.xl,
         ),
         children: [
+          MyTasksSection(workspaceId: widget.workspaceId, rooms: rooms),
           _RoomPicker(
             rooms: rooms,
             selected: selected!,
