@@ -25,6 +25,7 @@ import '../../domain/entities/call_session.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/conversation_summary.dart';
 import '../controllers/chat_room_controller.dart';
+import '../controllers/message_sender_directory.dart';
 import '../controllers/pending_chat_share_controller.dart';
 import '../widgets/collaboration_room_sheet.dart';
 import '../widgets/message_media_widgets.dart';
@@ -359,6 +360,14 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
     final provider = chatRoomControllerProvider(scope);
     final state = ref.watch(provider);
     final controller = ref.read(provider.notifier);
+    final senderDirectory =
+        ref.watch(messageSenderDirectoryProvider(scope)).valueOrNull ??
+        const MessageSenderDirectory.empty();
+    // Nhóm / kênh: hiện tên người gửi. Chat 1-1 thì tên phòng chính là người kia.
+    final conversationKind = widget.conversation?.kind;
+    final showSenderNames =
+        conversationKind == ConversationKind.channel ||
+        (conversationKind == null && senderDirectory.length > 2);
     final serverCapabilities = ref.watch(
       activeServerDiscoveryProvider.select((value) => value?.capabilities),
     );
@@ -414,6 +423,9 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
       child: _ChatRoomBody(
         workspaceId: workspaceId,
         state: state,
+        senderDirectory: senderDirectory,
+        showSenderNames: showSenderNames,
+        directAvatarUrl: widget.conversation?.avatarUrl,
         draftController: _draftController,
         draftFocusNode: _draftFocusNode,
         onDraftChanged: controller.updateDraft,
@@ -1110,6 +1122,9 @@ class _ChatRoomBody extends StatefulWidget {
   const _ChatRoomBody({
     required this.workspaceId,
     required this.state,
+    required this.senderDirectory,
+    required this.showSenderNames,
+    required this.directAvatarUrl,
     required this.draftController,
     required this.draftFocusNode,
     required this.onDraftChanged,
@@ -1153,6 +1168,9 @@ class _ChatRoomBody extends StatefulWidget {
 
   final String workspaceId;
   final ChatRoomState state;
+  final MessageSenderDirectory senderDirectory;
+  final bool showSenderNames;
+  final String? directAvatarUrl;
   final TextEditingController draftController;
   final FocusNode draftFocusNode;
   final ValueChanged<String> onDraftChanged;
@@ -1407,7 +1425,25 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
                                     ),
                                     child: _MessageRow(
                                       message: message,
-                                      title: widget.state.scope.title,
+                                      avatarLabel: widget.showSenderNames
+                                          ? widget.senderDirectory.nameOf(
+                                              message.senderId,
+                                            )
+                                          : widget.state.scope.title,
+                                      avatarUrl: widget.showSenderNames
+                                          ? widget
+                                                .senderDirectory[message
+                                                    .senderId]
+                                                ?.avatarUrl
+                                          : widget.directAvatarUrl,
+                                      senderName:
+                                          widget.showSenderNames &&
+                                              !message.isMine &&
+                                              !sameSender
+                                          ? widget.senderDirectory.nameOf(
+                                              message.senderId,
+                                            )
+                                          : null,
                                       showAvatar:
                                           !message.isMine && !sameSender,
                                       outgoing: message.isMine,
@@ -3452,7 +3488,9 @@ class _SheetActionButton extends StatelessWidget {
 class _MessageRow extends StatelessWidget {
   const _MessageRow({
     required this.message,
-    required this.title,
+    required this.avatarLabel,
+    required this.avatarUrl,
+    required this.senderName,
     required this.showAvatar,
     required this.outgoing,
     required this.text,
@@ -3464,7 +3502,11 @@ class _MessageRow extends StatelessWidget {
   });
 
   final ChatMessage message;
-  final String title;
+  final String avatarLabel;
+  final String? avatarUrl;
+
+  /// Tên người gửi in phía trên tin đầu của chuỗi tin cùng người (chỉ nhóm).
+  final String? senderName;
   final bool showAvatar;
   final bool outgoing;
   final String text;
@@ -3519,11 +3561,23 @@ class _MessageRow extends StatelessWidget {
           SizedBox.square(
             dimension: 30,
             child: showAvatar
-                ? WebTuiAvatar(label: title, size: 30)
+                ? WebTuiAvatar(
+                    label: avatarLabel,
+                    imageUrl: avatarUrl,
+                    size: 30,
+                  )
                 : const SizedBox.shrink(),
           ),
           const SizedBox(width: WebTuiSpacing.sm),
-          Flexible(child: card),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (senderName != null) _SenderName(name: senderName!),
+                card,
+              ],
+            ),
+          ),
         ],
       );
     }
@@ -3559,7 +3613,7 @@ class _MessageRow extends StatelessWidget {
         SizedBox.square(
           dimension: 30,
           child: showAvatar
-              ? WebTuiAvatar(label: title, size: 30)
+              ? WebTuiAvatar(label: avatarLabel, imageUrl: avatarUrl, size: 30)
               : const SizedBox.shrink(),
         ),
         const SizedBox(width: WebTuiSpacing.sm),
@@ -3567,6 +3621,7 @@ class _MessageRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (senderName != null) _SenderName(name: senderName!),
               if (showBody)
                 WebTuiMessageBubble(
                   text: text,
@@ -3585,6 +3640,31 @@ class _MessageRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _SenderName extends StatelessWidget {
+  const _SenderName({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(
+        left: WebTuiSpacing.xs,
+        bottom: WebTuiSpacing.xxs,
+      ),
+      child: Text(
+        name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: WebTuiTypography.labelSmall.copyWith(
+          color: WebTuiColors.textSecondary,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }
