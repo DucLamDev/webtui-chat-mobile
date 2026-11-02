@@ -3,6 +3,17 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.3.0 · 02/11/2026
+### Tính năng
+- Tên người gửi trong nhóm, giao việc có hạn, bảng trắng đủ công cụ, trả lời ticket khách
+  Trong nhóm / kênh, mỗi tin hiện ảnh và tên người gửi. Tab Task làm lại: giao việc cho từng người, đặt hạn chót,
+  trạng thái Cần làm / Đang làm / Xong / Huỷ, lọc Giao cho tôi / Tôi giao / Quá hạn, việc quá hạn tô đỏ; "Việc của
+  tôi" ở đầu tab Công việc; bấm thông báo được giao việc là mở đúng việc. Bảng trắng có bút nhiều màu và độ dày, tẩy,
+  hình chữ nhật / tròn / mũi tên, chữ, biểu tượng, chọn để di chuyển, hoàn tác; vẽ trên web hay điện thoại đều hiện
+  đúng chỗ ở bên kia, lưu lỗi thì báo và thử lại. Nhân viên có quyền xem và trả lời ticket khách ngay trên điện thoại
+  (ô "Ticket khách" ở tab Nghiệp vụ): nhận xử lý, đánh dấu đã xử lý, dùng nháp AI, gửi kèm ảnh. Giao việc, Việc của tôi,
+  xoá việc và ticket cần máy chủ bản mới.
+
 ## 1.2.0 · 02/11/2026
 ### Tính năng
 - Xoá thông báo, mục Nghiệp vụ gọn theo nhóm, sửa tin nhắn thoại và tab Công việc
