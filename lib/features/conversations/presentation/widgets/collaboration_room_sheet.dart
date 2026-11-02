@@ -16,6 +16,7 @@ import '../../domain/entities/collaboration_room.dart';
 import '../../domain/entities/conversation_summary.dart';
 import '../controllers/collaboration_task_controller.dart';
 import 'collaboration_tasks_panel.dart';
+import 'collaboration_whiteboard.dart';
 import 'meeting_scheduler_sheet.dart';
 
 /// Vị trí tab Task trong bảng (Tổng quan, Họp, Đã chia sẻ, Biên bản, Bảng trắng, Task).
@@ -79,7 +80,6 @@ class _CollaborationRoomSheetState
   final _breakoutBroadcastController = TextEditingController();
   CollaborationSettings? _settings;
   CollaborationDocument? _notes;
-  CollaborationDocument? _whiteboard;
   List<CollaborationGuest> _guests = const [];
   List<CollaborationRole> _roles = const [];
   List<BreakoutRoom> _breakouts = const [];
@@ -91,7 +91,6 @@ class _CollaborationRoomSheetState
   RecordingPolicy? _recordingPolicy;
   List<ChannelRecording> _recordings = const [];
   TalkIntegration? _talkIntegration;
-  List<_MobileStroke> _strokes = const [];
   String? _selectedUserGroupId;
   int _tab = 0;
   bool _loading = true;
@@ -141,11 +140,6 @@ class _CollaborationRoomSheetState
           channelId: widget.channelId,
           kind: 'notes',
         ),
-        remote.getCollaborationDocument(
-          workspaceId: widget.workspaceId,
-          channelId: widget.channelId,
-          kind: 'whiteboard',
-        ),
         if (!settings.isDirect)
           remote.listCollaborationRoles(
             workspaceId: widget.workspaceId,
@@ -175,17 +169,14 @@ class _CollaborationRoomSheetState
       ]);
       if (!mounted) return;
       final notes = results[0] as CollaborationDocument;
-      final whiteboard = results[1] as CollaborationDocument;
       setState(() {
         _settings = settings;
         _notes = notes;
-        _whiteboard = whiteboard;
         _notesController.text = notes.content['text']?.toString() ?? '';
-        _strokes = _parseStrokes(whiteboard.content);
-        _roles = results[2] as List<CollaborationRole>;
-        _breakouts = results[3] as List<BreakoutRoom>;
-        _guests = results[4] as List<CollaborationGuest>;
-        _userGroups = results[5] as List<CollaborationUserGroup>;
+        _roles = results[1] as List<CollaborationRole>;
+        _breakouts = results[2] as List<BreakoutRoom>;
+        _guests = results[3] as List<CollaborationGuest>;
+        _userGroups = results[4] as List<CollaborationUserGroup>;
         _currentUserId = profile.valueOrNull?.id;
         _loading = false;
       });
@@ -1234,63 +1225,10 @@ class _CollaborationRoomSheetState
   Widget _buildWhiteboardTab() {
     return Padding(
       padding: const EdgeInsets.all(WebTuiSpacing.lg),
-      child: _sectionCard(
-        icon: Icons.draw_outlined,
-        title: 'Interactive Whiteboard · v${_whiteboard?.version ?? 1}',
-        // Vùng vẽ chiếm phần cao còn lại của tab: thẻ phải giãn theo chiều
-        // cao, nếu không Expanded bên trong làm hỏng bố cục cả bảng (IndexedStack
-        // dựng mọi tab cùng lúc nên mọi tab đều trắng).
-        fillHeight: true,
-        child: Column(
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(WebTuiRadii.lg),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    return GestureDetector(
-                      onPanStart: (details) => _startStroke(
-                        details.localPosition,
-                        constraints.biggest,
-                      ),
-                      onPanUpdate: (details) => _appendStroke(
-                        details.localPosition,
-                        constraints.biggest,
-                      ),
-                      onPanEnd: (_) => unawaited(_saveWhiteboard()),
-                      child: CustomPaint(
-                        painter: _WhiteboardPainter(_strokes),
-                        size: Size.infinite,
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(height: WebTuiSpacing.sm),
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Vẽ bằng một ngón tay · tự lưu khi nhấc tay',
-                    style: TextStyle(
-                      color: WebTuiColors.textSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: () {
-                    setState(() => _strokes = const []);
-                    unawaited(_saveWhiteboard());
-                  },
-                  icon: const Icon(Icons.delete_outline_rounded),
-                  label: const Text('Xóa'),
-                ),
-              ],
-            ),
-          ],
-        ),
+      child: CollaborationWhiteboard(
+        workspaceId: widget.workspaceId,
+        channelId: widget.channelId,
+        active: _tab == 4,
       ),
     );
   }
@@ -1881,56 +1819,6 @@ class _CollaborationRoomSheetState
     });
   }
 
-  void _startStroke(Offset point, Size size) {
-    if (size.width <= 0 || size.height <= 0) return;
-    final normalized = Offset(point.dx / size.width, point.dy / size.height);
-    setState(() {
-      _strokes = [
-        ..._strokes,
-        _MobileStroke(points: [normalized]),
-      ];
-    });
-  }
-
-  void _appendStroke(Offset point, Size size) {
-    if (_strokes.isEmpty || size.width <= 0 || size.height <= 0) return;
-    final normalized = Offset(point.dx / size.width, point.dy / size.height);
-    setState(() {
-      final last = _strokes.last;
-      _strokes = [
-        ..._strokes.take(_strokes.length - 1),
-        _MobileStroke(points: [...last.points, normalized]),
-      ];
-    });
-  }
-
-  Future<void> _saveWhiteboard() async {
-    final document = _whiteboard!;
-    await _guard(() async {
-      final updated = await ref
-          .read(conversationRemoteDataSourceProvider)
-          .updateCollaborationDocument(
-            workspaceId: widget.workspaceId,
-            channelId: widget.channelId,
-            kind: 'whiteboard',
-            content: {
-              'strokes': [
-                for (final stroke in _strokes)
-                  {
-                    'color': '#2563eb',
-                    'points': [
-                      for (final point in stroke.points)
-                        {'x': point.dx, 'y': point.dy},
-                    ],
-                  },
-              ],
-            },
-            expectedVersion: document.version,
-          );
-      if (mounted) setState(() => _whiteboard = updated);
-    }, quiet: true);
-  }
-
   Future<void> _summarizeChannel() async {
     await _guard(() async {
       final summary = await ref
@@ -2053,73 +1941,6 @@ String _sharedItemLabel(String kind) {
     'recording' => 'Bản ghi cuộc họp',
     _ => 'Nội dung chia sẻ',
   };
-}
-
-final class _MobileStroke {
-  const _MobileStroke({required this.points});
-
-  final List<Offset> points;
-}
-
-class _WhiteboardPainter extends CustomPainter {
-  const _WhiteboardPainter(this.strokes);
-
-  final List<_MobileStroke> strokes;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawRect(Offset.zero & size, Paint()..color = Colors.white);
-    final grid = Paint()
-      ..color = const Color(0xFFE8EDF5)
-      ..strokeWidth = 1;
-    for (double x = 0; x < size.width; x += 24) {
-      for (double y = 0; y < size.height; y += 24) {
-        canvas.drawCircle(Offset(x, y), 1, grid);
-      }
-    }
-    final paint = Paint()
-      ..color = const Color(0xFF2563EB)
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..strokeWidth = 4
-      ..style = PaintingStyle.stroke;
-    for (final stroke in strokes) {
-      if (stroke.points.isEmpty) continue;
-      final path = Path();
-      final first = stroke.points.first;
-      path.moveTo(first.dx * size.width, first.dy * size.height);
-      for (final point in stroke.points.skip(1)) {
-        path.lineTo(point.dx * size.width, point.dy * size.height);
-      }
-      canvas.drawPath(path, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _WhiteboardPainter oldDelegate) =>
-      oldDelegate.strokes != strokes;
-}
-
-List<_MobileStroke> _parseStrokes(Map<String, Object?> content) {
-  final raw = content['strokes'];
-  if (raw is! List) return const [];
-  return raw
-      .expand<_MobileStroke>((stroke) {
-        if (stroke is! Map) return const [];
-        final points = stroke['points'];
-        if (points is! List) return const [];
-        final parsed = points
-            .expand<Offset>((point) {
-              if (point is! Map) return const [];
-              final x = point['x'];
-              final y = point['y'];
-              if (x is! num || y is! num) return const [];
-              return [Offset(x.toDouble(), y.toDouble())];
-            })
-            .toList(growable: false);
-        return parsed.isEmpty ? const [] : [_MobileStroke(points: parsed)];
-      })
-      .toList(growable: false);
 }
 
 String _initials(String value) {
