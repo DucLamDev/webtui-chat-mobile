@@ -80,6 +80,13 @@ import '../../features/conversations/domain/repositories/call_repository.dart';
 import '../../features/conversations/domain/repositories/conversation_repository.dart';
 import '../../features/conversations/domain/repositories/message_attachment_repository.dart';
 import '../../features/conversations/domain/repositories/message_outbox_repository.dart';
+import '../../features/customer_tickets/application/use_cases/customer_ticket_use_cases.dart';
+import '../../features/customer_tickets/data/datasources/customer_ticket_remote_data_source.dart';
+import '../../features/customer_tickets/data/repositories/customer_ticket_repository_impl.dart';
+import '../../features/customer_tickets/data/repositories/image_picker_customer_ticket_image_repository.dart';
+import '../../features/customer_tickets/data/repositories/public_customer_ticket_image_repository.dart';
+import '../../features/customer_tickets/data/repositories/web_socket_customer_ticket_realtime_repository.dart';
+import '../../features/customer_tickets/domain/repositories/customer_ticket_repository.dart';
 import '../../features/moderation/application/use_cases/moderation_use_cases.dart';
 import '../../features/moderation/data/datasources/moderation_remote_data_source.dart';
 import '../../features/moderation/data/repositories/moderation_repository_impl.dart';
@@ -1229,3 +1236,125 @@ Dio _configuredDio(Uri activeServerUri) {
     ),
   );
 }
+
+// ---------------------------------------------------------------------------
+// Ticket khách (chỉ máy chủ nội bộ VPSTTT, bật theo discovery + quyền order.*):
+// nhân viên xem / trả lời ticket khách gửi trên hệ thống order.
+// ---------------------------------------------------------------------------
+
+final customerTicketRemoteDataSourceProvider =
+    Provider<CustomerTicketRemoteDataSource>((ref) {
+      return CustomerTicketRemoteDataSource(ref.watch(apiTransportProvider));
+    });
+
+final customerTicketRepositoryProvider = Provider<CustomerTicketRepository>((
+  ref,
+) {
+  return CustomerTicketRepositoryImpl(
+    ref.watch(customerTicketRemoteDataSourceProvider),
+  );
+});
+
+/// Kết nối WebSocket riêng cho phòng `workspace:<ws>:order-tickets`: tự ngắt
+/// khi không còn màn ticket nào nghe, không ảnh hưởng phòng chat.
+final customerTicketRealtimeRepositoryProvider =
+    Provider<CustomerTicketRealtimeRepository>((ref) {
+      final socket = WebSocketConversationRealtimeRepository(
+        apiBaseUri: ref.watch(activeServerUriProvider),
+        wsBaseUri: ref.watch(activeServerWsUriProvider),
+        instanceScope: ref.watch(activeInstanceScopeProvider),
+        tokenRepository: ref.watch(authTokenRepositoryProvider),
+      );
+      ref.onDispose(() {
+        unawaited(socket.disconnect());
+      });
+      return WebSocketCustomerTicketRealtimeRepository(
+        socket.subscribeToOrderTickets,
+      );
+    });
+
+final customerTicketImagePickerRepositoryProvider =
+    Provider<CustomerTicketImagePickerRepository>((ref) {
+      return ImagePickerCustomerTicketImageRepository();
+    });
+
+/// Ảnh khách gửi (tên miền khác): tải không kèm token; bộ nhớ đệm theo máy chủ.
+final customerTicketImageRepositoryProvider =
+    Provider<CustomerTicketImageRepository>((ref) {
+      ref.watch(activeServerDiscoveryProvider);
+      final repository = PublicCustomerTicketImageRepository();
+      ref.onDispose(repository.clear);
+      return repository;
+    });
+
+final listCustomerTicketsUseCaseProvider = Provider<ListCustomerTicketsUseCase>(
+  (ref) {
+    return ListCustomerTicketsUseCase(
+      ref.watch(customerTicketRepositoryProvider),
+    );
+  },
+);
+
+final countUnansweredCustomerTicketsUseCaseProvider =
+    Provider<CountUnansweredCustomerTicketsUseCase>((ref) {
+      return CountUnansweredCustomerTicketsUseCase(
+        ref.watch(customerTicketRepositoryProvider),
+      );
+    });
+
+final loadCustomerTicketUseCaseProvider = Provider<LoadCustomerTicketUseCase>((
+  ref,
+) {
+  return LoadCustomerTicketUseCase(ref.watch(customerTicketRepositoryProvider));
+});
+
+final replyCustomerTicketUseCaseProvider = Provider<ReplyCustomerTicketUseCase>(
+  (ref) {
+    return ReplyCustomerTicketUseCase(
+      ref.watch(customerTicketRepositoryProvider),
+    );
+  },
+);
+
+final setCustomerTicketStatusUseCaseProvider =
+    Provider<SetCustomerTicketStatusUseCase>((ref) {
+      return SetCustomerTicketStatusUseCase(
+        ref.watch(customerTicketRepositoryProvider),
+      );
+    });
+
+final claimCustomerTicketUseCaseProvider = Provider<ClaimCustomerTicketUseCase>(
+  (ref) {
+    return ClaimCustomerTicketUseCase(
+      ref.watch(customerTicketRepositoryProvider),
+    );
+  },
+);
+
+final requestCustomerTicketAiDraftUseCaseProvider =
+    Provider<RequestCustomerTicketAiDraftUseCase>((ref) {
+      return RequestCustomerTicketAiDraftUseCase(
+        ref.watch(customerTicketRepositoryProvider),
+      );
+    });
+
+final watchCustomerTicketsUseCaseProvider =
+    Provider<WatchCustomerTicketsUseCase>((ref) {
+      return WatchCustomerTicketsUseCase(
+        ref.watch(customerTicketRealtimeRepositoryProvider),
+      );
+    });
+
+final pickCustomerTicketImagesUseCaseProvider =
+    Provider<PickCustomerTicketImagesUseCase>((ref) {
+      return PickCustomerTicketImagesUseCase(
+        ref.watch(customerTicketImagePickerRepositoryProvider),
+      );
+    });
+
+final loadCustomerTicketImageUseCaseProvider =
+    Provider<LoadCustomerTicketImageUseCase>((ref) {
+      return LoadCustomerTicketImageUseCase(
+        ref.watch(customerTicketImageRepositoryProvider),
+      );
+    });
