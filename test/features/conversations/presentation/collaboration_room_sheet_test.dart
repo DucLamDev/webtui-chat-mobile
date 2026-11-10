@@ -18,7 +18,7 @@ const _expectedTextByTab = {
   1: 'Họp video nhóm',
   2: 'Chưa có file, poll, task hoặc bản ghi.',
   3: 'Lưu biên bản',
-  4: 'Vẽ bằng một ngón tay · tự lưu khi nhấc tay',
+  4: 'Vẽ bằng một ngón tay · tự lưu sau mỗi nét',
   5: 'Phòng chưa có việc nào',
 };
 

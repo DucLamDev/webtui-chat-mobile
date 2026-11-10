@@ -110,6 +110,7 @@ final class ConversationRealtimeReducer {
       ConversationRealtimeEventType.contactRequestUpdated ||
       ConversationRealtimeEventType.contactRequestCancelled => state,
       ConversationRealtimeEventType.reconnected => state,
+      ConversationRealtimeEventType.orderTicketUpdated => state,
       ConversationRealtimeEventType.unknown => state,
     };
   }

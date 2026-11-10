@@ -3,6 +3,16 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.6.0 · 10/11/2026
+### Tính năng
+- Theo dõi và xử lý phiếu hỗ trợ khách hàng
+  Xem danh sách và chi tiết, phản hồi kèm ảnh, nhận thay đổi trực tiếp và chuyển trạng thái theo quyền được cấp.
+
+## 1.5.0 · 10/11/2026
+### Tính năng
+- Bảng trắng dùng chung với web
+  Vẽ nét, hình, chữ và biểu tượng; giữ các đối tượng từ web khi chỉnh sửa trên app. Hiện lỗi khi lưu thất bại để người dùng có thể thử lại.
+
 ## 1.4.0 · 10/11/2026
 ### Tính năng
 - Quản lý việc trong phòng và xem Việc của tôi
