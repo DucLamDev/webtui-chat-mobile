@@ -1,9 +1,11 @@
+import '../../../../core/error/failure.dart';
 import '../../../../core/network/api_response.dart';
 import '../../../../core/network/api_transport.dart';
 import '../../domain/entities/auth_session.dart';
 import '../../domain/entities/auth_tokens.dart';
 import '../../domain/entities/auth_user.dart';
 import '../../domain/entities/device_identity.dart';
+import '../../domain/entities/email_verification.dart';
 import '../../domain/entities/legal_acceptance.dart';
 import '../../domain/entities/legal_document_versions.dart';
 import '../../domain/entities/oidc_provider.dart';
@@ -115,6 +117,20 @@ final class AuthRemoteDataSource {
         'device_name': device.displayName,
       },
     );
+    // Zone bắt xác minh email: `202 {verification_required, verification}`,
+    // không có token. Báo lên như lỗi có mã riêng để màn nhập mã xử lý.
+    final payload = jsonMap(envelopeData(response.data));
+    if (boolField(payload, const ['verification_required'])) {
+      final verification = jsonMap(field(payload, const ['verification']));
+      throw FailureException(
+        Failure(
+          kind: FailureKind.forbidden,
+          message: 'Hãy nhập mã xác minh đã gửi tới email của bạn.',
+          code: EmailVerificationErrorCode.required,
+          details: Map<String, Object?>.unmodifiable(verification),
+        ),
+      );
+    }
     return _authSessionFromResponse(response.data);
   }
 
@@ -248,6 +264,11 @@ LegalAcceptance _legalAcceptanceFromResponse(Object? value) {
   return result;
 }
 
+/// Kết quả đăng nhập dùng chung (`/auth/login`, `/auth/email/verify`, ...).
+AuthSession authSessionFromEnvelope(Object? value) {
+  return _authSessionFromResponse(value);
+}
+
 AuthSession _authSessionFromResponse(Object? value, {String? refreshToken}) {
   final map = envelopeItem(value, 'auth');
   final tokensMap = jsonMap(field(map, const ['tokens']));
@@ -285,6 +306,14 @@ AuthSession _authSessionFromResponse(Object? value, {String? refreshToken}) {
       'refresh_until',
       'refreshUntil',
     ]),
+    approvalStatus: nullableStringField(map, const [
+      'approval_status',
+      'approvalStatus',
+    ])?.toLowerCase(),
+    approvalExpiresAt: nullableDateTimeField(map, const [
+      'approval_expires_at',
+      'approvalExpiresAt',
+    ]),
   );
 }
 
@@ -320,5 +349,22 @@ UserSession _userSessionFromMap(JsonMap map) {
     ], fallback: DateTime.now().toUtc().add(const Duration(days: 1))),
     createdAt: dateTimeField(map, const ['created_at', 'createdAt']),
     revokedAt: nullableDateTimeField(map, const ['revoked_at', 'revokedAt']),
+    // Chỉ `is_current == true` (đúng kiểu bool) mới là máy đang dùng.
+    isCurrent: field(map, const ['is_current', 'isCurrent']) == true,
+    lastSeenAt: nullableDateTimeField(map, const [
+      'last_seen_at',
+      'lastSeenAt',
+    ]),
+    approvalStatus:
+        nullableStringField(map, const [
+          'approval_status',
+          'approvalStatus',
+        ])?.toLowerCase() ??
+        SessionApprovalStatus.approved,
+    authMethod: nullableStringField(map, const ['auth_method', 'authMethod']),
+    revokedReason: nullableStringField(map, const [
+      'revoked_reason',
+      'revokedReason',
+    ]),
   );
 }

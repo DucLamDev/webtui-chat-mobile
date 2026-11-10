@@ -227,8 +227,7 @@ final class WebSocketConversationRealtimeRepository
     if (controller == null || controller.isClosed) return;
     final channelIds = {
       '',
-      for (final room in _joinedRooms)
-        if (_channelIdOfRoom(room) case final channelId?) channelId,
+      for (final room in _joinedRooms) ?_channelIdOfRoom(room),
     };
     for (final channelId in channelIds) {
       controller.add(
@@ -586,12 +585,17 @@ final class ConversationRealtimeEventMapper {
       reason: nullableStringField(payload, const ['reason']),
       callSdp: jsonMap(field(signalPayload, const ['sdp'])),
       callCandidate: jsonMap(field(signalPayload, const ['candidate'])),
-      payload: type == ConversationRealtimeEventType.orderTicketUpdated
-          ? payload
-          : const {},
+      payload: _keepsPayload.contains(type) ? payload : const {},
     );
   }
 }
+
+/// Sự kiện ngoài hội thoại cần giữ payload gốc cho nơi xử lý.
+const _keepsPayload = {
+  ConversationRealtimeEventType.orderTicketUpdated,
+  ConversationRealtimeEventType.sessionRevoked,
+  ConversationRealtimeEventType.deviceApprovalRequested,
+};
 
 ConversationRealtimeEventType _eventType(String value) {
   return switch (value.trim()) {
@@ -621,6 +625,9 @@ ConversationRealtimeEventType _eventType(String value) {
     'ContactRequestCancelled' =>
       ConversationRealtimeEventType.contactRequestCancelled,
     'OrderTicketUpdated' => ConversationRealtimeEventType.orderTicketUpdated,
+    'SessionRevoked' => ConversationRealtimeEventType.sessionRevoked,
+    'DeviceApprovalRequested' =>
+      ConversationRealtimeEventType.deviceApprovalRequested,
     _ => ConversationRealtimeEventType.unknown,
   };
 }

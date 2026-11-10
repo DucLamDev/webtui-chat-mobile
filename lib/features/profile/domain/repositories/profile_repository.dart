@@ -8,6 +8,7 @@ final class UpdateProfileCommand {
     this.phoneNumber,
     this.locale,
     this.timezone,
+    this.title,
   });
 
   final String? displayName;
@@ -15,6 +16,9 @@ final class UpdateProfileCommand {
   final String? phoneNumber;
   final String? locale;
   final String? timezone;
+
+  /// Chức danh trong workspace hiện tại (Lõi 2.7); null = không đổi.
+  final String? title;
 }
 
 abstract interface class ProfileRepository {

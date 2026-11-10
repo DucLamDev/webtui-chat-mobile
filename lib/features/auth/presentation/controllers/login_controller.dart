@@ -5,17 +5,21 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../app/flavor/app_config.dart';
 import '../../../../app/providers/foundation_providers.dart';
+import '../../../../core/error/failure.dart';
 import '../../../../core/network/self_hosted_server_discovery.dart';
 import '../../../../core/network/self_hosted_server_discovery_client.dart';
 import '../../../../core/result/result.dart';
 import '../../../../core/security/instance_session_mutation_lock.dart';
 import '../../../../core/security/secure_key_value_store.dart';
 import '../../../../core/security/server_account_registry.dart';
+import '../../application/use_cases/email_verification_use_cases.dart';
 import '../../application/use_cases/login_use_case.dart';
 import '../../application/use_cases/register_use_case.dart';
 import '../../domain/entities/auth_session.dart';
+import '../../domain/entities/email_verification.dart';
 import '../../domain/entities/legal_document_versions.dart';
 import '../../domain/entities/oidc_provider.dart';
+import 'auth_flow_providers.dart';
 
 enum AuthFormMode { login, register }
 
@@ -35,11 +39,32 @@ final loginControllerProvider =
       final activeDiscovery = ref.read(activeServerDiscoveryProvider);
       final oidc = ref.read(oidcLoginUseCaseProvider);
       final config = ref.read(appConfigProvider);
+      final notice = ref.read(loginNoticeProvider);
+      final prefill = ref.read(loginPrefillProvider);
       final controller = LoginController(
         initialServer: activeDiscovery == null
-            ? ''
+            ? prefill?.domain?.trim() ?? ''
             : _serverInputFromUri(activeServer),
         initialDiscovery: activeDiscovery,
+        initialNotice: notice?.message,
+        initialInviteToken: prefill?.inviteToken,
+        loadRememberedIdentifier: () async {
+          final scope = ref.read(activeServerDiscoveryProvider)?.instanceScope;
+          if (scope == null) return null;
+          return ref
+              .read(serverAccountRegistryProvider)
+              .loginIdentifierFor(scope);
+        },
+        rememberIdentifier: (identifier) async {
+          final scope = ref.read(activeServerDiscoveryProvider)?.instanceScope;
+          if (scope == null) return;
+          await ref
+              .read(serverAccountRegistryProvider)
+              .rememberLoginIdentifier(
+                instanceScope: scope,
+                identifier: identifier,
+              );
+        },
         connectToServer: ref.read(serverConnectorProvider),
         login: (command) => ref.read(loginUseCaseProvider).execute(command),
         register: (command) =>
@@ -77,10 +102,20 @@ final loginControllerProvider =
         expectedTermsVersion: config.termsVersion,
         expectedPrivacyVersion: config.privacyPolicyVersion,
       );
+      if (notice != null) {
+        // Chỉ hiện một lần cho lần về màn đăng nhập này.
+        Future<void>.microtask(
+          () => ref.read(loginNoticeProvider.notifier).state = null,
+        );
+      }
+      ref.listen<LoginPrefill?>(loginPrefillProvider, (_, next) {
+        if (next != null) controller.applyPrefill(next);
+      });
       Future<void>.microtask(controller.loadRecentServers);
       if (activeDiscovery != null) {
         Future<void>.microtask(controller.resumeStoredSession);
         Future<void>.microtask(controller.refreshLegalDocumentVersions);
+        Future<void>.microtask(controller.loadRememberedIdentifier);
       }
       if (activeDiscovery?.capabilities.sso == true) {
         Future<void>.microtask(controller.loadOidcProviders);
@@ -116,6 +151,10 @@ final class LoginState {
     this.serverName,
     this.logoUrl,
     this.registrationMode,
+    this.noticeMessage,
+    this.prefillRevision = 0,
+    this.requiresDeviceApproval = false,
+    this.emailVerification,
   });
 
   final AuthFormMode mode;
@@ -144,6 +183,18 @@ final class LoginState {
   final String? serverName;
   final String? logoUrl;
   final String? registrationMode;
+
+  /// Lý do vừa bị đưa về đăng nhập (phiên bị thu hồi, phải đăng nhập lại...).
+  final String? noticeMessage;
+
+  /// Tăng khi điền sẵn dữ liệu để ô nhập dựng lại với giá trị mới.
+  final int prefillRevision;
+
+  /// Đăng nhập thành công nhưng phiên đang chờ duyệt thiết bị (2.3).
+  final bool requiresDeviceApproval;
+
+  /// Máy chủ yêu cầu nhập mã xác minh email (2.6); giao diện mở màn nhập mã.
+  final EmailVerificationTicket? emailVerification;
 
   bool get isLogin => mode == AuthFormMode.login;
 
@@ -198,8 +249,21 @@ final class LoginState {
     String? logoUrl,
     String? registrationMode,
     bool clearServer = false,
+    String? noticeMessage,
+    bool clearNotice = false,
+    int? prefillRevision,
+    bool? requiresDeviceApproval,
+    EmailVerificationTicket? emailVerification,
+    bool clearEmailVerification = false,
   }) {
     return LoginState(
+      noticeMessage: clearNotice ? null : noticeMessage ?? this.noticeMessage,
+      prefillRevision: prefillRevision ?? this.prefillRevision,
+      requiresDeviceApproval:
+          requiresDeviceApproval ?? this.requiresDeviceApproval,
+      emailVerification: clearEmailVerification
+          ? null
+          : emailVerification ?? this.emailVerification,
       mode: mode ?? this.mode,
       displayName: displayName ?? this.displayName,
       email: email ?? this.email,
@@ -269,6 +333,10 @@ final class LoginController extends StateNotifier<LoginState> {
     required Future<bool> Function() hasStoredSession,
     required String expectedTermsVersion,
     required String expectedPrivacyVersion,
+    String? initialNotice,
+    String? initialInviteToken,
+    Future<String?> Function()? loadRememberedIdentifier,
+    Future<void> Function(String identifier)? rememberIdentifier,
   }) : _connectToServer = connectToServer,
        _login = login,
        _register = register,
@@ -281,6 +349,8 @@ final class LoginController extends StateNotifier<LoginState> {
        _hasStoredSession = hasStoredSession,
        _expectedTermsVersion = expectedTermsVersion.trim(),
        _expectedPrivacyVersion = expectedPrivacyVersion.trim(),
+       _loadRememberedIdentifier = loadRememberedIdentifier,
+       _rememberIdentifier = rememberIdentifier,
        super(
          LoginState(
            domain: initialServer,
@@ -288,8 +358,67 @@ final class LoginController extends StateNotifier<LoginState> {
            serverName: initialDiscovery?.name,
            logoUrl: initialDiscovery?.logoUrl,
            registrationMode: initialDiscovery?.registrationMode,
+           noticeMessage:
+               initialNotice ??
+               (_cleanInviteToken(initialInviteToken).isEmpty
+                   ? null
+                   : _inviteNotice),
+           inviteToken: _cleanInviteToken(initialInviteToken),
          ),
        );
+
+  final Future<String?> Function()? _loadRememberedIdentifier;
+  final Future<void> Function(String identifier)? _rememberIdentifier;
+
+  /// Điền sẵn email / username đăng nhập gần nhất của máy chủ này (2.8).
+  Future<void> loadRememberedIdentifier() async {
+    final load = _loadRememberedIdentifier;
+    if (load == null || state.identifier.trim().isNotEmpty) return;
+    String? identifier;
+    try {
+      identifier = (await load())?.trim();
+    } on Object {
+      identifier = null;
+    }
+    if (!mounted ||
+        identifier == null ||
+        identifier.isEmpty ||
+        state.identifier.trim().isNotEmpty) {
+      return;
+    }
+    state = state.copyWith(
+      identifier: identifier,
+      prefillRevision: state.prefillRevision + 1,
+    );
+  }
+
+  /// Mở từ lời mời khi màn đăng nhập đang hiện: điền mã mời vào form đăng
+  /// ký (người đã có tài khoản cứ đăng nhập), giữ thông báo lời mời.
+  void applyPrefill(LoginPrefill prefill) {
+    if (!mounted || state.isLoading) return;
+    final token = _cleanInviteToken(prefill.inviteToken);
+    final domain = prefill.domain?.trim() ?? '';
+    state = state.copyWith(
+      inviteToken: token.isEmpty ? null : token,
+      domain: !state.serverConnected && domain.isNotEmpty ? domain : null,
+      noticeMessage: token.isEmpty ? null : _inviteNotice,
+      prefillRevision: state.prefillRevision + 1,
+    );
+  }
+
+  void clearEmailVerification() {
+    if (state.emailVerification != null) {
+      state = state.copyWith(clearEmailVerification: true);
+    }
+  }
+
+  Future<void> _rememberLoginIdentifier(String identifier) async {
+    try {
+      await _rememberIdentifier?.call(identifier);
+    } on Object {
+      // Chỉ để điền sẵn lần sau; lỗi lưu không ảnh hưởng đăng nhập.
+    }
+  }
 
   final Future<SelfHostedServerDiscovery> Function(String domain)
   _connectToServer;
@@ -418,6 +547,7 @@ final class LoginController extends StateNotifier<LoginState> {
       await loadOidcProviders();
       await refreshLegalDocumentVersions();
       await loadRecentServers();
+      await loadRememberedIdentifier();
       if (await _hasStoredSession()) {
         state = state.copyWith(succeeded: true);
       }
@@ -552,16 +682,45 @@ final class LoginController extends StateNotifier<LoginState> {
             ),
           );
 
+    final identifier = state.isLogin ? state.identifier : state.email;
     switch (result) {
-      case Success<AuthSession>():
-        state = state.copyWith(isLoading: false, succeeded: true);
-      case FailureResult<AuthSession>(failure: final failure):
+      case Success<AuthSession>(:final value):
+        await _rememberLoginIdentifier(identifier);
+        if (!mounted) return;
         state = state.copyWith(
           isLoading: false,
-          errorMessage: failure.message,
-          succeeded: false,
+          succeeded: true,
+          clearNotice: true,
+          requiresDeviceApproval: value.isPendingApproval,
         );
+      case FailureResult<AuthSession>(failure: final failure):
+        _applyAuthFailure(failure, identifier: identifier);
     }
+  }
+
+  /// Lỗi đăng nhập / đăng ký có mã riêng của Lõi 2: cần xác minh email thì mở
+  /// màn nhập mã, email ngoài tên miền cho phép thì báo rõ.
+  void _applyAuthFailure(Failure failure, {required String identifier}) {
+    if (failure.hasCode(EmailVerificationErrorCode.required)) {
+      final ticket = EmailVerificationTicket.fromJson(failure.details);
+      if (ticket != null) {
+        unawaited(_rememberLoginIdentifier(identifier));
+        state = state.copyWith(
+          isLoading: false,
+          succeeded: false,
+          clearError: true,
+          emailVerification: ticket,
+        );
+        return;
+      }
+    }
+    state = state.copyWith(
+      isLoading: false,
+      errorMessage: failure.hasCode(EmailVerificationErrorCode.domainNotAllowed)
+          ? emailDomainNotAllowedMessage(failure)
+          : failure.message,
+      succeeded: false,
+    );
   }
 
   Future<void> loadOidcProviders() async {
@@ -712,8 +871,13 @@ final class LoginController extends StateNotifier<LoginState> {
       remember: state.remember,
     );
     switch (result) {
-      case Success<AuthSession>():
-        state = state.copyWith(isLoading: false, succeeded: true);
+      case Success<AuthSession>(:final value):
+        state = state.copyWith(
+          isLoading: false,
+          succeeded: true,
+          clearNotice: true,
+          requiresDeviceApproval: value.isPendingApproval,
+        );
       case FailureResult<AuthSession>(failure: final failure):
         state = state.copyWith(
           isLoading: false,
@@ -722,6 +886,17 @@ final class LoginController extends StateNotifier<LoginState> {
         );
     }
   }
+}
+
+const _inviteNotice =
+    'Bạn đang mở một lời mời. Hãy đăng nhập, hoặc đăng ký với mã mời đã '
+    'điền sẵn, để tham gia workspace.';
+
+final _inviteTokenPattern = RegExp(r'^[A-Za-z0-9_-]{8,256}$');
+
+String _cleanInviteToken(String? value) {
+  final token = value?.trim() ?? '';
+  return _inviteTokenPattern.hasMatch(token) ? token : '';
 }
 
 Future<SelfHostedServerDiscovery> _connectToServer(

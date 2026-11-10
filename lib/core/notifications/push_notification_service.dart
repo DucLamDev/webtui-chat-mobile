@@ -542,7 +542,9 @@ final class PushNotificationService {
         target.callId?.trim().isNotEmpty == true) {
       unawaited(NativeIncomingCallService.endCall(target.callId!));
     }
-    if (target.canOpenConversation || target.deepLink != null) {
+    if (target.canOpenConversation ||
+        target.deepLink != null ||
+        target.isDeviceApprovalRequest) {
       controller.add(target);
     }
   }
@@ -625,7 +627,9 @@ NotificationTarget? scopedNotificationTargetIfCurrent({
     data: data,
   );
   if (!target.isBoundToInstance(instanceScope.instanceId) ||
-      (!target.canOpenConversation && target.deepLink == null)) {
+      (!target.canOpenConversation &&
+          target.deepLink == null &&
+          !target.isDeviceApprovalRequest)) {
     return null;
   }
   return target;

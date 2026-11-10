@@ -23,6 +23,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _phoneController = TextEditingController();
   final _localeController = TextEditingController();
   final _timezoneController = TextEditingController();
+  final _titleController = TextEditingController();
   String? _boundProfileId;
 
   @override
@@ -31,6 +32,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _phoneController.dispose();
     _localeController.dispose();
     _timezoneController.dispose();
+    _titleController.dispose();
     super.dispose();
   }
 
@@ -44,6 +46,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         _phoneController.text = profile.phoneNumber ?? '';
         _localeController.text = profile.locale;
         _timezoneController.text = profile.timezone;
+        _titleController.text = profile.work.title ?? '';
       }
     });
 
@@ -81,6 +84,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     phoneNumber: _phoneController.text,
                     locale: _localeController.text,
                     timezone: _timezoneController.text,
+                    title: _titleController.text,
                   ),
             icon: const Icon(Icons.check_rounded),
           ),
@@ -148,6 +152,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     color: WebTuiColors.textMuted,
                                   ),
                                 ),
+                                if (!profile.work.isEmpty) ...[
+                                  const SizedBox(height: WebTuiSpacing.xs),
+                                  Text(
+                                    profile.work.summary,
+                                    key: const Key('profile_work_summary'),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: WebTuiTypography.bodySmall.copyWith(
+                                      color: WebTuiColors.textSecondary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ],
                           ),
@@ -168,6 +185,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   label: 'Tên hiển thị',
                   controller: _displayNameController,
                   icon: Icons.badge_outlined,
+                ),
+                _ProfileField(
+                  label: 'Chức danh',
+                  controller: _titleController,
+                  icon: Icons.work_outline_rounded,
                 ),
                 _ProfileField(
                   label: 'Số điện thoại',

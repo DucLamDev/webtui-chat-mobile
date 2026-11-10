@@ -28,7 +28,11 @@ final class RedactingLogger {
         return '${match.group(1)}<redacted>';
       });
     }
-    return output;
+    // Link mời dùng token ngay trong path; không ghi token vào log HTTP.
+    return output.replaceAllMapped(
+      RegExp(r'(/invites?/)[^/\s?#]+', caseSensitive: false),
+      (match) => '${match.group(1)}<redacted>',
+    );
   }
 
   String _format(String level, String message, Map<String, Object?> context) {

@@ -3,6 +3,16 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.4.0 · 10/11/2026
+### Tính năng
+- Đăng nhập và quản lý thiết bị theo chính sách máy chủ
+  Quét QR để đăng nhập máy tính, xác nhận hoặc từ chối thiết bị mới, xác minh email, nhận lời mời và chọn
+  workspace. Hồ sơ hiển thị thêm chức danh, phòng ban, nơi làm và ngày vào công ty khi máy chủ hỗ trợ.
+### Sửa lỗi
+- Thu hồi máy khác không đăng xuất máy đang dùng
+  Nhận diện phiên hiện tại bằng thông tin máy chủ; dọn dữ liệu phiên khi bị thu hồi, giữ luồng chờ duyệt và
+  yêu cầu chọn rõ workspace khi tài khoản thuộc nhiều workspace.
+
 ## 1.3.0 · 02/11/2026
 ### Tính năng
 - Tên người gửi trong nhóm, giao việc có hạn, bảng trắng đủ công cụ, trả lời ticket khách

@@ -32,7 +32,30 @@ final class UpdateProfileUseCase {
         ),
       );
     }
-    return _repository.updateMe(command);
+    final title = command.title?.trim();
+    if (title != null && title.length > 120) {
+      return Future.value(
+        const FailureResult(
+          Failure(
+            kind: FailureKind.validation,
+            message: 'Chức danh tối đa 120 ký tự.',
+            code: 'PROFILE_TITLE_TOO_LONG',
+          ),
+        ),
+      );
+    }
+    return _repository.updateMe(
+      title == null || title == command.title
+          ? command
+          : UpdateProfileCommand(
+              displayName: command.displayName,
+              avatarUrl: command.avatarUrl,
+              phoneNumber: command.phoneNumber,
+              locale: command.locale,
+              timezone: command.timezone,
+              title: title,
+            ),
+    );
   }
 }
 

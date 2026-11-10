@@ -12,6 +12,8 @@ Future<Result<T>> guardResult<T>(
     return Success(await body());
   } on DioException catch (error) {
     return FailureResult(mapDioExceptionToFailure(error));
+  } on FailureException catch (error) {
+    return FailureResult(error.failure);
   } on Object catch (error) {
     return FailureResult(
       Failure(
