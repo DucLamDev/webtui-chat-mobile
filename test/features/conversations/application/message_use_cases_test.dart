@@ -36,6 +36,7 @@ final class _CapturingConversationRepository implements ConversationRepository {
     String? clientMessageId,
     String? parentId,
     bool silent = false,
+    Map<String, Object?> metadata = const {},
   }) async {
     sentBody = body;
     return Success(

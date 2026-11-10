@@ -176,6 +176,20 @@ flutter build apk --debug --flavor dev -t lib/main_dev.dart
 dựng shell và design tokens; Phase M2 thêm auth/session foundation và login
 entrypoint, chưa phụ thuộc backend/mock production trong widget test.
 
+
+
+## Tin nhắn nâng cao
+
+App đọc thẻ bot bản 1 và bản 2 (biểu đồ, sơ đồ, kế hoạch, bảng, biểu mẫu).
+Nút callback và gửi biểu mẫu chỉ hoạt động khi máy chủ công bố `rich_cards_v2`;
+máy chủ cũ vẫn hiển thị nội dung tin thường khi thẻ không hợp lệ. Xác nhận phê duyệt
+cần máy chủ có API phê duyệt tương ứng.
+
+Tin đang chạy dần nhận `MessageDelta`, bỏ đoạn trùng và tải lại khi thiếu thứ tự.
+Kết quả cuối là tin đầy đủ. Nút xem lời chép phụ thuộc khả năng `transcription`
+của máy chủ. Lịch sử ghi chú/bảng trắng hỗ trợ xem trước và khôi phục; xung đột
+với người sửa khác được báo để tải lại, không âm thầm ghi đè.
+
 ## Đăng nhập và quản lý thiết bị
 
 - Tính năng QR, duyệt thiết bị và xác minh email theo capability của máy chủ, không theo tên miền cố định.
@@ -204,3 +218,4 @@ Bảng trắng dùng tài liệu schema 2 chung với web, có hình học, nét
 ### Phiếu hỗ trợ khách hàng
 
 Mục phiếu hỗ trợ có danh sách, chi tiết, phản hồi và ảnh đính kèm, đồng bộ thay đổi qua kết nối thời gian thực. App hiển thị hành động theo quyền; máy chủ kiểm tra quyền cho mọi thao tác.
+

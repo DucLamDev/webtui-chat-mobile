@@ -22,6 +22,7 @@ import '../../../auth/domain/repositories/auth_token_repository.dart';
 import '../../application/use_cases/message_attachment_use_cases.dart';
 import '../../data/files/scoped_attachment_file_store.dart';
 import '../../domain/entities/chat_message.dart';
+import '../../domain/entities/message_voice.dart';
 
 Future<void> openMessageImageGallery(
   BuildContext context, {
@@ -299,11 +300,15 @@ class MessageVoiceAttachmentView extends ConsumerStatefulWidget {
   const MessageVoiceAttachmentView({
     required this.attachment,
     this.apiBaseUri,
+    this.voice,
     super.key,
   });
 
   final MessageAttachment attachment;
   final Uri? apiBaseUri;
+
+  /// `metadata.voice` của tin: hiện thời lượng và sóng âm trước khi tải tệp.
+  final MessageVoiceMetadata? voice;
 
   @override
   ConsumerState<MessageVoiceAttachmentView> createState() =>
@@ -551,6 +556,13 @@ class _MessageVoiceAttachmentViewState
         ? 0.0
         : (_position.inMilliseconds / _duration.inMilliseconds).clamp(0, 1);
     final width = (MediaQuery.sizeOf(context).width * 0.62).clamp(204, 254);
+    final metadataWaveform = widget.voice?.waveform ?? const <int>[];
+    final waveform = metadataWaveform.isEmpty
+        ? _waveform
+        : [for (final level in metadataWaveform) 4 + level * 24 / 100];
+    final knownDuration = _duration > Duration.zero
+        ? _duration
+        : widget.voice?.duration ?? Duration.zero;
     return SizedBox(
       width: width.toDouble(),
       child: DecoratedBox(
@@ -615,7 +627,7 @@ class _MessageVoiceAttachmentViewState
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        for (var index = 0; index < _waveform.length; index++)
+                        for (var index = 0; index < waveform.length; index++)
                           Expanded(
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
@@ -623,12 +635,12 @@ class _MessageVoiceAttachmentViewState
                               ),
                               child: DecoratedBox(
                                 decoration: BoxDecoration(
-                                  color: index / _waveform.length <= progress
+                                  color: index / waveform.length <= progress
                                       ? Colors.white
                                       : Colors.white.withValues(alpha: 0.42),
                                   borderRadius: BorderRadius.circular(2),
                                 ),
-                                child: SizedBox(height: _waveform[index]),
+                                child: SizedBox(height: waveform[index]),
                               ),
                             ),
                           ),
@@ -641,7 +653,7 @@ class _MessageVoiceAttachmentViewState
               Text(
                 _failed
                     ? '--:--'
-                    : _formatDuration(_playing ? _position : _duration),
+                    : _formatDuration(_playing ? _position : knownDuration),
                 style: WebTuiTypography.labelSmall.copyWith(
                   color: Colors.white,
                   fontFeatures: const [FontFeature.tabularFigures()],

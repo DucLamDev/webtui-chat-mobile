@@ -5,6 +5,14 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
 
 
 ## 1.4.0 · 10/11/2026
+### Tính năng
+- Hiển thị thẻ tin nhắn và thao tác ngay trong hội thoại
+  Thêm biểu đồ, sơ đồ, kế hoạch, bảng, nút bấm và biểu mẫu theo khả năng máy chủ công bố.
+- Theo dõi câu trả lời đang viết, xem lời chép và lịch sử tài liệu
+  Ghép đoạn trả lời theo thứ tự; hỗ trợ lời chép tin thoại và xem, khôi phục ghi chú hoặc bảng trắng.
+
+
+## 1.4.0 · 10/11/2026
 ### Quyền riêng tư trong trò chuyện
 - Tiếp tục lõi 3: My Note có cache, quyền nhận cuộc gọi và khoá ứng dụng theo thời gian không dùng, giữ nguyên màn gọi.
 - Hoàn thiện xác thực lại và cài đặt TOTP; gửi/xem tin bí mật qua API, không lưu nội dung vào draft hoặc outbox.
@@ -19,6 +27,7 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   Gửi lại tin chờ khi mở app, có mạng hoặc kết nối lại, theo thứ tự trong từng hội thoại và giữ mã chống gửi trùng.
   Tải lại dữ liệu khi mốc đồng bộ hết hạn, khử sự kiện trùng; dừng hẹn gửi lại khi app vào nền. Cần máy chủ hỗ trợ
   các trường và sự kiện mới để dùng đầy đủ xử lý cuộc gọi nhiều thiết bị.
+
 
 
 ## 1.3.0 · 02/11/2026

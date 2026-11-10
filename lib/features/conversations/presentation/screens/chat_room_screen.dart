@@ -24,15 +24,19 @@ import '../../application/use_cases/collaboration_task_use_cases.dart';
 import '../../domain/entities/call_session.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/conversation_summary.dart';
+import '../../domain/entities/message_voice.dart';
 import '../../domain/repositories/collaboration_task_repository.dart';
 import '../controllers/chat_room_controller.dart';
 import '../controllers/collaboration_task_controller.dart';
 import '../controllers/message_sender_directory.dart';
 import '../controllers/pending_chat_share_controller.dart';
 import '../widgets/collaboration_room_sheet.dart';
+import '../widgets/message_cards/message_card_view.dart';
+import '../widgets/message_cards/streaming_message_bubble.dart';
 import '../widgets/message_media_widgets.dart';
 import '../widgets/message_parts/secret_message_widgets.dart';
 import '../widgets/task_editor_sheet.dart';
+import '../widgets/voice_transcript_view.dart';
 import 'qr_scanner_screen.dart';
 import 'webrtc_call_screen.dart';
 
@@ -474,6 +478,9 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
             ? () => _showBlockedSharedContentGuidance(context)
             : controller.sendThreadDraft,
         onReply: controller.startReply,
+        onCardReply: interactionBlocked
+            ? null
+            : (text) => unawaited(controller.sendCardReply(text)),
         onReplyPrivately: (message) => interactionBlocked
             ? _showBlockedSharedContentGuidance(context)
             : unawaited(_replyPrivately(context, workspaceId, message)),
@@ -1183,6 +1190,7 @@ class _ChatRoomBody extends StatefulWidget {
     required this.onOpenLink,
     required this.onSendThread,
     required this.onReply,
+    required this.onCardReply,
     required this.onReplyPrivately,
     required this.blockedUserIds,
     required this.interactionBlocked,
@@ -1229,6 +1237,9 @@ class _ChatRoomBody extends StatefulWidget {
   final ValueChanged<String> onOpenLink;
   final VoidCallback onSendThread;
   final ValueChanged<ChatMessage> onReply;
+
+  /// Nút `reply` của thẻ bot gửi chữ vào kênh; `null` khi khung chat bị chặn.
+  final ValueChanged<String>? onCardReply;
   final ValueChanged<ChatMessage> onReplyPrivately;
   final Set<String> blockedUserIds;
   final bool interactionBlocked;
@@ -1278,6 +1289,10 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
         // Đang đọc tin cũ thì không kéo xuống khi có tin mới của người khác.
         _scheduleScrollToBottom(jump: firstLoad);
       }
+    }
+    if (!loadedOlder && _latestStreamingTextGrew(oldWidget.state)) {
+      // Tin trả lời dần dài thêm: đang ở cuối thì giữ ở cuối.
+      if (_isNearBottom()) _scheduleScrollToBottom(jump: true);
     }
     if (oldWidget.state.highlightedMessageId !=
         widget.state.highlightedMessageId) {
@@ -1498,6 +1513,7 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
                                       onReact: (emoji) =>
                                           widget.onReact(message, emoji),
                                       onRetryCall: widget.onRetryCall,
+                                      onCardReply: widget.onCardReply,
                                     ),
                                   ),
                                 ),
@@ -1555,6 +1571,16 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
     if (!_scrollController.hasClients) return true;
     final position = _scrollController.position;
     return position.maxScrollExtent - position.pixels < 150;
+  }
+
+  bool _latestStreamingTextGrew(ChatRoomState previous) {
+    final before = previous.messages;
+    final after = widget.state.messages;
+    if (before.isEmpty || after.isEmpty) return false;
+    final last = after.last;
+    return before.last.id == last.id &&
+        before.last.body.length != last.body.length &&
+        (last.isStreaming || before.last.isStreaming);
   }
 
   bool _latestMessageIsMine() {
@@ -3565,6 +3591,7 @@ class _MessageRow extends StatelessWidget {
     required this.onOpenLink,
     required this.onReact,
     required this.onRetryCall,
+    this.onCardReply,
   });
 
   final ChatMessage message;
@@ -3581,10 +3608,12 @@ class _MessageRow extends StatelessWidget {
   final ValueChanged<String> onOpenLink;
   final ValueChanged<String> onReact;
   final ValueChanged<CallMode> onRetryCall;
+  final ValueChanged<String>? onCardReply;
 
   @override
   Widget build(BuildContext context) {
     final showBody = text.trim().isNotEmpty || message.isDeleted;
+    final voice = message.voice;
     if (_isCallHistoryMessage(message)) {
       return _CallHistoryCard(
         detail: _callHistoryDetail(message),
@@ -3647,6 +3676,50 @@ class _MessageRow extends StatelessWidget {
         ],
       );
     }
+    final richCard = message.isDeleted ? null : message.card;
+    if (richCard != null) {
+      final card = MessageCardView(
+        message: message,
+        card: richCard,
+        timeLabel: timeLabel,
+        onReply: onCardReply,
+      );
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          SizedBox.square(
+            dimension: 30,
+            child: showAvatar
+                ? WebTuiAvatar(
+                    label: avatarLabel,
+                    imageUrl: avatarUrl,
+                    size: 30,
+                  )
+                : const SizedBox.shrink(),
+          ),
+          const SizedBox(width: WebTuiSpacing.sm),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (senderName != null) _SenderName(name: senderName!),
+                card,
+                if (reactions.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: WebTuiSpacing.xs),
+                    child: Text(
+                      reactions.join('  '),
+                      style: WebTuiTypography.labelSmall.copyWith(
+                        color: WebTuiColors.textSecondary,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
     if (outgoing) {
       return Align(
         alignment: Alignment.centerRight,
@@ -3668,6 +3741,7 @@ class _MessageRow extends StatelessWidget {
               _MessageAttachmentList(
                 attachments: message.attachments,
                 outgoing: true,
+                voice: voice,
               ),
           ],
         ),
@@ -3688,7 +3762,9 @@ class _MessageRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (senderName != null) _SenderName(name: senderName!),
-              if (showBody)
+              if (message.isStreaming && !message.isDeleted)
+                StreamingMessageBubble(text: message.body, timeLabel: timeLabel)
+              else if (showBody)
                 WebTuiMessageBubble(
                   text: text,
                   textSpan: message.isDeleted
@@ -3701,6 +3777,7 @@ class _MessageRow extends StatelessWidget {
                 _MessageAttachmentList(
                   attachments: message.attachments,
                   outgoing: false,
+                  voice: voice,
                 ),
             ],
           ),
@@ -4321,10 +4398,14 @@ class _MessageAttachmentList extends StatelessWidget {
   const _MessageAttachmentList({
     required this.attachments,
     required this.outgoing,
+    this.voice,
   });
 
   final List<MessageAttachment> attachments;
   final bool outgoing;
+
+  /// `metadata.voice` của tin (áp cho tệp thoại đầu tiên).
+  final MessageVoiceMetadata? voice;
 
   @override
   Widget build(BuildContext context) {
@@ -4345,6 +4426,10 @@ class _MessageAttachmentList extends StatelessWidget {
     ];
     final hiddenAttachmentCount =
         attachments.length - displayedAttachments.length;
+    final firstAudioId = displayedAttachments
+        .where((attachment) => attachment.isAudio)
+        .firstOrNull
+        ?.id;
     return Padding(
       padding: const EdgeInsets.only(top: WebTuiSpacing.xs),
       child: Column(
@@ -4408,9 +4493,19 @@ class _MessageAttachmentList extends StatelessWidget {
                       apiBaseUri: networkScope?.apiBaseUri,
                     )
                   : attachment.isAudio
-                  ? MessageVoiceAttachmentView(
-                      attachment: attachment,
-                      apiBaseUri: networkScope?.apiBaseUri,
+                  ? Column(
+                      crossAxisAlignment: outgoing
+                          ? CrossAxisAlignment.end
+                          : CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        MessageVoiceAttachmentView(
+                          attachment: attachment,
+                          apiBaseUri: networkScope?.apiBaseUri,
+                          voice: attachment.id == firstAudioId ? voice : null,
+                        ),
+                        VoiceTranscriptView(attachment: attachment),
+                      ],
                     )
                   : attachment.isVideo
                   ? MessageVideoAttachmentView(

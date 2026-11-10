@@ -84,6 +84,9 @@ final class ConversationRealtimeReducer {
                 messages: _setPinned(state.messages, messageId, false),
               ),
       ConversationRealtimeEventType.attachmentCreated => state,
+      // Ghép đoạn chữ do controller làm (cần tải lại tin khi thiếu đoạn).
+      ConversationRealtimeEventType.messageDelta => state,
+      ConversationRealtimeEventType.transcriptUpdated => state,
       ConversationRealtimeEventType.typingStarted => _typing(
         state,
         event.userId,

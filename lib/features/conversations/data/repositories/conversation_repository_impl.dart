@@ -342,6 +342,7 @@ final class ConversationRepositoryImpl implements ConversationRepository {
     String? clientMessageId,
     String? parentId,
     bool silent = false,
+    Map<String, Object?> metadata = const {},
   }) {
     return guardResult(
       () => _remote.sendMessage(
@@ -351,6 +352,7 @@ final class ConversationRepositoryImpl implements ConversationRepository {
         clientMessageId: clientMessageId,
         parentId: parentId,
         silent: silent,
+        metadata: metadata,
       ),
     );
   }

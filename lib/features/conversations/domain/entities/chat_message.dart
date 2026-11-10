@@ -1,3 +1,6 @@
+import 'message_card.dart';
+import 'message_voice.dart';
+
 final class ChatMessage {
   const ChatMessage({
     required this.id,
@@ -81,6 +84,28 @@ final class ChatMessage {
     return value < 0 ? 0 : value;
   }
 
+  /// Thẻ có cấu trúc (`metadata.card` bản 1 / 2); chỉ tin bot / sự kiện mới
+  /// được vẽ thành thẻ, tin người dùng giữ hiển thị như cũ.
+  MessageCard? get card => kind == 'bot' || kind == 'event'
+      ? messageCardFromMetadata(metadata)
+      : null;
+
+  /// Tin đang chạy dần (AI / bot gửi từng đoạn qua `MessageDelta`).
+  bool get isStreaming => metadata['streaming'] == true;
+
+  /// Seq cuối đã ghép vào `body` (`metadata.stream_seq`).
+  int? get streamSeq {
+    final raw = metadata['stream_seq'];
+    return raw is num && raw.isFinite ? raw.toInt() : null;
+  }
+
+  /// Tin chạy dần bị gián đoạn (`metadata.stream_error`).
+  bool get hasStreamError => metadata['stream_error'] == true;
+
+  /// `metadata.voice` của tin thoại (thời lượng, sóng âm).
+  MessageVoiceMetadata? get voice =>
+      MessageVoiceMetadata.fromMetadata(metadata);
+
   ChatMessage copyWith({
     String? body,
     DateTime? editedAt,
@@ -139,6 +164,7 @@ final class PickedMessageAttachment {
     required this.mimeType,
     required this.byteSize,
     required this.kind,
+    this.voice,
   });
 
   final String path;
@@ -146,6 +172,9 @@ final class PickedMessageAttachment {
   final String mimeType;
   final int byteSize;
   final MessageAttachmentKind kind;
+
+  /// Bản ghi âm vừa thu trong app: thời lượng / sóng âm gửi kèm tin.
+  final MessageVoiceMetadata? voice;
 }
 
 final class UploadedMessageFile {

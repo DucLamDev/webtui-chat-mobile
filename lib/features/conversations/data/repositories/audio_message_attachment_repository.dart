@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -7,6 +8,7 @@ import 'package:record/record.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
 import '../../domain/entities/chat_message.dart';
+import '../../domain/entities/message_voice.dart';
 import '../../domain/repositories/message_attachment_repository.dart';
 
 final class AudioMessageAttachmentRepository
@@ -16,9 +18,55 @@ final class AudioMessageAttachmentRepository
 
   final AudioRecorder _recorder;
   String? _activePath;
+  final Stopwatch _elapsed = Stopwatch();
+  final List<double> _levels = [];
+  StreamSubscription<Amplitude>? _amplitudeSubscription;
+
+  /// Lấy mẫu mức âm mỗi 100 ms (đủ cho 64 cột sóng âm); tối đa 1 giờ.
+  static const _amplitudeInterval = Duration(milliseconds: 100);
+  static const _maxLevelSamples = 36000;
 
   void dispose() {
+    _stopSampling();
     _recorder.dispose();
+  }
+
+  void _startSampling() {
+    _stopSampling();
+    _levels.clear();
+    _elapsed
+      ..reset()
+      ..start();
+    try {
+      _amplitudeSubscription = _recorder
+          .onAmplitudeChanged(_amplitudeInterval)
+          .listen(
+            (amplitude) {
+              if (_levels.length < _maxLevelSamples) {
+                _levels.add(amplitude.current);
+              }
+            },
+            // Máy không đọc được biên độ: chỉ gửi thời lượng, bỏ sóng âm.
+            onError: (_) {},
+          );
+    } on Object {
+      _amplitudeSubscription = null;
+    }
+  }
+
+  void _stopSampling() {
+    _elapsed.stop();
+    unawaited(_amplitudeSubscription?.cancel());
+    _amplitudeSubscription = null;
+  }
+
+  MessageVoiceMetadata _voiceMetadata() {
+    return MessageVoiceMetadata(
+      durationMs: _elapsed.elapsedMilliseconds
+          .clamp(0, maxVoiceDurationMs)
+          .toInt(),
+      waveform: voiceWaveformFromLevels(_levels),
+    );
   }
 
   @override
@@ -51,6 +99,7 @@ final class AudioMessageAttachmentRepository
         ),
         path: path,
       );
+      _startSampling();
       return const Success(null);
     } on Object catch (error) {
       return FailureResult(
@@ -68,6 +117,9 @@ final class AudioMessageAttachmentRepository
   Future<Result<PickedMessageAttachment?>> stop() async {
     try {
       final stoppedPath = await _recorder.stop();
+      _stopSampling();
+      final voice = _voiceMetadata();
+      _levels.clear();
       final path = stoppedPath ?? _activePath;
       _activePath = null;
       if (path == null || path.trim().isEmpty) {
@@ -96,6 +148,7 @@ final class AudioMessageAttachmentRepository
           mimeType: 'audio/mp4',
           byteSize: stat.size,
           kind: MessageAttachmentKind.audio,
+          voice: voice,
         ),
       );
     } on Object catch (error) {
@@ -114,6 +167,8 @@ final class AudioMessageAttachmentRepository
   Future<Result<void>> cancel() async {
     try {
       await _recorder.cancel();
+      _stopSampling();
+      _levels.clear();
       final path = _activePath;
       _activePath = null;
       if (path != null) {

@@ -11,6 +11,7 @@ import '../../../auth/domain/repositories/auth_token_repository.dart';
 import '../../domain/entities/call_session.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/conversation_realtime_event.dart';
+import '../../domain/entities/rich_message.dart';
 import '../../domain/repositories/conversation_repository.dart';
 
 final class WebSocketConversationRealtimeRepository
@@ -620,6 +621,38 @@ final class ConversationRealtimeEventMapper {
       callSdp: jsonMap(field(signalPayload, const ['sdp'])),
       callCandidate: jsonMap(field(signalPayload, const ['candidate'])),
 
+      payload:
+          type == ConversationRealtimeEventType.orderTicketUpdated ||
+              type == ConversationRealtimeEventType.transcriptUpdated
+          ? payload
+          : const {},
+      delta: type == ConversationRealtimeEventType.messageDelta
+          ? _messageDeltaFromPayload(payload)
+          : null,
+    );
+  }
+}
+
+/// `MessageDelta` thiếu id / seq không hợp lệ thì bỏ (không ghép được).
+MessageStreamDelta? _messageDeltaFromPayload(JsonMap payload) {
+  final messageId = nullableStringField(payload, const [
+    'message_id',
+    'messageId',
+  ]);
+  final rawSeq = field(payload, const ['seq']);
+  final seq =
+      rawSeq is num && rawSeq.isFinite && rawSeq == rawSeq.roundToDouble()
+      ? rawSeq.toInt()
+      : null;
+  final append = field(payload, const ['append']);
+  if (messageId == null || seq == null || seq < 1 || append is! String) {
+    return null;
+  }
+  return MessageStreamDelta(messageId: messageId, seq: seq, append: append);
+}
+
+
+
       payload: type == ConversationRealtimeEventType.orderTicketUpdated
           ? payload
           : const {},
@@ -679,6 +712,7 @@ const _keepsPayload = {
 };
 
 
+
 ConversationRealtimeEventType _eventType(String value) {
   return switch (value.trim()) {
     'MessageCreated' => ConversationRealtimeEventType.messageCreated,
@@ -689,6 +723,8 @@ ConversationRealtimeEventType _eventType(String value) {
     'MessageUnpinned' => ConversationRealtimeEventType.messageUnpinned,
     'ReactionChanged' => ConversationRealtimeEventType.reactionChanged,
     'AttachmentCreated' => ConversationRealtimeEventType.attachmentCreated,
+    'MessageDelta' => ConversationRealtimeEventType.messageDelta,
+    'TranscriptUpdated' => ConversationRealtimeEventType.transcriptUpdated,
     'TypingStarted' => ConversationRealtimeEventType.typingStarted,
     'TypingStopped' => ConversationRealtimeEventType.typingStopped,
     'CallInvited' => ConversationRealtimeEventType.callInvited,

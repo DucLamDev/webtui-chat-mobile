@@ -144,6 +144,7 @@ abstract interface class ConversationRepository {
     required String channelId,
   });
 
+  /// [metadata] gửi kèm tin (vd. `voice` của tin thoại); rỗng thì không gửi.
   Future<Result<ChatMessage>> sendMessage({
     required String workspaceId,
     required String channelId,
@@ -151,6 +152,7 @@ abstract interface class ConversationRepository {
     String? clientMessageId,
     String? parentId,
     bool silent = false,
+    Map<String, Object?> metadata = const {},
   });
 
   Future<Result<ChatMessage>> editMessage({

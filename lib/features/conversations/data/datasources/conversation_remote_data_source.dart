@@ -987,6 +987,7 @@ final class ConversationRemoteDataSource {
     String? clientMessageId,
     String? parentId,
     bool silent = false,
+    Map<String, Object?> metadata = const {},
   }) async {
     final response = await _api.post<Object>(
       '/api/v1/workspaces/${_e(workspaceId)}/channels/${_e(channelId)}/messages',
@@ -997,6 +998,7 @@ final class ConversationRemoteDataSource {
         'client_message_id': clientMessageId,
         'mentioned_user_ids': _mentionedUserIds(body),
         'silent': silent,
+        if (metadata.isNotEmpty) 'metadata': metadata,
       }),
       options: clientMessageId == null || clientMessageId.isEmpty
           ? null
@@ -1215,6 +1217,17 @@ final class ConversationRemoteDataSource {
     ).map(_fileFromMap).toList(growable: false);
   }
 }
+
+/// Đọc một tin từ JSON máy chủ (dùng chung cho các datasource khác).
+ChatMessage chatMessageFromJson(
+  JsonMap map, {
+  required String workspaceId,
+  required String channelId,
+}) => _messageFromMap(map, workspaceId, channelId);
+
+/// Đọc tài liệu cộng tác (ghi chú / bảng trắng) từ JSON máy chủ.
+CollaborationDocument collaborationDocumentFromJson(JsonMap map) =>
+    _collaborationDocumentFromMap(map);
 
 MessagePage _messagePageFromResponse(
   Object? response,

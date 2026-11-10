@@ -48,15 +48,28 @@ final class ConversationCacheDataSource {
     return _readConversationList(workspaceId: workspaceId, key: 'channels');
   }
 
+  /// Tin đang chạy dần (`metadata.streaming = true`) là bản dở: không lưu, để
+  /// khi mở lại không hiện nhầm bản dở như bản cuối. Bản cuối đến sau qua
+  /// `MessageUpdated` / lần tải tiếp theo.
   Future<void> saveLatestMessagePage({
     required String workspaceId,
     required String channelId,
     required MessagePage page,
   }) {
+    final finalPage = page.messages.any((message) => message.isStreaming)
+        ? MessagePage(
+            messages: [
+              for (final message in page.messages)
+                if (!message.isStreaming) message,
+            ],
+            nextCursor: page.nextCursor,
+            hasMore: page.hasMore,
+          )
+        : page;
     return _database.putKeyValue(
       scope: _instanceScope.localScope(_messageScope(workspaceId, channelId)),
       key: 'latest_page',
-      value: jsonEncode(_messagePageToJson(page)),
+      value: jsonEncode(_messagePageToJson(finalPage)),
     );
   }
 
@@ -89,6 +102,7 @@ final class ConversationCacheDataSource {
     required String channelId,
     required ChatMessage message,
   }) async {
+    if (message.isStreaming) return;
     final page = await readLatestMessagePage(
       workspaceId: workspaceId,
       channelId: channelId,

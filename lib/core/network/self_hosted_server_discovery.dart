@@ -178,6 +178,11 @@ final class SelfHostedServerDiscovery {
         accountDeletion: capabilities['account_deletion'] == true,
         legalAcceptance: capabilities['legal_acceptance'] == true,
 
+        richCardsV2: capabilities['rich_cards_v2'] == true,
+        aiStreaming: capabilities['ai_streaming'] == true,
+        transcription: capabilities['transcription'] == true,
+
+
         myNotes: capabilities['my_notes'] == true,
         secretMessages: capabilities['secret_messages'] == true,
         mfa: capabilities['mfa'] == true,
@@ -190,6 +195,7 @@ final class SelfHostedServerDiscovery {
         qrLogin: capabilities['qr_login'] == true,
         deviceApproval: capabilities['device_approval'] == true,
         emailVerification: capabilities['email_verification'] == true,
+
       ),
       logoUrl: logoUrl,
       zoneKind: _text(zone['kind']).toLowerCase(),
@@ -363,6 +369,11 @@ final class SelfHostedCapabilities {
     this.accountDeletion = false,
     this.legalAcceptance = false,
 
+    this.richCardsV2 = false,
+    this.aiStreaming = false,
+    this.transcription = false,
+
+
     this.myNotes = false,
     this.secretMessages = false,
     this.mfa = false,
@@ -370,6 +381,7 @@ final class SelfHostedCapabilities {
     this.qrLogin = false,
     this.deviceApproval = false,
     this.emailVerification = false,
+
 
   });
 
@@ -386,6 +398,17 @@ final class SelfHostedCapabilities {
   final bool blocking;
   final bool accountDeletion;
   final bool legalAcceptance;
+
+
+  /// Máy chủ hiểu thẻ bản 2, nút `callback` và biểu mẫu (thiếu cờ = `false`;
+  /// thẻ bản 2 đã có trong tin thì vẫn vẽ).
+  final bool richCardsV2;
+
+  /// Máy chủ phát `MessageDelta` cho tin trả lời dần.
+  final bool aiStreaming;
+
+  /// Máy chủ đã cấu hình dịch vụ chép lời tin thoại.
+  final bool transcription;
 
 
   /// Sổ ghi chú cá nhân My Note.
@@ -407,6 +430,7 @@ final class SelfHostedCapabilities {
   final bool emailVerification;
 
 
+
   Map<String, bool> toJson() {
     return {
       'self_hosted': true,
@@ -423,6 +447,11 @@ final class SelfHostedCapabilities {
       'blocking': blocking,
       'account_deletion': accountDeletion,
       'legal_acceptance': legalAcceptance,
+
+      'rich_cards_v2': richCardsV2,
+      'ai_streaming': aiStreaming,
+      'transcription': transcription,
+
 
       'my_notes': myNotes,
       'secret_messages': secretMessages,
