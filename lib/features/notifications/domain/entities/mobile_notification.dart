@@ -118,6 +118,9 @@ final class NotificationTarget {
     this.callMode,
     this.callStatus,
     this.callerName,
+    this.groupCallId,
+    this.meetingId,
+    this.channelName,
     this.organizationName,
     this.organizationLogoUrl,
     this.taskId,
@@ -147,6 +150,17 @@ final class NotificationTarget {
       'workspace_id',
       'workspaceId',
     ], fallback: linkTarget?.workspaceId ?? workspaceId);
+    final payloadEventType = _firstString(data, const [
+      'event_type',
+      'eventType',
+    ]);
+    // Lõi 7: gọi nhóm có đổ chuông dùng `group_call_id` làm mã cuộc gọi gốc.
+    final isGroupCallPayload =
+        payloadEventType?.toLowerCase().startsWith('group_call_') == true;
+    final groupCallId = _firstString(data, const [
+      'group_call_id',
+      'groupCallId',
+    ]);
     final type = _firstString(data, const [
       'type',
       'notification_type',
@@ -183,13 +197,30 @@ final class NotificationTarget {
         'messageId',
       ], fallback: messageId ?? linkTarget?.messageId),
       deepLink: linkTarget?.deepLink,
-      targetType: _firstString(data, const [
-        'target_type',
-        'targetType',
-      ], fallback: linkTarget?.targetType),
-      eventType: _firstString(data, const ['event_type', 'eventType']),
-      callId: _firstString(data, const ['call_id', 'callId']),
-      callMode: _firstString(data, const ['mode', 'call_mode', 'callMode']),
+      targetType: _firstString(
+        data,
+        const ['target_type', 'targetType'],
+        fallback:
+            linkTarget?.targetType ?? (isGroupCallPayload ? 'call' : null),
+      ),
+      eventType: payloadEventType,
+      callId: _firstString(data, const [
+        'call_id',
+        'callId',
+      ], fallback: isGroupCallPayload ? groupCallId : null),
+      groupCallId: isGroupCallPayload ? groupCallId : null,
+      meetingId: isGroupCallPayload
+          ? _firstString(data, const ['meeting_id', 'meetingId'])
+          : null,
+      channelName: isGroupCallPayload
+          ? _firstString(data, const ['channel_name', 'channelName'])
+          : null,
+      callMode: _firstString(data, [
+        'mode',
+        'call_mode',
+        'callMode',
+        if (isGroupCallPayload) 'kind',
+      ]),
       callStatus: _firstString(data, const [
         'status',
         'call_status',
@@ -281,6 +312,12 @@ final class NotificationTarget {
   final String? callMode;
   final String? callStatus;
   final String? callerName;
+
+  /// Gọi nhóm (Lõi 7): mã cuộc gọi nhóm, cuộc họp và tên kênh; [callId] trùng
+  /// [groupCallId] để dùng chung lớp chuông gốc.
+  final String? groupCallId;
+  final String? meetingId;
+  final String? channelName;
   final String? organizationName;
   final String? organizationLogoUrl;
 
@@ -361,6 +398,18 @@ final class NotificationTarget {
     return payloadInstanceId.isNotEmpty &&
         payloadInstanceId == activeInstanceId.trim().toLowerCase();
   }
+
+  /// Push / chuông gốc mời vào cuộc gọi nhóm (`group_call_invite`).
+  bool get isGroupCallInvite =>
+      eventType?.trim().toLowerCase() == 'group_call_invite' &&
+      groupCallId?.trim().isNotEmpty == true;
+
+  /// Hết đổ chuông cuộc gọi nhóm (`group_call_cancel`).
+  bool get isGroupCallCancel =>
+      eventType?.trim().toLowerCase() == 'group_call_cancel' &&
+      groupCallId?.trim().isNotEmpty == true;
+
+  bool get isGroupCall => isGroupCallInvite || isGroupCallCancel;
 
   bool get isIncomingCall =>
       targetType == 'call' &&

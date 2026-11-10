@@ -53,7 +53,8 @@ final class CollaborationSettings {
 
   bool get isDirect => channelType == 'direct';
   bool get canOpenMeeting =>
-      meetingBaseUrl?.isNotEmpty == true && meetingRoomKey?.isNotEmpty == true;
+      meetingRoomKey?.isNotEmpty == true &&
+      (meetingBaseUrl?.isNotEmpty == true || meetingProvider == 'livekit');
 }
 
 final class PublicConversationLink {

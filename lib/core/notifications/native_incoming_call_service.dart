@@ -8,6 +8,8 @@ import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../features/conversations/domain/entities/call_device_routing.dart';
+import '../../features/meetings/domain/meeting_models.dart'
+    show groupCallRingTitle;
 import '../../features/notifications/domain/entities/mobile_notification.dart';
 import '../security/instance_scope.dart';
 import '../security/scoped_device_id.dart';
@@ -326,8 +328,17 @@ final class NativeIncomingCallService {
     if (await targetMatchesPersistedActiveInstance(target) != true) {
       return;
     }
-    if (target.isIncomingCall) {
+    if (target.isIncomingCall || target.isGroupCallInvite) {
       await showIncomingCall(target);
+      return;
+    }
+    if (target.isGroupCallCancel) {
+      // Chỉ tắt chuông còn đang đổ: không đụng cuộc gọi nhóm máy này đã nhận.
+      await endCallIfActive(
+        target.callId!,
+        remoteEnded: true,
+        incomingOnly: true,
+      );
       return;
     }
     if (target.isCallAnsweredElsewhere) {
@@ -406,7 +417,8 @@ final class NativeIncomingCallService {
         raw['isAccepted'] == true ||
         raw['accepted'] == true ||
         extra['status']?.toString().trim().toLowerCase() == 'accepted';
-    return eventType == 'call_invite' && !accepted;
+    return (eventType == 'call_invite' || eventType == 'group_call_invite') &&
+        !accepted;
   }
 
   /// Mã thiết bị của instance đang hoạt động, đọc thẳng từ secure storage để
@@ -426,7 +438,7 @@ final class NativeIncomingCallService {
     final callId = target.callId?.trim();
     if (callId == null ||
         callId.isEmpty ||
-        !target.isIncomingCall ||
+        !(target.isIncomingCall || target.isGroupCallInvite) ||
         await targetMatchesPersistedActiveInstance(target) != true) {
       return;
     }
@@ -436,6 +448,7 @@ final class NativeIncomingCallService {
     if (instanceId == null) return;
     _invalidatedInstanceIds.remove(instanceId);
     final isVideo = normalizedMode == 'video';
+    final isGroup = target.isGroupCallInvite;
     final callerName = _callerName(target);
     final activeServerBaseUrl = await _readActiveServerBaseUrl();
     final extra = <String, dynamic>{
@@ -445,8 +458,14 @@ final class NativeIncomingCallService {
       'mode': normalizedMode,
       'status': 'ringing',
       'target_type': 'call',
-      'event_type': 'call_invite',
-      'caller_name': callerName,
+      'event_type': isGroup ? 'group_call_invite' : 'call_invite',
+      // Tên người gọi gốc; dòng "đang gọi nhóm" chỉ ghép khi hiển thị.
+      'caller_name': target.callerName?.trim() ?? callerName,
+      if (isGroup) ...{
+        'group_call_id': callId,
+        'meeting_id': target.meetingId ?? '',
+        'channel_name': target.channelName ?? '',
+      },
       'instance_id': target.instanceId,
       'server_base_url': ?activeServerBaseUrl,
       if (target.organizationName != null) 'app_name': target.organizationName,
@@ -826,6 +845,7 @@ final class NativeIncomingCallService {
     }
     final status = target.callStatus?.trim().toLowerCase();
     return target.eventType == 'call_ended' ||
+        target.isGroupCallCancel ||
         status == 'rejected' ||
         status == 'cancelled' ||
         status == 'canceled' ||
@@ -835,6 +855,9 @@ final class NativeIncomingCallService {
 
   static String _callerName(NotificationTarget target) {
     final callerName = target.callerName?.trim();
+    if (target.isGroupCallInvite) {
+      return groupCallRingTitle(callerName ?? '', target.channelName ?? '');
+    }
     if (callerName != null && callerName.isNotEmpty) {
       return callerName;
     }
@@ -1082,6 +1105,9 @@ final class _BackgroundCallActionClient {
     if (binding == null) return false;
     final callId = action.target.callId?.trim() ?? '';
     if (callId.isEmpty) return false;
+    if (action.target.isGroupCall) {
+      return _applyGroupCall(binding, action, callId);
+    }
 
     var lookup = await _lookup(binding, callId);
     if (lookup.state == _CallLookup.notFound || lookup.state.isTerminal) {
@@ -1151,6 +1177,34 @@ final class _BackgroundCallActionClient {
         lookup.state.isTerminal ||
         (action.type == NativeIncomingCallActionType.accept &&
             lookup.state.isActive);
+  }
+
+  /// Cuộc gọi nhóm: chỉ "từ chối" cần báo máy chủ (ngừng đổ chuông mọi máy của
+  /// người này). Hết giờ / kết thúc không cần gọi gì: máy chủ tự hết đổ chuông.
+  Future<bool> _applyGroupCall(
+    _BackgroundServerBinding binding,
+    NativeIncomingCallAction action,
+    String groupCallId,
+  ) async {
+    if (action.type != NativeIncomingCallActionType.decline) return true;
+    final channelId = action.target.channelId?.trim() ?? '';
+    if (channelId.isEmpty) return true;
+    final response = await _authorizedRequest(
+      binding,
+      method: 'POST',
+      path:
+          '/api/v1/workspaces/${Uri.encodeComponent(binding.workspaceId)}/'
+          'channels/${Uri.encodeComponent(channelId)}/group-calls/'
+          '${Uri.encodeComponent(groupCallId)}/decline',
+      data: const <String, Object?>{},
+    );
+    final status = response?.statusCode ?? 0;
+    // 404 / 403 / 409 / 422: cuộc gọi đã hết hoặc không còn áp dụng, bỏ hành động.
+    return response?.isSuccess == true ||
+        status == 404 ||
+        status == 403 ||
+        status == 409 ||
+        status == 422;
   }
 
   Future<_BackgroundServerBinding?> _bindingFor(

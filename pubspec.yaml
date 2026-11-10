@@ -74,6 +74,7 @@ dependencies:
   open_filex: ^4.7.0
   mobile_scanner: ^7.4.0
   receive_sharing_intent: 1.8.1
+  livekit_client: ^2.13.2
 
 dev_dependencies:
   flutter_test:

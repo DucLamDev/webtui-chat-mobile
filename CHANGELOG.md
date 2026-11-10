@@ -3,6 +3,17 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.13.0 · 11/11/2026
+### Tính năng
+- Họp LiveKit và gọi cả nhóm trên app
+  Khi máy chủ bật họp LiveKit, app vào họp ngay trong app: xem lưới hình của mọi người, bật / tắt micro, camera, đổi
+  camera trước / sau, chuyển loa, rời phòng; mất kết nối thì có nút thử lại, thiếu quyền micro / camera thì app giải
+  thích cách cấp. Họp Jitsi vẫn mở bằng trình duyệt như cũ, và gửi kèm vé vào phòng khi máy chủ bật chế độ vé. Khi
+  máy chủ bật gọi nhóm, người quản lý kênh có nút "Gọi cả nhóm" trong phòng cộng tác. Các thành viên khác nhận
+  chuông "X đang gọi nhóm Y" như cuộc gọi thường: trên iPhone qua màn hình cuộc gọi của máy, trên Android qua thông
+  báo cuộc gọi. Nhận thì vào thẳng phòng họp, từ chối thì máy khác của mình cũng thôi đổ chuông, người gọi huỷ thì
+  chuông tắt. Máy chủ cũ chưa có các tính năng này thì app giữ nguyên như trước. Chưa thử trên iPhone và Android thật.
+
 ## 1.12.0 · 10/11/2026
 ### Tính năng
 - Hộp thư khách trên app

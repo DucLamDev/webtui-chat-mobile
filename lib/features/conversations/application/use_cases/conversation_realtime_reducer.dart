@@ -112,7 +112,10 @@ final class ConversationRealtimeReducer {
       ConversationRealtimeEventType.callAnsweredElsewhere ||
       ConversationRealtimeEventType.contactRequestCreated ||
       ConversationRealtimeEventType.contactRequestUpdated ||
-      ConversationRealtimeEventType.contactRequestCancelled => state,
+      ConversationRealtimeEventType.contactRequestCancelled ||
+      ConversationRealtimeEventType.groupCallStarted ||
+      ConversationRealtimeEventType.groupCallRingStopped ||
+      ConversationRealtimeEventType.groupCallEnded => state,
       ConversationRealtimeEventType.reconnected ||
       ConversationRealtimeEventType.resyncRequired => state,
       ConversationRealtimeEventType.orderTicketUpdated ||

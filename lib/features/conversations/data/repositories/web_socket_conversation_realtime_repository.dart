@@ -669,6 +669,9 @@ final class ConversationRealtimeEventMapper {
 /// Sự kiện cần giữ payload gốc cho nơi xử lý (ticket, bản ghi giọng nói,
 /// phiên bị thu hồi, thiết bị chờ duyệt).
 const _keepsPayload = {
+  ConversationRealtimeEventType.groupCallStarted,
+  ConversationRealtimeEventType.groupCallRingStopped,
+  ConversationRealtimeEventType.groupCallEnded,
   ConversationRealtimeEventType.orderTicketUpdated,
   ConversationRealtimeEventType.transcriptUpdated,
   ConversationRealtimeEventType.sessionRevoked,
@@ -748,6 +751,10 @@ ConversationRealtimeEventType _eventType(String value) {
     'CallMissed' => ConversationRealtimeEventType.callMissed,
     'CallAnsweredElsewhere' =>
       ConversationRealtimeEventType.callAnsweredElsewhere,
+    'GroupCallStarted' => ConversationRealtimeEventType.groupCallStarted,
+    'GroupCallRingStopped' =>
+      ConversationRealtimeEventType.groupCallRingStopped,
+    'GroupCallEnded' => ConversationRealtimeEventType.groupCallEnded,
     'ResyncRequired' => ConversationRealtimeEventType.resyncRequired,
     'ContactRequestCreated' =>
       ConversationRealtimeEventType.contactRequestCreated,

@@ -403,6 +403,9 @@ import flutter_callkit_incoming
     }
 
     var info = payload.dictionaryPayload
+    // Gọi nhóm (Lõi 7): `group_call_invite` / `group_call_cancel` dùng `group_call_id` làm mã cuộc gọi gốc.
+    let eventTypeValue = (info["event_type"] as? String)?.lowercased()
+    let isGroupCall = eventTypeValue == "group_call_invite" || eventTypeValue == "group_call_cancel"
     let defaults = UserDefaults.standard
     let payloadInstanceID = info["instance_id"] as? String
     guard
@@ -417,7 +420,8 @@ import flutter_callkit_incoming
       payloadInstanceID == activeInstanceID,
       let activeOrigin = defaults.string(forKey: activeInstanceOriginKey),
       canonicalHTTPSOrigin(activeOrigin) == activeOrigin,
-      let callID = info["call_id"] as? String,
+      let callID = (info["call_id"] as? String)
+        ?? (isGroupCall ? (info["group_call_id"] as? String) : nil),
       !callID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
       let workspaceID = info["workspace_id"] as? String,
       !workspaceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -425,8 +429,15 @@ import flutter_callkit_incoming
       completion()
       return
     }
-    let caller = (info["body"] as? String) ?? (info["nameCaller"] as? String) ?? "Cuộc gọi đến"
-    let mode = (info["mode"] as? String)?.lowercased() ?? "audio"
+    var caller = (info["body"] as? String) ?? (info["nameCaller"] as? String) ?? "Cuộc gọi đến"
+    var mode = (info["mode"] as? String)?.lowercased() ?? "audio"
+    if isGroupCall {
+      let callerName = (info["caller_name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+      let channelName = (info["channel_name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+      let who = callerName.isEmpty ? "Một thành viên" : callerName
+      caller = channelName.isEmpty ? "\(who) đang gọi nhóm" : "\(who) đang gọi nhóm \(channelName)"
+      mode = ((info["kind"] as? String)?.lowercased() == "video") ? "video" : "audio"
+    }
     info["id"] = callID
     info["workspace_id"] = workspaceID
     info["nameCaller"] = caller
@@ -435,6 +446,10 @@ import flutter_callkit_incoming
     info["type"] = mode == "video" ? 1 : 0
     info["duration"] = 30000
     var extra = payload.dictionaryPayload
+    if isGroupCall {
+      extra["call_id"] = callID
+      extra["mode"] = mode
+    }
     extra["instance_id"] = payloadInstanceID
     extra["server_base_url"] = activeOrigin
     info["instance_id"] = payloadInstanceID
@@ -448,7 +463,7 @@ import flutter_callkit_incoming
         args[key] = value
       }
     }
-    if payloadString(info, "call_action")?.lowercased() == "cancel" {
+    if payloadString(info, "call_action")?.lowercased() == "cancel" || eventTypeValue == "group_call_cancel" {
       reportCancelledCall(args: args, payload: info, callID: callID, completion: completion)
       return
     }
@@ -477,8 +492,16 @@ import flutter_callkit_incoming
     var cancelArgs = args
     cancelArgs["missedCallNotification"] = ["showNotification": false]
     let eventType = payloadString(payload, "event_type")?.lowercased()
-    let endReason = payloadString(payload, "end_reason")?.lowercased()
-      ?? (eventType == "call_answered_elsewhere" ? "answered_elsewhere" : "ended")
+    // group_call_cancel mang `reason`: accepted_elsewhere | declined | timeout | ended.
+    let groupReason = eventType == "group_call_cancel" ? payloadString(payload, "reason")?.lowercased() : nil
+    let defaultEndReason: String
+    switch groupReason {
+    case "accepted_elsewhere": defaultEndReason = "answered_elsewhere"
+    case "declined": defaultEndReason = "rejected"
+    case "timeout": defaultEndReason = "missed"
+    default: defaultEndReason = eventType == "call_answered_elsewhere" ? "answered_elsewhere" : "ended"
+    }
+    let endReason = payloadString(payload, "end_reason")?.lowercased() ?? defaultEndReason
     let answeredHere = endReason == "answered_elsewhere"
       && isCallAnsweredOnThisDevice(
         callID: callID,

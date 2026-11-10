@@ -184,6 +184,37 @@ void main() {
     },
   );
 
+  test('capabilities livekit / group_calls: thiếu = false, bật thì giữ', () {
+    SelfHostedServerDiscovery parse(Map<String, Object?> extra) {
+      final payload = _payload(files: true, calls: true);
+      final discovery =
+          (payload['data']! as Map<String, Object?>)['discovery']!
+              as Map<String, Object?>;
+      discovery['capabilities'] = <String, Object?>{
+        ...(discovery['capabilities']! as Map<String, Object?>),
+        ...extra,
+      };
+      return SelfHostedServerDiscovery.fromApiResponse(
+        payload: payload,
+        requestedServer: Uri.parse('https://chat.company.example'),
+        mobileVersion: '1.2.0',
+      );
+    }
+
+    final off = parse(const {});
+    expect(off.capabilities.livekit, isFalse);
+    expect(off.capabilities.groupCalls, isFalse);
+    final on = parse(const {'livekit': true, 'group_calls': true});
+    expect(on.capabilities.livekit, isTrue);
+    expect(on.capabilities.groupCalls, isTrue);
+    final restored = SelfHostedServerDiscovery.fromStorageSnapshot(
+      encodedSnapshot: on.toStorageSnapshot(),
+      mobileVersion: '1.2.0',
+    );
+    expect(restored.capabilities.livekit, isTrue);
+    expect(restored.capabilities.groupCalls, isTrue);
+  });
+
   test('restores every capability from a validated cold-start snapshot', () {
     final discovery = SelfHostedServerDiscovery.fromApiResponse(
       payload: _payload(files: false, calls: false),

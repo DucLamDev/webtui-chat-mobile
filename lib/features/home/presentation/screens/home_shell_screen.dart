@@ -37,6 +37,10 @@ import '../../../conversations/presentation/screens/workspace_tools_screen.dart'
 import '../../../conversations/presentation/widgets/conversation_home_views.dart';
 import '../../../inbox/presentation/screens/inbox_list_screen.dart'
     show inboxConversationLocation;
+import '../../../meetings/application/group_call_coordinator.dart';
+import '../../../meetings/application/meeting_providers.dart';
+import '../../../meetings/domain/meeting_models.dart';
+import '../../../meetings/presentation/group_call_presenter.dart';
 import '../../../notifications/domain/entities/mobile_notification.dart';
 import '../../../notifications/presentation/controllers/notification_center_controller.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
@@ -122,6 +126,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   bool _compactMode = false;
   bool _networkDegraded = false;
   String? _activeIncomingCallId;
+  GroupCallCoordinator? _groupCallCoordinator;
   String? _ringingDialogCallId;
   ValueNotifier<bool>? _ringingDialogDismiss;
   ({String scopeId, String deviceId})? _callDeviceId;
@@ -825,6 +830,8 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       }
       if (target.isDeviceApprovalRequest) {
         _openDeviceApprovalReview(target.sessionId);
+      } else if (_handleGroupCallTarget(target)) {
+        // Gọi nhóm: chuông / tắt chuông do bộ điều phối xử lý.
       } else if (target.isIncomingCall) {
         unawaited(_showIncomingCall(target));
       } else {
@@ -847,6 +854,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         _openDeviceApprovalReview(target.sessionId);
         return;
       }
+      if (_handleGroupCallTarget(target)) return;
       if (target.isIncomingCall) {
         unawaited(_showIncomingCall(target));
         return;
@@ -1015,6 +1023,14 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           await NativeIncomingCallService.endCall(callId);
         }
         await NativeIncomingCallService.acknowledge(action);
+        return;
+      }
+      if (action.target.isGroupCall) {
+        if (await _handleNativeGroupCallAction(action)) {
+          await NativeIncomingCallService.acknowledge(action);
+        } else {
+          NativeIncomingCallService.retryLater(action);
+        }
         return;
       }
       final handled = switch (action.type) {
@@ -1239,6 +1255,9 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
             ref.invalidate(notificationCenterControllerProvider(workspaceId));
             return;
           }
+          if (_handleGroupCallEvent(event)) {
+            return;
+          }
           if (_handleRemoteCallChange(event)) {
             return;
           }
@@ -1262,6 +1281,91 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           unawaited(_showIncomingCall(target));
         });
     _startIncomingCallPolling(workspaceId);
+  }
+
+  GroupCallCoordinator get _groupCalls {
+    return _groupCallCoordinator ??= GroupCallCoordinator(
+      api: ref.read(meetingApiProvider),
+      presenter: ShellGroupCallPresenter(
+        context: () => mounted ? context : null,
+        api: ref.read(meetingApiProvider),
+        launcher: ref.read(externalUrlLauncherProvider),
+        endNativeRinging: (id) => NativeIncomingCallService.endCallIfActive(
+          id,
+          remoteEnded: true,
+          incomingOnly: true,
+        ),
+        endNativeCall: NativeIncomingCallService.endCall,
+      ),
+    );
+  }
+
+  GroupCall _groupCallFromTarget(NotificationTarget target) {
+    return GroupCall(
+      id: target.groupCallId?.trim() ?? '',
+      workspaceId: target.workspaceId,
+      channelId: target.channelId?.trim() ?? '',
+      meetingId: target.meetingId?.trim() ?? '',
+      kind: target.callMode?.trim().toLowerCase() == 'video'
+          ? 'video'
+          : 'audio',
+      status: GroupCallStatus.ringing,
+      startedByName: target.callerName?.trim() ?? '',
+      channelName: target.channelName?.trim() ?? '',
+    );
+  }
+
+  /// Push `group_call_invite` / `group_call_cancel`. Trả `true` khi là gọi nhóm.
+  bool _handleGroupCallTarget(NotificationTarget target) {
+    if (target.isGroupCallInvite) {
+      unawaited(_groupCalls.handleStarted(_groupCallFromTarget(target)));
+      return true;
+    }
+    if (target.isGroupCallCancel) {
+      unawaited(_groupCalls.handleStopped(target.groupCallId!));
+      return true;
+    }
+    return false;
+  }
+
+  /// WS `GroupCallStarted` / `GroupCallRingStopped` / `GroupCallEnded`.
+  bool _handleGroupCallEvent(ConversationRealtimeEvent event) {
+    switch (event.type) {
+      case ConversationRealtimeEventType.groupCallStarted:
+        unawaited(_groupCalls.handleStarted(GroupCall.fromMap(event.payload)));
+        return true;
+      case ConversationRealtimeEventType.groupCallRingStopped:
+        unawaited(
+          _groupCalls.handleStopped(
+            event.payload['group_call_id']?.toString() ?? '',
+          ),
+        );
+        return true;
+      case ConversationRealtimeEventType.groupCallEnded:
+        unawaited(
+          _groupCalls.handleStopped(GroupCall.fromMap(event.payload).id),
+        );
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  /// Hành động từ chuông gốc (CallKit / thông báo Android) của gọi nhóm. Trả
+  /// `true` khi đã xử lý xong để xác nhận hành động; `false` để thử lại.
+  Future<bool> _handleNativeGroupCallAction(
+    NativeIncomingCallAction action,
+  ) async {
+    final target = action.target;
+    if (!mounted || !target.isGroupCallInvite) return true;
+    final call = _groupCallFromTarget(target);
+    return switch (action.type) {
+      NativeIncomingCallActionType.accept => _groupCalls.accept(call),
+      NativeIncomingCallActionType.decline => _groupCalls.decline(call),
+      // Hết giờ / kết thúc giao diện gốc: máy chủ tự dừng chuông, không báo gì.
+      NativeIncomingCallActionType.timeout ||
+      NativeIncomingCallActionType.ended => Future.value(true),
+    };
   }
 
   /// Cuộc gọi đang đổ chuông trên máy này kết thúc vì lý do phía máy chủ:
