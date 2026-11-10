@@ -124,6 +124,10 @@ import '../../features/customer_tickets/data/repositories/image_picker_customer_
 import '../../features/customer_tickets/data/repositories/public_customer_ticket_image_repository.dart';
 import '../../features/customer_tickets/data/repositories/web_socket_customer_ticket_realtime_repository.dart';
 import '../../features/customer_tickets/domain/repositories/customer_ticket_repository.dart';
+import '../../features/inbox/data/datasources/inbox_remote_data_source.dart';
+import '../../features/inbox/data/repositories/inbox_repository_impl.dart';
+import '../../features/inbox/data/repositories/web_socket_inbox_realtime_repository.dart';
+import '../../features/inbox/domain/repositories/inbox_repository.dart';
 import '../../features/mfa/application/mfa_use_cases.dart';
 import '../../features/mfa/data/mfa_repository_impl.dart';
 import '../../features/moderation/application/use_cases/moderation_use_cases.dart';
@@ -1727,6 +1731,34 @@ Dio _configuredDio(Uri activeServerUri) {
     ),
   );
 }
+
+// ---------------------------------------------------------------------------
+// Hộp thư khách đa kênh (bật theo discovery `capabilities.omnichannel_inbox`
+// + quyền inbox.view).
+// ---------------------------------------------------------------------------
+
+final inboxRepositoryProvider = Provider<InboxRepository>((ref) {
+  return InboxRepositoryImpl(
+    InboxRemoteDataSource(ref.watch(apiTransportProvider)),
+  );
+});
+
+/// Kết nối WebSocket riêng cho hộp thư khách: tự ngắt khi không còn màn nào
+/// nghe, không ảnh hưởng phòng chat.
+final inboxRealtimeRepositoryProvider = Provider<InboxRealtimeRepository>((
+  ref,
+) {
+  final socket = WebSocketConversationRealtimeRepository(
+    apiBaseUri: ref.watch(activeServerUriProvider),
+    wsBaseUri: ref.watch(activeServerWsUriProvider),
+    instanceScope: ref.watch(activeInstanceScopeProvider),
+    tokenRepository: ref.watch(authTokenRepositoryProvider),
+  );
+  ref.onDispose(() {
+    unawaited(socket.disconnect());
+  });
+  return WebSocketInboxRealtimeRepository(socket.subscribeToInbox);
+});
 
 // ---------------------------------------------------------------------------
 // Phê duyệt (bật theo discovery `capabilities.approvals` + quyền approval.view).

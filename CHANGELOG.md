@@ -3,6 +3,15 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.11.0 · 10/11/2026
+### Tính năng
+- Hộp thư khách trên app
+  Khi máy chủ bật hộp thư khách, trang chủ có ô "Hộp thư khách": xem các cuộc trò chuyện của khách gửi qua email,
+  Facebook, Zalo hoặc hệ thống khác, có nhãn nguồn, thẻ và người phụ trách; lọc theo trạng thái (đang mở / chờ
+  khách / đã đóng) và theo người xử lý (của tôi / chưa gán). Trong một cuộc trò chuyện: đọc tin, trả lời khách (tin
+  đi về đúng kênh khách đã nhắn), ghi chú nội bộ, nhận / bỏ nhận xử lý, đổi trạng thái, gắn thẻ. Tin gửi lỗi hiện
+  trạng thái kèm lý do. Danh sách và tin mới tự cập nhật; bấm thông báo tin khách mới thì mở đúng cuộc trò chuyện.
+
 ## 1.10.0 · 10/11/2026
 ### Tính năng
 - Màn Phê duyệt trên app và duyệt nhanh từ thông báo

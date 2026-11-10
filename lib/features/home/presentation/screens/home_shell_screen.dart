@@ -35,6 +35,8 @@ import '../../../conversations/presentation/controllers/pending_chat_share_contr
 import '../../../conversations/presentation/screens/webrtc_call_screen.dart';
 import '../../../conversations/presentation/screens/workspace_tools_screen.dart';
 import '../../../conversations/presentation/widgets/conversation_home_views.dart';
+import '../../../inbox/presentation/screens/inbox_list_screen.dart'
+    show inboxConversationLocation;
 import '../../../notifications/domain/entities/mobile_notification.dart';
 import '../../../notifications/presentation/controllers/notification_center_controller.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
@@ -1815,6 +1817,12 @@ class _IncomingCallAction extends StatelessWidget {
 }
 
 String? _locationForNotificationTarget(NotificationTarget target) {
+  if (target.isInboxConversation) {
+    return inboxConversationLocation(
+      conversationId: target.inboxConversationId!,
+      workspaceId: target.workspaceId,
+    );
+  }
   if (target.isApproval) {
     return Uri(
       path: '/approvals/${Uri.encodeComponent(target.approvalId!.trim())}',

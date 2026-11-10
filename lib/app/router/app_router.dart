@@ -18,6 +18,8 @@ import '../../features/conversations/presentation/screens/chat_room_screen.dart'
 import '../../features/customer_tickets/presentation/screens/customer_ticket_detail_screen.dart';
 import '../../features/customer_tickets/presentation/screens/customer_ticket_list_screen.dart';
 import '../../features/home/presentation/screens/home_shell_screen.dart';
+import '../../features/inbox/presentation/screens/inbox_conversation_screen.dart';
+import '../../features/inbox/presentation/screens/inbox_list_screen.dart';
 import '../../features/my_notes/presentation/screens/my_note_editor_screen.dart';
 import '../../features/my_notes/presentation/screens/my_notes_screen.dart';
 import '../../features/notifications/presentation/screens/notifications_screen.dart';
@@ -189,6 +191,22 @@ final appRouterProvider = Provider<GoRouter>((_) {
         name: 'approval',
         builder: (context, state) => ApprovalDetailScreen(
           approvalId: state.pathParameters['approval_id'] ?? '',
+          workspaceId: state.uri.queryParameters['workspaceId'],
+        ),
+      ),
+      // Hộp thư khách đa kênh: màn tự kiểm discovery + quyền inbox.view.
+      GoRoute(
+        path: '/inbox',
+        name: 'inbox',
+        builder: (context, state) => InboxListScreen(
+          workspaceId: state.uri.queryParameters['workspaceId'],
+        ),
+      ),
+      GoRoute(
+        path: '/inbox/:conversation_id',
+        name: 'inbox-conversation',
+        builder: (context, state) => InboxConversationScreen(
+          conversationId: state.pathParameters['conversation_id'] ?? '',
           workspaceId: state.uri.queryParameters['workspaceId'],
         ),
       ),

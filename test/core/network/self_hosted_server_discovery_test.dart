@@ -154,6 +154,36 @@ void main() {
     expect(restored.capabilities.approvals, isTrue);
   });
 
+  test(
+    'capability omnichannel_inbox: thiếu = false, bật thì giữ qua snapshot',
+    () {
+      SelfHostedServerDiscovery parse(bool? value) {
+        final payload = _payload(files: true, calls: true);
+        final discovery =
+            (payload['data']! as Map<String, Object?>)['discovery']!
+                as Map<String, Object?>;
+        final capabilities = discovery['capabilities']! as Map<String, Object?>;
+        capabilities.remove('omnichannel_inbox');
+        if (value != null) capabilities['omnichannel_inbox'] = value;
+        return SelfHostedServerDiscovery.fromApiResponse(
+          payload: payload,
+          requestedServer: Uri.parse('https://chat.company.example'),
+          mobileVersion: '1.2.0',
+        );
+      }
+
+      expect(parse(null).capabilities.omnichannelInbox, isFalse);
+      expect(parse(false).capabilities.omnichannelInbox, isFalse);
+      final enabled = parse(true);
+      expect(enabled.capabilities.omnichannelInbox, isTrue);
+      final restored = SelfHostedServerDiscovery.fromStorageSnapshot(
+        encodedSnapshot: enabled.toStorageSnapshot(),
+        mobileVersion: '1.2.0',
+      );
+      expect(restored.capabilities.omnichannelInbox, isTrue);
+    },
+  );
+
   test('restores every capability from a validated cold-start snapshot', () {
     final discovery = SelfHostedServerDiscovery.fromApiResponse(
       payload: _payload(files: false, calls: false),

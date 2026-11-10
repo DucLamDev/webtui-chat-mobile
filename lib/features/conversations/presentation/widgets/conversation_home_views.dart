@@ -9,6 +9,7 @@ import '../../../approvals/presentation/widgets/approval_inbox_entry.dart';
 import '../../../business/presentation/widgets/business_inbox_entry.dart';
 import '../../../customer_tickets/presentation/controllers/customer_ticket_access_provider.dart';
 import '../../../customer_tickets/presentation/widgets/customer_ticket_inbox_entry.dart';
+import '../../../inbox/presentation/widgets/inbox_entry.dart';
 import '../../../moderation/presentation/controllers/moderation_controller.dart';
 import '../../../moderation/presentation/widgets/moderation_actions.dart';
 import '../../../profile/presentation/controllers/profile_controller.dart';
@@ -309,13 +310,19 @@ class _MessagesList extends StatelessWidget {
                 children: [
                   BusinessInboxEntry(workspaceId: state.workspaceId),
                   ApprovalInboxEntry(workspaceId: state.workspaceId),
+                  InboxEntry(workspaceId: state.workspaceId),
                   CustomerTicketInboxEntry(workspaceId: state.workspaceId),
                 ],
               ),
             )
           else if (showApprovalOnAll)
             SliverToBoxAdapter(
-              child: ApprovalInboxEntry(workspaceId: state.workspaceId),
+              child: Column(
+                children: [
+                  ApprovalInboxEntry(workspaceId: state.workspaceId),
+                  InboxEntry(workspaceId: state.workspaceId),
+                ],
+              ),
             ),
           if (state.isLoading)
             const SliverToBoxAdapter(
