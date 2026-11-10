@@ -742,7 +742,8 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
           ),
           outboxItems: _upsertOutboxItem(item),
         );
-      case MessageOutboxDispatchPhase.sending ||
+      case MessageOutboxDispatchPhase.uploading ||
+          MessageOutboxDispatchPhase.sending ||
           MessageOutboxDispatchPhase.queued ||
           MessageOutboxDispatchPhase.failed:
         state = state.copyWith(

@@ -165,6 +165,7 @@ final class PickedMessageAttachment {
     required this.byteSize,
     required this.kind,
     this.voice,
+    this.compressVideo = false,
   });
 
   final String path;
@@ -175,6 +176,10 @@ final class PickedMessageAttachment {
 
   /// Bản ghi âm vừa thu trong app: thời lượng / sóng âm gửi kèm tin.
   final MessageVoiceMetadata? voice;
+
+  /// Video chọn từ mục Video: nén về 720p trước khi gửi (gửi qua mục Tệp thì
+  /// giữ bản gốc).
+  final bool compressVideo;
 }
 
 final class UploadedMessageFile {

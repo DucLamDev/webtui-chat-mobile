@@ -20,7 +20,18 @@ typedef AttachOutboxFile =
       MessageOutboxAttachment attachment,
     );
 
+/// Tải nốt một tệp của tin chờ (nén video nếu cần). [onProgress] nhận 0..1.
+typedef UploadOutboxFile =
+    Future<Result<UploadedMessageFile>> Function(
+      MessageOutboxItem item,
+      MessageOutboxPendingUpload upload,
+      void Function(double progress) onProgress,
+    );
+
 enum MessageOutboxDispatchPhase {
+  /// Tin đang chờ tải nốt tệp đính kèm (xem `progress` của bản cập nhật).
+  uploading,
+
   /// Tin đang được gửi.
   sending,
 
@@ -42,6 +53,7 @@ final class MessageOutboxDispatchUpdate {
     this.message,
     this.error,
     this.failureKind,
+    this.progress,
   });
 
   /// Bản tin chờ mới nhất đã lưu (với [MessageOutboxDispatchPhase.sent] là bản
@@ -53,6 +65,9 @@ final class MessageOutboxDispatchUpdate {
   final ChatMessage? message;
   final String? error;
   final FailureKind? failureKind;
+
+  /// Tiến độ tải tệp 0..1 (chỉ với [MessageOutboxDispatchPhase.uploading]).
+  final double? progress;
 
   bool get isFailed => phase == MessageOutboxDispatchPhase.failed;
 }
@@ -94,12 +109,14 @@ final class MessageOutboxDispatcher {
     required MessageOutboxRepository repository,
     required SendOutboxMessage sendMessage,
     required AttachOutboxFile attachFile,
+    UploadOutboxFile? uploadFile,
     bool Function()? canCreateUserContent,
     List<Duration> autoRetryDelays = defaultAutoRetryDelays,
     DateTime Function()? now,
   }) : _repository = repository,
        _sendMessage = sendMessage,
        _attachFile = attachFile,
+       _uploadFile = uploadFile,
        _canCreateUserContent = canCreateUserContent ?? _alwaysAllowed,
        _autoRetryDelays = autoRetryDelays,
        _now = now ?? _utcNow;
@@ -119,6 +136,8 @@ final class MessageOutboxDispatcher {
   final MessageOutboxRepository _repository;
   final SendOutboxMessage _sendMessage;
   final AttachOutboxFile _attachFile;
+  // ignore: unused_field
+  final UploadOutboxFile? _uploadFile;
   final bool Function() _canCreateUserContent;
   final List<Duration> _autoRetryDelays;
   final DateTime Function() _now;
