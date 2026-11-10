@@ -84,6 +84,7 @@ Failure _failureFromResponse(
     code: envelope?.code,
     requestId: envelope?.requestId ?? requestId,
     cause: cause,
+    details: envelope?.details ?? const {},
   );
 }
 
@@ -121,11 +122,17 @@ String? _requestIdFrom(DioException exception) {
 }
 
 final class _ErrorEnvelope {
-  const _ErrorEnvelope({this.code, this.message, this.requestId});
+  const _ErrorEnvelope({
+    this.code,
+    this.message,
+    this.requestId,
+    this.details = const {},
+  });
 
   final String? code;
   final String? message;
   final String? requestId;
+  final Map<String, Object?> details;
 
   static _ErrorEnvelope? tryParse(Object? data) {
     if (data is! Map) {
@@ -134,11 +141,18 @@ final class _ErrorEnvelope {
 
     final error = data['error'];
     final errorMap = error is Map ? error : const {};
+    final details = errorMap['details'];
 
     return _ErrorEnvelope(
       code: (errorMap['code'] ?? data['code'])?.toString(),
       message: (errorMap['message'] ?? data['message'])?.toString(),
       requestId: (data['request_id'] ?? data['requestId'])?.toString(),
+      details: details is Map
+          ? Map<String, Object?>.unmodifiable({
+              for (final entry in details.entries)
+                entry.key.toString(): entry.value,
+            })
+          : const {},
     );
   }
 }

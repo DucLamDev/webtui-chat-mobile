@@ -1,10 +1,8 @@
 import 'dart:async';
-
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
 import '../../core/api/openapi_client_boundary.dart';
 import '../../core/database/app_database.dart';
 import '../../core/logging/redacting_logger.dart';
@@ -24,46 +22,73 @@ import '../../core/security/instance_scope.dart';
 import '../../core/security/secure_key_value_store.dart';
 import '../../core/security/server_account_registry.dart';
 import '../../features/auth/application/legal_acceptance_access_policy.dart';
+
+import '../../features/auth/application/use_cases/app_lock_timeout_use_cases.dart';
+
+import '../../features/auth/application/session_termination.dart';
+
 import '../../features/auth/application/use_cases/app_lock_use_cases.dart';
 import '../../features/auth/application/use_cases/delete_account_use_case.dart';
+import '../../features/auth/application/use_cases/device_approval_use_cases.dart';
+import '../../features/auth/application/use_cases/email_verification_use_cases.dart';
 import '../../features/auth/application/use_cases/legal_acceptance_use_cases.dart';
 import '../../features/auth/application/use_cases/load_legal_document_versions_use_case.dart';
 import '../../features/auth/application/use_cases/login_use_case.dart';
 import '../../features/auth/application/use_cases/logout_use_case.dart';
 import '../../features/auth/application/use_cases/oidc_login_use_case.dart';
+import '../../features/auth/application/use_cases/qr_login_use_cases.dart';
 import '../../features/auth/application/use_cases/refresh_access_token_use_case.dart';
 import '../../features/auth/application/use_cases/register_use_case.dart';
 import '../../features/auth/application/use_cases/session_use_cases.dart';
 import '../../features/auth/data/datasources/auth_remote_data_source.dart';
+import '../../features/auth/data/datasources/device_approval_remote_data_source.dart';
+import '../../features/auth/data/datasources/email_verification_remote_data_source.dart';
+import '../../features/auth/data/datasources/qr_login_remote_data_source.dart';
 import '../../features/auth/data/interceptors/legal_acceptance_interceptor.dart';
 import '../../features/auth/data/network/auth_refresh_interceptor.dart';
 import '../../features/auth/data/repositories/account_repository_impl.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
+import '../../features/auth/data/repositories/core2_auth_repositories.dart';
 import '../../features/auth/data/repositories/local_session_state_repository.dart';
 import '../../features/auth/data/repositories/secure_app_lock_repository.dart';
+import '../../features/auth/data/repositories/secure_app_lock_timeout_repository.dart';
 import '../../features/auth/data/repositories/secure_auth_token_repository.dart';
 import '../../features/auth/data/repositories/secure_device_identity_repository.dart';
+import '../../features/auth/domain/entities/app_lock_timeout_policy.dart';
 import '../../features/auth/domain/repositories/account_repository.dart';
 import '../../features/auth/domain/repositories/app_lock_repository.dart';
+import '../../features/auth/domain/repositories/app_lock_timeout_repository.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/domain/repositories/auth_token_repository.dart';
+import '../../features/auth/domain/repositories/device_approval_repository.dart';
 import '../../features/auth/domain/repositories/device_identity_repository.dart';
+import '../../features/auth/domain/repositories/email_verification_repository.dart';
+import '../../features/auth/domain/repositories/qr_login_repository.dart';
 import '../../features/auth/domain/repositories/session_state_repository.dart';
 import '../../features/business/application/use_cases/business_dashboard_use_cases.dart';
 import '../../features/business/data/datasources/business_remote_data_source.dart';
 import '../../features/business/data/repositories/business_repository_impl.dart';
 import '../../features/business/domain/repositories/business_repository.dart';
+import '../../features/call_privacy/application/use_cases/call_privacy_use_cases.dart';
+import '../../features/call_privacy/data/datasources/call_privacy_remote_data_source.dart';
+import '../../features/call_privacy/data/repositories/call_privacy_repository_impl.dart';
+import '../../features/call_privacy/domain/repositories/call_privacy_repository.dart';
 import '../../features/conversations/application/use_cases/call_use_cases.dart';
 import '../../features/conversations/application/use_cases/channel_use_cases.dart';
 import '../../features/conversations/application/use_cases/collaboration_document_history_use_cases.dart';
 import '../../features/conversations/application/use_cases/collaboration_task_use_cases.dart';
 import '../../features/conversations/application/use_cases/load_conversation_home_use_case.dart';
 import '../../features/conversations/application/use_cases/message_attachment_use_cases.dart';
+import '../../features/conversations/application/use_cases/message_outbox_dispatcher.dart';
 import '../../features/conversations/application/use_cases/message_outbox_use_cases.dart';
 import '../../features/conversations/application/use_cases/message_use_cases.dart';
 import '../../features/conversations/application/use_cases/open_direct_conversation_use_case.dart';
 import '../../features/conversations/application/use_cases/presence_use_cases.dart';
+
 import '../../features/conversations/application/use_cases/rich_message_use_cases.dart';
+
+import '../../features/conversations/application/use_cases/secret_message_use_cases.dart';
+
 import '../../features/conversations/data/datasources/call_remote_data_source.dart';
 import '../../features/conversations/data/datasources/collaboration_document_history_remote_data_source.dart';
 import '../../features/conversations/data/datasources/conversation_cache_data_source.dart';
@@ -82,7 +107,11 @@ import '../../features/conversations/data/repositories/image_picker_message_atta
 import '../../features/conversations/data/repositories/local_conversation_draft_repository.dart';
 import '../../features/conversations/data/repositories/local_message_outbox_repository.dart';
 import '../../features/conversations/data/repositories/message_attachment_repository_impl.dart';
+
 import '../../features/conversations/data/repositories/rich_message_repository_impl.dart';
+
+import '../../features/conversations/data/repositories/secret_message_repository_impl.dart';
+
 import '../../features/conversations/data/repositories/web_socket_conversation_realtime_repository.dart';
 import '../../features/conversations/domain/repositories/call_repository.dart';
 import '../../features/conversations/domain/repositories/collaboration_document_history_repository.dart';
@@ -98,10 +127,17 @@ import '../../features/customer_tickets/data/repositories/image_picker_customer_
 import '../../features/customer_tickets/data/repositories/public_customer_ticket_image_repository.dart';
 import '../../features/customer_tickets/data/repositories/web_socket_customer_ticket_realtime_repository.dart';
 import '../../features/customer_tickets/domain/repositories/customer_ticket_repository.dart';
+import '../../features/mfa/application/mfa_use_cases.dart';
+import '../../features/mfa/data/mfa_repository_impl.dart';
 import '../../features/moderation/application/use_cases/moderation_use_cases.dart';
 import '../../features/moderation/data/datasources/moderation_remote_data_source.dart';
 import '../../features/moderation/data/repositories/moderation_repository_impl.dart';
 import '../../features/moderation/domain/repositories/moderation_repository.dart';
+import '../../features/my_notes/application/use_cases/my_notes_use_cases.dart';
+import '../../features/my_notes/data/datasources/my_notes_cache_data_source.dart';
+import '../../features/my_notes/data/datasources/my_notes_remote_data_source.dart';
+import '../../features/my_notes/data/repositories/my_notes_repository_impl.dart';
+import '../../features/my_notes/domain/repositories/my_notes_repository.dart';
 import '../../features/notifications/application/use_cases/notification_use_cases.dart';
 import '../../features/notifications/data/datasources/notification_remote_data_source.dart';
 import '../../features/notifications/data/repositories/notification_repository_impl.dart';
@@ -121,17 +157,22 @@ import '../../features/settings/data/datasources/mobile_release_remote_data_sour
 import '../../features/settings/data/repositories/local_app_settings_repository.dart';
 import '../../features/settings/domain/repositories/app_settings_repository.dart';
 import '../../features/sync/application/use_cases/workspace_sync_use_cases.dart';
+import '../../features/sync/application/workspace_refresh_signal.dart';
 import '../../features/sync/data/datasources/local_workspace_sync_cursor_data_source.dart';
 import '../../features/sync/data/datasources/workspace_sync_remote_data_source.dart';
 import '../../features/sync/data/repositories/workspace_sync_repository_impl.dart';
 import '../../features/sync/domain/repositories/workspace_sync_repository.dart';
+import '../../features/workspace/application/use_cases/invite_use_cases.dart';
 import '../../features/workspace/application/use_cases/load_workspace_session_use_case.dart';
 import '../../features/workspace/application/use_cases/select_workspace_use_case.dart';
+import '../../features/workspace/data/datasources/invite_remote_data_source.dart';
 import '../../features/workspace/data/datasources/permission_remote_data_source.dart';
 import '../../features/workspace/data/datasources/workspace_remote_data_source.dart';
+import '../../features/workspace/data/repositories/invite_repository_impl.dart';
 import '../../features/workspace/data/repositories/local_workspace_session_repository.dart';
 import '../../features/workspace/data/repositories/permission_repository_impl.dart';
 import '../../features/workspace/data/repositories/workspace_repository_impl.dart';
+import '../../features/workspace/domain/repositories/invite_repository.dart';
 import '../../features/workspace/domain/repositories/permission_repository.dart';
 import '../../features/workspace/domain/repositories/workspace_repository.dart';
 import '../../features/workspace/domain/repositories/workspace_session_repository.dart';
@@ -169,6 +210,24 @@ final class ActiveServerRuntime {
 
 final initialServerDiscoveryProvider = Provider<SelfHostedServerDiscovery?>(
   (_) => null,
+);
+
+final secretMessageUseCasesProvider = Provider<SecretMessageUseCases>(
+  (ref) => SecretMessageUseCases(
+    SecretMessageRepositoryImpl(
+      ref.watch(apiTransportProvider),
+      ref.watch(deviceIdentityRepositoryProvider),
+    ),
+  ),
+);
+
+final mfaUseCasesProvider = Provider<MfaUseCases>(
+  (ref) => MfaUseCases(
+    MfaRepositoryImpl(
+      ref.watch(apiTransportProvider),
+      ref.watch(deviceIdentityRepositoryProvider),
+    ),
+  ),
 );
 
 final activeServerRuntimeProvider = StateProvider<ActiveServerRuntime>((ref) {
@@ -236,6 +295,12 @@ final dioProvider = Provider<Dio>((ref) {
       expectedInstanceScope: ref.watch(activeInstanceScopeProvider),
       tokenRepository: tokenRepository,
       refreshAccessTokenUseCase: refreshUseCase,
+      onSessionRevoked: (failure, guard) => ref
+          .read(sessionTerminationCoordinatorProvider)
+          .endSession(SessionEndedNotice.fromFailure(failure), guard: guard),
+      onDeviceApprovalPending: () => ref
+          .read(sessionTerminationCoordinatorProvider)
+          .reportApprovalPending(),
     ),
     LegalAcceptanceInterceptor(ref.watch(legalAcceptanceAccessPolicyProvider)),
     RedactingDioLogInterceptor(logger),
@@ -459,7 +524,133 @@ final refreshAccessTokenUseCaseProvider = Provider<RefreshAccessTokenUseCase>((
   return RefreshAccessTokenUseCase(
     authRepository: ref.watch(authRepositoryProvider),
     tokenRepository: ref.watch(authTokenRepositoryProvider),
+    // Refresh bị 401 (mọi mã) = phiên bị thu hồi / phải đăng nhập lại.
+    onRefreshRejected: (failure, guard) async {
+      await ref
+          .read(sessionTerminationCoordinatorProvider)
+          .endSession(SessionEndedNotice.fromFailure(failure), guard: guard);
+    },
   );
+});
+
+/// Nơi duy nhất kết thúc phiên bị thu hồi (2.1) / phải đăng nhập lại (2.8).
+final sessionTerminationCoordinatorProvider =
+    Provider<SessionTerminationCoordinator>((ref) {
+      final coordinator = SessionTerminationCoordinator(
+        sessionStateRepository: ref.watch(sessionStateRepositoryProvider),
+        tokenRepository: ref.watch(authTokenRepositoryProvider),
+      );
+      ref.onDispose(() => unawaited(coordinator.dispose()));
+      return coordinator;
+    });
+
+final sessionEndedNoticesProvider = StreamProvider<SessionEndedNotice>((ref) {
+  return ref.watch(sessionTerminationCoordinatorProvider).endedSessions;
+});
+
+/// Mỗi lần máy chủ trả `403 DEVICE_APPROVAL_PENDING` thì số đếm tăng.
+final deviceApprovalPendingSignalsProvider = StreamProvider<int>((ref) {
+  var count = 0;
+  return ref
+      .watch(sessionTerminationCoordinatorProvider)
+      .approvalPendingSignals
+      .map((_) => ++count);
+});
+
+final qrLoginRepositoryProvider = Provider<QrLoginRepository>((ref) {
+  return QrLoginRepositoryImpl(
+    QrLoginRemoteDataSource(ref.watch(apiTransportProvider)),
+  );
+});
+
+final readQrLoginPayloadUseCaseProvider = Provider<ReadQrLoginPayloadUseCase>((
+  ref,
+) {
+  return ReadQrLoginPayloadUseCase(
+    loadServerOrigin: () =>
+        ref.read(activeServerDiscoveryProvider)?.instanceScope.origin,
+  );
+});
+
+final scanQrLoginUseCaseProvider = Provider<ScanQrLoginUseCase>((ref) {
+  return ScanQrLoginUseCase(ref.watch(qrLoginRepositoryProvider));
+});
+
+final decideQrLoginUseCaseProvider = Provider<DecideQrLoginUseCase>((ref) {
+  return DecideQrLoginUseCase(ref.watch(qrLoginRepositoryProvider));
+});
+
+final deviceApprovalRepositoryProvider = Provider<DeviceApprovalRepository>((
+  ref,
+) {
+  return DeviceApprovalRepositoryImpl(
+    DeviceApprovalRemoteDataSource(ref.watch(apiTransportProvider)),
+  );
+});
+
+final loadMyDeviceApprovalUseCaseProvider =
+    Provider<LoadMyDeviceApprovalUseCase>((ref) {
+      return LoadMyDeviceApprovalUseCase(
+        ref.watch(deviceApprovalRepositoryProvider),
+      );
+    });
+
+final listPendingDeviceApprovalsUseCaseProvider =
+    Provider<ListPendingDeviceApprovalsUseCase>((ref) {
+      return ListPendingDeviceApprovalsUseCase(
+        ref.watch(deviceApprovalRepositoryProvider),
+      );
+    });
+
+final findDeviceApprovalRequestUseCaseProvider =
+    Provider<FindDeviceApprovalRequestUseCase>((ref) {
+      return FindDeviceApprovalRequestUseCase(
+        ref.watch(deviceApprovalRepositoryProvider),
+      );
+    });
+
+final decideDeviceApprovalUseCaseProvider =
+    Provider<DecideDeviceApprovalUseCase>((ref) {
+      return DecideDeviceApprovalUseCase(
+        ref.watch(deviceApprovalRepositoryProvider),
+      );
+    });
+
+final emailVerificationRepositoryProvider =
+    Provider<EmailVerificationRepository>((ref) {
+      return EmailVerificationRepositoryImpl(
+        EmailVerificationRemoteDataSource(ref.watch(authApiTransportProvider)),
+      );
+    });
+
+final verifyEmailCodeUseCaseProvider = Provider<VerifyEmailCodeUseCase>((ref) {
+  return VerifyEmailCodeUseCase(
+    repository: ref.watch(emailVerificationRepositoryProvider),
+    tokenRepository: ref.watch(authTokenRepositoryProvider),
+    deviceIdentityRepository: ref.watch(deviceIdentityRepositoryProvider),
+  );
+});
+
+final resendEmailCodeUseCaseProvider = Provider<ResendEmailCodeUseCase>((ref) {
+  return ResendEmailCodeUseCase(ref.watch(emailVerificationRepositoryProvider));
+});
+
+final inviteRepositoryProvider = Provider<InviteRepository>((ref) {
+  return InviteRepositoryImpl(
+    InviteRemoteDataSource(ref.watch(apiTransportProvider)),
+  );
+});
+
+final previewInviteUseCaseProvider = Provider<PreviewInviteUseCase>((ref) {
+  return PreviewInviteUseCase(
+    ref.watch(inviteRepositoryProvider),
+    loadServerHost: () =>
+        ref.read(activeServerDiscoveryProvider)?.instanceScope.origin.host,
+  );
+});
+
+final acceptInviteUseCaseProvider = Provider<AcceptInviteUseCase>((ref) {
+  return AcceptInviteUseCase(ref.watch(inviteRepositoryProvider));
 });
 
 final logoutUseCaseProvider = Provider<LogoutUseCase>((ref) {
@@ -490,6 +681,15 @@ final listSessionsUseCaseProvider = Provider<ListSessionsUseCase>((ref) {
 final revokeSessionUseCaseProvider = Provider<RevokeSessionUseCase>((ref) {
   return RevokeSessionUseCase(ref.watch(authSessionRepositoryProvider));
 });
+
+final revokeDeviceSessionUseCaseProvider = Provider<RevokeDeviceSessionUseCase>(
+  (ref) {
+    return RevokeDeviceSessionUseCase(
+      authRepository: ref.watch(authSessionRepositoryProvider),
+      signOutThisDevice: () => ref.read(logoutUseCaseProvider).execute(),
+    );
+  },
+);
 
 final revokeAllSessionsUseCaseProvider = Provider<RevokeAllSessionsUseCase>((
   ref,
@@ -523,6 +723,49 @@ final unlockAppUseCaseProvider = Provider<UnlockAppUseCase>((ref) {
 
 final disableAppLockUseCaseProvider = Provider<DisableAppLockUseCase>((ref) {
   return DisableAppLockUseCase(ref.watch(appLockRepositoryProvider));
+});
+
+// Lõi 3.1: thời gian tự khoá (người dùng chọn ≤ mức máy chủ trong discovery).
+final appLockTimeoutRepositoryProvider = Provider<AppLockTimeoutRepository>((
+  ref,
+) {
+  return SecureAppLockTimeoutRepository(ref.watch(secureKeyValueStoreProvider));
+});
+
+final loadAppLockIdleMinutesUseCaseProvider =
+    Provider<LoadAppLockIdleMinutesUseCase>((ref) {
+      return LoadAppLockIdleMinutesUseCase(
+        ref.watch(appLockTimeoutRepositoryProvider),
+      );
+    });
+
+final saveAppLockIdleMinutesUseCaseProvider =
+    Provider<SaveAppLockIdleMinutesUseCase>((ref) {
+      return SaveAppLockIdleMinutesUseCase(
+        ref.watch(appLockTimeoutRepositoryProvider),
+      );
+    });
+
+/// Mức người dùng đã chọn (null = chưa chọn).
+final appLockIdleMinutesProvider = FutureProvider<int?>((ref) {
+  return ref.watch(loadAppLockIdleMinutesUseCaseProvider).execute();
+});
+
+/// Mức tối đa máy chủ cho phép (0 = máy chủ không ép).
+final appLockServerMaxMinutesProvider = Provider<int>((ref) {
+  return ref
+          .watch(activeServerDiscoveryProvider)
+          ?.privacyPolicy
+          .idleLockMinutes ??
+      0;
+});
+
+/// Số phút tự khoá đang có hiệu lực.
+final effectiveAppLockMinutesProvider = Provider<int>((ref) {
+  return AppLockTimeoutPolicy.effectiveMinutes(
+    serverMaxMinutes: ref.watch(appLockServerMaxMinutesProvider),
+    userMinutes: ref.watch(appLockIdleMinutesProvider).valueOrNull,
+  );
 });
 
 final workspaceRemoteDataSourceProvider = Provider<WorkspaceRemoteDataSource>((
@@ -576,7 +819,12 @@ final selectWorkspaceUseCaseProvider = Provider<SelectWorkspaceUseCase>((ref) {
 final profileRemoteDataSourceProvider = Provider<ProfileRemoteDataSource>((
   ref,
 ) {
-  return ProfileRemoteDataSource(ref.watch(apiTransportProvider));
+  return ProfileRemoteDataSource(
+    ref.watch(apiTransportProvider),
+    loadWorkspaceId: ref
+        .watch(workspaceSessionRepositoryProvider)
+        .readActiveWorkspaceId,
+  );
 });
 
 final avatarRemoteDataSourceProvider = Provider<AvatarRemoteDataSource>((ref) {
@@ -790,6 +1038,28 @@ final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
   );
 });
 
+// Lõi 3.5: ai được gọi cho tôi.
+final callPrivacyRemoteDataSourceProvider =
+    Provider<CallPrivacyRemoteDataSource>(
+      (ref) => CallPrivacyRemoteDataSource(ref.watch(apiTransportProvider)),
+    );
+
+final callPrivacyRepositoryProvider = Provider<CallPrivacyRepository>((ref) {
+  return CallPrivacyRepositoryImpl(
+    ref.watch(callPrivacyRemoteDataSourceProvider),
+  );
+});
+
+final loadCallPrivacyUseCaseProvider = Provider<LoadCallPrivacyUseCase>((ref) {
+  return LoadCallPrivacyUseCase(ref.watch(callPrivacyRepositoryProvider));
+});
+
+final updateCallPrivacyUseCaseProvider = Provider<UpdateCallPrivacyUseCase>((
+  ref,
+) {
+  return UpdateCallPrivacyUseCase(ref.watch(callPrivacyRepositoryProvider));
+});
+
 final moderationRemoteDataSourceProvider = Provider<ModerationRemoteDataSource>(
   (ref) => ModerationRemoteDataSource(ref.watch(apiTransportProvider)),
 );
@@ -821,6 +1091,21 @@ final unblockUserUseCaseProvider = Provider<UnblockUserUseCase>((ref) {
   return UnblockUserUseCase(ref.watch(moderationRepositoryProvider));
 });
 
+// My Note: sổ ghi chú cá nhân, có bản lưu trên máy theo máy chủ + workspace.
+final myNotesRepositoryProvider = Provider<MyNotesRepository>((ref) {
+  return MyNotesRepositoryImpl(
+    remote: MyNotesRemoteDataSource(ref.watch(apiTransportProvider)),
+    cache: MyNotesCacheDataSource(
+      ref.watch(appDatabaseProvider),
+      ref.watch(activeInstanceScopeProvider),
+    ),
+  );
+});
+
+final myNotesUseCasesProvider = Provider<MyNotesUseCases>((ref) {
+  return MyNotesUseCases(ref.watch(myNotesRepositoryProvider));
+});
+
 final workspaceSyncRemoteDataSourceProvider =
     Provider<WorkspaceSyncRemoteDataSource>((ref) {
       return WorkspaceSyncRemoteDataSource(ref.watch(apiTransportProvider));
@@ -841,6 +1126,12 @@ final workspaceSyncRepositoryProvider = Provider<WorkspaceSyncRepository>((
     remote: ref.watch(workspaceSyncRemoteDataSourceProvider),
     localCursor: ref.watch(localWorkspaceSyncCursorDataSourceProvider),
   );
+});
+
+final workspaceRefreshSignalProvider = Provider<WorkspaceRefreshSignal>((ref) {
+  final signal = WorkspaceRefreshSignal();
+  ref.onDispose(() => unawaited(signal.dispose()));
+  return signal;
 });
 
 final catchUpWorkspaceSyncUseCaseProvider =
@@ -948,6 +1239,37 @@ final deleteMessageOutboxItemUseCaseProvider =
         ref.watch(messageOutboxRepositoryProvider),
       );
     });
+
+/// Bộ gửi lại tin chờ cho toàn app (mọi hội thoại), dùng chung bởi màn chính và
+/// các phòng chat.
+final messageOutboxDispatcherProvider = Provider<MessageOutboxDispatcher>((
+  ref,
+) {
+  final sendMessage = ref.watch(sendMessageUseCaseProvider);
+  final attachUploadedFile = ref.watch(attachUploadedFileUseCaseProvider);
+  final legalPolicy = ref.watch(legalAcceptanceAccessPolicyProvider);
+  final dispatcher = MessageOutboxDispatcher(
+    repository: ref.watch(messageOutboxRepositoryProvider),
+    sendMessage: (item) => sendMessage.execute(
+      workspaceId: item.workspaceId,
+      channelId: item.channelId,
+      body: item.body,
+      clientMessageId: item.clientMessageId,
+      parentId: item.parentId,
+      silent: item.silent,
+    ),
+    attachFile: (item, message, attachment) => attachUploadedFile.execute(
+      workspaceId: item.workspaceId,
+      channelId: item.channelId,
+      messageId: message.id,
+      fileId: attachment.fileId,
+      sortOrder: attachment.sortOrder,
+    ),
+    canCreateUserContent: () => legalPolicy.canCreateUserContent,
+  );
+  ref.onDispose(dispatcher.dispose);
+  return dispatcher;
+});
 
 final newClientMessageIdUseCaseProvider = Provider<NewClientMessageIdUseCase>((
   ref,
@@ -1185,8 +1507,19 @@ final newAttachmentUploadItemUseCaseProvider =
       return const NewAttachmentUploadItemUseCase();
     });
 
+final resolveCallDeviceIdUseCaseProvider = Provider<ResolveCallDeviceIdUseCase>(
+  (ref) {
+    return ResolveCallDeviceIdUseCase(
+      ref.watch(deviceIdentityRepositoryProvider),
+    );
+  },
+);
+
 final startCallUseCaseProvider = Provider<StartCallUseCase>((ref) {
-  return StartCallUseCase(ref.watch(callRepositoryProvider));
+  return StartCallUseCase(
+    ref.watch(callRepositoryProvider),
+    resolveDeviceId: ref.watch(resolveCallDeviceIdUseCaseProvider),
+  );
 });
 
 final getCallUseCaseProvider = Provider<GetCallUseCase>((ref) {
@@ -1200,7 +1533,10 @@ final findIncomingCallUseCaseProvider = Provider<FindIncomingCallUseCase>((
 });
 
 final acceptCallUseCaseProvider = Provider<AcceptCallUseCase>((ref) {
-  return AcceptCallUseCase(ref.watch(callRepositoryProvider));
+  return AcceptCallUseCase(
+    ref.watch(callRepositoryProvider),
+    resolveDeviceId: ref.watch(resolveCallDeviceIdUseCaseProvider),
+  );
 });
 
 final endCallUseCaseProvider = Provider<EndCallUseCase>((ref) {
@@ -1208,7 +1544,10 @@ final endCallUseCaseProvider = Provider<EndCallUseCase>((ref) {
 });
 
 final rejectCallUseCaseProvider = Provider<RejectCallUseCase>((ref) {
-  return RejectCallUseCase(ref.watch(callRepositoryProvider));
+  return RejectCallUseCase(
+    ref.watch(callRepositoryProvider),
+    resolveDeviceId: ref.watch(resolveCallDeviceIdUseCaseProvider),
+  );
 });
 
 final sendCallSignalUseCaseProvider = Provider<SendCallSignalUseCase>((ref) {

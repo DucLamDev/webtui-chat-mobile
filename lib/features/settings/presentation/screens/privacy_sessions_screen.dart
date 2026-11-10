@@ -11,6 +11,9 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../features/auth/domain/entities/user_session.dart';
+import '../../../auth/application/use_cases/session_use_cases.dart';
+import '../../../auth/presentation/auth_formatters.dart';
+import '../../../auth/presentation/widgets/pending_device_approvals_section.dart';
 import '../../../moderation/presentation/controllers/moderation_controller.dart';
 import '../../../moderation/presentation/widgets/moderation_actions.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
@@ -37,6 +40,10 @@ class PrivacySessionsScreen extends ConsumerWidget {
         true,
       _ => false,
     };
+    // Máy chủ cũ không trả capability → ẩn mục duyệt thiết bị.
+    final deviceApprovalEnabled =
+        ref.watch(activeServerDiscoveryProvider)?.capabilities.deviceApproval ==
+        true;
 
     return Scaffold(
       backgroundColor: WebTuiColors.background,
@@ -82,6 +89,10 @@ class PrivacySessionsScreen extends ConsumerWidget {
                 message: 'Đang tải phiên đăng nhập...',
               ),
             ),
+            if (deviceApprovalEnabled) ...[
+              const WebTuiSectionLabel('Thiết bị chờ duyệt'),
+              const PendingDeviceApprovalsSection(),
+            ],
             if (showSessionActions) ...[
               const WebTuiSectionLabel('Thao tác phiên'),
               const _SessionActions(),
@@ -491,54 +502,196 @@ class _SessionList extends ConsumerWidget {
       );
     }
 
+    final now = DateTime.now();
+    final ordered = orderSessionsForDisplay(sessions);
     return WebTuiListSurface(
       children: [
-        for (final session in sessions)
-          WebTuiSettingRow(
-            title: session.deviceName ?? 'Thiết bị không xác định',
-            subtitle: session.isActive ? 'Đang hoạt động' : 'Đã hết hạn',
-            icon: Icons.devices_rounded,
-            trailing: IconButton(
-              tooltip: 'Thu hồi phiên',
-              onPressed: () async {
-                final confirmed = await _confirmDestructiveAction(
-                  context,
-                  title: 'Thu hồi phiên này?',
-                  message: session.isActive
-                      ? 'Phiên hiện tại sẽ bị đăng xuất khỏi thiết bị này.'
-                      : 'Thiết bị này sẽ cần đăng nhập lại để tiếp tục sử dụng.',
-                  confirmLabel: 'Thu hồi',
-                );
-                if (!confirmed || !context.mounted) {
-                  return;
-                }
-
-                final result = await ref
-                    .read(revokeSessionUseCaseProvider)
-                    .execute(session.id);
-                if (!context.mounted) {
-                  return;
-                }
-                switch (result) {
-                  case Success<void>():
-                    if (session.isActive) {
-                      await ref.read(logoutUseCaseProvider).execute();
-                      if (!context.mounted) {
-                        return;
-                      }
-                      context.go('/login');
-                      return;
-                    }
-                    ref.invalidate(sessionListProvider);
-                    _showSnackBar(context, 'Đã thu hồi phiên.');
-                  case FailureResult<void>(failure: final failure):
-                    _showSnackBar(context, failure.message);
-                }
-              },
-              icon: const Icon(Icons.logout_rounded),
-            ),
+        for (final session in ordered)
+          _SessionTile(
+            key: ValueKey('session-${session.id}'),
+            session: session,
+            now: now,
+            onRevoke: session.revokedAt != null
+                ? null
+                : () => _revokeSession(context, ref, session),
           ),
       ],
+    );
+  }
+
+  Future<void> _revokeSession(
+    BuildContext context,
+    WidgetRef ref,
+    UserSession session,
+  ) async {
+    // Chỉ `is_current == true` là máy này; phiên khác còn hạn cũng "đang
+    // hoạt động" nên không được dùng `isActive` để quyết định đăng xuất.
+    final confirmed = await _confirmDestructiveAction(
+      context,
+      title: session.isCurrent
+          ? 'Đăng xuất thiết bị này?'
+          : 'Thu hồi phiên này?',
+      message: session.isCurrent
+          ? 'Đây là thiết bị bạn đang dùng. Bạn sẽ bị đăng xuất ngay.'
+          : 'Thiết bị "${session.deviceName ?? 'không xác định'}" sẽ bị đăng '
+                'xuất và phải đăng nhập lại.',
+      confirmLabel: session.isCurrent ? 'Đăng xuất' : 'Thu hồi',
+    );
+    if (!confirmed || !context.mounted) {
+      return;
+    }
+
+    final result = await ref
+        .read(revokeDeviceSessionUseCaseProvider)
+        .execute(session);
+    if (!context.mounted) {
+      return;
+    }
+    switch (result) {
+      case Success<SessionRevokeOutcome>(
+        value: SessionRevokeOutcome.signedOutThisDevice,
+      ):
+        ref.invalidate(authAccessTokenProvider);
+        context.go('/login');
+      case Success<SessionRevokeOutcome>():
+        ref.invalidate(sessionListProvider);
+        _showSnackBar(context, 'Đã thu hồi phiên.');
+      case FailureResult<SessionRevokeOutcome>(failure: final failure):
+        _showSnackBar(context, failure.message);
+    }
+  }
+}
+
+/// Máy này lên đầu, rồi phiên hoạt động gần nhất.
+List<UserSession> orderSessionsForDisplay(List<UserSession> sessions) {
+  final ordered = [...sessions];
+  ordered.sort((left, right) {
+    if (left.isCurrent != right.isCurrent) {
+      return left.isCurrent ? -1 : 1;
+    }
+    return right.lastActivityAt.compareTo(left.lastActivityAt);
+  });
+  return ordered;
+}
+
+class _SessionTile extends StatelessWidget {
+  const _SessionTile({
+    required this.session,
+    required this.now,
+    required this.onRevoke,
+    super.key,
+  });
+
+  final UserSession session;
+  final DateTime now;
+  final VoidCallback? onRevoke;
+
+  @override
+  Widget build(BuildContext context) {
+    final method = authMethodLabel(session.authMethod);
+    final details = <String>[
+      if (session.revokedAt != null)
+        'Đã thu hồi'
+      else if (!session.isActive)
+        'Đã hết hạn'
+      else
+        'Hoạt động lần cuối: ${formatLastActive(session.lastActivityAt, now)}',
+      if (session.ipAddress?.trim().isNotEmpty == true)
+        'IP ${session.ipAddress}',
+      if (method.isNotEmpty) method,
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: WebTuiSpacing.lg,
+        vertical: WebTuiSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          Icon(
+            session.isCurrent
+                ? Icons.smartphone_rounded
+                : Icons.devices_rounded,
+            color: session.isCurrent
+                ? WebTuiColors.primary
+                : WebTuiColors.textSecondary,
+          ),
+          const SizedBox(width: WebTuiSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: WebTuiSpacing.xs,
+                  runSpacing: 2,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      session.deviceName ?? 'Thiết bị không xác định',
+                      style: WebTuiTypography.bodyMedium.copyWith(
+                        color: WebTuiColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (session.isCurrent)
+                      const _SessionBadge(
+                        label: 'Máy này',
+                        color: WebTuiColors.primary,
+                      ),
+                    if (session.isPendingApproval)
+                      const _SessionBadge(
+                        label: 'Chờ duyệt',
+                        color: Color(0xFF8A5A00),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  details.join(' · '),
+                  style: WebTuiTypography.bodySmall.copyWith(
+                    color: WebTuiColors.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (onRevoke != null)
+            IconButton(
+              tooltip: session.isCurrent
+                  ? 'Đăng xuất thiết bị này'
+                  : 'Thu hồi phiên',
+              onPressed: onRevoke,
+              icon: const Icon(Icons.logout_rounded),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SessionBadge extends StatelessWidget {
+  const _SessionBadge({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        child: Text(
+          label,
+          style: WebTuiTypography.bodySmall.copyWith(
+            color: color,
+            fontWeight: FontWeight.w800,
+            fontSize: 11.5,
+          ),
+        ),
+      ),
     );
   }
 }

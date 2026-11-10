@@ -472,6 +472,41 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     }
     
     
+    /// WebTUI patch: VoIP "huỷ" (cuộc gọi đã được nhận ở máy khác / đã kết thúc).
+    /// PushKit bắt buộc báo CallKit trước khi gọi completion, nên báo cuộc gọi đến
+    /// theo đúng UUID rồi kết thúc ngay với lý do (mã như saveEndCall).
+    /// Không đổi `data` / `isFromPushKit` của cuộc gọi đang có, không phát sự kiện
+    /// sang Dart và gỡ cuộc gọi khỏi danh sách để không còn hẹn giờ "cuộc gọi nhỡ".
+    /// `endExistingCall == false`: UUID đang có (máy này đã nhận) thì giữ nguyên.
+    @objc public func reportRemotelyEndedCall(_ data: Data, reason: Int, endExistingCall: Bool, completion: @escaping () -> Void) {
+        guard let uuid = UUID(uuidString: data.uuid) else {
+            NSLog("[CallkitIncoming] reportRemotelyEndedCall: invalid UUID '\(data.uuid)' — ignored")
+            completion()
+            return
+        }
+        if self.sharedProvider == nil {
+            initCallkitProvider(data)
+        }
+        let callUpdate = CXCallUpdate()
+        callUpdate.remoteHandle = CXHandle(type: self.getHandleType(data.handleType), value: data.getEncryptHandle())
+        callUpdate.supportsDTMF = data.supportsDTMF
+        callUpdate.supportsHolding = data.supportsHolding
+        callUpdate.supportsGrouping = data.supportsGrouping
+        callUpdate.supportsUngrouping = data.supportsUngrouping
+        callUpdate.hasVideo = data.type > 0 ? true : false
+        callUpdate.localizedCallerName = data.nameCaller
+        self.sharedProvider?.reportNewIncomingCall(with: uuid, update: callUpdate) { error in
+            if error == nil || endExistingCall {
+                self.saveEndCall(data.uuid, reason)
+                if let call = self.callManager.callWithUUID(uuid: uuid) {
+                    call.endCall()
+                    self.callManager.removeCall(call)
+                }
+            }
+            completion()
+        }
+    }
+
     func endCallNotExist(_ data: Data) {
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(data.duration)) {
             // Guard against malformed UUID — see CallManager.swift:startCall for rationale.

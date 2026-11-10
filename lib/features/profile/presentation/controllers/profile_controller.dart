@@ -78,14 +78,21 @@ final class ProfileController extends StateNotifier<ProfileState> {
     String? phoneNumber,
     String? locale,
     String? timezone,
+    String? title,
   }) async {
     state = state.copyWith(isSaving: true, clearMessages: true);
+    // Chỉ gửi chức danh khi người dùng sửa (máy chủ cũ không nhận `title`).
+    final currentTitle = state.profile?.work.title ?? '';
+    final nextTitle = title?.trim();
     final result = await updateProfileUseCase.execute(
       UpdateProfileCommand(
         displayName: displayName,
         phoneNumber: phoneNumber,
         locale: locale,
         timezone: timezone,
+        title: nextTitle == null || nextTitle == currentTitle
+            ? null
+            : nextTitle,
       ),
     );
     _applyProfileResult(result, success: 'Đã cập nhật hồ sơ.');

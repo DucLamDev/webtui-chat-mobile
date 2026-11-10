@@ -29,6 +29,11 @@ enum ConversationRealtimeEventType {
   callCancelled,
   callEnded,
   callMissed,
+
+  /// Cuộc gọi đã được nhận ở một máy khác của chính người dùng (gửi vào room cá
+  /// nhân của người nhận). Máy khác mã [ConversationRealtimeEvent.answeredDeviceId]
+  /// thì tắt chuông, không ghi "cuộc gọi nhỡ".
+  callAnsweredElsewhere,
   contactRequestCreated,
   contactRequestUpdated,
   contactRequestCancelled,
@@ -37,9 +42,21 @@ enum ConversationRealtimeEventType {
   /// nằm trong [ConversationRealtimeEvent.payload].
   orderTicketUpdated,
 
+  /// Phiên của chính kết nối này bị thu hồi (`SessionRevoked`, Lõi 2.1);
+  /// `payload.session_id`, `payload.reason`.
+  sessionRevoked,
+
+  /// Có thiết bị mới chờ người dùng / quản trị duyệt
+  /// (`DeviceApprovalRequested`, Lõi 2.3); chi tiết nằm trong `payload`.
+  deviceApprovalRequested,
+
   /// Kết nối realtime vừa nối lại sau khi rớt: tin trong lúc mất kết nối không
   /// được đẩy lại nên màn hình phải tự tải lại.
   reconnected,
+
+  /// Máy chủ sắp ngắt kết nối vì máy này nhận sự kiện quá chậm: phải đồng bộ bù
+  /// (`/sync`) rồi nối lại. Kho realtime tự đóng và nối lại kết nối.
+  resyncRequired,
   unknown,
 }
 
@@ -61,7 +78,14 @@ final class ConversationRealtimeEvent {
     this.callSdp = const {},
     this.callCandidate = const {},
     this.payload = const {},
+
     this.delta,
+
+    this.eventId,
+    this.targetDeviceId,
+    this.answeredDeviceId,
+    this.initiatorDeviceId,
+
   });
 
   final ConversationRealtimeEventType type;
@@ -85,8 +109,20 @@ final class ConversationRealtimeEvent {
   /// [ConversationRealtimeEventType.transcriptUpdated].
   final Map<String, dynamic> payload;
 
+
   /// Chỉ có với [ConversationRealtimeEventType.messageDelta].
   final MessageStreamDelta? delta;
+
+  /// Mã duy nhất của sự kiện (máy chủ mới) để bỏ sự kiện trùng.
+  final String? eventId;
+
+  /// Máy đích của tín hiệu WebRTC do máy chủ điền: khác máy này thì bỏ qua.
+  final String? targetDeviceId;
+
+  /// Máy đã nhận cuộc gọi (CallAccepted / CallAnsweredElsewhere).
+  final String? answeredDeviceId;
+  final String? initiatorDeviceId;
+
 
   bool get isCallEvent => switch (type) {
     ConversationRealtimeEventType.callInvited ||
@@ -98,7 +134,8 @@ final class ConversationRealtimeEvent {
     ConversationRealtimeEventType.callRejected ||
     ConversationRealtimeEventType.callCancelled ||
     ConversationRealtimeEventType.callEnded ||
-    ConversationRealtimeEventType.callMissed => true,
+    ConversationRealtimeEventType.callMissed ||
+    ConversationRealtimeEventType.callAnsweredElsewhere => true,
     _ => false,
   };
 

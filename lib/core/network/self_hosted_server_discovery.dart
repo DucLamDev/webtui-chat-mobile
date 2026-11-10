@@ -19,6 +19,11 @@ final class SelfHostedServerDiscovery {
     required this.capabilities,
     this.logoUrl,
     this.zoneKind = '',
+
+    this.privacyPolicy = const SelfHostedPrivacyPolicy(),
+
+    this.sessionPolicy = const SessionPolicy(),
+
   });
 
   /// Host duy nhất được bật chức năng nội bộ VPSTTT (Automation, kênh bot / lệnh
@@ -54,6 +59,7 @@ final class SelfHostedServerDiscovery {
     final capabilities = _jsonMap(discovery['capabilities']);
     final deployment = _jsonMap(discovery['deployment']);
     final branding = _jsonMap(discovery['branding']);
+    final privacyPolicy = _jsonMap(discovery['privacy_policy']);
 
     if (discoveryVersion != '1') {
       throw StateError('Unsupported discovery version.');
@@ -171,12 +177,32 @@ final class SelfHostedServerDiscovery {
         blocking: capabilities['blocking'] == true,
         accountDeletion: capabilities['account_deletion'] == true,
         legalAcceptance: capabilities['legal_acceptance'] == true,
+
         richCardsV2: capabilities['rich_cards_v2'] == true,
         aiStreaming: capabilities['ai_streaming'] == true,
         transcription: capabilities['transcription'] == true,
+
+
+        myNotes: capabilities['my_notes'] == true,
+        secretMessages: capabilities['secret_messages'] == true,
+        mfa: capabilities['mfa'] == true,
       ),
       logoUrl: logoUrl,
       zoneKind: _text(zone['kind']).toLowerCase(),
+      privacyPolicy: SelfHostedPrivacyPolicy.fromJson(privacyPolicy),
+
+        // Lõi 2: máy chủ cũ không trả các trường này → coi như tắt.
+        qrLogin: capabilities['qr_login'] == true,
+        deviceApproval: capabilities['device_approval'] == true,
+        emailVerification: capabilities['email_verification'] == true,
+
+      ),
+      logoUrl: logoUrl,
+      zoneKind: _text(zone['kind']).toLowerCase(),
+      sessionPolicy: SessionPolicy.fromJson(
+        _jsonMap(discovery['session_policy']),
+      ),
+
     );
   }
 
@@ -213,8 +239,14 @@ final class SelfHostedServerDiscovery {
   final SelfHostedCapabilities capabilities;
   final String? logoUrl;
 
+  /// Chính sách riêng tư (khoá máy, tin bí mật); máy chủ cũ không trả thì dùng mặc định.
+  final SelfHostedPrivacyPolicy privacyPolicy;
+
   /// `zone.kind` của /discovery (vd. `vpsttt_internal`, `dedicated`); rỗng khi server cũ không trả.
   final String zoneKind;
+
+  /// `session_policy` của /discovery; máy chủ cũ không trả → mọi giá trị tắt.
+  final SessionPolicy sessionPolicy;
 
   /// Chức năng nội bộ VPSTTT chỉ bật khi đúng host chat.vpsttt.com VÀ server báo
   /// zone nội bộ; mặc định (mọi server khác, hoặc thiếu thông tin) là tắt.
@@ -257,9 +289,68 @@ final class SelfHostedServerDiscovery {
         },
         'deployment': {'status': 'ready'},
         'capabilities': capabilities.toJson(),
+
+        'privacy_policy': privacyPolicy.toJson(),
+
+        'session_policy': sessionPolicy.toJson(),
+
       },
     });
   }
+}
+
+/// Chính sách phiên của zone (`session_policy` trong /discovery). Giá trị 0
+/// nghĩa là tắt; `device_approval_mode` lạ hoặc thiếu coi như `off`.
+final class SessionPolicy {
+  const SessionPolicy({
+    this.maxSessionAgeHours = 0,
+    this.reloginAfterHours = 0,
+    this.deviceApprovalMode = deviceApprovalOff,
+  });
+
+  factory SessionPolicy.fromJson(Map<String, Object?> json) {
+    final mode = json['device_approval_mode'];
+    final normalizedMode = mode is String ? mode.trim().toLowerCase() : '';
+    return SessionPolicy(
+      maxSessionAgeHours: _nonNegativeInt(json['max_session_age_hours']),
+      reloginAfterHours: _nonNegativeInt(json['relogin_after_hours']),
+      deviceApprovalMode: _deviceApprovalModes.contains(normalizedMode)
+          ? normalizedMode
+          : deviceApprovalOff,
+    );
+  }
+
+  static const deviceApprovalOff = 'off';
+  static const deviceApprovalSelf = 'self';
+  static const deviceApprovalTwoPerson = 'two_person';
+  static const _deviceApprovalModes = {
+    deviceApprovalOff,
+    deviceApprovalSelf,
+    deviceApprovalTwoPerson,
+  };
+
+  final int maxSessionAgeHours;
+  final int reloginAfterHours;
+  final String deviceApprovalMode;
+
+  bool get deviceApprovalEnabled => deviceApprovalMode != deviceApprovalOff;
+
+  Map<String, Object?> toJson() {
+    return {
+      'max_session_age_hours': maxSessionAgeHours,
+      'relogin_after_hours': reloginAfterHours,
+      'device_approval_mode': deviceApprovalMode,
+    };
+  }
+}
+
+int _nonNegativeInt(Object? value) {
+  final parsed = value is int
+      ? value
+      : value is num
+      ? value.toInt()
+      : 0;
+  return parsed < 0 ? 0 : parsed;
 }
 
 final class SelfHostedCapabilities {
@@ -277,9 +368,21 @@ final class SelfHostedCapabilities {
     this.blocking = false,
     this.accountDeletion = false,
     this.legalAcceptance = false,
+
     this.richCardsV2 = false,
     this.aiStreaming = false,
     this.transcription = false,
+
+
+    this.myNotes = false,
+    this.secretMessages = false,
+    this.mfa = false,
+
+    this.qrLogin = false,
+    this.deviceApproval = false,
+    this.emailVerification = false,
+
+
   });
 
   final bool chat;
@@ -296,6 +399,7 @@ final class SelfHostedCapabilities {
   final bool accountDeletion;
   final bool legalAcceptance;
 
+
   /// Máy chủ hiểu thẻ bản 2, nút `callback` và biểu mẫu (thiếu cờ = `false`;
   /// thẻ bản 2 đã có trong tin thì vẫn vẽ).
   final bool richCardsV2;
@@ -305,6 +409,27 @@ final class SelfHostedCapabilities {
 
   /// Máy chủ đã cấu hình dịch vụ chép lời tin thoại.
   final bool transcription;
+
+
+  /// Sổ ghi chú cá nhân My Note.
+  final bool myNotes;
+
+  /// Tin nhắn bí mật tự xoá.
+  final bool secretMessages;
+
+  /// Xác thực hai lớp (TOTP) và xác thực lại.
+  final bool mfa;
+
+  /// Đăng nhập máy tính bằng QR (Lõi 2.2).
+  final bool qrLogin;
+
+  /// Zone bật duyệt thiết bị mới (Lõi 2.3).
+  final bool deviceApproval;
+
+  /// Zone bắt xác minh email và máy chủ đã cấu hình SMTP (Lõi 2.6).
+  final bool emailVerification;
+
+
 
   Map<String, bool> toJson() {
     return {
@@ -322,9 +447,53 @@ final class SelfHostedCapabilities {
       'blocking': blocking,
       'account_deletion': accountDeletion,
       'legal_acceptance': legalAcceptance,
+
       'rich_cards_v2': richCardsV2,
       'ai_streaming': aiStreaming,
       'transcription': transcription,
+
+
+      'my_notes': myNotes,
+      'secret_messages': secretMessages,
+      'mfa': mfa,
+    };
+  }
+}
+
+/// `privacy_policy` trong discovery.
+final class SelfHostedPrivacyPolicy {
+  const SelfHostedPrivacyPolicy({
+    this.idleLockMinutes = 0,
+    this.secretMessageTtlHours = 24,
+    this.revealRequiresReauth = true,
+  });
+
+  factory SelfHostedPrivacyPolicy.fromJson(Map<String, Object?> json) {
+    final idle = json['idle_lock_minutes'];
+    final ttl = json['secret_message_ttl_hours'];
+    final reveal = json['reveal_requires_reauth'];
+    return SelfHostedPrivacyPolicy(
+      idleLockMinutes: idle is int && idle > 0 ? idle : 0,
+      secretMessageTtlHours: ttl is int && ttl > 0 ? ttl : 24,
+      revealRequiresReauth: reveal is bool ? reveal : true,
+    );
+  }
+
+  /// Số phút tối đa app được mở mà không dùng trước khi tự khoá; 0 = máy chủ không ép.
+  final int idleLockMinutes;
+  final int secretMessageTtlHours;
+  final bool revealRequiresReauth;
+
+  Map<String, Object> toJson() {
+    return {
+      'idle_lock_minutes': idleLockMinutes,
+      'secret_message_ttl_hours': secretMessageTtlHours,
+      'reveal_requires_reauth': revealRequiresReauth,
+
+      'qr_login': qrLogin,
+      'device_approval': deviceApproval,
+      'email_verification': emailVerification,
+
     };
   }
 }

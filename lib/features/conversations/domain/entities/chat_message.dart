@@ -19,6 +19,8 @@ final class ChatMessage {
     this.reactions = const [],
     this.attachments = const [],
     this.metadata = const {},
+    this.isSecret = false,
+    this.expiresAt,
     this.isPinned = false,
     this.isMine = false,
   });
@@ -39,6 +41,8 @@ final class ChatMessage {
   final List<MessageReactionSummary> reactions;
   final List<MessageAttachment> attachments;
   final Map<String, Object?> metadata;
+  final bool isSecret;
+  final DateTime? expiresAt;
   final bool isPinned;
   final bool isMine;
 
@@ -131,6 +135,8 @@ final class ChatMessage {
       reactions: reactions ?? this.reactions,
       attachments: attachments ?? this.attachments,
       metadata: metadata ?? this.metadata,
+      isSecret: isSecret,
+      expiresAt: expiresAt,
       isPinned: isPinned ?? this.isPinned,
       isMine: isMine ?? this.isMine,
     );

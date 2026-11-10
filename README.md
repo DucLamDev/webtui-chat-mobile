@@ -38,6 +38,25 @@ App lock/privacy:
   lần nhập PIN sai, form khóa 30 giây rồi tự mở lại; timer được hủy khi widget
   dispose.
 - `PrivacyGuard` phủ nội dung khi app inactive/paused; Android `MainActivity` bật `FLAG_SECURE` qua MethodChannel `webtui/privacy`.
+- `AppLockGate` là lớp phủ nằm trên router: khi khóa, nội dung bên dưới (màn gọi, phòng chat, chữ đang soạn) vẫn được
+  giữ, chỉ bị che và chặn chạm. App tự khóa khi không chạm vào app hoặc chạy nền quá N phút
+  (`effectiveAppLockMinutesProvider`: mức người dùng chọn, không vượt `privacy_policy.idle_lock_minutes` của máy chủ;
+  mặc định 30 phút). Trạng thái `inactive` (kéo thanh thông báo, trình chuyển app) không làm khóa. Màn gọi ghi vào
+  `activeCallTrackerProvider` nên đang gọi thì không tự khóa.
+
+## Quyền riêng tư lõi 3
+
+- Cài đặt → Xác thực TOTP: xác thực lại, lấy khoá để nhập vào ứng dụng xác thực, xác nhận bằng mã 6 số,
+  nhận mã khôi phục một lần; tắt TOTP cũng phải xác thực lại. Vân tay chỉ hỗ trợ mở ô nhập, không thay cho
+  xác thực lại phía máy chủ. Token chỉ sống trong thao tác hiện tại, không ghi xuống ổ.
+- Nút **Bí mật 24h** trong phòng mở ô soạn riêng (chỉ chữ); không đi qua draft/outbox. Nhấn **Xem** để
+  xác thực lại, mở nội dung tối đa 60 giây hoặc tới hạn máy chủ. Chạy nền đóng nội dung; Android bật
+  `FLAG_SECURE` trong lúc xem. Nội dung reveal không đưa vào `ChatMessage` hoặc Drift.
+- My Note có cache offline theo tài khoản/máy chủ; máy chủ kiểm chủ sở hữu trên mọi thao tác. Không cho lưu
+  tin bí mật vào My Note. Chính sách `who_can_call_me` được lưu và kiểm ở máy chủ.
+- Cờ `my_notes`, `secret_messages`, `mfa` từ discovery điều khiển giao diện; máy chủ cũ thiếu cờ thì ẩn.
+  Kiểm phần này: `flutter test test/features/mfa test/features/my_notes test/features/call_privacy
+  test/features/auth/application/app_lock_timeout_test.dart test/features/auth/presentation/app_lock_gate_overlay_test.dart`.
 
 ## Phase M3 Workspace/RBAC/Profile/Settings
 
@@ -158,6 +177,7 @@ dựng shell và design tokens; Phase M2 thêm auth/session foundation và login
 entrypoint, chưa phụ thuộc backend/mock production trong widget test.
 
 
+
 ## Tin nhắn nâng cao
 
 App đọc thẻ bot bản 1 và bản 2 (biểu đồ, sơ đồ, kế hoạch, bảng, biểu mẫu).
@@ -169,3 +189,33 @@ Tin đang chạy dần nhận `MessageDelta`, bỏ đoạn trùng và tải lạ
 Kết quả cuối là tin đầy đủ. Nút xem lời chép phụ thuộc khả năng `transcription`
 của máy chủ. Lịch sử ghi chú/bảng trắng hỗ trợ xem trước và khôi phục; xung đột
 với người sửa khác được báo để tải lại, không âm thầm ghi đè.
+
+## Đăng nhập và quản lý thiết bị
+
+- Tính năng QR, duyệt thiết bị và xác minh email theo capability của máy chủ, không theo tên miền cố định.
+- Quét mã đăng nhập máy tính trong Cài đặt; chỉ xác nhận mã cùng máy chủ đang dùng. Màn xác nhận
+  hiển thị thiết bị, địa chỉ IP và thời điểm yêu cầu trước khi đồng ý hoặc từ chối.
+- Phiên chờ duyệt chỉ xem trạng thái duyệt hoặc đăng xuất. Sau khi được duyệt, ứng dụng lấy phiên
+  mới rồi tải workspace. Có nhiều workspace thì người dùng chọn trước khi vào hộp thư.
+- Link `/invite/:token` giữ đích qua bước đăng nhập và có màn nhận lời mời rõ ràng.
+- Xác minh email có đếm thời gian gửi lại; mã hết hạn hoặc bị khoá cần gửi lại mã mới.
+- Danh sách phiên dùng `is_current` để nhận diện máy đang dùng; thu hồi máy khác không đăng xuất máy này.
+  Khi phiên hiện tại bị thu hồi hoặc refresh bị từ chối, ứng dụng dọn dữ liệu phiên trước khi về đăng nhập.
+- Hồ sơ hiển thị chức danh, phòng ban, nơi làm và ngày vào công ty khi máy chủ cung cấp.
+
+## Hiển thị tên và ảnh người gửi trong nhóm
+
+Tin nhắn nhóm hiển thị đúng người gửi, kể cả thành viên đã rời phòng; hội thoại trực tiếp giữ cách hiển thị hiện có.
+
+### Công việc trong phòng
+
+Tab Công việc có danh sách Việc của tôi và bộ lọc giao cho tôi / tôi giao / quá hạn. Trong phòng, người tạo và quản lý phòng được sửa hoặc xoá; người được giao được cập nhật trạng thái. Máy chủ vẫn kiểm tra quyền cho từng thao tác.
+
+### Bảng trắng dùng chung
+
+Bảng trắng dùng tài liệu schema 2 chung với web, có hình học, nét vẽ, chữ và biểu tượng. Lưu tuần tự, giữ đối tượng chưa hỗ trợ chỉnh sửa và thông báo lỗi lưu; người dùng có thể thử lại.
+
+### Phiếu hỗ trợ khách hàng
+
+Mục phiếu hỗ trợ có danh sách, chi tiết, phản hồi và ảnh đính kèm, đồng bộ thay đổi qua kết nối thời gian thực. App hiển thị hành động theo quyền; máy chủ kiểm tra quyền cho mọi thao tác.
+

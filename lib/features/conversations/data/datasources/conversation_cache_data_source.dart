@@ -401,7 +401,9 @@ Map<String, Object?> _messageToJson(ChatMessage item) {
     'workspaceId': item.workspaceId,
     'channelId': item.channelId,
     'kind': item.kind,
-    'body': item.body,
+    'secret': item.isSecret,
+    'expiresAt': item.expiresAt?.toUtc().toIso8601String(),
+    'body': item.isSecret ? '' : item.body,
     'createdAt': item.createdAt.toUtc().toIso8601String(),
     'senderId': item.senderId,
     'parentId': item.parentId,
@@ -428,7 +430,9 @@ ChatMessage _messageFromJson(Map<String, Object?> json) {
     workspaceId: _string(json['workspaceId']),
     channelId: _string(json['channelId']),
     kind: _string(json['kind'], fallback: 'text'),
-    body: _string(json['body']),
+    isSecret: json['secret'] == true,
+    expiresAt: _dateTime(json['expiresAt']),
+    body: json['secret'] == true ? '' : _string(json['body']),
     createdAt:
         _dateTime(json['createdAt']) ??
         DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),

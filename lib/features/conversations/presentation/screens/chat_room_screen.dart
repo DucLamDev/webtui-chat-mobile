@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -8,7 +7,6 @@ import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/error/error_mapper.dart';
 import '../../../../core/platform/chat_share_intent_service.dart';
@@ -20,6 +18,7 @@ import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../moderation/presentation/controllers/moderation_controller.dart';
 import '../../../moderation/presentation/widgets/moderation_actions.dart';
+import '../../../my_notes/presentation/widgets/save_message_to_my_note.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
 import '../../application/use_cases/collaboration_task_use_cases.dart';
 import '../../domain/entities/call_session.dart';
@@ -35,6 +34,7 @@ import '../widgets/collaboration_room_sheet.dart';
 import '../widgets/message_cards/message_card_view.dart';
 import '../widgets/message_cards/streaming_message_bubble.dart';
 import '../widgets/message_media_widgets.dart';
+import '../widgets/message_parts/secret_message_widgets.dart';
 import '../widgets/task_editor_sheet.dart';
 import '../widgets/voice_transcript_view.dart';
 import 'qr_scanner_screen.dart';
@@ -1442,6 +1442,11 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
                                   onManage: () =>
                                       widget.onToggleBlockUser(message),
                                 )
+                              else if (message.isSecret)
+                                SecretMessageBubble(
+                                  key: ValueKey(message.id),
+                                  message: message,
+                                )
                               else
                                 GestureDetector(
                                   behavior: HitTestBehavior.opaque,
@@ -1523,6 +1528,13 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
         if (widget.state.hasTypingUsers) const _TypingIndicator(),
         if (widget.state.hasOutboxItems)
           _OutboxStatusBar(state: widget.state, onRetry: widget.onRetryOutbox),
+        if (!widget.interactionBlocked && widget.state.canSend)
+          SecretMessageComposer(
+            key: ValueKey(widget.state.scope.channelId),
+            workspaceId: widget.workspaceId,
+            channelId: widget.state.scope.channelId,
+            onSent: widget.onRetry,
+          ),
         if (widget.interactionBlocked)
           _BlockedConversationComposer(
             onManage: widget.onManageBlockedConversation,
@@ -2990,7 +3002,7 @@ Future<void> _showMessageActions(
   required ValueChanged<ChatMessage> onThread,
   required void Function(ChatMessage message, String targetChannelId) onForward,
 }) {
-  if (message.isDeleted) {
+  if (message.isDeleted || message.isSecret) {
     return Future.value();
   }
   final hostContext = context;
@@ -3173,6 +3185,23 @@ class _MessageQuickActions extends StatelessWidget {
                     );
                   },
                 ),
+                // My Note: ẩn khi cờ tắt, tin bí mật / đã xoá / chưa gửi xong.
+                if (canSaveMessageToMyNoteIn(context, message))
+                  _SheetActionButton(
+                    label: 'Lưu vào My Note',
+                    icon: Icons.bookmark_add_outlined,
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      unawaited(
+                        saveMessageToMyNote(
+                          hostContext,
+                          workspaceId: workspaceId,
+                          channelId: currentChannelId,
+                          message: message,
+                        ),
+                      );
+                    },
+                  ),
                 if (!sharedContentBlocked) ...[
                   _SheetActionButton(
                     label: 'Reaction',
@@ -4851,6 +4880,7 @@ String _dateLabel(DateTime value) {
 }
 
 String _displayMessageBody(ChatMessage message) {
+  if (message.isSecret) return 'Tin nhắn bí mật';
   if (message.isDeleted) {
     return 'Tin nhắn đã được thu hồi';
   }

@@ -8,10 +8,13 @@ import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/network/api_response.dart';
 import '../../../../core/notifications/call_tone_player.dart';
 import '../../../../core/notifications/native_incoming_call_service.dart';
+import '../../../../core/security/active_call_tracker.dart';
 import '../../../../core/security/instance_scope.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../auth/presentation/controllers/legal_acceptance_controller.dart';
+import '../../application/use_cases/call_use_cases.dart';
+import '../../domain/entities/call_device_routing.dart';
 import '../../domain/entities/call_session.dart';
 import '../../domain/entities/conversation_realtime_event.dart';
 
@@ -72,13 +75,24 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   bool _usingFrontCamera = true;
   bool _reconnecting = false;
   bool _iceRestartAttempted = false;
+
+  /// Máy này đã nhận cuộc gọi đến (accept thành công): chỉ khi đó mới trả lời
+  /// offer.
+  bool _acceptedHere = false;
+
+  /// Mã thiết bị đã đăng ký push, để bỏ tín hiệu WebRTC gửi cho máy khác.
+  String? _localDeviceId;
   Offset? _localPreviewPosition;
   late final InstanceScope _instanceScope;
+  // Lõi 3.1: báo khoá ứng dụng không khoá khi màn gọi đang mở.
+  late final ActiveCallTracker _activeCalls;
 
   @override
   void initState() {
     super.initState();
     _instanceScope = ref.read(activeInstanceScopeProvider);
+    _activeCalls = ref.read(activeCallTrackerProvider.notifier)
+      ..begin(widget.callId);
     _speakerEnabled = widget.mode == CallMode.video;
     unawaited(_initialize());
     _stateTimer = Timer.periodic(
@@ -89,6 +103,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
 
   @override
   void dispose() {
+    _activeCalls.end(widget.callId);
     unawaited(_ringback.stop());
     _stateTimer?.cancel();
     _disconnectTimer?.cancel();
@@ -121,6 +136,9 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       _currentUserId = (await ref.read(loadProfileUseCaseProvider).execute())
           .valueOrNull
           ?.id;
+      _localDeviceId = await ref
+          .read(resolveCallDeviceIdUseCaseProvider)
+          .execute();
       _signals = ref
           .read(conversationRealtimeRepositoryProvider)
           .subscribeToChannel(
@@ -129,7 +147,13 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
           )
           .listen(_handleSignal);
       if (widget.incoming) {
-        await _acceptIncomingCall();
+        if (!await _acceptIncomingCall()) {
+          // Đã nhận ở máy khác (hoặc vừa kết thúc): đóng màn gọi đến, không
+          // gác máy và không báo lỗi.
+          await _leaveAnsweredElsewhere();
+          return;
+        }
+        _acceptedHere = true;
       }
 
       final peer = await createPeerConnection({
@@ -247,7 +271,10 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     }
   }
 
-  Future<void> _acceptIncomingCall() async {
+  /// `true`: máy này đã nhận cuộc gọi. `false`: cuộc gọi đã được nhận ở máy
+  /// khác (máy chủ trả 409 `CALL_INVALID_TRANSITION` hoặc mã máy đã nhận khác
+  /// máy này).
+  Future<bool> _acceptIncomingCall() async {
     final current =
         (await ref
                 .read(getCallUseCaseProvider)
@@ -264,11 +291,33 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
           .read(acceptCallUseCaseProvider)
           .execute(workspaceId: widget.workspaceId, callId: widget.callId);
       if (accepted.isFailure) {
+        if (isCallAlreadyHandledFailure(accepted.failureOrNull)) {
+          return false;
+        }
         throw StateError(
           accepted.failureOrNull?.message ?? 'Không thể nhận cuộc gọi.',
         );
       }
+      return !callAnsweredOnAnotherDevice(
+        answeredDeviceId: accepted.valueOrNull?.answeredDeviceId,
+        localDeviceId: _localDeviceId,
+      );
     }
+    // Đã nhận từ trước: chỉ tiếp tục khi chính máy này đã nhận (máy chủ cũ
+    // không trả mã máy thì giữ hành vi cũ).
+    return !callAnsweredOnAnotherDevice(
+      answeredDeviceId: current.answeredDeviceId,
+      localDeviceId: _localDeviceId,
+    );
+  }
+
+  bool _answeredOnAnotherDevice(CallSession call) {
+    return widget.incoming &&
+        call.status == CallStatus.accepted &&
+        callAnsweredOnAnotherDevice(
+          answeredDeviceId: call.answeredDeviceId,
+          localDeviceId: _localDeviceId,
+        );
   }
 
   Future<List<Map<String, Object?>>> _loadIceServers() async {
@@ -300,6 +349,11 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
         (_currentUserId != null && event.userId == _currentUserId)) {
       return;
     }
+    if (isCallSignalForAnotherDevice(event, localDeviceId: _localDeviceId)) {
+      // Tín hiệu dành cho máy khác của cùng người dùng: không trả lời offer,
+      // không thêm ICE.
+      return;
+    }
     switch (event.type) {
       case ConversationRealtimeEventType.callAccepted:
         unawaited(_ringback.stop());
@@ -310,6 +364,12 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
         }
       case ConversationRealtimeEventType.callOffer:
         if (widget.incoming && event.callSdp.isNotEmpty) {
+          if (!_acceptedHere) {
+            // Chưa nhận xong trên máy này: giữ offer, chỉ trả lời sau khi
+            // accept thành công.
+            _pendingOffer = Map<String, dynamic>.from(event.callSdp);
+            return;
+          }
           _runSignaling(_receiveOffer(event.callSdp));
         }
       case ConversationRealtimeEventType.callAnswer:
@@ -354,6 +414,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   void _maybeReceivePendingOffer() {
     final pendingOffer = _pendingOffer;
     if (!widget.incoming ||
+        !_acceptedHere ||
         pendingOffer == null ||
         _peer == null ||
         !_ready ||
@@ -472,6 +533,10 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       await _leaveFromRemote();
       return;
     }
+    if (_answeredOnAnotherDevice(call)) {
+      await _leaveAnsweredElsewhere();
+      return;
+    }
     final startedAt = call.status == CallStatus.accepted
         ? call.startedAt ?? _startedAt ?? DateTime.now().toUtc()
         : null;
@@ -494,6 +559,19 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     unawaited(_ringback.stop());
     _stateTimer?.cancel();
     _disconnectTimer?.cancel();
+    await _notifyLeave();
+    await _closeScreen();
+  }
+
+  /// Cuộc gọi đến đã được nhận ở máy khác: tắt giao diện gốc và đóng màn hình,
+  /// không gửi reject / hangup.
+  Future<void> _leaveAnsweredElsewhere() async {
+    if (_leaving) return;
+    _leaving = true;
+    unawaited(_ringback.stop());
+    _stateTimer?.cancel();
+    _disconnectTimer?.cancel();
+    await NativeIncomingCallService.endCall(widget.callId, remoteEnded: true);
     await _notifyLeave();
     await _closeScreen();
   }
@@ -526,7 +604,8 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
                   callId: widget.callId,
                 ))
             .valueOrNull;
-    if (call != null && !call.isTerminal) {
+    // Đã nhận ở máy khác: không bao giờ gác máy hộ máy kia.
+    if (call != null && !call.isTerminal && !_answeredOnAnotherDevice(call)) {
       if (call.status == CallStatus.ringing && widget.incoming) {
         await ref
             .read(rejectCallUseCaseProvider)
@@ -1041,4 +1120,22 @@ String _friendlyError(Object error) {
     return 'Cần cấp quyền camera và microphone để thực hiện cuộc gọi.';
   }
   return message.trim().isEmpty ? 'Không thể bắt đầu cuộc gọi.' : message;
+}
+
+/// Tín hiệu WebRTC (offer / answer / ICE / ready) có `target_device_id` khác máy
+/// này: bỏ qua.
+bool isCallSignalForAnotherDevice(
+  ConversationRealtimeEvent event, {
+  required String? localDeviceId,
+}) {
+  return switch (event.type) {
+    ConversationRealtimeEventType.callOffer ||
+    ConversationRealtimeEventType.callAnswer ||
+    ConversationRealtimeEventType.callIceCandidate ||
+    ConversationRealtimeEventType.callReady => callSignalTargetsAnotherDevice(
+      targetDeviceId: event.targetDeviceId,
+      localDeviceId: localDeviceId,
+    ),
+    _ => false,
+  };
 }

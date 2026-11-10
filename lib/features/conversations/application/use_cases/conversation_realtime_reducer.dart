@@ -109,11 +109,16 @@ final class ConversationRealtimeReducer {
       ConversationRealtimeEventType.callCancelled ||
       ConversationRealtimeEventType.callEnded ||
       ConversationRealtimeEventType.callMissed ||
+      ConversationRealtimeEventType.callAnsweredElsewhere ||
       ConversationRealtimeEventType.contactRequestCreated ||
       ConversationRealtimeEventType.contactRequestUpdated ||
       ConversationRealtimeEventType.contactRequestCancelled => state,
-      ConversationRealtimeEventType.reconnected => state,
+      ConversationRealtimeEventType.reconnected ||
+      ConversationRealtimeEventType.resyncRequired => state,
       ConversationRealtimeEventType.orderTicketUpdated => state,
+      // Sự kiện phiên / duyệt thiết bị do home shell xử lý, không đổi phòng chat.
+      ConversationRealtimeEventType.sessionRevoked ||
+      ConversationRealtimeEventType.deviceApprovalRequested => state,
       ConversationRealtimeEventType.unknown => state,
     };
   }

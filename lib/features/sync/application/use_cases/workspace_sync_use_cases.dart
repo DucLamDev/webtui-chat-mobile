@@ -14,10 +14,16 @@ final class CatchUpWorkspaceSyncUseCase {
   final WorkspaceSyncRepository _repository;
   final DeviceIdentityRepository _deviceIdentityRepository;
 
+  /// Lấy các sự kiện đã lỡ kể từ con trỏ đã lưu.
+  ///
+  /// Máy chủ trả `reset_required` (con trỏ đã bị dọn): gọi [onResetRequired]
+  /// để tải lại danh sách hội thoại + hội thoại đang mở, xong mới lưu
+  /// `next_cursor`. Tải lại lỗi thì giữ con trỏ cũ để lần sau đặt lại tiếp.
   Future<Result<WorkspaceSyncPage>> execute({
     required String workspaceId,
     int limit = 100,
     int maxPages = 5,
+    Future<void> Function(WorkspaceSyncPage page)? onResetRequired,
   }) async {
     final device = await _readDevice();
     if (device case FailureResult<String>(failure: final failure)) {
@@ -42,6 +48,14 @@ final class CatchUpWorkspaceSyncUseCase {
       );
       switch (result) {
         case Success<WorkspaceSyncPage>(value: final page):
+          if (page.resetRequired) {
+            return _completeReset(
+              workspaceId: workspaceId,
+              deviceId: deviceId,
+              page: page,
+              onResetRequired: onResetRequired,
+            );
+          }
           events.addAll(page.events);
           hasMore = page.hasMore;
           serverTime = page.serverTime;
@@ -93,6 +107,47 @@ final class CatchUpWorkspaceSyncUseCase {
         nextCursor: nextCursor,
         hasMore: hasMore,
         serverTime: serverTime,
+      ),
+    );
+  }
+
+  Future<Result<WorkspaceSyncPage>> _completeReset({
+    required String workspaceId,
+    required String deviceId,
+    required WorkspaceSyncPage page,
+    required Future<void> Function(WorkspaceSyncPage page)? onResetRequired,
+  }) async {
+    try {
+      if (onResetRequired == null) {
+        throw StateError('Chưa có bộ tải lại dữ liệu đồng bộ.');
+      }
+      await onResetRequired(page);
+    } on Object catch (error) {
+      return FailureResult(
+        Failure(
+          kind: FailureKind.unknown,
+          message: 'Không thể tải lại dữ liệu sau khi đồng bộ bị đặt lại.',
+          code: 'SYNC_RESET_RELOAD_FAILURE',
+          cause: error,
+        ),
+      );
+    }
+    final nextCursor = page.nextCursor?.trim();
+    if (nextCursor != null && nextCursor.isNotEmpty) {
+      await _persistCursor(
+        workspaceId: workspaceId,
+        deviceId: deviceId,
+        cursor: nextCursor,
+      );
+    }
+    return Success(
+      WorkspaceSyncPage(
+        events: const [],
+        nextCursor: nextCursor,
+        hasMore: false,
+        serverTime: page.serverTime,
+        resetRequired: true,
+        resetReason: page.resetReason,
       ),
     );
   }
