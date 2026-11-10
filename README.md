@@ -156,3 +156,11 @@ flutter build apk --debug --flavor dev -t lib/main_dev.dart
 `docs/design/mobile/references/webtui-mobile-zalo-reference.png`. Phase M1
 dựng shell và design tokens; Phase M2 thêm auth/session foundation và login
 entrypoint, chưa phụ thuộc backend/mock production trong widget test.
+
+## Hiển thị tên và ảnh người gửi trong nhóm
+
+Tin nhắn nhóm hiển thị đúng người gửi, kể cả thành viên đã rời phòng; hội thoại trực tiếp giữ cách hiển thị hiện có.
+
+### Công việc trong phòng
+
+Tab Công việc có danh sách Việc của tôi và bộ lọc giao cho tôi / tôi giao / quá hạn. Trong phòng, người tạo và quản lý phòng được sửa hoặc xoá; người được giao được cập nhật trạng thái. Máy chủ vẫn kiểm tra quyền cho từng thao tác.
