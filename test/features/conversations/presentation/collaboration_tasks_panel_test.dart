@@ -84,9 +84,9 @@ void main() {
     );
 
     test('bộ lọc: giao cho tôi, tôi giao, quá hạn', () async {
-      final controller = _controller(_FakeTaskRepository(_tasks()));
-      await controller.load();
       final now = DateTime.utc(2026, 11, 4, 3);
+      final controller = _controller(_FakeTaskRepository(_tasks(now: now)));
+      await controller.load();
 
       List<String> ids(TaskListFilter filter) {
         controller.setFilter(filter);
@@ -244,8 +244,8 @@ CollaborationTaskController _controller(
   );
 }
 
-List<CollaborationTask> _tasks() {
-  final now = DateTime.now();
+List<CollaborationTask> _tasks({DateTime? now}) {
+  now ??= DateTime.now();
   return [
     CollaborationTask(
       id: 'created-by-me',
