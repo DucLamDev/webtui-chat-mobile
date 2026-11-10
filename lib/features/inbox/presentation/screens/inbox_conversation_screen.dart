@@ -51,6 +51,7 @@ class InboxConversationScreen extends ConsumerWidget {
                   )
                 : _ConversationBody(
                     args: (workspaceId: id, conversationId: conversationId),
+                    canAct: access.canReply,
                   )),
       ),
     );
@@ -58,9 +59,12 @@ class InboxConversationScreen extends ConsumerWidget {
 }
 
 class _ConversationBody extends ConsumerStatefulWidget {
-  const _ConversationBody({required this.args});
+  const _ConversationBody({required this.args, required this.canAct});
 
   final InboxConversationArgs args;
+
+  /// Có `inbox.reply`; không thì chỉ xem.
+  final bool canAct;
 
   @override
   ConsumerState<_ConversationBody> createState() => _ConversationBodyState();
@@ -117,14 +121,18 @@ class _ConversationBodyState extends ConsumerState<_ConversationBody> {
           state: state,
           conversation: conversation,
           controller: controller,
+          canAct: widget.canAct,
         ),
         Expanded(child: _messages(state, controller)),
-        _Composer(
-          state: state,
-          controller: controller,
-          replyText: _replyText,
-          noteText: _noteText,
-        ),
+        if (widget.canAct)
+          _Composer(
+            state: state,
+            controller: controller,
+            replyText: _replyText,
+            noteText: _noteText,
+          )
+        else
+          const _ViewOnlyNotice(),
       ],
     );
   }
@@ -162,7 +170,10 @@ class _ConversationBodyState extends ConsumerState<_ConversationBody> {
         final message = messages[index];
         return InboxMessageBubble(
           message: message,
-          onRetry: message.isLocal && message.delivery == InboxDelivery.failed
+          onRetry:
+              widget.canAct &&
+                  message.isLocal &&
+                  message.delivery == InboxDelivery.failed
               ? () => controller.retry(message.clientMessageId)
               : null,
         );
@@ -176,11 +187,13 @@ class _Header extends StatelessWidget {
     required this.state,
     required this.conversation,
     required this.controller,
+    required this.canAct,
   });
 
   final InboxConversationState state;
   final InboxConversation conversation;
   final InboxConversationController controller;
+  final bool canAct;
 
   @override
   Widget build(BuildContext context) {
@@ -216,7 +229,7 @@ class _Header extends StatelessWidget {
                 PopupMenuButton<InboxStatus>(
                   key: const Key('inbox_status_menu'),
                   tooltip: 'Đổi trạng thái',
-                  enabled: !state.isUpdating,
+                  enabled: canAct && !state.isUpdating,
                   onSelected: controller.setStatus,
                   itemBuilder: (_) => [
                     for (final status in const [
@@ -238,13 +251,17 @@ class _Header extends StatelessWidget {
                 if (!conversation.isAssigned)
                   OutlinedButton(
                     key: const Key('inbox_claim'),
-                    onPressed: state.isUpdating ? null : controller.claim,
+                    onPressed: !canAct || state.isUpdating
+                        ? null
+                        : controller.claim,
                     child: const Text('Nhận xử lý'),
                   )
                 else if (mine)
                   OutlinedButton(
                     key: const Key('inbox_release'),
-                    onPressed: state.isUpdating ? null : controller.release,
+                    onPressed: !canAct || state.isUpdating
+                        ? null
+                        : controller.release,
                     child: const Text('Bỏ nhận'),
                   )
                 else
@@ -271,7 +288,7 @@ class _Header extends StatelessWidget {
                     ),
                   TextButton.icon(
                     key: const Key('inbox_tags_edit'),
-                    onPressed: state.isUpdating
+                    onPressed: !canAct || state.isUpdating
                         ? null
                         : () => _editTags(context),
                     icon: const Icon(Icons.sell_outlined, size: 18),
@@ -351,6 +368,27 @@ class _TagSheetState extends State<_TagSheet> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ViewOnlyNotice extends StatelessWidget {
+  const _ViewOnlyNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Material(
+      color: WebTuiColors.surface,
+      child: Padding(
+        padding: EdgeInsets.all(WebTuiSpacing.md),
+        child: Center(
+          child: Text(
+            'Bạn chỉ có quyền xem hộp thư này.',
+            key: Key('inbox_view_only'),
+            style: TextStyle(color: WebTuiColors.textSecondary),
+          ),
+        ),
       ),
     );
   }

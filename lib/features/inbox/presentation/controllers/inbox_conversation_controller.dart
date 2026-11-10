@@ -209,6 +209,7 @@ final class InboxConversationController
     final generation = ++_generation;
     state = state.copyWith(
       isLoading: true,
+      isLoadingMore: false,
       clearError: true,
       forbidden: false,
       notFound: false,
@@ -277,13 +278,15 @@ final class InboxConversationController
   Future<void> loadOlder() async {
     final cursor = state.nextCursor;
     if (cursor == null || state.isLoading || state.isLoadingMore) return;
+    final generation = _generation;
     state = state.copyWith(isLoadingMore: true);
     final result = await _repository.listMessages(
       workspaceId: _workspaceId,
       conversationId: _conversationId,
       cursor: cursor,
     );
-    if (!mounted) return;
+    // Đã tải lại trong lúc chờ: bỏ trang cũ này (load() đã đặt lại trạng thái).
+    if (!mounted || generation != _generation) return;
     switch (result) {
       case Success(value: final page):
         state = state.copyWith(
@@ -372,6 +375,7 @@ final class InboxConversationController
         final failed = local.copyWith(
           delivery: InboxDelivery.failed,
           error: inboxActionFailureMessage(failure),
+          retryable: !inboxFailureIsPermanent(failure),
         );
         state = state.copyWith(
           messages: mergeInboxMessages(state.messages, [failed]),
@@ -447,7 +451,12 @@ final class InboxConversationController
   }
 
   Future<void> _update(InboxConversationChange change) async {
-    if (state.isUpdating) return;
+    if (state.isUpdating) {
+      state = state.copyWith(
+        actionError: 'Đang cập nhật, thử lại sau giây lát.',
+      );
+      return;
+    }
     state = state.copyWith(isUpdating: true, clearActionError: true);
     final result = await _repository.update(
       workspaceId: _workspaceId,

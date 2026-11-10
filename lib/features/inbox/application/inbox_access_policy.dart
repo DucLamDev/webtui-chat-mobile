@@ -11,16 +11,21 @@ final class InboxAccess {
     required this.serverSupported,
     required this.permissionsLoaded,
     required this.canView,
+    this.canReply = false,
   });
 
   const InboxAccess.unavailable()
     : serverSupported = false,
       permissionsLoaded = true,
-      canView = false;
+      canView = false,
+      canReply = false;
 
   final bool serverSupported;
   final bool permissionsLoaded;
   final bool canView;
+
+  /// Có `inbox.reply`: trả lời, ghi chú, nhận / bỏ nhận, đổi trạng thái, tag.
+  final bool canReply;
 
   bool get isPending => serverSupported && !permissionsLoaded;
 }
@@ -43,10 +48,15 @@ InboxAccess inboxAccessFor({
   final requested = requestedWorkspaceId?.trim() ?? '';
   final active = activeWorkspaceId?.trim() ?? '';
   if (requested.isNotEmpty && requested != active) {
+    // Chủ ý: app chỉ nạp quyền của workspace đang mở, không biết quyền của
+    // workspace khác (vd. mở từ thông báo). Nên cho vào và để máy chủ kiểm
+    // quyền từng yêu cầu; thiếu quyền thì máy chủ trả 403 và màn báo "không có
+    // quyền". Ẩn nút không phải là chặn quyền.
     return const InboxAccess(
       serverSupported: true,
       permissionsLoaded: true,
       canView: true,
+      canReply: true,
     );
   }
   if (permissions == null) {
@@ -60,5 +70,8 @@ InboxAccess inboxAccessFor({
     serverSupported: true,
     permissionsLoaded: true,
     canView: permissions.allows(inboxViewPermission),
+    canReply:
+        permissions.allows(inboxViewPermission) &&
+        permissions.allows(inboxReplyPermission),
   );
 }

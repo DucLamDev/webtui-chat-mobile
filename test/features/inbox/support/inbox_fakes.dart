@@ -121,6 +121,13 @@ final class FakeInboxRepository implements InboxRepository {
   final changes = <InboxConversationChange>[];
   var readCalls = 0;
 
+  /// Trang tin cũ (khi có cursor) và cổng để giữ lại phản hồi đó.
+  InboxMessagePage? olderPage;
+  Completer<void>? olderGate;
+
+  /// Cổng giữ phản hồi của `update` (kiểm tra thao tác chồng nhau).
+  Completer<void>? updateGate;
+
   @override
   Future<Result<InboxConversationPage>> listConversations({
     required String workspaceId,
@@ -151,7 +158,14 @@ final class FakeInboxRepository implements InboxRepository {
     required String conversationId,
     String? cursor,
     int limit = 30,
-  }) async => Success(messagePage);
+  }) async {
+    if (cursor != null) {
+      final gate = olderGate;
+      if (gate != null) await gate.future;
+      return Success(olderPage ?? messagePage);
+    }
+    return Success(messagePage);
+  }
 
   @override
   Future<Result<InboxMessage>> sendReply({
@@ -211,6 +225,8 @@ final class FakeInboxRepository implements InboxRepository {
     required InboxConversationChange change,
   }) async {
     changes.add(change);
+    final gate = updateGate;
+    if (gate != null) await gate.future;
     return Success(
       sampleConversation(
         status: change.status ?? conversation.status,

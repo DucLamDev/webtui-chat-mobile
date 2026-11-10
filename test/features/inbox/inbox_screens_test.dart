@@ -53,6 +53,7 @@ const _allowed = InboxAccess(
   serverSupported: true,
   permissionsLoaded: true,
   canView: true,
+  canReply: true,
 );
 
 Future<void> _pump(
@@ -187,6 +188,41 @@ void main() {
 
       expect(colorOf('n1'), inboxNoteColor);
       expect(colorOf('m1'), isNot(inboxNoteColor));
+    });
+
+    testWidgets('lỗi vĩnh viễn chỉ hiện lý do, không có nút Gửi lại', (
+      tester,
+    ) async {
+      InboxMessage failed(String id, String cid, {required bool retryable}) =>
+          InboxMessage(
+            id: 'local:$id',
+            conversationId: 'c1',
+            direction: InboxDirection.outbound,
+            body: 'Tin $id',
+            delivery: InboxDelivery.failed,
+            error: 'Lý do $id',
+            retryable: retryable,
+            clientMessageId: cid,
+            createdAt: DateTime.now().toUtc(),
+          );
+      final repo = FakeInboxRepository()
+        ..messagePage = InboxMessagePage(
+          items: [
+            failed('a', 'ca', retryable: false),
+            failed('b', 'cb', retryable: true),
+          ],
+        );
+      await _pump(
+        tester,
+        repo: repo,
+        screen: const InboxConversationScreen(
+          conversationId: 'c1',
+          workspaceId: 'ws',
+        ),
+      );
+      expect(find.text('Lý do a'), findsOneWidget);
+      expect(find.byKey(const Key('inbox_retry_ca')), findsNothing);
+      expect(find.byKey(const Key('inbox_retry_cb')), findsOneWidget);
     });
   });
 }

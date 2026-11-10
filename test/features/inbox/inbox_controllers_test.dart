@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/core/error/failure.dart';
 import 'package:webtui_chat/core/result/result.dart';
@@ -297,6 +299,59 @@ void main() {
       expect(controller.state.conversation!.status, InboxStatus.open);
       expect(controller.state.messages.map((m) => m.id), ['m1', 'm9']);
       expect(repo.readCalls, reads + 1);
+    });
+
+    test(
+      'lỗi vĩnh viễn thì tin lỗi không cho gửi lại, lỗi mạng thì cho',
+      () async {
+        await create();
+        repo.replyResults = [
+          FailureResult(
+            failure(FailureKind.conflict, code: 'INBOX_SOURCE_DISABLED'),
+          ),
+          FailureResult(failure(FailureKind.network, message: 'Mất mạng')),
+        ];
+        await controller.sendReply('A');
+        await controller.sendReply('B');
+        final failed = controller.state.messages
+            .where((m) => m.delivery == InboxDelivery.failed)
+            .toList();
+        expect(failed.map((m) => m.body), ['A', 'B']);
+        expect(failed[0].retryable, isFalse);
+        expect(failed[1].retryable, isTrue);
+      },
+    );
+
+    test('tải tin cũ xong sau khi tải lại thì bỏ trang đó', () async {
+      await create();
+      repo
+        ..olderGate = Completer<void>()
+        ..olderPage = InboxMessagePage(
+          items: [sampleMessage(id: 'cu', at: DateTime.utc(2026, 11, 1))],
+        );
+      final older = controller.loadOlder();
+      await _settle();
+      await controller.load();
+      repo.olderGate!.complete();
+      await older;
+      expect(controller.state.messages.map((m) => m.id), ['m1']);
+      expect(controller.state.isLoadingMore, isFalse);
+    });
+
+    test('thao tác khi đang cập nhật thì báo ngắn, không gửi thêm', () async {
+      await create();
+      repo.updateGate = Completer<void>();
+      final first = controller.setStatus(InboxStatus.pending);
+      await _settle();
+      await controller.setStatus(InboxStatus.closed);
+      expect(
+        controller.state.actionError,
+        'Đang cập nhật, thử lại sau giây lát.',
+      );
+      expect(repo.changes, hasLength(1));
+      repo.updateGate!.complete();
+      await first;
+      expect(controller.state.isUpdating, isFalse);
     });
 
     test('403 / 404 khi tải hội thoại', () async {

@@ -97,7 +97,7 @@ class InboxMessageBubble extends StatelessWidget {
                     color: WebTuiColors.danger,
                   ),
                 ),
-              if (failed && onRetry != null)
+              if (failed && message.retryable && onRetry != null)
                 TextButton(
                   key: Key('inbox_retry_${message.clientMessageId}'),
                   onPressed: onRetry,

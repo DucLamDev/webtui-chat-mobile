@@ -209,6 +209,7 @@ final class InboxMessage {
     this.senderName = '',
     this.delivery = InboxDelivery.unknown,
     this.error = '',
+    this.retryable = true,
     this.clientMessageId = '',
     required this.createdAt,
   });
@@ -222,6 +223,9 @@ final class InboxMessage {
   final String senderName;
   final InboxDelivery delivery;
   final String error;
+
+  /// `false` khi lỗi gửi là vĩnh viễn (hết cửa sổ trả lời, nguồn tắt...): không mời "Gửi lại".
+  final bool retryable;
   final String clientMessageId;
   final DateTime createdAt;
 
@@ -233,7 +237,12 @@ final class InboxMessage {
   bool get isNote => kind == InboxMessageKind.note;
   bool get isFromCustomer => direction == InboxDirection.inbound && !isNote;
 
-  InboxMessage copyWith({InboxDelivery? delivery, String? error, String? id}) {
+  InboxMessage copyWith({
+    InboxDelivery? delivery,
+    String? error,
+    String? id,
+    bool? retryable,
+  }) {
     return InboxMessage(
       id: id ?? this.id,
       conversationId: conversationId,
@@ -244,6 +253,7 @@ final class InboxMessage {
       senderName: senderName,
       delivery: delivery ?? this.delivery,
       error: error ?? this.error,
+      retryable: retryable ?? this.retryable,
       clientMessageId: clientMessageId,
       createdAt: createdAt,
     );
