@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
+import '../../../approvals/presentation/widgets/approval_inbox_entry.dart';
+import '../../../business/presentation/widgets/business_inbox_entry.dart';
 import '../../../customer_tickets/presentation/controllers/customer_ticket_access_provider.dart';
 import '../../../customer_tickets/presentation/widgets/customer_ticket_inbox_entry.dart';
 import '../../../moderation/presentation/controllers/moderation_controller.dart';
@@ -276,6 +278,9 @@ class _MessagesList extends StatelessWidget {
     final quickChannels = [if (showQuick) ...state.quickChannels];
     final workTab = state.inboxFilters.indexOf(ConversationListFilter.bot);
     final showWorkGrid = state.messageFilter == ConversationListFilter.bot;
+    // Máy chủ bật phê duyệt nhưng tắt automation thì không có tab Nghiệp vụ:
+    // ô Phê duyệt (tự ẩn khi không có quyền) hiện ở Tất cả.
+    final showApprovalOnAll = workTab < 0 && showQuick;
     return RefreshIndicator(
       onRefresh: () async => onRetry(),
       child: CustomScrollView(
@@ -300,7 +305,17 @@ class _MessagesList extends StatelessWidget {
           ),
           if (showWorkGrid)
             SliverToBoxAdapter(
-              child: CustomerTicketInboxEntry(workspaceId: state.workspaceId),
+              child: Column(
+                children: [
+                  BusinessInboxEntry(workspaceId: state.workspaceId),
+                  ApprovalInboxEntry(workspaceId: state.workspaceId),
+                  CustomerTicketInboxEntry(workspaceId: state.workspaceId),
+                ],
+              ),
+            )
+          else if (showApprovalOnAll)
+            SliverToBoxAdapter(
+              child: ApprovalInboxEntry(workspaceId: state.workspaceId),
             ),
           if (state.isLoading)
             const SliverToBoxAdapter(

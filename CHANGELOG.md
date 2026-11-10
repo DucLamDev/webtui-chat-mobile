@@ -3,6 +3,17 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.10.0 · 10/11/2026
+### Tính năng
+- Màn Phê duyệt trên app và duyệt nhanh từ thông báo
+  Người có quyền thấy danh sách yêu cầu đang chờ và đã xử lý, xem chi tiết, bấm Duyệt hoặc Từ chối kèm ghi chú.
+  Thông báo yêu cầu phê duyệt có sẵn nút Duyệt / Từ chối; bấm vào thông báo thì mở đúng yêu cầu đó. Mục này chỉ
+  hiện khi máy chủ bật tính năng phê duyệt.
+  Màn Nghiệp vụ có đường dẫn riêng để mở lại đúng chỗ từ thông báo. Workspace không có tab Nghiệp vụ thì ô Phê
+  duyệt hiện ở tab Tất cả.
+  Bấm Duyệt / Từ chối khi app đang chạy nền: lần mở app sau sẽ gửi lên máy chủ theo đúng workspace của yêu cầu và
+  báo kết quả. Lần bấm của máy chủ khác hoặc đã quá 24 giờ thì không gửi mà báo rõ để xử lý lại.
+
 ## 1.9.1 · 10/11/2026
 ### Sửa lỗi
 - App dựng được lại sau khi gộp đủ bốn lõi

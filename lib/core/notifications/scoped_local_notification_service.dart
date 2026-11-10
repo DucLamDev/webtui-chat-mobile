@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -13,6 +14,13 @@ const _messageChannelName = 'Tin nhắn';
 const _messageChannelDescription = 'Tin nhắn mới và cập nhật cuộc trò chuyện';
 const _notificationIcon = 'ic_stat_webtui_chat';
 const _quickReplyActionId = 'webtui_quick_reply';
+const _approveActionId = 'webtui_approval_approve';
+const _rejectActionId = 'webtui_approval_reject';
+const _approvalRequestedType = 'approval_requested';
+const _pendingApprovalActionsStorageKey = 'pending_approval_actions_v1';
+const _approvalChannelId = 'webtui_approvals';
+const _approvalChannelName = 'Phê duyệt';
+const _approvalChannelDescription = 'Yêu cầu phê duyệt và kết quả duyệt nhanh';
 const _pendingQuickReplyStorageKey = 'pending_notification_quick_replies_v1';
 
 @pragma('vm:entry-point')
@@ -30,6 +38,7 @@ final class ScopedLocalNotification {
     required this.body,
     required this.encodedRoutingPayload,
     required this.canQuickReply,
+    this.approvalId,
   });
 
   factory ScopedLocalNotification.fromData(Map<String, Object?> data) {
@@ -66,6 +75,9 @@ final class ScopedLocalNotification {
         'data': routingData,
       }),
       canQuickReply: routingData['channel_id']?.trim().isNotEmpty == true,
+      approvalId: routingData['type'] == _approvalRequestedType
+          ? routingData['approval_id']
+          : null,
     );
   }
 
@@ -78,6 +90,33 @@ final class ScopedLocalNotification {
   /// are never duplicated into the notification tap payload.
   final String encodedRoutingPayload;
   final bool canQuickReply;
+
+  /// Có giá trị khi là push `approval_requested`: thông báo kèm nút Duyệt /
+  /// Từ chối.
+  final String? approvalId;
+}
+
+/// Quyết định bấm từ nút trên thông báo (Duyệt / Từ chối).
+final class ScopedNotificationApprovalAction {
+  const ScopedNotificationApprovalAction({
+    required this.workspaceId,
+    required this.approvalId,
+    required this.approve,
+    this.instanceId,
+    this.decidedAt,
+  });
+
+  /// Lúc bấm nút (UTC); dùng để không gửi quyết định đã quá cũ.
+  final DateTime? decidedAt;
+
+  /// Máy chủ (instance) phát thông báo; quyết định chỉ gửi khi app đang dùng
+  /// đúng máy chủ này.
+  final String? instanceId;
+  final String workspaceId;
+  final String approvalId;
+
+  /// `true` = Duyệt, `false` = Từ chối.
+  final bool approve;
 }
 
 final class ScopedNotificationQuickReply {
@@ -105,6 +144,7 @@ Map<String, String>? scopedNotificationRoutingData(Map<String, Object?> data) {
     'event_id',
     'notification_id',
     'message_id',
+    'approval_id',
   ], 256);
   if (instanceId == null ||
       workspaceId == null ||
@@ -119,7 +159,9 @@ Map<String, String>? scopedNotificationRoutingData(Map<String, Object?> data) {
     data: data,
   );
   if (!target.isBoundToInstance(instanceId) ||
-      (!target.canOpenConversation && target.deepLink == null)) {
+      (!target.canOpenConversation &&
+          target.deepLink == null &&
+          !target.isApprovalRequest)) {
     return null;
   }
 
@@ -133,6 +175,10 @@ Map<String, String>? scopedNotificationRoutingData(Map<String, Object?> data) {
     'channel_id': ?_boundedValue(target.channelId, 256),
     'message_id': ?_boundedValue(target.messageId, 256),
     'deep_link': ?_boundedValue(target.deepLink, 1024),
+    if (target.isApprovalRequest) ...{
+      'type': _approvalRequestedType,
+      'approval_id': target.approvalId!.trim(),
+    },
   };
 }
 
@@ -168,6 +214,10 @@ final class ScopedLocalNotificationService {
       StreamController<Map<String, Object?>>.broadcast();
   final StreamController<ScopedNotificationQuickReply> _quickReplyController =
       StreamController<ScopedNotificationQuickReply>.broadcast();
+  final StreamController<ScopedNotificationApprovalAction>
+  _approvalActionController =
+      StreamController<ScopedNotificationApprovalAction>.broadcast();
+  final List<ScopedNotificationApprovalAction> _pendingApprovalActions = [];
   final List<Map<String, Object?>> _pendingTaps = [];
   final List<ScopedNotificationQuickReply> _pendingQuickReplies = [];
   Future<void>? _initialization;
@@ -200,6 +250,60 @@ final class ScopedLocalNotificationService {
       );
       controller.onCancel = subscription.cancel;
     });
+  }
+
+  /// Nút Duyệt / Từ chối bấm trên thông báo. Quyết định bấm lúc app đóng được
+  /// lưu và phát lại khi có người nghe.
+  Stream<ScopedNotificationApprovalAction> get approvalActions {
+    return Stream.multi((controller) {
+      for (final action in _pendingApprovalActions) {
+        controller.add(action);
+      }
+      _pendingApprovalActions.clear();
+      final subscription = _approvalActionController.stream.listen(
+        controller.add,
+        onError: controller.addError,
+        onDone: controller.close,
+      );
+      controller.onCancel = subscription.cancel;
+    });
+  }
+
+  Future<List<ScopedNotificationApprovalAction>>
+  drainBackgroundApprovalActions() {
+    if (!Platform.isAndroid) return Future.value(const []);
+    return drainStoredApprovalActions();
+  }
+
+  /// Báo kết quả duyệt nhanh (thành công hoặc lỗi 403 / 409) bằng thông báo,
+  /// vì lúc bấm nút app có thể không mở.
+  Future<void> showApprovalResult({
+    required String approvalId,
+    required String title,
+    required String body,
+  }) async {
+    if (!Platform.isAndroid) return;
+    try {
+      await initialize(inspectLaunchDetails: false);
+      await _plugin.show(
+        id: approvalResultNotificationId(approvalId),
+        title: title,
+        body: body,
+        notificationDetails: const NotificationDetails(
+          android: AndroidNotificationDetails(
+            _approvalChannelId,
+            _approvalChannelName,
+            channelDescription: _approvalChannelDescription,
+            icon: _notificationIcon,
+            importance: Importance.defaultImportance,
+            priority: Priority.defaultPriority,
+            visibility: NotificationVisibility.private,
+          ),
+        ),
+      );
+    } on Object {
+      // Không báo được thì thôi: màn chi tiết vẫn cho xem lại trạng thái.
+    }
   }
 
   Future<List<ScopedNotificationQuickReply>> drainBackgroundQuickReplies() {
@@ -265,7 +369,22 @@ final class ScopedLocalNotificationService {
             visibility: NotificationVisibility.private,
             fullScreenIntent: false,
             tag: notification.tag,
-            actions: notification.canQuickReply
+            actions: notification.approvalId != null
+                ? const [
+                    AndroidNotificationAction(
+                      _approveActionId,
+                      'Duyệt',
+                      showsUserInterface: false,
+                      cancelNotification: true,
+                    ),
+                    AndroidNotificationAction(
+                      _rejectActionId,
+                      'Từ chối',
+                      showsUserInterface: false,
+                      cancelNotification: true,
+                    ),
+                  ]
+                : notification.canQuickReply
                 ? const [
                     AndroidNotificationAction(
                       _quickReplyActionId,
@@ -312,6 +431,14 @@ final class ScopedLocalNotificationService {
   }
 
   void _handleResponse(NotificationResponse response) {
+    final approval = approvalActionFromResponse(
+      response.actionId,
+      response.payload,
+    );
+    if (approval != null) {
+      _recordApprovalAction(approval);
+      return;
+    }
     if (response.actionId == _quickReplyActionId) {
       _recordQuickReply(response.payload, response.input);
       return;
@@ -322,6 +449,14 @@ final class ScopedLocalNotificationService {
   static Future<void> handleBackgroundResponse(
     NotificationResponse response,
   ) async {
+    final approval = approvalActionFromResponse(
+      response.actionId,
+      response.payload,
+    );
+    if (approval != null) {
+      await storePendingApprovalAction(approval);
+      return;
+    }
     if (response.actionId != _quickReplyActionId) {
       return;
     }
@@ -345,6 +480,17 @@ final class ScopedLocalNotificationService {
     _pendingTaps.add(data);
   }
 
+  void _recordApprovalAction(ScopedNotificationApprovalAction action) {
+    if (_approvalActionController.hasListener) {
+      _approvalActionController.add(action);
+      return;
+    }
+    if (_pendingApprovalActions.length >= 16) {
+      _pendingApprovalActions.removeAt(0);
+    }
+    _pendingApprovalActions.add(action);
+  }
+
   void _recordQuickReply(String? encoded, String? input) {
     final reply = _quickReplyFromResponse(encoded, input);
     if (reply == null) {
@@ -359,6 +505,130 @@ final class ScopedLocalNotificationService {
     }
     _pendingQuickReplies.add(reply);
   }
+}
+
+/// Đọc nút Duyệt / Từ chối từ phản hồi thông báo; `null` nếu không phải nút
+/// phê duyệt hoặc payload không hợp lệ.
+@visibleForTesting
+ScopedNotificationApprovalAction? approvalActionFromResponse(
+  String? actionId,
+  String? encodedPayload,
+) {
+  if (actionId != _approveActionId && actionId != _rejectActionId) return null;
+  final data = decodeScopedNotificationRoutingPayload(encodedPayload);
+  if (data == null || data['type'] != _approvalRequestedType) return null;
+  final workspaceId = data['workspace_id']?.toString().trim() ?? '';
+  final approvalId = data['approval_id']?.toString().trim() ?? '';
+  if (workspaceId.isEmpty || approvalId.isEmpty) return null;
+  return ScopedNotificationApprovalAction(
+    instanceId: data['instance_id']?.toString().trim(),
+    workspaceId: workspaceId,
+    approvalId: approvalId,
+    approve: actionId == _approveActionId,
+    decidedAt: DateTime.now().toUtc(),
+  );
+}
+
+/// Mã thông báo kết quả duyệt nhanh: ổn định theo yêu cầu để lần sau thay
+/// thông báo cũ.
+@visibleForTesting
+int approvalResultNotificationId(String approvalId) {
+  final digest = sha256.convert(utf8.encode('approval-result|$approvalId'));
+  final id =
+      ((digest.bytes[0] << 24) |
+          (digest.bytes[1] << 16) |
+          (digest.bytes[2] << 8) |
+          digest.bytes[3]) &
+      0x7fffffff;
+  return id == 0 ? 1 : id;
+}
+
+/// Lưu quyết định bấm lúc app không chạy (isolate nền) để lần mở / quay lại
+/// app gửi lên máy chủ. Giữ tối đa 16 quyết định mới nhất.
+@visibleForTesting
+Future<void> storePendingApprovalAction(
+  ScopedNotificationApprovalAction action,
+) async {
+  try {
+    const storage = FlutterSecureStorage();
+    final records = await _readStoredApprovalRecords(storage);
+    records.add(_approvalActionToJson(action));
+    while (records.length > 16) {
+      records.removeAt(0);
+    }
+    await storage.write(
+      key: _pendingApprovalActionsStorageKey,
+      value: jsonEncode(records),
+    );
+  } on Object {
+    // Callback nền không được làm sập isolate.
+  }
+}
+
+/// Lấy rồi xoá các quyết định đã lưu; dữ liệu hỏng trả danh sách rỗng.
+@visibleForTesting
+Future<List<ScopedNotificationApprovalAction>>
+drainStoredApprovalActions() async {
+  try {
+    const storage = FlutterSecureStorage();
+    final records = await _readStoredApprovalRecords(storage);
+    await storage.delete(key: _pendingApprovalActionsStorageKey);
+    return records
+        .map(_approvalActionFromJson)
+        .whereType<ScopedNotificationApprovalAction>()
+        .toList(growable: false);
+  } on Object {
+    return const [];
+  }
+}
+
+Future<List<Map<String, Object?>>> _readStoredApprovalRecords(
+  FlutterSecureStorage storage,
+) async {
+  final raw = await storage.read(key: _pendingApprovalActionsStorageKey);
+  if (raw == null || raw.trim().isEmpty) return [];
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return [];
+    return decoded
+        .whereType<Map>()
+        .map(
+          (item) => <String, Object?>{
+            for (final entry in item.entries) entry.key.toString(): entry.value,
+          },
+        )
+        .toList();
+  } on FormatException {
+    return [];
+  }
+}
+
+Map<String, Object?> _approvalActionToJson(
+  ScopedNotificationApprovalAction action,
+) => <String, Object?>{
+  'instance_id': ?action.instanceId,
+  'workspace_id': action.workspaceId,
+  'approval_id': action.approvalId,
+  'approve': action.approve,
+  'decided_at': ?action.decidedAt?.toUtc().toIso8601String(),
+};
+
+ScopedNotificationApprovalAction? _approvalActionFromJson(
+  Map<String, Object?> json,
+) {
+  final workspaceId = json['workspace_id']?.toString().trim() ?? '';
+  final approvalId = json['approval_id']?.toString().trim() ?? '';
+  if (workspaceId.isEmpty || approvalId.isEmpty || json['approve'] is! bool) {
+    return null;
+  }
+  final instanceId = json['instance_id']?.toString().trim();
+  return ScopedNotificationApprovalAction(
+    instanceId: instanceId == null || instanceId.isEmpty ? null : instanceId,
+    workspaceId: workspaceId,
+    approvalId: approvalId,
+    approve: json['approve'] as bool,
+    decidedAt: DateTime.tryParse(json['decided_at']?.toString() ?? '')?.toUtc(),
+  );
 }
 
 ScopedNotificationQuickReply? _quickReplyFromResponse(

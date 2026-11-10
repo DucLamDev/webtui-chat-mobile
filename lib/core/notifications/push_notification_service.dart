@@ -570,7 +570,8 @@ final class PushNotificationService {
     }
     if (target.canOpenConversation ||
         target.deepLink != null ||
-        target.isDeviceApprovalRequest) {
+        target.isDeviceApprovalRequest ||
+        target.isApproval) {
       controller.add(target);
     }
   }
@@ -692,7 +693,8 @@ NotificationTarget? scopedNotificationTargetIfCurrent({
   if (!target.isBoundToInstance(instanceScope.instanceId) ||
       (!target.canOpenConversation &&
           target.deepLink == null &&
-          !target.isDeviceApprovalRequest)) {
+          !target.isDeviceApprovalRequest &&
+          !target.isApproval)) {
     return null;
   }
   return target;

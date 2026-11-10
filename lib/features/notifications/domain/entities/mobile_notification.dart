@@ -125,6 +125,7 @@ final class NotificationTarget {
     this.answeredDeviceId,
 
     this.sessionId,
+    this.approvalId,
     this.notificationType,
   });
 
@@ -197,6 +198,7 @@ final class NotificationTarget {
         'answeredDeviceId',
       ]),
       sessionId: _firstString(data, const ['session_id', 'sessionId']),
+      approvalId: _firstString(data, const ['approval_id', 'approvalId']),
       notificationType: _firstString(data, const [
         'type',
         'notification_type',
@@ -270,6 +272,24 @@ final class NotificationTarget {
 
   /// Loại thông báo (`type` / `notification_type`) khi máy chủ gửi kèm.
   final String? notificationType;
+
+  /// Yêu cầu phê duyệt (push `approval_requested` / `approval_updated`).
+  final String? approvalId;
+
+  String get _normalizedType =>
+      (notificationType ?? eventType ?? '').trim().toLowerCase();
+
+  /// Có yêu cầu phê duyệt mới cần người nhận duyệt.
+  bool get isApprovalRequest =>
+      _normalizedType == 'approval_requested' &&
+      approvalId?.trim().isNotEmpty == true;
+
+  /// Yêu cầu của người nhận đã đổi trạng thái: chỉ cần tải lại danh sách.
+  bool get isApprovalUpdate =>
+      _normalizedType == 'approval_updated' &&
+      approvalId?.trim().isNotEmpty == true;
+
+  bool get isApproval => isApprovalRequest || isApprovalUpdate;
 
   /// Có thiết bị mới chờ duyệt: mở màn duyệt (màn tự tải dữ liệu từ máy chủ).
   bool get isDeviceApprovalRequest {

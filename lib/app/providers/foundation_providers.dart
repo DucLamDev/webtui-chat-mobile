@@ -23,6 +23,10 @@ import '../../core/platform/native_instance_binding_service.dart';
 import '../../core/security/instance_scope.dart';
 import '../../core/security/secure_key_value_store.dart';
 import '../../core/security/server_account_registry.dart';
+import '../../features/approvals/application/use_cases/approval_use_cases.dart';
+import '../../features/approvals/data/datasources/approval_remote_data_source.dart';
+import '../../features/approvals/data/repositories/approval_repository_impl.dart';
+import '../../features/approvals/domain/repositories/approval_repository.dart';
 import '../../features/auth/application/legal_acceptance_access_policy.dart';
 import '../../features/auth/application/session_termination.dart';
 import '../../features/auth/application/use_cases/app_lock_timeout_use_cases.dart';
@@ -1723,6 +1727,35 @@ Dio _configuredDio(Uri activeServerUri) {
     ),
   );
 }
+
+// ---------------------------------------------------------------------------
+// Phê duyệt (bật theo discovery `capabilities.approvals` + quyền approval.view).
+// ---------------------------------------------------------------------------
+
+final approvalRemoteDataSourceProvider = Provider<ApprovalRemoteDataSource>((
+  ref,
+) {
+  return ApprovalRemoteDataSource(ref.watch(apiTransportProvider));
+});
+
+final approvalRepositoryProvider = Provider<ApprovalRepository>((ref) {
+  return ApprovalRepositoryImpl(ref.watch(approvalRemoteDataSourceProvider));
+});
+
+final listApprovalsUseCaseProvider = Provider<ListApprovalsUseCase>((ref) {
+  return ListApprovalsUseCase(ref.watch(approvalRepositoryProvider));
+});
+
+final loadApprovalUseCaseProvider = Provider<LoadApprovalUseCase>((ref) {
+  return LoadApprovalUseCase(ref.watch(approvalRepositoryProvider));
+});
+
+final decideApprovalRequestUseCaseProvider =
+    Provider<DecideApprovalRequestUseCase>((ref) {
+      return DecideApprovalRequestUseCase(
+        ref.watch(approvalRepositoryProvider),
+      );
+    });
 
 // ---------------------------------------------------------------------------
 // Ticket khách (chỉ máy chủ nội bộ VPSTTT, bật theo discovery + quyền order.*):

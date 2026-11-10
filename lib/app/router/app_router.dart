@@ -2,12 +2,15 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/approvals/presentation/screens/approval_detail_screen.dart';
+import '../../features/approvals/presentation/screens/approval_list_screen.dart';
 import '../../features/auth/domain/entities/email_verification.dart';
 import '../../features/auth/presentation/screens/device_approval_pending_screen.dart';
 import '../../features/auth/presentation/screens/device_approval_review_screen.dart';
 import '../../features/auth/presentation/screens/email_verification_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/qr_login_screen.dart';
+import '../../features/business/presentation/screens/business_route_screen.dart';
 import '../../features/conversations/domain/entities/conversation_summary.dart';
 import '../../features/conversations/presentation/screens/channel_create_screen.dart';
 import '../../features/conversations/presentation/screens/channel_detail_screen.dart';
@@ -164,6 +167,30 @@ final appRouterProvider = Provider<GoRouter>((_) {
         path: '/feedback',
         name: 'feedback',
         builder: (context, state) => const FeedbackScreen(),
+      ),
+      // Nghiệp vụ: chỉ khi máy chủ bật automation (discovery).
+      GoRoute(
+        path: '/business',
+        name: 'business',
+        builder: (context, state) => BusinessRouteScreen(
+          workspaceId: state.uri.queryParameters['workspaceId'],
+        ),
+      ),
+      // Phê duyệt: màn tự kiểm capabilities.approvals + quyền approval.view.
+      GoRoute(
+        path: '/approvals',
+        name: 'approvals',
+        builder: (context, state) => ApprovalListScreen(
+          workspaceId: state.uri.queryParameters['workspaceId'],
+        ),
+      ),
+      GoRoute(
+        path: '/approvals/:approval_id',
+        name: 'approval',
+        builder: (context, state) => ApprovalDetailScreen(
+          approvalId: state.pathParameters['approval_id'] ?? '',
+          workspaceId: state.uri.queryParameters['workspaceId'],
+        ),
       ),
       // Ticket khách (máy chủ nội bộ): màn tự kiểm discovery + quyền.
       GoRoute(
