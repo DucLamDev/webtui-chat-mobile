@@ -85,7 +85,6 @@ final class ConversationRealtimeEvent {
     this.targetDeviceId,
     this.answeredDeviceId,
     this.initiatorDeviceId,
-
   });
 
   final ConversationRealtimeEventType type;
@@ -109,7 +108,6 @@ final class ConversationRealtimeEvent {
   /// [ConversationRealtimeEventType.transcriptUpdated].
   final Map<String, dynamic> payload;
 
-
   /// Chỉ có với [ConversationRealtimeEventType.messageDelta].
   final MessageStreamDelta? delta;
 
@@ -122,7 +120,6 @@ final class ConversationRealtimeEvent {
   /// Máy đã nhận cuộc gọi (CallAccepted / CallAnsweredElsewhere).
   final String? answeredDeviceId;
   final String? initiatorDeviceId;
-
 
   bool get isCallEvent => switch (type) {
     ConversationRealtimeEventType.callInvited ||

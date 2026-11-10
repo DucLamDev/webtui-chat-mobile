@@ -1,8 +1,10 @@
 import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
 import '../../core/api/openapi_client_boundary.dart';
 import '../../core/database/app_database.dart';
 import '../../core/logging/redacting_logger.dart';
@@ -22,11 +24,8 @@ import '../../core/security/instance_scope.dart';
 import '../../core/security/secure_key_value_store.dart';
 import '../../core/security/server_account_registry.dart';
 import '../../features/auth/application/legal_acceptance_access_policy.dart';
-
-import '../../features/auth/application/use_cases/app_lock_timeout_use_cases.dart';
-
 import '../../features/auth/application/session_termination.dart';
-
+import '../../features/auth/application/use_cases/app_lock_timeout_use_cases.dart';
 import '../../features/auth/application/use_cases/app_lock_use_cases.dart';
 import '../../features/auth/application/use_cases/delete_account_use_case.dart';
 import '../../features/auth/application/use_cases/device_approval_use_cases.dart';
@@ -84,11 +83,8 @@ import '../../features/conversations/application/use_cases/message_outbox_use_ca
 import '../../features/conversations/application/use_cases/message_use_cases.dart';
 import '../../features/conversations/application/use_cases/open_direct_conversation_use_case.dart';
 import '../../features/conversations/application/use_cases/presence_use_cases.dart';
-
 import '../../features/conversations/application/use_cases/rich_message_use_cases.dart';
-
 import '../../features/conversations/application/use_cases/secret_message_use_cases.dart';
-
 import '../../features/conversations/data/datasources/call_remote_data_source.dart';
 import '../../features/conversations/data/datasources/collaboration_document_history_remote_data_source.dart';
 import '../../features/conversations/data/datasources/conversation_cache_data_source.dart';
@@ -107,11 +103,8 @@ import '../../features/conversations/data/repositories/image_picker_message_atta
 import '../../features/conversations/data/repositories/local_conversation_draft_repository.dart';
 import '../../features/conversations/data/repositories/local_message_outbox_repository.dart';
 import '../../features/conversations/data/repositories/message_attachment_repository_impl.dart';
-
 import '../../features/conversations/data/repositories/rich_message_repository_impl.dart';
-
 import '../../features/conversations/data/repositories/secret_message_repository_impl.dart';
-
 import '../../features/conversations/data/repositories/web_socket_conversation_realtime_repository.dart';
 import '../../features/conversations/domain/repositories/call_repository.dart';
 import '../../features/conversations/domain/repositories/collaboration_document_history_repository.dart';

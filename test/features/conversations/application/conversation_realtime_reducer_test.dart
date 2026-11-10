@@ -196,6 +196,43 @@ void main() {
     expect(event?.userId, 'u2');
   });
 
+  test('keeps event id, stream delta and payload of every core event', () {
+    ConversationRealtimeEvent? map(String type, Map<String, Object?> payload) {
+      return ConversationRealtimeEventMapper.fromSocketData(
+        jsonEncode({
+          'type': type,
+          'event_id': 'ev-$type',
+          'room': 'workspace:w1:channel:c1',
+          'payload': payload,
+        }),
+        fallbackWorkspaceId: 'w1',
+        fallbackChannelId: '',
+      );
+    }
+
+    final delta = map('MessageDelta', {
+      'message_id': 'm1',
+      'seq': 2,
+      'append': 'xin chào',
+    });
+    expect(delta?.eventId, 'ev-MessageDelta');
+    expect(delta?.delta?.messageId, 'm1');
+    expect(delta?.delta?.seq, 2);
+    expect(delta?.delta?.append, 'xin chào');
+
+    final transcript = map('TranscriptUpdated', {'message_id': 'm2'});
+    expect(transcript?.eventId, 'ev-TranscriptUpdated');
+    expect(transcript?.payload['message_id'], 'm2');
+
+    final revoked = map('SessionRevoked', {'session_id': 's1'});
+    expect(revoked?.type, ConversationRealtimeEventType.sessionRevoked);
+    expect(revoked?.payload['session_id'], 's1');
+
+    final typing = map('TypingStarted', {'user_id': 'u2'});
+    expect(typing?.payload, isEmpty);
+    expect(typing?.delta, isNull);
+  });
+
   test('maps validated call signaling payloads from the backend', () {
     final offer = ConversationRealtimeEventMapper.fromSocketData(
       jsonEncode({
