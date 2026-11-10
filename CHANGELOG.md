@@ -3,7 +3,7 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
-## 1.11.0 · 10/11/2026
+## 1.12.0 · 10/11/2026
 ### Tính năng
 - Hộp thư khách trên app
   Khi máy chủ bật hộp thư khách, trang chủ có ô "Hộp thư khách": xem các cuộc trò chuyện của khách gửi qua email,
@@ -11,6 +11,17 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   khách / đã đóng) và theo người xử lý (của tôi / chưa gán). Trong một cuộc trò chuyện: đọc tin, trả lời khách (tin
   đi về đúng kênh khách đã nhắn), ghi chú nội bộ, nhận / bỏ nhận xử lý, đổi trạng thái, gắn thẻ. Tin gửi lỗi hiện
   trạng thái kèm lý do. Danh sách và tin mới tự cập nhật; bấm thông báo tin khách mới thì mở đúng cuộc trò chuyện.
+
+## 1.11.0 · 10/11/2026
+### Tính năng
+- Gửi video nhanh hơn, không phải ngồi chờ
+  Video chọn từ mục Video được nén ngay trên điện thoại về chất lượng 720p trước khi gửi, nên nhẹ hơn nhiều lần
+  (trên Android, video quay 1 phút còn khoảng 20 MB) và người nhận cũng mở xem nhanh hơn. Video nhỏ, hoặc máy không
+  nén được, thì gửi bản gốc. Muốn gửi đúng bản gốc thì chọn video qua mục Tệp.
+  Bấm Gửi được ngay khi video còn đang nén / tải: tin hiện liền trong khung chat với vòng tiến độ "Đang nén…" /
+  "Đang tải lên", vẫn nhắn tiếp bình thường, thoát phòng chat thì video vẫn tải tiếp và tự gửi khi xong. Mất mạng
+  giữa chừng thì tin báo lỗi, bấm thử lại sẽ tải tiếp phần còn thiếu.
+  Tệp lớn được tải nhiều phần cùng lúc nên nhanh hơn trên mạng di động.
 
 ## 1.10.0 · 10/11/2026
 ### Tính năng

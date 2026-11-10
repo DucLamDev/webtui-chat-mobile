@@ -8,6 +8,7 @@ import '../../../profile/application/use_cases/profile_use_cases.dart';
 import '../../application/use_cases/call_use_cases.dart';
 import '../../application/use_cases/conversation_realtime_reducer.dart';
 import '../../application/use_cases/message_attachment_use_cases.dart';
+import '../../application/use_cases/message_media_uploader.dart';
 import '../../application/use_cases/message_outbox_dispatcher.dart';
 import '../../application/use_cases/message_outbox_use_cases.dart';
 import '../../application/use_cases/message_stream_merger.dart';
@@ -46,9 +47,7 @@ final chatRoomControllerProvider = StateNotifierProvider.autoDispose
         cancelVoiceMessageRecordingUseCase: ref.watch(
           cancelVoiceMessageRecordingUseCaseProvider,
         ),
-        uploadMessageAttachmentUseCase: ref.watch(
-          uploadMessageAttachmentUseCaseProvider,
-        ),
+        messageMediaUploader: ref.watch(messageMediaUploaderProvider),
         listMessageAttachmentsUseCase: ref.watch(
           listMessageAttachmentsUseCaseProvider,
         ),
@@ -178,16 +177,19 @@ final class ChatRoomState {
   int get sendingOutboxCount =>
       outboxItems.where((item) => item.isSending).length;
 
-  /// Còn tệp đang tải lên: chưa cho gửi, nếu không tệp đó bị bỏ khi gửi.
+  /// Còn tệp đang nén / tải lên. Vẫn cho gửi: tin hiện ngay với tiến độ và bộ
+  /// gửi tin chờ tự gửi khi tải xong (ô tải lỗi thì bị bỏ khi gửi).
   bool get hasUploadingAttachments => pendingAttachments.any(
     (item) => item.status == MessageAttachmentUploadStatus.uploading,
   );
   bool get canSend =>
-      !hasUploadingAttachments &&
-      (draft.trim().isNotEmpty ||
-          pendingAttachments.any(
-            (item) => item.status == MessageAttachmentUploadStatus.uploaded,
-          ));
+      draft.trim().isNotEmpty ||
+      pendingAttachments.any(
+        (item) =>
+            item.status == MessageAttachmentUploadStatus.uploaded ||
+            item.status == MessageAttachmentUploadStatus.uploading ||
+            item.status == MessageAttachmentUploadStatus.queued,
+      );
   List<ChatMessage> get pinnedMessages => messages
       .where((message) => message.isPinned && !message.isDeleted)
       .toList(growable: false);
@@ -293,7 +295,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     required StopVoiceMessageRecordingUseCase stopVoiceMessageRecordingUseCase,
     required CancelVoiceMessageRecordingUseCase
     cancelVoiceMessageRecordingUseCase,
-    required UploadMessageAttachmentUseCase uploadMessageAttachmentUseCase,
+    required MessageMediaUploader messageMediaUploader,
     required ListMessageAttachmentsUseCase listMessageAttachmentsUseCase,
     required LoadMessageOutboxUseCase loadMessageOutboxUseCase,
     required EnqueueMessageOutboxUseCase enqueueMessageOutboxUseCase,
@@ -328,7 +330,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
        _startVoiceMessageRecordingUseCase = startVoiceMessageRecordingUseCase,
        _stopVoiceMessageRecordingUseCase = stopVoiceMessageRecordingUseCase,
        _cancelVoiceMessageRecordingUseCase = cancelVoiceMessageRecordingUseCase,
-       _uploadMessageAttachmentUseCase = uploadMessageAttachmentUseCase,
+       _messageMediaUploader = messageMediaUploader,
        _listMessageAttachmentsUseCase = listMessageAttachmentsUseCase,
        _loadMessageOutboxUseCase = loadMessageOutboxUseCase,
        _enqueueMessageOutboxUseCase = enqueueMessageOutboxUseCase,
@@ -366,7 +368,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   final StartVoiceMessageRecordingUseCase _startVoiceMessageRecordingUseCase;
   final StopVoiceMessageRecordingUseCase _stopVoiceMessageRecordingUseCase;
   final CancelVoiceMessageRecordingUseCase _cancelVoiceMessageRecordingUseCase;
-  final UploadMessageAttachmentUseCase _uploadMessageAttachmentUseCase;
+  final MessageMediaUploader _messageMediaUploader;
   final ListMessageAttachmentsUseCase _listMessageAttachmentsUseCase;
   final LoadMessageOutboxUseCase _loadMessageOutboxUseCase;
   final EnqueueMessageOutboxUseCase _enqueueMessageOutboxUseCase;
@@ -573,7 +575,10 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   Future<void> sendCurrentDraft({bool silent = false}) async {
     final body = state.draft.trim();
     final attachmentsReady = state.pendingAttachments.any(
-      (item) => item.status == MessageAttachmentUploadStatus.uploaded,
+      (item) =>
+          item.status == MessageAttachmentUploadStatus.uploaded ||
+          item.status == MessageAttachmentUploadStatus.uploading ||
+          item.status == MessageAttachmentUploadStatus.queued,
     );
     if ((body.isEmpty && !attachmentsReady) || state.isSending) {
       return;
@@ -583,6 +588,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
       state.pendingAttachments,
     );
     final voice = _uploadedVoiceMetadata(state.pendingAttachments);
+    final pendingUploads = pendingOutboxUploads(state.pendingAttachments);
     final clientMessageId = _newClientMessageIdUseCase.execute();
     state = state.copyWith(isSending: true, clearError: true);
     final editing = state.editingMessage;
@@ -594,6 +600,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
         body: body.isEmpty ? attachmentFallback : body,
         parentId: state.replyToMessage?.id,
         attachments: uploadedOutboxAttachments(state.pendingAttachments),
+        pendingUploads: pendingUploads,
         silent: silent,
         metadata: voice == null ? const {} : {'voice': voice.toJson()},
       );
@@ -742,6 +749,19 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
           ),
           outboxItems: _upsertOutboxItem(item),
         );
+      case MessageOutboxDispatchPhase.uploading:
+        state = state.copyWith(
+          messages: _upsertLocal(
+            state.messages,
+            _optimisticMessage(
+              item,
+              state.currentUserId,
+              uploadProgress: update.progress,
+              uploadStage: _uploadStageOf(item),
+            ),
+          ),
+          outboxItems: _upsertOutboxItem(item),
+        );
       case MessageOutboxDispatchPhase.sending ||
           MessageOutboxDispatchPhase.queued ||
           MessageOutboxDispatchPhase.failed:
@@ -753,6 +773,19 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
           outboxItems: _upsertOutboxItem(item),
         );
     }
+  }
+
+  /// 'compressing' nếu có tệp của tin còn đang nén, ngược lại 'uploading'.
+  String _uploadStageOf(MessageOutboxItem item) {
+    for (final upload in item.pendingUploads) {
+      final progress = _messageMediaUploader.progressOf(
+        upload.clientAttachmentId,
+      );
+      if (progress?.stage == MessageMediaUploadStage.compressing) {
+        return 'compressing';
+      }
+    }
+    return 'uploading';
   }
 
   List<MessageOutboxItem> _upsertOutboxItem(MessageOutboxItem item) {
@@ -1033,10 +1066,13 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
         ),
       ),
     );
-    final result = await _uploadMessageAttachmentUseCase.execute(
+    final result = await _messageMediaUploader.upload(
       workspaceId: state.scope.workspaceId,
+      clientAttachmentId: clientAttachmentId,
       attachment: picked,
       onProgress: (progress) {
+        if (!mounted) return;
+        // Ô đã gỡ / đã chuyển vào tin chờ thì bỏ qua tiến độ.
         final current = _attachmentItemById(
           state.pendingAttachments,
           clientAttachmentId,
@@ -1048,11 +1084,21 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
         state = state.copyWith(
           pendingAttachments: _replaceAttachmentItem(
             state.pendingAttachments,
-            current.copyWith(progress: progress.clamp(0, 1)),
+            current.copyWith(
+              progress: progress.progress.clamp(0, 1),
+              compressing:
+                  progress.stage == MessageMediaUploadStage.compressing,
+            ),
           ),
         );
       },
     );
+    if (!mounted) return;
+    // Ô đã bị gỡ hoặc đã chuyển vào tin chờ (bộ gửi tin chờ lo tiếp).
+    if (_attachmentItemById(state.pendingAttachments, clientAttachmentId) ==
+        null) {
+      return;
+    }
     switch (result) {
       case Success<UploadedMessageFile>(value: final file):
         state = state.copyWith(
@@ -1062,6 +1108,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
               status: MessageAttachmentUploadStatus.uploaded,
               uploadedFile: file,
               progress: 1,
+              compressing: false,
               clearError: true,
             ),
           ),
@@ -1073,6 +1120,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
             item.copyWith(
               status: MessageAttachmentUploadStatus.failed,
               progress: 0,
+              compressing: false,
               errorMessage: failure.message,
             ),
           ),
@@ -1640,13 +1688,19 @@ List<ChatMessage> _mergeChronological(
   return List.unmodifiable(result);
 }
 
-ChatMessage _optimisticMessage(MessageOutboxItem item, String? currentUserId) {
+ChatMessage _optimisticMessage(
+  MessageOutboxItem item,
+  String? currentUserId, {
+  double? uploadProgress,
+  String? uploadStage,
+}) {
   final localMessageId = 'local-${item.clientMessageId}';
+  final uploading = item.hasPendingUploads;
   return ChatMessage(
     id: localMessageId,
     workspaceId: item.workspaceId,
     channelId: item.channelId,
-    kind: item.attachments.isEmpty ? 'text' : 'file',
+    kind: item.attachments.isEmpty && !uploading ? 'text' : 'file',
     body: item.body,
     createdAt: item.createdAt,
     senderId: currentUserId?.trim().isNotEmpty == true
@@ -1656,7 +1710,13 @@ ChatMessage _optimisticMessage(MessageOutboxItem item, String? currentUserId) {
     metadata: {
       ...item.metadata,
       'client_message_id': item.clientMessageId,
-      'delivery_status': item.status.name,
+      'delivery_status': uploading && !item.isFailed
+          ? 'uploading'
+          : item.status.name,
+      if (uploading && !item.isFailed) ...{
+        'upload_progress': uploadProgress ?? 0.0,
+        'upload_stage': uploadStage ?? 'uploading',
+      },
     },
     attachments: _optimisticAttachments(item, messageId: localMessageId),
     isMine: true,
@@ -1667,11 +1727,22 @@ List<MessageAttachment> _optimisticAttachments(
   MessageOutboxItem item, {
   required String messageId,
 }) {
-  if (item.attachments.isEmpty) {
+  if (item.attachments.isEmpty && item.pendingUploads.isEmpty) {
     return const [];
   }
-  final attachments = [...item.attachments]
-    ..sort((left, right) => left.sortOrder.compareTo(right.sortOrder));
+  final attachments = [
+    ...item.attachments,
+    for (final upload in item.pendingUploads)
+      MessageOutboxAttachment(
+        fileId: 'local-${upload.clientAttachmentId}',
+        name: upload.fileName,
+        sortOrder: upload.sortOrder,
+        mimeType: upload.mimeType,
+        byteSize: upload.byteSize,
+        downloadPath: '',
+        localPath: upload.localPath,
+      ),
+  ]..sort((left, right) => left.sortOrder.compareTo(right.sortOrder));
   return attachments
       .map(
         (attachment) => MessageAttachment(
@@ -1849,7 +1920,12 @@ String _attachmentMessageFallback(
   List<MessageAttachmentUploadItem> attachments,
 ) {
   final ready = attachments
-      .where((item) => item.status == MessageAttachmentUploadStatus.uploaded)
+      .where(
+        (item) =>
+            item.status == MessageAttachmentUploadStatus.uploaded ||
+            item.status == MessageAttachmentUploadStatus.uploading ||
+            item.status == MessageAttachmentUploadStatus.queued,
+      )
       .toList(growable: false);
   if (ready.isEmpty) return 'Đã gửi tệp đính kèm';
   final kinds = ready
@@ -1894,7 +1970,7 @@ MessageVoiceMetadata? _uploadedVoiceMetadata(
 ) {
   for (final item in attachments) {
     final voice = item.picked?.voice;
-    if (item.status == MessageAttachmentUploadStatus.uploaded &&
+    if (item.status != MessageAttachmentUploadStatus.failed &&
         item.picked?.kind == MessageAttachmentKind.audio &&
         voice != null) {
       return voice;

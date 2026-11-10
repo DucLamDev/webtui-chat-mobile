@@ -20,6 +20,7 @@ import '../../core/platform/chat_share_intent_service.dart';
 import '../../core/platform/external_url_launcher.dart';
 import '../../core/platform/native_deep_link_service.dart';
 import '../../core/platform/native_instance_binding_service.dart';
+import '../../core/platform/video_compressor.dart';
 import '../../core/security/instance_scope.dart';
 import '../../core/security/secure_key_value_store.dart';
 import '../../core/security/server_account_registry.dart';
@@ -82,6 +83,7 @@ import '../../features/conversations/application/use_cases/collaboration_documen
 import '../../features/conversations/application/use_cases/collaboration_task_use_cases.dart';
 import '../../features/conversations/application/use_cases/load_conversation_home_use_case.dart';
 import '../../features/conversations/application/use_cases/message_attachment_use_cases.dart';
+import '../../features/conversations/application/use_cases/message_media_uploader.dart';
 import '../../features/conversations/application/use_cases/message_outbox_dispatcher.dart';
 import '../../features/conversations/application/use_cases/message_outbox_use_cases.dart';
 import '../../features/conversations/application/use_cases/message_use_cases.dart';
@@ -96,6 +98,7 @@ import '../../features/conversations/data/datasources/conversation_remote_data_s
 import '../../features/conversations/data/datasources/message_attachment_remote_data_source.dart';
 import '../../features/conversations/data/datasources/message_outbox_data_source.dart';
 import '../../features/conversations/data/datasources/rich_message_remote_data_source.dart';
+import '../../features/conversations/data/files/compressed_video_file_store.dart';
 import '../../features/conversations/data/files/scoped_attachment_file_store.dart';
 import '../../features/conversations/data/repositories/audio_message_attachment_repository.dart';
 import '../../features/conversations/data/repositories/caching_conversation_repository.dart';
@@ -385,6 +388,11 @@ final chatShareIntentServiceProvider = Provider<ChatShareIntentService>((ref) {
   final service = ChatShareIntentService();
   ref.onDispose(() => unawaited(service.dispose()));
   return service;
+});
+
+/// Nén video trước khi gửi (native: Media3 Transformer / AVAssetExportSession).
+final videoCompressorProvider = Provider<VideoCompressor>((_) {
+  return MethodChannelVideoCompressor();
 });
 
 final biometricAuthServiceProvider = Provider<BiometricAuthService>((_) {
@@ -1248,6 +1256,7 @@ final messageOutboxDispatcherProvider = Provider<MessageOutboxDispatcher>((
 ) {
   final sendMessage = ref.watch(sendMessageUseCaseProvider);
   final attachUploadedFile = ref.watch(attachUploadedFileUseCaseProvider);
+  final mediaUploader = ref.watch(messageMediaUploaderProvider);
   final legalPolicy = ref.watch(legalAcceptanceAccessPolicyProvider);
   final dispatcher = MessageOutboxDispatcher(
     repository: ref.watch(messageOutboxRepositoryProvider),
@@ -1265,6 +1274,12 @@ final messageOutboxDispatcherProvider = Provider<MessageOutboxDispatcher>((
       messageId: message.id,
       fileId: attachment.fileId,
       sortOrder: attachment.sortOrder,
+    ),
+    uploadFile: (item, upload, onProgress) => mediaUploader.upload(
+      workspaceId: item.workspaceId,
+      clientAttachmentId: upload.clientAttachmentId,
+      attachment: upload.toPicked(),
+      onProgress: (progress) => onProgress(progress.progress),
     ),
     canCreateUserContent: () => legalPolicy.canCreateUserContent,
   );
@@ -1472,6 +1487,19 @@ final uploadMessageAttachmentUseCaseProvider =
         ref.watch(messageAttachmentRepositoryProvider),
       );
     });
+
+/// Bộ "nén + tải lên" tệp đính kèm dùng chung toàn app: thoát phòng chat vẫn
+/// tải tiếp, cùng một tệp không tải hai lần.
+final messageMediaUploaderProvider = Provider<MessageMediaUploader>((ref) {
+  const fileStore = CompressedVideoFileStore();
+  final uploader = DefaultMessageMediaUploader(
+    uploadAttachment: ref.watch(uploadMessageAttachmentUseCaseProvider),
+    compressor: ref.watch(videoCompressorProvider),
+    compressedPathFor: fileStore.pathFor,
+  );
+  ref.onDispose(uploader.dispose);
+  return uploader;
+});
 
 final attachUploadedFileUseCaseProvider = Provider<AttachUploadedFileUseCase>((
   ref,

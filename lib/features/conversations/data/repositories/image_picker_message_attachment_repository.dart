@@ -82,6 +82,7 @@ final class ImagePickerMessageAttachmentRepository
         mimeType: video.mimeType ?? _mimeFromPath(video.path),
         byteSize: stat.size,
         kind: MessageAttachmentKind.video,
+        compressVideo: true,
       ),
     );
   }

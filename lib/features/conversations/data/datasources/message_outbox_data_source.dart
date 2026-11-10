@@ -4,6 +4,7 @@ import 'dart:convert';
 import '../../../../core/database/app_database.dart';
 import '../../../../core/security/instance_scope.dart';
 import '../../../../core/security/secure_key_value_store.dart';
+import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/message_outbox_item.dart';
 
 final class MessageOutboxDataSource {
@@ -194,6 +195,10 @@ Map<String, Object?> _itemToJson(MessageOutboxItem item) {
     'attachments': item.attachments
         .map(_attachmentToJson)
         .toList(growable: false),
+    if (item.pendingUploads.isNotEmpty)
+      'pending_uploads': item.pendingUploads
+          .map(_pendingUploadToJson)
+          .toList(growable: false),
     'silent': item.silent,
     if (item.metadata.isNotEmpty) 'metadata': item.metadata,
     'status': item.status.name,
@@ -219,6 +224,12 @@ MessageOutboxItem _itemFromJson(Map<String, Object?> json) {
         ? attachments
               .whereType<Map<String, Object?>>()
               .map(_attachmentFromJson)
+              .toList(growable: false)
+        : const [],
+    pendingUploads: json['pending_uploads'] is List
+        ? (json['pending_uploads'] as List)
+              .whereType<Map<String, Object?>>()
+              .map(_pendingUploadFromJson)
               .toList(growable: false)
         : const [],
     silent: _bool(json['silent']),
@@ -261,6 +272,39 @@ MessageOutboxAttachment _attachmentFromJson(Map<String, Object?> json) {
     byteSize: _int(json['byteSize']),
     downloadPath: _string(json['downloadPath']),
     localPath: _nullableString(json['localPath']),
+  );
+}
+
+Map<String, Object?> _pendingUploadToJson(MessageOutboxPendingUpload upload) {
+  return {
+    'clientAttachmentId': upload.clientAttachmentId,
+    'localPath': upload.localPath,
+    'fileName': upload.fileName,
+    'mimeType': upload.mimeType,
+    'byteSize': upload.byteSize,
+    'kind': upload.kind.name,
+    'sortOrder': upload.sortOrder,
+    'compressVideo': upload.compressVideo,
+  };
+}
+
+MessageOutboxPendingUpload _pendingUploadFromJson(Map<String, Object?> json) {
+  final kindName = json['kind']?.toString();
+  var kind = MessageAttachmentKind.file;
+  for (final value in MessageAttachmentKind.values) {
+    if (value.name == kindName) {
+      kind = value;
+    }
+  }
+  return MessageOutboxPendingUpload(
+    clientAttachmentId: _string(json['clientAttachmentId']),
+    localPath: _string(json['localPath']),
+    fileName: _string(json['fileName']),
+    mimeType: _string(json['mimeType']),
+    byteSize: _int(json['byteSize']),
+    kind: kind,
+    sortOrder: _int(json['sortOrder']),
+    compressVideo: _bool(json['compressVideo']),
   );
 }
 
