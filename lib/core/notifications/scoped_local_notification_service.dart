@@ -161,7 +161,8 @@ Map<String, String>? scopedNotificationRoutingData(Map<String, Object?> data) {
   if (!target.isBoundToInstance(instanceId) ||
       (!target.canOpenConversation &&
           target.deepLink == null &&
-          !target.isApprovalRequest)) {
+          !target.isApprovalRequest &&
+          !target.isInboxConversation)) {
     return null;
   }
 
@@ -175,6 +176,10 @@ Map<String, String>? scopedNotificationRoutingData(Map<String, Object?> data) {
     'channel_id': ?_boundedValue(target.channelId, 256),
     'message_id': ?_boundedValue(target.messageId, 256),
     'deep_link': ?_boundedValue(target.deepLink, 1024),
+    if (target.isInboxConversation) ...{
+      'type': 'inbox_conversation',
+      'conversation_id': target.inboxConversationId!.trim(),
+    },
     if (target.isApprovalRequest) ...{
       'type': _approvalRequestedType,
       'approval_id': target.approvalId!.trim(),

@@ -109,6 +109,20 @@ final class WebSocketConversationRealtimeRepository
     );
   }
 
+  /// Hộp thư khách: sự kiện `Inbox*` đến qua phòng người dùng (không cần join
+  /// thêm phòng). Kèm `reconnected` để màn tự tải lại sau khi rớt mạng.
+  Stream<ConversationRealtimeEvent> subscribeToInbox({
+    required String workspaceId,
+  }) {
+    return _subscribe(workspaceId: workspaceId, channelId: '').where(
+      (event) =>
+          event.type ==
+              ConversationRealtimeEventType.inboxConversationUpdated ||
+          event.type == ConversationRealtimeEventType.inboxMessageCreated ||
+          event.type == ConversationRealtimeEventType.reconnected,
+    );
+  }
+
   @override
   Future<void> sendTyping({
     required String workspaceId,
@@ -583,6 +597,12 @@ final class ConversationRealtimeEventMapper {
     return ConversationRealtimeEvent(
       type: type,
       workspaceId:
+          (_isInboxEvent(type)
+              ? nullableStringField(payload, const [
+                  'workspace_id',
+                  'workspaceId',
+                ])
+              : null) ??
           message?.workspaceId ??
           stringField(payload, const [
             'workspace_id',
@@ -653,7 +673,15 @@ const _keepsPayload = {
   ConversationRealtimeEventType.transcriptUpdated,
   ConversationRealtimeEventType.sessionRevoked,
   ConversationRealtimeEventType.deviceApprovalRequested,
+  ConversationRealtimeEventType.inboxConversationUpdated,
+  ConversationRealtimeEventType.inboxMessageCreated,
 };
+
+/// Sự kiện hộp thư khách: `workspace_id` của payload là nguồn đúng (tin trong
+/// payload không mang workspace).
+bool _isInboxEvent(ConversationRealtimeEventType type) =>
+    type == ConversationRealtimeEventType.inboxConversationUpdated ||
+    type == ConversationRealtimeEventType.inboxMessageCreated;
 
 /// `MessageDelta` thiếu id / seq không hợp lệ thì bỏ (không ghép được).
 MessageStreamDelta? _messageDeltaFromPayload(JsonMap payload) {
@@ -731,6 +759,9 @@ ConversationRealtimeEventType _eventType(String value) {
     'SessionRevoked' => ConversationRealtimeEventType.sessionRevoked,
     'DeviceApprovalRequested' =>
       ConversationRealtimeEventType.deviceApprovalRequested,
+    'InboxConversationUpdated' =>
+      ConversationRealtimeEventType.inboxConversationUpdated,
+    'InboxMessageCreated' => ConversationRealtimeEventType.inboxMessageCreated,
     _ => ConversationRealtimeEventType.unknown,
   };
 }

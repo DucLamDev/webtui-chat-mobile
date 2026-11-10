@@ -127,6 +127,7 @@ final class NotificationTarget {
     this.sessionId,
     this.approvalId,
     this.notificationType,
+    this.inboxConversationId,
   });
 
   factory NotificationTarget.fromPayload({
@@ -146,17 +147,37 @@ final class NotificationTarget {
       'workspace_id',
       'workspaceId',
     ], fallback: linkTarget?.workspaceId ?? workspaceId);
+    final type = _firstString(data, const [
+      'type',
+      'notification_type',
+      'notificationType',
+      'event_type',
+      'eventType',
+    ])?.toLowerCase();
+    // Hộp thư khách: `conversation_id` là hội thoại khách, không phải kênh chat
+    // (không được mở / trả lời nhanh như kênh chat).
+    final isInbox =
+        type == _inboxConversationType ||
+        linkTarget?.inboxConversationId != null;
     return NotificationTarget(
+      inboxConversationId: isInbox
+          ? _firstString(data, const [
+              'conversation_id',
+              'conversationId',
+            ], fallback: linkTarget?.inboxConversationId)
+          : null,
       workspaceId: resolvedWorkspaceId ?? '',
       instanceId: _firstString(data, const [
         'instance_id',
       ], fallback: linkTarget?.instanceId),
-      channelId: _firstString(data, const [
-        'channel_id',
-        'channelId',
-        'conversation_id',
-        'conversationId',
-      ], fallback: channelId ?? linkTarget?.channelId),
+      channelId: isInbox
+          ? null
+          : _firstString(data, const [
+              'channel_id',
+              'channelId',
+              'conversation_id',
+              'conversationId',
+            ], fallback: channelId ?? linkTarget?.channelId),
       messageId: _firstString(data, const [
         'message_id',
         'messageId',
@@ -215,6 +236,15 @@ final class NotificationTarget {
     if (uri == null || !_isInternalUri(uri)) {
       return NotificationTarget(workspaceId: fallbackWorkspaceId);
     }
+    final inboxLink = _inboxLink(uri);
+    if (inboxLink != null) {
+      return NotificationTarget(
+        workspaceId: inboxLink.workspaceId,
+        deepLink: value,
+        targetType: _inboxConversationType,
+        inboxConversationId: inboxLink.conversationId,
+      );
+    }
     final segments = uri.pathSegments;
     String? channelId;
     String? targetType;
@@ -269,6 +299,15 @@ final class NotificationTarget {
   /// Phiên đang chờ duyệt (`data.session_id` của thông báo
   /// `device_approval_requested`, Lõi 2.3).
   final String? sessionId;
+
+  /// Hội thoại khách (push `inbox_conversation`, Lõi 6).
+  final String? inboxConversationId;
+
+  /// Bấm thông báo thì mở màn hội thoại khách tương ứng.
+  bool get isInboxConversation =>
+      (_normalizedType == _inboxConversationType ||
+          targetType?.trim().toLowerCase() == _inboxConversationType) &&
+      inboxConversationId?.trim().isNotEmpty == true;
 
   /// Loại thông báo (`type` / `notification_type`) khi máy chủ gửi kèm.
   final String? notificationType;
@@ -328,6 +367,25 @@ final class NotificationTarget {
       eventType == 'call_invite' &&
       callStatus == 'ringing' &&
       callId?.trim().isNotEmpty == true;
+}
+
+const _inboxConversationType = 'inbox_conversation';
+
+/// `webtui://inbox/<workspace>/<hội thoại>`.
+({String workspaceId, String conversationId})? _inboxLink(Uri uri) {
+  final segments = uri.pathSegments.where((part) => part.isNotEmpty).toList();
+  final List<String> rest;
+  if (uri.scheme.toLowerCase() == 'webtui' && uri.host == 'inbox') {
+    rest = segments;
+  } else if (segments.isNotEmpty && segments.first == 'inbox') {
+    rest = segments.sublist(1);
+  } else {
+    return null;
+  }
+  if (rest.length < 2 || rest[0].trim().isEmpty || rest[1].trim().isEmpty) {
+    return null;
+  }
+  return (workspaceId: rest[0], conversationId: rest[1]);
 }
 
 String? _firstString(

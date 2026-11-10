@@ -182,6 +182,8 @@ final class SelfHostedServerDiscovery {
         mfa: capabilities['mfa'] == true,
         // Lõi 5: phê duyệt chung; máy chủ cũ không trả → tắt.
         approvals: capabilities['approvals'] == true,
+        // Lõi 6: hộp thư khách đa kênh; máy chủ cũ không trả → tắt.
+        omnichannelInbox: capabilities['omnichannel_inbox'] == true,
         // Lõi 2: máy chủ cũ không trả các trường này → coi như tắt.
         qrLogin: capabilities['qr_login'] == true,
         deviceApproval: capabilities['device_approval'] == true,
@@ -362,6 +364,7 @@ final class SelfHostedCapabilities {
     this.secretMessages = false,
     this.mfa = false,
     this.approvals = false,
+    this.omnichannelInbox = false,
     this.qrLogin = false,
     this.deviceApproval = false,
     this.emailVerification = false,
@@ -403,6 +406,9 @@ final class SelfHostedCapabilities {
   /// Phê duyệt chung (Lõi 5): danh sách, duyệt / từ chối, duyệt nhanh từ thông báo.
   final bool approvals;
 
+  /// Hộp thư khách đa kênh (Lõi 6).
+  final bool omnichannelInbox;
+
   /// Đăng nhập máy tính bằng QR (Lõi 2.2).
   final bool qrLogin;
 
@@ -435,6 +441,7 @@ final class SelfHostedCapabilities {
       'secret_messages': secretMessages,
       'mfa': mfa,
       'approvals': approvals,
+      'omnichannel_inbox': omnichannelInbox,
       'qr_login': qrLogin,
       'device_approval': deviceApproval,
       'email_verification': emailVerification,

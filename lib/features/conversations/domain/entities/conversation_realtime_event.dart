@@ -50,6 +50,11 @@ enum ConversationRealtimeEventType {
   /// (`DeviceApprovalRequested`, Lõi 2.3); chi tiết nằm trong `payload`.
   deviceApprovalRequested,
 
+  /// Hộp thư khách (Lõi 6): hội thoại đổi (`InboxConversationUpdated`) / tin mới
+  /// hoặc đổi trạng thái gửi (`InboxMessageCreated`); chi tiết ở `payload`.
+  inboxConversationUpdated,
+  inboxMessageCreated,
+
   /// Kết nối realtime vừa nối lại sau khi rớt: tin trong lúc mất kết nối không
   /// được đẩy lại nên màn hình phải tự tải lại.
   reconnected,

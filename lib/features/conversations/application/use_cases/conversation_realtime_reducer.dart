@@ -115,7 +115,9 @@ final class ConversationRealtimeReducer {
       ConversationRealtimeEventType.contactRequestCancelled => state,
       ConversationRealtimeEventType.reconnected ||
       ConversationRealtimeEventType.resyncRequired => state,
-      ConversationRealtimeEventType.orderTicketUpdated => state,
+      ConversationRealtimeEventType.orderTicketUpdated ||
+      ConversationRealtimeEventType.inboxConversationUpdated ||
+      ConversationRealtimeEventType.inboxMessageCreated => state,
       // Sự kiện phiên / duyệt thiết bị do home shell xử lý, không đổi phòng chat.
       ConversationRealtimeEventType.sessionRevoked ||
       ConversationRealtimeEventType.deviceApprovalRequested => state,
