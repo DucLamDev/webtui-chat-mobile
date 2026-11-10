@@ -176,6 +176,148 @@ void main() {
     expect(attachments.single.localPath, '/device/DCIM/photo.jpg');
   });
 
+  test('lưu và đọc lại tệp còn phải tải của tin chờ', () async {
+    final database = AppDatabase(createInMemoryDriftConnection());
+    addTearDown(database.close);
+    final dataSource = MessageOutboxDataSource(
+      database,
+      _instanceA,
+      _MemorySecureStore.boundTo(_instanceA),
+    );
+    final now = DateTime.utc(2026, 11, 10, 8);
+    await dataSource.upsert(
+      MessageOutboxItem(
+        id: 'outbox-1',
+        instanceScopeId: _instanceA.storageId,
+        workspaceId: 'workspace-1',
+        channelId: 'channel-1',
+        clientMessageId: 'client-1',
+        body: 'Đã gửi video',
+        pendingUploads: const [
+          MessageOutboxPendingUpload(
+            clientAttachmentId: 'att-1',
+            localPath: '/device/video.mp4',
+            fileName: 'video.mp4',
+            mimeType: 'video/mp4',
+            byteSize: 9000000,
+            kind: MessageAttachmentKind.video,
+            sortOrder: 1,
+            compressVideo: true,
+          ),
+        ],
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+
+    final restored = (await dataSource.list(
+      workspaceId: 'workspace-1',
+      channelId: 'channel-1',
+    )).single;
+
+    expect(restored.hasPendingUploads, isTrue);
+    final upload = restored.pendingUploads.single;
+    expect(upload.clientAttachmentId, 'att-1');
+    expect(upload.localPath, '/device/video.mp4');
+    expect(upload.fileName, 'video.mp4');
+    expect(upload.mimeType, 'video/mp4');
+    expect(upload.byteSize, 9000000);
+    expect(upload.kind, MessageAttachmentKind.video);
+    expect(upload.sortOrder, 1);
+    expect(upload.compressVideo, isTrue);
+  });
+
+  test('dữ liệu cũ không có pending_uploads vẫn đọc được', () async {
+    final database = AppDatabase(createInMemoryDriftConnection());
+    addTearDown(database.close);
+    final dataSource = MessageOutboxDataSource(
+      database,
+      _instanceA,
+      _MemorySecureStore.boundTo(_instanceA),
+    );
+    await database.putKeyValue(
+      scope: _instanceA.localScope('message_outbox:workspace-1:channel-1'),
+      key: 'items',
+      value:
+          '{"items":[{"id":"old","instanceScopeId":"${_instanceA.storageId}",'
+          '"workspaceId":"workspace-1","channelId":"channel-1",'
+          '"clientMessageId":"c","body":"cũ","status":"queued"}]}',
+    );
+
+    final items = await dataSource.list(
+      workspaceId: 'workspace-1',
+      channelId: 'channel-1',
+    );
+
+    expect(items.single.id, 'old');
+    expect(items.single.pendingUploads, isEmpty);
+    expect(items.single.hasPendingUploads, isFalse);
+  });
+
+  test('kind lạ của tệp chờ tải đọc thành file', () async {
+    final database = AppDatabase(createInMemoryDriftConnection());
+    addTearDown(database.close);
+    final dataSource = MessageOutboxDataSource(
+      database,
+      _instanceA,
+      _MemorySecureStore.boundTo(_instanceA),
+    );
+    await database.putKeyValue(
+      scope: _instanceA.localScope('message_outbox:workspace-1:channel-1'),
+      key: 'items',
+      value:
+          '{"items":[{"id":"x","instanceScopeId":"${_instanceA.storageId}",'
+          '"workspaceId":"workspace-1","channelId":"channel-1",'
+          '"clientMessageId":"c","body":"b","pending_uploads":['
+          '{"clientAttachmentId":"a","localPath":"/p","fileName":"f",'
+          '"mimeType":"x/y","byteSize":3,"kind":"hologram"}]}]}',
+    );
+
+    final items = await dataSource.list(
+      workspaceId: 'workspace-1',
+      channelId: 'channel-1',
+    );
+
+    expect(items.single.pendingUploads.single.kind, MessageAttachmentKind.file);
+  });
+
+  test('pendingOutboxUploads chỉ lấy ô đang nén / tải và giữ thứ tự', () {
+    const video = PickedMessageAttachment(
+      path: '/device/v.mp4',
+      fileName: 'v.mp4',
+      mimeType: 'video/mp4',
+      byteSize: 100,
+      kind: MessageAttachmentKind.video,
+      compressVideo: true,
+    );
+    final pending = pendingOutboxUploads(const [
+      MessageAttachmentUploadItem(
+        clientAttachmentId: 'a',
+        status: MessageAttachmentUploadStatus.uploaded,
+        picked: video,
+      ),
+      MessageAttachmentUploadItem(
+        clientAttachmentId: 'b',
+        status: MessageAttachmentUploadStatus.uploading,
+        picked: video,
+      ),
+      MessageAttachmentUploadItem(
+        clientAttachmentId: 'c',
+        status: MessageAttachmentUploadStatus.failed,
+        picked: video,
+      ),
+      MessageAttachmentUploadItem(
+        clientAttachmentId: 'd',
+        status: MessageAttachmentUploadStatus.queued,
+        picked: video,
+      ),
+    ]);
+
+    expect(pending.map((u) => u.clientAttachmentId), ['b', 'd']);
+    expect(pending.map((u) => u.sortOrder), [1, 3]);
+    expect(pending.first.compressVideo, isTrue);
+  });
+
   test('does not lose outbox items when writes overlap', () async {
     final database = AppDatabase(createInMemoryDriftConnection());
     addTearDown(database.close);

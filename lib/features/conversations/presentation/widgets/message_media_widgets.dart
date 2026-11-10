@@ -684,12 +684,26 @@ class MessageVideoAttachmentView extends ConsumerStatefulWidget {
     required this.attachment,
     this.apiBaseUri,
     this.allowFullscreen = true,
+    this.uploadProgress,
+    this.uploadStage,
     super.key,
   });
 
   final MessageAttachment attachment;
   final Uri? apiBaseUri;
   final bool allowFullscreen;
+
+  /// Tiến độ nén / tải lên 0..1 của bong bóng tạm (null: không hiện vòng).
+  final double? uploadProgress;
+
+  /// `compressing` hoặc `uploading` (chỉ dùng khi [uploadProgress] có giá trị).
+  final String? uploadStage;
+
+  /// Video của bong bóng tạm: còn trên máy, chưa có trên máy chủ.
+  bool get isLocalPreview {
+    final path = attachment.file.localPath?.trim() ?? '';
+    return attachment.file.status == 'local-preview' && path.isNotEmpty;
+  }
 
   @override
   ConsumerState<MessageVideoAttachmentView> createState() =>
@@ -926,6 +940,15 @@ class _MessageVideoAttachmentViewState
 
   @override
   Widget build(BuildContext context) {
+    if (widget.isLocalPreview) {
+      return MessageLocalVideoPreview(
+        path: widget.attachment.file.localPath!.trim(),
+        fileName: widget.attachment.file.name,
+        progress: widget.uploadProgress,
+        stage: widget.uploadStage,
+        allowFullscreen: widget.allowFullscreen,
+      );
+    }
     final controller = _controller;
     final initialized = controller?.value.isInitialized == true;
     final activeController = initialized ? controller! : null;
@@ -1047,6 +1070,161 @@ class _MessageVideoAttachmentViewState
                   ),
                 ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Khung video của tin đang gửi: không tải gì từ máy chủ, chỉ hiện khung hình
+/// đầu của tệp trên máy (lỗi thì nền tối) và vòng tiến độ nén / tải lên.
+class MessageLocalVideoPreview extends StatefulWidget {
+  const MessageLocalVideoPreview({
+    required this.path,
+    required this.fileName,
+    this.progress,
+    this.stage,
+    this.allowFullscreen = true,
+    super.key,
+  });
+
+  final String path;
+  final String fileName;
+  final double? progress;
+  final String? stage;
+  final bool allowFullscreen;
+
+  @override
+  State<MessageLocalVideoPreview> createState() =>
+      _MessageLocalVideoPreviewState();
+}
+
+class _MessageLocalVideoPreviewState extends State<MessageLocalVideoPreview> {
+  VideoPlayerController? _controller;
+  int _generation = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadFirstFrame());
+  }
+
+  @override
+  void didUpdateWidget(covariant MessageLocalVideoPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.path != widget.path) {
+      final previous = _controller;
+      _controller = null;
+      unawaited(previous?.dispose());
+      unawaited(_loadFirstFrame());
+    }
+  }
+
+  Future<void> _loadFirstFrame() async {
+    final generation = ++_generation;
+    VideoPlayerController? next;
+    try {
+      final file = File(widget.path);
+      if (!await file.exists()) return;
+      next = VideoPlayerController.file(
+        file,
+        videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+      );
+      await next.initialize();
+      await next.setLooping(false);
+      if (!mounted || generation != _generation) {
+        await next.dispose();
+        return;
+      }
+      setState(() => _controller = next);
+    } on Object {
+      // Không xem trước được thì chỉ hiện nền tối.
+      await next?.dispose();
+    }
+  }
+
+  @override
+  void dispose() {
+    _generation += 1;
+    unawaited(_controller?.dispose());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = _controller;
+    final ready = controller?.value.isInitialized == true;
+    final aspectRatio = ready
+        ? controller!.value.aspectRatio.clamp(0.65, 1.9).toDouble()
+        : 16 / 9;
+    final width = widget.allowFullscreen
+        ? (MediaQuery.sizeOf(context).width * 0.72).clamp(230, 320).toDouble()
+        : MediaQuery.sizeOf(context).width;
+    final progress = widget.progress;
+    final compressing = widget.stage == 'compressing';
+    final percent = ((progress ?? 0) * 100).clamp(0, 100).round();
+    final label = compressing ? 'Đang nén…' : 'Đang tải lên $percent%';
+    return SizedBox(
+      width: width,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(WebTuiRadii.lg),
+        child: ColoredBox(
+          color: Colors.black,
+          child: AspectRatio(
+            aspectRatio: aspectRatio,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (ready)
+                  IgnorePointer(child: VideoPlayer(controller!))
+                else
+                  const SizedBox.expand(),
+                if (progress == null)
+                  const Center(
+                    child: Icon(
+                      CupertinoIcons.play_circle_fill,
+                      color: Colors.white70,
+                      size: 44,
+                    ),
+                  )
+                else
+                  Semantics(
+                    // Không đặt liveRegion: tiến độ đổi mỗi 1 %, trình đọc màn
+                    // hình sẽ đọc liên tục.
+                    label: 'Video ${widget.fileName}: $label',
+                    child: ExcludeSemantics(
+                      child: ColoredBox(
+                        color: Colors.black54,
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox.square(
+                                dimension: 44,
+                                child: CircularProgressIndicator(
+                                  value: progress.clamp(0.0, 1.0),
+                                  strokeWidth: 3,
+                                  color: Colors.white,
+                                  backgroundColor: Colors.white24,
+                                ),
+                              ),
+                              const SizedBox(height: WebTuiSpacing.xs),
+                              Text(
+                                label,
+                                style: WebTuiTypography.labelSmall.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

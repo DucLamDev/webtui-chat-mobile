@@ -1526,7 +1526,9 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
           ),
         ),
         if (widget.state.hasTypingUsers) const _TypingIndicator(),
-        if (widget.state.hasOutboxItems)
+        if (widget.state.outboxItems.any(
+          (item) => item.isFailed || !item.hasPendingUploads,
+        ))
           _OutboxStatusBar(state: widget.state, onRetry: widget.onRetryOutbox),
         if (!widget.interactionBlocked && widget.state.canSend)
           SecretMessageComposer(
@@ -2745,7 +2747,9 @@ class _AttachmentQueuePreview extends StatelessWidget {
                         Text(
                           [
                             if (size != null) _formatBytes(size),
-                            _attachmentUploadLabel(item.status),
+                            item.compressing
+                                ? 'Đang nén…'
+                                : _attachmentUploadLabel(item.status),
                           ].join(' · '),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -3742,6 +3746,8 @@ class _MessageRow extends StatelessWidget {
                 attachments: message.attachments,
                 outgoing: true,
                 voice: voice,
+                uploadProgress: message.uploadProgress,
+                uploadStage: message.uploadStage,
               ),
           ],
         ),
@@ -3814,6 +3820,7 @@ class _SenderName extends StatelessWidget {
 
 String _deliveryStatusLabel(ChatMessage message) {
   return switch (message.deliveryStatus) {
+    'uploading' => 'Đang tải tệp',
     'queued' => 'Đang chờ gửi',
     'sending' => 'Đang gửi',
     'failed' => 'Chưa gửi được',
@@ -4399,10 +4406,16 @@ class _MessageAttachmentList extends StatelessWidget {
     required this.attachments,
     required this.outgoing,
     this.voice,
+    this.uploadProgress,
+    this.uploadStage,
   });
 
   final List<MessageAttachment> attachments;
   final bool outgoing;
+
+  /// Tiến độ nén / tải của tin đang gửi (phủ lên video tạm).
+  final double? uploadProgress;
+  final String? uploadStage;
 
   /// `metadata.voice` của tin (áp cho tệp thoại đầu tiên).
   final MessageVoiceMetadata? voice;
@@ -4511,6 +4524,8 @@ class _MessageAttachmentList extends StatelessWidget {
                   ? MessageVideoAttachmentView(
                       attachment: attachment,
                       apiBaseUri: networkScope?.apiBaseUri,
+                      uploadProgress: uploadProgress,
+                      uploadStage: uploadStage,
                     )
                   : MessageFileAttachmentView(
                       attachment: attachment,
@@ -4855,7 +4870,7 @@ String _timeLabel(DateTime value) {
 String _messageTimeLabel(ChatMessage message) {
   return switch (message.deliveryStatus) {
     'failed' => 'Chưa gửi',
-    'queued' || 'sending' => 'Đang gửi',
+    'uploading' || 'queued' || 'sending' => 'Đang gửi',
     _ => _timeLabel(message.createdAt),
   };
 }

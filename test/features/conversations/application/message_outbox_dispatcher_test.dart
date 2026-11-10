@@ -129,6 +129,179 @@ void main() {
     expect(sent, 0);
     expect(repo.items.length, 1);
   });
+
+  group('tin có tệp còn đang tải', () {
+    test('không chặn tin chữ tạo sau, tải xong gửi đúng một lần', () async {
+      final repo = _Repository([
+        _videoItem('1', 'a', 1, ['u1', 'u2']),
+        _item('2', 'a', 2),
+      ]);
+      final gate = Completer<void>();
+      final sent = <String>[];
+      final attached = <String>[];
+      final dispatcher = _uploadDispatcher(
+        repo,
+        send: (item) async {
+          sent.add(item.clientMessageId);
+          return Success(_message(item));
+        },
+        attach: (item, message, attachment) async {
+          attached.add('${attachment.fileId}@${attachment.sortOrder}');
+          return Success(_attachment(attachment));
+        },
+        upload: (item, upload, onProgress) async {
+          onProgress(0.5);
+          await gate.future;
+          onProgress(1);
+          return Success(_file('file-${upload.clientAttachmentId}'));
+        },
+      );
+      addTearDown(dispatcher.dispose);
+      final updates = <MessageOutboxDispatchUpdate>[];
+      final subscription = dispatcher.updates.listen(updates.add);
+      addTearDown(subscription.cancel);
+
+      await dispatcher.drainChannel(workspaceId: 'ws', channelId: 'a');
+      // Tin chữ gửi trước, video vẫn đang tải.
+      expect(sent, ['client-2']);
+      expect(repo.items.map((i) => i.id), ['1']);
+
+      gate.complete();
+      await _eventually(() => repo.items.isEmpty);
+
+      expect(sent, ['client-2', 'client-1']);
+      expect(attached, ['file-u1@0', 'file-u2@1']);
+      final uploading = updates.where(
+        (u) => u.phase == MessageOutboxDispatchPhase.uploading,
+      );
+      expect(uploading, isNotEmpty);
+      expect(uploading.every((u) => u.progress != null), isTrue);
+      expect(uploading.last.progress, 1);
+      // Gọi lại sau khi xong không gửi trùng.
+      await dispatcher.drainWorkspace('ws');
+      expect(sent, ['client-2', 'client-1']);
+    });
+
+    test('lỗi tải giữ tin failed cùng tệp, thử lại tải phần còn lại', () async {
+      final repo = _Repository([
+        _videoItem('1', 'a', 1, ['u1', 'u2']),
+      ]);
+      final calls = <String>[];
+      var failSecond = true;
+      final sent = <String>[];
+      final dispatcher = _uploadDispatcher(
+        repo,
+        send: (item) async {
+          sent.add(item.clientMessageId);
+          return Success(_message(item));
+        },
+        attach: (item, message, attachment) async =>
+            Success(_attachment(attachment)),
+        upload: (item, upload, onProgress) async {
+          calls.add(upload.clientAttachmentId);
+          if (upload.clientAttachmentId == 'u2' && failSecond) {
+            return const FailureResult(
+              Failure(kind: FailureKind.validation, message: 'Tệp quá lớn.'),
+            );
+          }
+          return Success(_file('file-${upload.clientAttachmentId}'));
+        },
+      );
+      addTearDown(dispatcher.dispose);
+
+      await dispatcher.drainChannel(workspaceId: 'ws', channelId: 'a');
+      await _eventually(
+        () => repo.items.single.status == MessageOutboxStatus.failed,
+      );
+      expect(repo.items.single.lastError, 'Tệp quá lớn.');
+      expect(
+        repo.items.single.pendingUploads.map((u) => u.clientAttachmentId),
+        ['u2'],
+      );
+      expect(repo.items.single.attachments.map((a) => a.fileId), ['file-u1']);
+      expect(sent, isEmpty);
+
+      failSecond = false;
+      calls.clear();
+      await dispatcher.drainChannel(workspaceId: 'ws', channelId: 'a');
+      await _eventually(() => repo.items.isEmpty);
+      // Tệp u1 đã tải xong được lưu nên không tải lại.
+      expect(calls, ['u2']);
+      expect(sent, ['client-1']);
+    });
+
+    test('không có bộ tải thì báo lỗi và giữ tin', () async {
+      final repo = _Repository([
+        _videoItem('1', 'a', 1, ['u1']),
+      ]);
+      final dispatcher = _dispatcher(
+        repo,
+        (item) async => Success(_message(item)),
+      );
+      addTearDown(dispatcher.dispose);
+      await dispatcher.drainChannel(workspaceId: 'ws', channelId: 'a');
+      await _eventually(
+        () => repo.items.single.status == MessageOutboxStatus.failed,
+      );
+      expect(repo.items.single.lastError, 'Không tải được tệp đính kèm.');
+      expect(repo.items.single.hasPendingUploads, isTrue);
+    });
+
+    test('tin bị xoá khỏi hàng chờ trong lúc tải thì không gửi', () async {
+      final repo = _Repository([
+        _videoItem('1', 'a', 1, ['u1']),
+      ]);
+      final gate = Completer<void>();
+      var sent = 0;
+      final dispatcher = _uploadDispatcher(
+        repo,
+        send: (item) async {
+          sent++;
+          return Success(_message(item));
+        },
+        attach: (item, message, attachment) async =>
+            Success(_attachment(attachment)),
+        upload: (item, upload, onProgress) async {
+          await gate.future;
+          return Success(_file('file-u1'));
+        },
+      );
+      addTearDown(dispatcher.dispose);
+      await dispatcher.drainChannel(workspaceId: 'ws', channelId: 'a');
+      repo.items.clear();
+      gate.complete();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(sent, 0);
+      expect(repo.items, isEmpty);
+    });
+
+    test('đổi máy chủ thì không tải và không gửi', () async {
+      final repo = _Repository([
+        _videoItem('1', 'a', 1, ['u1']),
+      ])..allowed = false;
+      var uploads = 0;
+      var sent = 0;
+      final dispatcher = _uploadDispatcher(
+        repo,
+        send: (item) async {
+          sent++;
+          return Success(_message(item));
+        },
+        attach: (item, message, attachment) async =>
+            Success(_attachment(attachment)),
+        upload: (item, upload, onProgress) async {
+          uploads++;
+          return Success(_file('file-u1'));
+        },
+      );
+      addTearDown(dispatcher.dispose);
+      await dispatcher.drainChannel(workspaceId: 'ws', channelId: 'a');
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(uploads, 0);
+      expect(sent, 0);
+      expect(repo.items.single.hasPendingUploads, isTrue);
+    });
+  });
 }
 
 const _networkFailure = FailureResult<ChatMessage>(
@@ -211,4 +384,73 @@ final class _Repository implements MessageOutboxRepository {
   @override
   Future<void> clearWorkspace({required String workspaceId}) async =>
       items.removeWhere((i) => i.workspaceId == workspaceId);
+}
+
+MessageOutboxDispatcher _uploadDispatcher(
+  _Repository repo, {
+  required SendOutboxMessage send,
+  required AttachOutboxFile attach,
+  required UploadOutboxFile upload,
+}) => MessageOutboxDispatcher(
+  repository: repo,
+  sendMessage: send,
+  attachFile: attach,
+  uploadFile: upload,
+  autoRetryDelays: const [],
+);
+
+MessageOutboxItem _videoItem(
+  String id,
+  String channel,
+  int second,
+  List<String> uploadIds,
+) => MessageOutboxItem(
+  id: id,
+  instanceScopeId: 'instance',
+  workspaceId: 'ws',
+  channelId: channel,
+  clientMessageId: 'client-$id',
+  body: 'Video $id',
+  createdAt: DateTime.utc(2026, 11, 10, 0, 0, second),
+  updatedAt: DateTime.utc(2026, 11, 10),
+  pendingUploads: [
+    for (var index = 0; index < uploadIds.length; index += 1)
+      MessageOutboxPendingUpload(
+        clientAttachmentId: uploadIds[index],
+        localPath: '/device/${uploadIds[index]}.mp4',
+        fileName: '${uploadIds[index]}.mp4',
+        mimeType: 'video/mp4',
+        byteSize: 1000,
+        kind: MessageAttachmentKind.video,
+        sortOrder: index,
+      ),
+  ],
+);
+
+UploadedMessageFile _file(String id) => UploadedMessageFile(
+  id: id,
+  name: '$id.mp4',
+  mimeType: 'video/mp4',
+  byteSize: 1000,
+  downloadPath: '/files/$id',
+  createdAt: DateTime.utc(2026, 11, 10),
+);
+
+MessageAttachment _attachment(MessageOutboxAttachment attachment) =>
+    MessageAttachment(
+      id: 'att-${attachment.fileId}',
+      workspaceId: 'ws',
+      messageId: 'm',
+      fileId: attachment.fileId,
+      sortOrder: attachment.sortOrder,
+      createdAt: DateTime.utc(2026, 11, 10),
+      file: _file(attachment.fileId),
+    );
+
+Future<void> _eventually(bool Function() condition) async {
+  for (var i = 0; i < 200; i += 1) {
+    if (condition()) return;
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+  }
+  expect(condition(), isTrue, reason: 'Điều kiện không đạt kịp lúc.');
 }

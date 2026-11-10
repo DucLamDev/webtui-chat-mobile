@@ -1,4 +1,8 @@
 import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 /// Video sau khi nén trên máy (bản nhỏ hơn để gửi trong chat).
 final class CompressedVideo {
@@ -48,21 +52,90 @@ final class NoopVideoCompressor implements VideoCompressor {
 /// Bộ nén gọi mã native qua kênh `webtui/video_compress`
 /// (Android: Media3 Transformer, iOS: AVAssetExportSession).
 final class MethodChannelVideoCompressor implements VideoCompressor {
-  MethodChannelVideoCompressor();
+  MethodChannelVideoCompressor({MethodChannel? channel})
+    : _channel = channel ?? const MethodChannel('webtui/video_compress') {
+    _channel.setMethodCallHandler(_onNativeCall);
+  }
+
+  final MethodChannel _channel;
+  final Map<String, void Function(double progress)> _progressById = {};
+
+  bool get _supported =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+
+  Future<void> _onNativeCall(MethodCall call) async {
+    if (call.method != 'progress') {
+      return;
+    }
+    final arguments = call.arguments;
+    if (arguments is! Map) {
+      return;
+    }
+    final id = arguments['id'];
+    final value = arguments['progress'];
+    if (id is! String || value is! num) {
+      return;
+    }
+    _progressById[id]?.call(value.toDouble().clamp(0.0, 1.0));
+  }
 
   @override
   Future<CompressedVideo?> compress({
     required String inputPath,
     required String outputPath,
     void Function(double progress)? onProgress,
-  }) {
-    // TODO(khung): agent phần native cài đặt.
-    throw UnimplementedError();
+  }) async {
+    if (!_supported) {
+      return null;
+    }
+    if (onProgress != null) {
+      _progressById[outputPath] = onProgress;
+    }
+    try {
+      final result = await _channel
+          .invokeMapMethod<String, Object?>('compress', <String, Object>{
+            'id': outputPath,
+            'input': inputPath,
+            'output': outputPath,
+            'shortSide': VideoCompressor.targetShortSide,
+            'videoBitrate': VideoCompressor.targetVideoBitrate,
+            'audioBitrate': VideoCompressor.targetAudioBitrate,
+          });
+      final path = result?['path'];
+      final byteSize = result?['byteSize'];
+      if (path is! String || byteSize is! num || byteSize <= 0) {
+        return null;
+      }
+      if (!await File(path).exists()) {
+        return null;
+      }
+      return CompressedVideo(path: path, byteSize: byteSize.toInt());
+    } on PlatformException {
+      return null;
+    } on MissingPluginException {
+      return null;
+    } on Exception {
+      return null;
+    } finally {
+      _progressById.remove(outputPath);
+    }
   }
 
   @override
-  Future<void> cancel(String outputPath) {
-    // TODO(khung): agent phần native cài đặt.
-    throw UnimplementedError();
+  Future<void> cancel(String outputPath) async {
+    if (!_supported) {
+      return;
+    }
+    try {
+      await _channel.invokeMethod<void>('cancel', <String, Object>{
+        'id': outputPath,
+      });
+    } on PlatformException {
+      // Không có lượt nào để huỷ.
+    } on MissingPluginException {
+      // Máy không có bộ nén native.
+    }
   }
 }

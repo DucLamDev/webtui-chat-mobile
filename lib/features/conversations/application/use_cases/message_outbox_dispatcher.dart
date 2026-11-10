@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
@@ -136,7 +137,6 @@ final class MessageOutboxDispatcher {
   final MessageOutboxRepository _repository;
   final SendOutboxMessage _sendMessage;
   final AttachOutboxFile _attachFile;
-  // ignore: unused_field
   final UploadOutboxFile? _uploadFile;
   final bool Function() _canCreateUserContent;
   final List<Duration> _autoRetryDelays;
@@ -148,6 +148,7 @@ final class MessageOutboxDispatcher {
   final _workspaceRerunRequested = <String>{};
   final _autoRetryTimers = <String, Timer>{};
   final _autoRetryAttempts = <String, int>{};
+  final _uploadJobs = <String, Future<void>>{};
   bool _disposed = false;
   bool _autoRetryPaused = false;
 
@@ -307,6 +308,12 @@ final class MessageOutboxDispatcher {
       if (pending.isEmpty) break;
       final item = pending.first;
       handled.add(item.id);
+      if (item.hasPendingUploads) {
+        // Tệp còn đang nén / tải: tải ở nền, KHÔNG chặn tin chữ tạo sau nó
+        // (giống Zalo). Tải xong sẽ tự gọi lại [drainChannel] để gửi.
+        _startUploadJob(item);
+        continue;
+      }
       if (blocked) {
         // Giữ thứ tự: tin sau không vượt lên trước tin trước còn lỗi tạm thời.
         if (item.isSending) {
@@ -338,6 +345,196 @@ final class MessageOutboxDispatcher {
       blockedByTransientFailure: blocked,
       connectivityLost: connectivityLost,
     );
+  }
+
+  void _startUploadJob(MessageOutboxItem item) {
+    if (_uploadJobs.containsKey(item.id)) return;
+    late final Future<void> job;
+    job = _runUploadJob(item).whenComplete(() {
+      if (identical(_uploadJobs[item.id], job)) {
+        _uploadJobs.remove(item.id);
+      }
+    });
+    _uploadJobs[item.id] = job;
+  }
+
+  Future<bool> _isStillQueued(MessageOutboxItem item) async {
+    try {
+      final items = await _repository.list(
+        workspaceId: item.workspaceId,
+        channelId: item.channelId,
+      );
+      return items.any((entry) => entry.id == item.id);
+    } on Object {
+      return true;
+    }
+  }
+
+  /// Tải nốt các tệp của tin chờ (tối đa 2 tệp một lúc), lưu từng tệp xong để
+  /// mở lại app không tải lại, rồi gửi tin như tin thường.
+  Future<void> _runUploadJob(MessageOutboxItem initial) async {
+    var current = initial;
+    try {
+      final uploadFile = _uploadFile;
+      if (uploadFile == null) {
+        await _failUpload(
+          current,
+          'Không tải được tệp đính kèm.',
+          FailureKind.unknown,
+        );
+        return;
+      }
+      if (_disposed || !await _repository.canDispatch(current)) {
+        await _failUpload(current, serverChangedError, FailureKind.cancelled);
+        return;
+      }
+      current = current.copyWith(
+        status: MessageOutboxStatus.queued,
+        updatedAt: _now(),
+      );
+      await _saveQuietly(current);
+
+      final uploads = [...initial.pendingUploads]
+        ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+      final totalBytes = uploads.fold<int>(
+        0,
+        (sum, upload) => sum + (upload.byteSize > 0 ? upload.byteSize : 0),
+      );
+      double weightOf(MessageOutboxPendingUpload upload) {
+        if (totalBytes <= 0) return 1 / uploads.length;
+        return (upload.byteSize > 0 ? upload.byteSize : 0) / totalBytes;
+      }
+
+      final fractions = <String, double>{};
+      var lastEmitted = -1.0;
+      var lastEmitAt = DateTime.fromMillisecondsSinceEpoch(0);
+      void emitProgress({bool force = false}) {
+        var total = 0.0;
+        for (final upload in uploads) {
+          total +=
+              (fractions[upload.clientAttachmentId] ?? 0) * weightOf(upload);
+        }
+        total = total.clamp(0.0, 1.0);
+        final at = DateTime.now();
+        if (!force &&
+            total - lastEmitted < 0.01 &&
+            at.difference(lastEmitAt) < const Duration(milliseconds: 200)) {
+          return;
+        }
+        lastEmitted = total;
+        lastEmitAt = at;
+        _emit(
+          MessageOutboxDispatchUpdate(
+            item: current,
+            phase: MessageOutboxDispatchPhase.uploading,
+            progress: total,
+          ),
+        );
+      }
+
+      emitProgress(force: true);
+
+      final queue = Queue<MessageOutboxPendingUpload>.of(uploads);
+      Failure? failure;
+      var deleted = false;
+
+      Future<void> worker() async {
+        while (failure == null && !deleted && queue.isNotEmpty) {
+          final upload = queue.removeFirst();
+          final Result<UploadedMessageFile> result;
+          try {
+            result = await uploadFile(current, upload, (progress) {
+              fractions[upload.clientAttachmentId] = progress.clamp(0.0, 1.0);
+              emitProgress();
+            });
+          } on Object {
+            failure ??= const Failure(
+              kind: FailureKind.unknown,
+              message: 'Không tải được tệp đính kèm.',
+            );
+            return;
+          }
+          switch (result) {
+            case Success<UploadedMessageFile>(value: final file):
+              if (_disposed || !await _isStillQueued(current)) {
+                deleted = true;
+                return;
+              }
+              fractions[upload.clientAttachmentId] = 1;
+              current = current.copyWith(
+                attachments: [
+                  ...current.attachments,
+                  MessageOutboxAttachment(
+                    fileId: file.id,
+                    name: file.name,
+                    sortOrder: upload.sortOrder,
+                    mimeType: file.mimeType,
+                    byteSize: file.byteSize,
+                    downloadPath: file.downloadPath,
+                    localPath: upload.localPath,
+                  ),
+                ],
+                pendingUploads: [
+                  for (final entry in current.pendingUploads)
+                    if (entry.clientAttachmentId != upload.clientAttachmentId)
+                      entry,
+                ],
+                updatedAt: _now(),
+              );
+              await _saveQuietly(current);
+              emitProgress();
+            case FailureResult<UploadedMessageFile>(failure: final error):
+              failure ??= error;
+          }
+        }
+      }
+
+      await Future.wait([worker(), if (uploads.length > 1) worker()]);
+
+      if (_disposed || deleted || !await _isStillQueued(current)) {
+        return;
+      }
+      final error = failure;
+      if (error != null) {
+        await _failUpload(current, error.message, error.kind);
+        return;
+      }
+      if (!await _repository.canDispatch(current)) {
+        await _failUpload(current, serverChangedError, FailureKind.cancelled);
+        return;
+      }
+      current = current.copyWith(
+        status: MessageOutboxStatus.queued,
+        pendingUploads: const [],
+        updatedAt: _now(),
+      );
+      await _repository.upsert(current);
+      emitProgress(force: true);
+    } on Object {
+      await _failUpload(
+        current,
+        'Không tải được tệp đính kèm.',
+        FailureKind.unknown,
+      );
+      return;
+    }
+    if (_disposed) return;
+    await drainChannel(
+      workspaceId: current.workspaceId,
+      channelId: current.channelId,
+    );
+  }
+
+  Future<void> _failUpload(
+    MessageOutboxItem item,
+    String error,
+    FailureKind kind,
+  ) async {
+    if (_disposed || !await _isStillQueued(item)) return;
+    await _fail(item, error, kind);
+    if (_isTransient(kind) && kind != FailureKind.cancelled) {
+      _scheduleAutoRetry(item.workspaceId);
+    }
   }
 
   Future<MessageOutboxDispatchUpdate> _dispatch(MessageOutboxItem item) async {

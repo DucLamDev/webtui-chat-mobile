@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:isolate';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
@@ -9,13 +11,19 @@ import '../../../../core/network/api_transport.dart';
 import '../../domain/entities/chat_message.dart';
 
 final class MessageAttachmentRemoteDataSource {
-  MessageAttachmentRemoteDataSource(this._api);
+  MessageAttachmentRemoteDataSource(
+    this._api, {
+    Future<void> Function(Duration delay)? wait,
+  }) : _wait = wait ?? Future<void>.delayed;
 
   final ApiTransport _api;
+  final Future<void> Function(Duration delay) _wait;
   final Map<String, String> _resumableSessions = {};
 
   static const int resumableThreshold = 8 * 1024 * 1024;
   static const int uploadChunkSize = 5 * 1024 * 1024;
+  static const int uploadConcurrency = 3;
+  static const int maxPartRetries = 2;
 
   Future<UploadedMessageFile> uploadFile({
     required String workspaceId,
@@ -89,39 +97,60 @@ final class MessageAttachmentRemoteDataSource {
       _resumableSessions[cacheKey] = session.id;
     }
 
-    final file = await File(attachment.path).open();
-    try {
-      final uploaded = session.uploadedParts.toSet();
-      var uploadedBytes = session.receivedBytes;
-      onProgress?.call(
-        attachment.byteSize == 0 ? 0 : uploadedBytes / attachment.byteSize,
-      );
-      for (var part = 0; part < session.totalChunks; part++) {
-        if (uploaded.contains(part)) continue;
-        final offset = part * session.chunkSize;
-        final remaining = attachment.byteSize - offset;
-        final length = remaining < session.chunkSize
-            ? remaining
-            : session.chunkSize;
-        await file.setPosition(offset);
-        final bytes = await file.read(length);
-        final checksum = sha256.convert(bytes).toString();
-        await _api.put<Object>(
-          '/api/v1/workspaces/${_e(workspaceId)}/files/uploads/${_e(session.id)}/parts/$part',
-          data: bytes,
-          options: Options(
-            contentType: 'application/octet-stream',
-            headers: {
-              'Content-Length': bytes.length,
-              'X-Chunk-SHA256': checksum,
-            },
-          ),
-        );
-        uploadedBytes += bytes.length;
-        onProgress?.call(uploadedBytes / attachment.byteSize);
+    final uploaded = session.uploadedParts.toSet();
+    final missing = <int>[
+      for (var part = 0; part < session.totalChunks; part++)
+        if (!uploaded.contains(part)) part,
+    ];
+    final total = attachment.byteSize;
+    var uploadedBytes = session.receivedBytes;
+    double ratio() =>
+        total <= 0 ? 0 : (uploadedBytes / total).clamp(0.0, 1.0).toDouble();
+    onProgress?.call(ratio());
+
+    final sessionId = session.id;
+    final chunkSize = session.chunkSize;
+    var cursor = 0;
+    Object? firstError;
+    StackTrace? firstStack;
+
+    Future<void> worker() async {
+      RandomAccessFile? file;
+      try {
+        file = await File(attachment.path).open();
+        while (firstError == null && cursor < missing.length) {
+          final part = missing[cursor++];
+          final offset = part * chunkSize;
+          final remaining = total - offset;
+          final length = remaining < chunkSize ? remaining : chunkSize;
+          await file.setPosition(offset);
+          final bytes = await file.read(length);
+          final checksum = await _sha256InBackground(bytes);
+          await _putPartWithRetry(
+            '/api/v1/workspaces/${_e(workspaceId)}/files/uploads/${_e(sessionId)}/parts/$part',
+            bytes,
+            checksum,
+          );
+          uploadedBytes += bytes.length;
+          onProgress?.call(ratio());
+        }
+      } catch (error, stack) {
+        firstError ??= error;
+        firstStack ??= stack;
+      } finally {
+        await file?.close();
       }
-    } finally {
-      await file.close();
+    }
+
+    if (missing.isNotEmpty) {
+      await Future.wait([
+        for (var i = 0; i < min(uploadConcurrency, missing.length); i++)
+          worker(),
+      ]);
+    }
+    final failure = firstError;
+    if (failure != null) {
+      Error.throwWithStackTrace(failure, firstStack ?? StackTrace.current);
     }
 
     final completed = await _api.post<Object>(
@@ -134,6 +163,47 @@ final class MessageAttachmentRemoteDataSource {
       envelopeItem(completed.data, 'file'),
       fallbackWorkspaceId: workspaceId,
     );
+  }
+
+  Future<void> _putPartWithRetry(
+    String path,
+    Uint8List bytes,
+    String checksum,
+  ) async {
+    for (var attempt = 0; ; attempt++) {
+      try {
+        await _api.put<Object>(
+          path,
+          data: bytes,
+          options: Options(
+            contentType: 'application/octet-stream',
+            headers: {
+              'Content-Length': bytes.length,
+              'X-Chunk-SHA256': checksum,
+            },
+          ),
+        );
+        return;
+      } on DioException catch (error) {
+        if (attempt >= maxPartRetries || !_isTransient(error)) rethrow;
+        await _wait(Duration(milliseconds: 500 * (attempt + 1)));
+      }
+    }
+  }
+
+  static bool _isTransient(DioException error) {
+    switch (error.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+      case DioExceptionType.connectionError:
+        return true;
+      case DioExceptionType.badResponse:
+        final code = error.response?.statusCode ?? 0;
+        return code == 429 || (code >= 500 && code < 600);
+      default:
+        return false;
+    }
   }
 
   Future<MessageAttachment> attachFile({
@@ -202,6 +272,14 @@ final class MessageAttachmentRemoteDataSource {
     return Uint8List.fromList(bytes);
   }
 }
+
+/// SHA-256 của một mảnh, tính ở isolate riêng để không làm đơ giao diện.
+///
+/// Hàm cấp cao nhất: closure gửi sang isolate chỉ mang theo [bytes], không kéo
+/// theo đối tượng mạng / tệp đang mở của nơi gọi (các đối tượng đó không gửi
+/// qua isolate được).
+Future<String> _sha256InBackground(Uint8List bytes) =>
+    Isolate.run(() => sha256.convert(bytes).toString());
 
 String _acceptHeader(String? mimeType) {
   final normalized = mimeType?.trim();
