@@ -15,6 +15,7 @@ import flutter_callkit_incoming
   private var captureObserver: NSObjectProtocol?
   private var deepLinkChannel: FlutterMethodChannel?
   private var pendingDeepLink: String?
+  private var videoCompressBridge: VideoCompressBridge?
   private let activeInstanceIDKey = "webtui.active_instance_id"
   private let activeInstanceOriginKey = "webtui.active_instance_origin"
   private let validatedInstanceKey = "webtui.instance_binding_validated"
@@ -193,6 +194,13 @@ import flutter_callkit_incoming
         self?.setPrivacyProtection(call.arguments as? Bool ?? false)
         result(nil)
       }
+
+    let compressor = VideoCompressBridge(channel: FlutterMethodChannel(
+      name: "webtui/video_compress",
+      binaryMessenger: messenger
+    ))
+    compressor.register()
+    videoCompressBridge = compressor
   }
 
   override func application(
@@ -546,4 +554,130 @@ import flutter_callkit_incoming
   func onTimeOut(_ call: Call) {}
 
   func providerDidReset() {}
+}
+
+/// Kênh `webtui/video_compress`: nén video bằng AVAssetExportSession
+/// (cạnh ngắn tối đa 720, MP4). Mọi hàm chạy trên luồng chính.
+final class VideoCompressBridge {
+  private let channel: FlutterMethodChannel
+  private var sessions: [String: AVAssetExportSession] = [:]
+  private var timers: [String: Timer] = [:]
+  private var cancelled: Set<String> = []
+
+  init(channel: FlutterMethodChannel) {
+    self.channel = channel
+  }
+
+  func register() {
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard let self else {
+        result(FlutterError(code: "UNAVAILABLE", message: nil, details: nil))
+        return
+      }
+      let arguments = call.arguments as? [String: Any]
+      switch call.method {
+      case "compress":
+        self.compress(arguments, result: result)
+      case "cancel":
+        if let id = arguments?["id"] as? String, let session = self.sessions[id] {
+          self.cancelled.insert(id)
+          session.cancelExport()
+        }
+        result(nil)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  private func compress(_ arguments: [String: Any]?, result: @escaping FlutterResult) {
+    guard
+      let id = arguments?["id"] as? String,
+      let input = arguments?["input"] as? String,
+      let output = arguments?["output"] as? String,
+      !id.isEmpty, !input.isEmpty, !output.isEmpty
+    else {
+      result(FlutterError(code: "INVALID_ARGUMENTS", message: "Thiếu tham số nén video.", details: nil))
+      return
+    }
+    guard sessions[id] == nil else {
+      result(FlutterError(code: "BUSY", message: "Lượt nén này đang chạy.", details: nil))
+      return
+    }
+    let fileManager = FileManager.default
+    guard fileManager.fileExists(atPath: input) else {
+      result(FlutterError(code: "INPUT_MISSING", message: "Không thấy tệp video nguồn.", details: nil))
+      return
+    }
+    let outputURL = URL(fileURLWithPath: output)
+    // Đuôi .mp4 để AVAssetExportSession nhận đúng kiểu tệp ra.
+    let partURL = URL(fileURLWithPath: output + ".part.mp4")
+    do {
+      try fileManager.createDirectory(
+        at: outputURL.deletingLastPathComponent(),
+        withIntermediateDirectories: true
+      )
+      try? fileManager.removeItem(at: partURL)
+    } catch {
+      result(FlutterError(code: "OUTPUT_FAILED", message: error.localizedDescription, details: nil))
+      return
+    }
+
+    let asset = AVURLAsset(url: URL(fileURLWithPath: input))
+    let preset = AVAssetExportSession.exportPresets(compatibleWith: asset)
+      .contains(AVAssetExportPreset1280x720)
+      ? AVAssetExportPreset1280x720
+      : AVAssetExportPresetMediumQuality
+    guard let session = AVAssetExportSession(asset: asset, presetName: preset) else {
+      result(FlutterError(code: "COMPRESS_FAILED", message: "Không tạo được phiên nén video.", details: nil))
+      return
+    }
+    session.outputURL = partURL
+    session.outputFileType = .mp4
+    session.shouldOptimizeForNetworkUse = true
+    sessions[id] = session
+
+    let timer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] _ in
+      guard let self, let active = self.sessions[id] else { return }
+      self.channel.invokeMethod("progress", arguments: ["id": id, "progress": Double(active.progress)])
+    }
+    timers[id] = timer
+
+    session.exportAsynchronously { [weak self] in
+      DispatchQueue.main.async {
+        guard let self else { return }
+        self.timers[id]?.invalidate()
+        self.timers[id] = nil
+        self.sessions[id] = nil
+        let wasCancelled = self.cancelled.remove(id) != nil
+        if wasCancelled || session.status == .cancelled {
+          try? fileManager.removeItem(at: partURL)
+          result(FlutterError(code: "CANCELLED", message: "Đã huỷ nén video.", details: nil))
+          return
+        }
+        guard session.status == .completed else {
+          try? fileManager.removeItem(at: partURL)
+          result(FlutterError(
+            code: "COMPRESS_FAILED",
+            message: session.error?.localizedDescription ?? "Nén video lỗi.",
+            details: nil
+          ))
+          return
+        }
+        do {
+          try? fileManager.removeItem(at: outputURL)
+          try fileManager.moveItem(at: partURL, to: outputURL)
+          let size = (try fileManager.attributesOfItem(atPath: output)[.size] as? NSNumber)?.intValue ?? 0
+          guard size > 0 else {
+            result(FlutterError(code: "OUTPUT_FAILED", message: "Tệp video nén rỗng.", details: nil))
+            return
+          }
+          result(["path": output, "byteSize": size])
+        } catch {
+          try? fileManager.removeItem(at: partURL)
+          result(FlutterError(code: "OUTPUT_FAILED", message: error.localizedDescription, details: nil))
+        }
+      }
+    }
+  }
 }

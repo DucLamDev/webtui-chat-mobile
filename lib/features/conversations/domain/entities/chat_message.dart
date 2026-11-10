@@ -57,6 +57,17 @@ final class ChatMessage {
           .trim();
   String get deliveryStatus =>
       (metadata['delivery_status'] ?? '').toString().trim();
+
+  /// Tiến độ nén / tải tệp của tin đang gửi (0..1); null khi không tải.
+  double? get uploadProgress {
+    if (deliveryStatus != 'uploading') return null;
+    final value = metadata['upload_progress'];
+    return value is num ? value.toDouble().clamp(0.0, 1.0) : 0.0;
+  }
+
+  /// `compressing` hoặc `uploading`.
+  String get uploadStage =>
+      (metadata['upload_stage'] ?? 'uploading').toString().trim();
   bool get isLocalOptimistic =>
       id.startsWith('local-') && clientMessageId.isNotEmpty;
   bool get hasThread => threadRootId != null || parentId != null;
@@ -165,6 +176,7 @@ final class PickedMessageAttachment {
     required this.byteSize,
     required this.kind,
     this.voice,
+    this.compressVideo = false,
   });
 
   final String path;
@@ -175,6 +187,10 @@ final class PickedMessageAttachment {
 
   /// Bản ghi âm vừa thu trong app: thời lượng / sóng âm gửi kèm tin.
   final MessageVoiceMetadata? voice;
+
+  /// Video chọn từ mục Video: nén về 720p trước khi gửi (gửi qua mục Tệp thì
+  /// giữ bản gốc).
+  final bool compressVideo;
 }
 
 final class UploadedMessageFile {
@@ -234,6 +250,7 @@ final class MessageAttachmentUploadItem {
     this.attachment,
     this.progress = 0,
     this.errorMessage,
+    this.compressing = false,
   });
 
   final String clientAttachmentId;
@@ -244,6 +261,9 @@ final class MessageAttachmentUploadItem {
   final double progress;
   final String? errorMessage;
 
+  /// Video đang được nén trước khi tải lên.
+  final bool compressing;
+
   MessageAttachmentUploadItem copyWith({
     MessageAttachmentUploadStatus? status,
     PickedMessageAttachment? picked,
@@ -252,6 +272,7 @@ final class MessageAttachmentUploadItem {
     double? progress,
     String? errorMessage,
     bool clearError = false,
+    bool? compressing,
   }) {
     return MessageAttachmentUploadItem(
       clientAttachmentId: clientAttachmentId,
@@ -261,6 +282,7 @@ final class MessageAttachmentUploadItem {
       attachment: attachment ?? this.attachment,
       progress: progress ?? this.progress,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
+      compressing: compressing ?? this.compressing,
     );
   }
 }

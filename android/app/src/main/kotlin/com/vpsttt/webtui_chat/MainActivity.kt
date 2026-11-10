@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 class MainActivity : FlutterActivity() {
     private lateinit var deepLinkChannel: MethodChannel
     private var pendingDeepLink: String? = null
+    private var videoCompressChannel: VideoCompressChannel? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -65,6 +66,11 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+        videoCompressChannel?.dispose()
+        videoCompressChannel = VideoCompressChannel(
+            applicationContext,
+            flutterEngine.dartExecutor.binaryMessenger
+        )
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "webtui/launcher"
@@ -94,6 +100,12 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        videoCompressChannel?.dispose()
+        videoCompressChannel = null
+        super.cleanUpFlutterEngine(flutterEngine)
     }
 
     override fun onNewIntent(intent: Intent) {

@@ -37,6 +37,7 @@ final class EnqueueMessageOutboxUseCase {
     required String body,
     String? parentId,
     List<MessageOutboxAttachment> attachments = const [],
+    List<MessageOutboxPendingUpload> pendingUploads = const [],
     bool silent = false,
     Map<String, Object?> metadata = const {},
     MessageOutboxStatus status = MessageOutboxStatus.queued,
@@ -53,6 +54,7 @@ final class EnqueueMessageOutboxUseCase {
       body: body,
       parentId: parentId,
       attachments: attachments,
+      pendingUploads: pendingUploads,
       silent: silent,
       metadata: metadata,
       status: status,
@@ -125,12 +127,43 @@ List<MessageOutboxAttachment> uploadedOutboxAttachments(
           mimeType: file.mimeType,
           byteSize: file.byteSize,
           downloadPath: file.downloadPath,
-          localPath: picked?.kind == MessageAttachmentKind.image
+          localPath:
+              picked?.kind == MessageAttachmentKind.image ||
+                  picked?.kind == MessageAttachmentKind.video
               ? picked?.path
               : null,
         ),
       );
     }
+  }
+  return result;
+}
+
+/// Ô tệp còn đang nén / tải (hoặc chờ tải) mà người dùng đã bấm Gửi.
+List<MessageOutboxPendingUpload> pendingOutboxUploads(
+  List<MessageAttachmentUploadItem> items,
+) {
+  final result = <MessageOutboxPendingUpload>[];
+  for (var index = 0; index < items.length; index += 1) {
+    final item = items[index];
+    final picked = item.picked;
+    if (picked == null) continue;
+    if (item.status != MessageAttachmentUploadStatus.uploading &&
+        item.status != MessageAttachmentUploadStatus.queued) {
+      continue;
+    }
+    result.add(
+      MessageOutboxPendingUpload(
+        clientAttachmentId: item.clientAttachmentId,
+        localPath: picked.path,
+        fileName: picked.fileName,
+        mimeType: picked.mimeType,
+        byteSize: picked.byteSize,
+        kind: picked.kind,
+        sortOrder: index,
+        compressVideo: picked.compressVideo,
+      ),
+    );
   }
   return result;
 }

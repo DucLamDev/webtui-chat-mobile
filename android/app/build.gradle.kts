@@ -155,6 +155,10 @@ android {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // Nén video trước khi gửi (kênh webtui/video_compress).
+    implementation("androidx.media3:media3-common:1.8.0")
+    implementation("androidx.media3:media3-effect:1.8.0")
+    implementation("androidx.media3:media3-transformer:1.8.0")
 }
 
 flutter {
