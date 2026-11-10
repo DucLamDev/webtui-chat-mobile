@@ -177,6 +177,7 @@ final class ChatRoomState {
       outboxItems.where((item) => item.isFailed).length;
   int get sendingOutboxCount =>
       outboxItems.where((item) => item.isSending).length;
+
   /// Còn tệp đang tải lên: chưa cho gửi, nếu không tệp đó bị bỏ khi gửi.
   bool get hasUploadingAttachments => pendingAttachments.any(
     (item) => item.status == MessageAttachmentUploadStatus.uploading,
