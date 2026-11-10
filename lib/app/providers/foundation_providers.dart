@@ -55,6 +55,7 @@ import '../../features/business/data/repositories/business_repository_impl.dart'
 import '../../features/business/domain/repositories/business_repository.dart';
 import '../../features/conversations/application/use_cases/call_use_cases.dart';
 import '../../features/conversations/application/use_cases/channel_use_cases.dart';
+import '../../features/conversations/application/use_cases/collaboration_task_use_cases.dart';
 import '../../features/conversations/application/use_cases/load_conversation_home_use_case.dart';
 import '../../features/conversations/application/use_cases/message_attachment_use_cases.dart';
 import '../../features/conversations/application/use_cases/message_outbox_use_cases.dart';
@@ -70,6 +71,7 @@ import '../../features/conversations/data/files/scoped_attachment_file_store.dar
 import '../../features/conversations/data/repositories/audio_message_attachment_repository.dart';
 import '../../features/conversations/data/repositories/caching_conversation_repository.dart';
 import '../../features/conversations/data/repositories/call_repository_impl.dart';
+import '../../features/conversations/data/repositories/collaboration_task_repository_impl.dart';
 import '../../features/conversations/data/repositories/conversation_repository_impl.dart';
 import '../../features/conversations/data/repositories/image_picker_message_attachment_repository.dart';
 import '../../features/conversations/data/repositories/local_conversation_draft_repository.dart';
@@ -77,9 +79,17 @@ import '../../features/conversations/data/repositories/local_message_outbox_repo
 import '../../features/conversations/data/repositories/message_attachment_repository_impl.dart';
 import '../../features/conversations/data/repositories/web_socket_conversation_realtime_repository.dart';
 import '../../features/conversations/domain/repositories/call_repository.dart';
+import '../../features/conversations/domain/repositories/collaboration_task_repository.dart';
 import '../../features/conversations/domain/repositories/conversation_repository.dart';
 import '../../features/conversations/domain/repositories/message_attachment_repository.dart';
 import '../../features/conversations/domain/repositories/message_outbox_repository.dart';
+import '../../features/customer_tickets/application/use_cases/customer_ticket_use_cases.dart';
+import '../../features/customer_tickets/data/datasources/customer_ticket_remote_data_source.dart';
+import '../../features/customer_tickets/data/repositories/customer_ticket_repository_impl.dart';
+import '../../features/customer_tickets/data/repositories/image_picker_customer_ticket_image_repository.dart';
+import '../../features/customer_tickets/data/repositories/public_customer_ticket_image_repository.dart';
+import '../../features/customer_tickets/data/repositories/web_socket_customer_ticket_realtime_repository.dart';
+import '../../features/customer_tickets/domain/repositories/customer_ticket_repository.dart';
 import '../../features/moderation/application/use_cases/moderation_use_cases.dart';
 import '../../features/moderation/data/datasources/moderation_remote_data_source.dart';
 import '../../features/moderation/data/repositories/moderation_repository_impl.dart';
@@ -958,6 +968,53 @@ final listChannelMembersUseCaseProvider = Provider<ListChannelMembersUseCase>((
   return ListChannelMembersUseCase(ref.watch(conversationRepositoryProvider));
 });
 
+final collaborationTaskRepositoryProvider =
+    Provider<CollaborationTaskRepository>((ref) {
+      return CollaborationTaskRepositoryImpl(
+        ref.watch(conversationRemoteDataSourceProvider),
+      );
+    });
+
+final listChannelTasksUseCaseProvider = Provider<ListChannelTasksUseCase>((
+  ref,
+) {
+  return ListChannelTasksUseCase(
+    ref.watch(collaborationTaskRepositoryProvider),
+  );
+});
+
+final createChannelTaskUseCaseProvider = Provider<CreateChannelTaskUseCase>((
+  ref,
+) {
+  return CreateChannelTaskUseCase(
+    ref.watch(collaborationTaskRepositoryProvider),
+  );
+});
+
+final updateChannelTaskUseCaseProvider = Provider<UpdateChannelTaskUseCase>((
+  ref,
+) {
+  return UpdateChannelTaskUseCase(
+    ref.watch(collaborationTaskRepositoryProvider),
+  );
+});
+
+final deleteChannelTaskUseCaseProvider = Provider<DeleteChannelTaskUseCase>((
+  ref,
+) {
+  return DeleteChannelTaskUseCase(
+    ref.watch(collaborationTaskRepositoryProvider),
+  );
+});
+
+final listAssignedTasksUseCaseProvider = Provider<ListAssignedTasksUseCase>((
+  ref,
+) {
+  return ListAssignedTasksUseCase(
+    ref.watch(collaborationTaskRepositoryProvider),
+  );
+});
+
 final inviteChannelMemberUseCaseProvider = Provider<InviteChannelMemberUseCase>(
   (ref) {
     return InviteChannelMemberUseCase(
@@ -1235,3 +1292,125 @@ Dio _configuredDio(Uri activeServerUri) {
     ),
   );
 }
+
+// ---------------------------------------------------------------------------
+// Ticket khách (chỉ máy chủ nội bộ VPSTTT, bật theo discovery + quyền order.*):
+// nhân viên xem / trả lời ticket khách gửi trên hệ thống order.
+// ---------------------------------------------------------------------------
+
+final customerTicketRemoteDataSourceProvider =
+    Provider<CustomerTicketRemoteDataSource>((ref) {
+      return CustomerTicketRemoteDataSource(ref.watch(apiTransportProvider));
+    });
+
+final customerTicketRepositoryProvider = Provider<CustomerTicketRepository>((
+  ref,
+) {
+  return CustomerTicketRepositoryImpl(
+    ref.watch(customerTicketRemoteDataSourceProvider),
+  );
+});
+
+/// Kết nối WebSocket riêng cho phòng `workspace:<ws>:order-tickets`: tự ngắt
+/// khi không còn màn ticket nào nghe, không ảnh hưởng phòng chat.
+final customerTicketRealtimeRepositoryProvider =
+    Provider<CustomerTicketRealtimeRepository>((ref) {
+      final socket = WebSocketConversationRealtimeRepository(
+        apiBaseUri: ref.watch(activeServerUriProvider),
+        wsBaseUri: ref.watch(activeServerWsUriProvider),
+        instanceScope: ref.watch(activeInstanceScopeProvider),
+        tokenRepository: ref.watch(authTokenRepositoryProvider),
+      );
+      ref.onDispose(() {
+        unawaited(socket.disconnect());
+      });
+      return WebSocketCustomerTicketRealtimeRepository(
+        socket.subscribeToOrderTickets,
+      );
+    });
+
+final customerTicketImagePickerRepositoryProvider =
+    Provider<CustomerTicketImagePickerRepository>((ref) {
+      return ImagePickerCustomerTicketImageRepository();
+    });
+
+/// Ảnh khách gửi (tên miền khác): tải không kèm token; bộ nhớ đệm theo máy chủ.
+final customerTicketImageRepositoryProvider =
+    Provider<CustomerTicketImageRepository>((ref) {
+      ref.watch(activeServerDiscoveryProvider);
+      final repository = PublicCustomerTicketImageRepository();
+      ref.onDispose(repository.clear);
+      return repository;
+    });
+
+final listCustomerTicketsUseCaseProvider = Provider<ListCustomerTicketsUseCase>(
+  (ref) {
+    return ListCustomerTicketsUseCase(
+      ref.watch(customerTicketRepositoryProvider),
+    );
+  },
+);
+
+final countUnansweredCustomerTicketsUseCaseProvider =
+    Provider<CountUnansweredCustomerTicketsUseCase>((ref) {
+      return CountUnansweredCustomerTicketsUseCase(
+        ref.watch(customerTicketRepositoryProvider),
+      );
+    });
+
+final loadCustomerTicketUseCaseProvider = Provider<LoadCustomerTicketUseCase>((
+  ref,
+) {
+  return LoadCustomerTicketUseCase(ref.watch(customerTicketRepositoryProvider));
+});
+
+final replyCustomerTicketUseCaseProvider = Provider<ReplyCustomerTicketUseCase>(
+  (ref) {
+    return ReplyCustomerTicketUseCase(
+      ref.watch(customerTicketRepositoryProvider),
+    );
+  },
+);
+
+final setCustomerTicketStatusUseCaseProvider =
+    Provider<SetCustomerTicketStatusUseCase>((ref) {
+      return SetCustomerTicketStatusUseCase(
+        ref.watch(customerTicketRepositoryProvider),
+      );
+    });
+
+final claimCustomerTicketUseCaseProvider = Provider<ClaimCustomerTicketUseCase>(
+  (ref) {
+    return ClaimCustomerTicketUseCase(
+      ref.watch(customerTicketRepositoryProvider),
+    );
+  },
+);
+
+final requestCustomerTicketAiDraftUseCaseProvider =
+    Provider<RequestCustomerTicketAiDraftUseCase>((ref) {
+      return RequestCustomerTicketAiDraftUseCase(
+        ref.watch(customerTicketRepositoryProvider),
+      );
+    });
+
+final watchCustomerTicketsUseCaseProvider =
+    Provider<WatchCustomerTicketsUseCase>((ref) {
+      return WatchCustomerTicketsUseCase(
+        ref.watch(customerTicketRealtimeRepositoryProvider),
+      );
+    });
+
+final pickCustomerTicketImagesUseCaseProvider =
+    Provider<PickCustomerTicketImagesUseCase>((ref) {
+      return PickCustomerTicketImagesUseCase(
+        ref.watch(customerTicketImagePickerRepositoryProvider),
+      );
+    });
+
+final loadCustomerTicketImageUseCaseProvider =
+    Provider<LoadCustomerTicketImageUseCase>((ref) {
+      return LoadCustomerTicketImageUseCase(
+        ref.watch(customerTicketImageRepositoryProvider),
+      );
+    });

@@ -371,6 +371,9 @@ String? _locationFor(NotificationTarget target) {
     'title': 'Hội thoại',
     if (target.messageId?.trim().isNotEmpty == true)
       'messageId': target.messageId!.trim(),
+    if (target.opensTasks) 'tool': 'tasks',
+    if (target.opensTasks && target.taskId?.trim().isNotEmpty == true)
+      'taskId': target.taskId!.trim(),
   };
   return Uri(
     path: '/conversations/$channelId',

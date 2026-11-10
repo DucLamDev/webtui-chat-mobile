@@ -212,31 +212,78 @@ final class ConversationRemoteDataSource {
     required String workspaceId,
     required String channelId,
     required String title,
+    String? description,
     String? sourceMessageId,
     String? assigneeUserId,
+    DateTime? dueAt,
   }) async {
     final response = await _api.post<Object>(
       '${_collaborationPath(workspaceId, channelId)}/tasks',
       data: compactMap({
         'title': title,
+        'description': description,
         'source_message_id': sourceMessageId,
         'assignee_user_id': assigneeUserId,
+        'due_at': dueAt?.toUtc().toIso8601String(),
       }),
     );
     return _collaborationTaskFromMap(envelopeItem(response.data, 'task'));
   }
 
+  /// Chỉ gửi trường có giá trị; `assigneeUserId` / `dueAt` rỗng nghĩa là bỏ giao /
+  /// xoá hạn (máy chủ nhận chuỗi rỗng).
   Future<CollaborationTask> updateCollaborationTask({
     required String workspaceId,
     required String channelId,
     required String taskId,
-    required String status,
+    String? status,
+    String? title,
+    String? description,
+    String? assigneeUserId,
+    DateTime? dueAt,
+    bool clearDueAt = false,
   }) async {
     final response = await _api.patch<Object>(
       '${_collaborationPath(workspaceId, channelId)}/tasks/${_e(taskId)}',
-      data: {'status': status},
+      data: {
+        'status': ?status,
+        'title': ?title,
+        'description': ?description,
+        'assignee_user_id': ?assigneeUserId,
+        if (clearDueAt)
+          'due_at': ''
+        else if (dueAt != null)
+          'due_at': dueAt.toUtc().toIso8601String(),
+      },
     );
     return _collaborationTaskFromMap(envelopeItem(response.data, 'task'));
+  }
+
+  Future<void> deleteCollaborationTask({
+    required String workspaceId,
+    required String channelId,
+    required String taskId,
+  }) async {
+    await _api.delete<Object>(
+      '${_collaborationPath(workspaceId, channelId)}/tasks/${_e(taskId)}',
+    );
+  }
+
+  /// "Việc của tôi": việc giao cho người đăng nhập ở mọi phòng của workspace.
+  Future<List<CollaborationTask>> listAssignedTasks({
+    required String workspaceId,
+    String status = 'active',
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    final response = await _api.get<Object>(
+      '/api/v1/workspaces/${_e(workspaceId)}/tasks/assigned',
+      queryParameters: {'status': status, 'limit': limit, 'offset': offset},
+    );
+    return envelopeList(
+      response.data,
+      'tasks',
+    ).map(_collaborationTaskFromMap).toList(growable: false);
   }
 
   Future<List<CollaborationRole>> listCollaborationRoles({
@@ -1651,12 +1698,19 @@ CollaborationDocument _collaborationDocumentFromMap(JsonMap map) {
 CollaborationTask _collaborationTaskFromMap(JsonMap map) {
   return CollaborationTask(
     id: stringField(map, const ['id']),
+    workspaceId: stringField(map, const ['workspace_id']),
+    channelId: stringField(map, const ['channel_id']),
     title: stringField(map, const ['title']),
     status: stringField(map, const ['status'], fallback: 'open'),
     sourceMessageId: nullableStringField(map, const ['source_message_id']),
+    description: nullableStringField(map, const ['description']),
     assigneeUserId: nullableStringField(map, const ['assignee_user_id']),
     dueAt: nullableDateTimeField(map, const ['due_at']),
+    createdBy: nullableStringField(map, const ['created_by']),
+    completedAt: nullableDateTimeField(map, const ['completed_at']),
     createdAt: dateTimeField(map, const ['created_at']),
+    updatedAt: nullableDateTimeField(map, const ['updated_at']),
+    channelName: nullableStringField(map, const ['channel_name']),
   );
 }
 

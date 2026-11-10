@@ -7,6 +7,8 @@ import '../../features/conversations/domain/entities/conversation_summary.dart';
 import '../../features/conversations/presentation/screens/channel_create_screen.dart';
 import '../../features/conversations/presentation/screens/channel_detail_screen.dart';
 import '../../features/conversations/presentation/screens/chat_room_screen.dart';
+import '../../features/customer_tickets/presentation/screens/customer_ticket_detail_screen.dart';
+import '../../features/customer_tickets/presentation/screens/customer_ticket_list_screen.dart';
 import '../../features/home/presentation/screens/home_shell_screen.dart';
 import '../../features/notifications/presentation/screens/notifications_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
@@ -64,6 +66,8 @@ final appRouterProvider = Provider<GoRouter>((_) {
                 : null,
             peerUserId: state.uri.queryParameters['peerUserId'],
             participantIds: participantIds ?? const [],
+            initialTool: state.uri.queryParameters['tool'],
+            initialTaskId: state.uri.queryParameters['taskId'],
           );
         },
       ),
@@ -110,6 +114,22 @@ final appRouterProvider = Provider<GoRouter>((_) {
         path: '/feedback',
         name: 'feedback',
         builder: (context, state) => const FeedbackScreen(),
+      ),
+      // Ticket khách (máy chủ nội bộ): màn tự kiểm discovery + quyền.
+      GoRoute(
+        path: '/customer-tickets',
+        name: 'customer-tickets',
+        builder: (context, state) => CustomerTicketListScreen(
+          workspaceId: state.uri.queryParameters['workspaceId'],
+        ),
+      ),
+      GoRoute(
+        path: '/customer-tickets/:ticket_id',
+        name: 'customer-ticket',
+        builder: (context, state) => CustomerTicketDetailScreen(
+          ticketId: state.pathParameters['ticket_id'] ?? '',
+          workspaceId: state.uri.queryParameters['workspaceId'],
+        ),
       ),
     ],
   );

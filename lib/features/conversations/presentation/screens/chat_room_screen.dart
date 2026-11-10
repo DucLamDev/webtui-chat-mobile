@@ -21,14 +21,18 @@ import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../moderation/presentation/controllers/moderation_controller.dart';
 import '../../../moderation/presentation/widgets/moderation_actions.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
+import '../../application/use_cases/collaboration_task_use_cases.dart';
 import '../../domain/entities/call_session.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/conversation_summary.dart';
+import '../../domain/repositories/collaboration_task_repository.dart';
 import '../controllers/chat_room_controller.dart';
+import '../controllers/collaboration_task_controller.dart';
 import '../controllers/message_sender_directory.dart';
 import '../controllers/pending_chat_share_controller.dart';
 import '../widgets/collaboration_room_sheet.dart';
 import '../widgets/message_media_widgets.dart';
+import '../widgets/task_editor_sheet.dart';
 import 'qr_scanner_screen.dart';
 import 'webrtc_call_screen.dart';
 
@@ -182,6 +186,8 @@ class ChatRoomScreen extends ConsumerStatefulWidget {
     this.peerUserId,
     this.participantIds = const [],
     this.embedded = false,
+    this.initialTool,
+    this.initialTaskId,
     super.key,
   });
 
@@ -195,6 +201,10 @@ class ChatRoomScreen extends ConsumerStatefulWidget {
   final List<String> participantIds;
   final bool embedded;
 
+  /// `tasks`: mở sẵn tab Task của phòng (bấm thông báo "được giao việc").
+  final String? initialTool;
+  final String? initialTaskId;
+
   @override
   ConsumerState<ChatRoomScreen> createState() => _ChatRoomScreenState();
 }
@@ -202,6 +212,7 @@ class ChatRoomScreen extends ConsumerStatefulWidget {
 class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
     with WidgetsBindingObserver {
   final _draftController = TextEditingController();
+  bool _initialToolHandled = false;
   final _draftFocusNode = FocusNode();
   ChatRoomController? _chatController;
   String? _appliedInitialMessageId;
@@ -351,6 +362,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
       case ChatModerationSafetyStatus.ready:
         break;
     }
+    _openInitialToolOnce(context, workspaceId);
 
     final scope = ChatRoomScope(
       workspaceId: workspaceId,
@@ -769,34 +781,59 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
     }
   }
 
+  CollaborationTaskScope _taskScope(String workspaceId) {
+    return CollaborationTaskScope(
+      workspaceId: workspaceId,
+      channelId: widget.channelId,
+      canManageRoom:
+          widget.conversation?.canManage == true ||
+          ref.read(canManageWorkspaceChannelsProvider),
+    );
+  }
+
+  /// Mở bảng giao việc, điền sẵn tên việc từ tin nhắn (chọn người, hạn rồi mới tạo).
   Future<void> _convertMessageToTask(
     BuildContext context,
     String workspaceId,
     ChatMessage message,
   ) async {
-    final body = _displayMessageBody(message);
-    final title = body.length > 240 ? body.substring(0, 240) : body;
-    try {
-      await ref
-          .read(conversationRemoteDataSourceProvider)
-          .createCollaborationTask(
-            workspaceId: workspaceId,
-            channelId: widget.channelId,
-            title: title,
-            sourceMessageId: message.id,
-          );
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã chuyển tin nhắn thành task.')),
-        );
-      }
-    } catch (error) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(userFacingErrorMessage(error))));
-      }
+    final body = _displayMessageBody(message).trim();
+    final runes = body.runes;
+    final title = runes.length > maxTaskTitleLength
+        ? String.fromCharCodes(runes.take(maxTaskTitleLength))
+        : body;
+    final result = await showTaskEditorSheet(
+      context,
+      scope: _taskScope(workspaceId),
+      initialDraft: CollaborationTaskDraft(
+        title: title,
+        sourceMessageId: message.id,
+      ),
+    );
+    if (result != null && context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result)));
     }
+  }
+
+  void _openInitialToolOnce(BuildContext context, String workspaceId) {
+    if (_initialToolHandled || widget.initialTool != 'tasks') return;
+    _initialToolHandled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        showCollaborationRoomSheet(
+          context,
+          workspaceId: workspaceId,
+          channelId: widget.channelId,
+          title: widget.title,
+          conversation: widget.conversation,
+          initialTab: collaborationTasksTabIndex,
+          focusTaskId: widget.initialTaskId,
+        ),
+      );
+    });
   }
 
   Future<void> _openSearch(
