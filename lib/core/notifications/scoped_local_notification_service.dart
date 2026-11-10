@@ -102,8 +102,16 @@ final class ScopedNotificationApprovalAction {
     required this.workspaceId,
     required this.approvalId,
     required this.approve,
+    this.instanceId,
+    this.decidedAt,
   });
 
+  /// Lúc bấm nút (UTC); dùng để không gửi quyết định đã quá cũ.
+  final DateTime? decidedAt;
+
+  /// Máy chủ (instance) phát thông báo; quyết định chỉ gửi khi app đang dùng
+  /// đúng máy chủ này.
+  final String? instanceId;
   final String workspaceId;
   final String approvalId;
 
@@ -264,7 +272,7 @@ final class ScopedLocalNotificationService {
   Future<List<ScopedNotificationApprovalAction>>
   drainBackgroundApprovalActions() {
     if (!Platform.isAndroid) return Future.value(const []);
-    return _drainStoredApprovalActions();
+    return drainStoredApprovalActions();
   }
 
   /// Báo kết quả duyệt nhanh (thành công hoặc lỗi 403 / 409) bằng thông báo,
@@ -446,7 +454,7 @@ final class ScopedLocalNotificationService {
       response.payload,
     );
     if (approval != null) {
-      await _storeApprovalAction(approval);
+      await storePendingApprovalAction(approval);
       return;
     }
     if (response.actionId != _quickReplyActionId) {
@@ -513,9 +521,11 @@ ScopedNotificationApprovalAction? approvalActionFromResponse(
   final approvalId = data['approval_id']?.toString().trim() ?? '';
   if (workspaceId.isEmpty || approvalId.isEmpty) return null;
   return ScopedNotificationApprovalAction(
+    instanceId: data['instance_id']?.toString().trim(),
     workspaceId: workspaceId,
     approvalId: approvalId,
     approve: actionId == _approveActionId,
+    decidedAt: DateTime.now().toUtc(),
   );
 }
 
@@ -533,7 +543,10 @@ int approvalResultNotificationId(String approvalId) {
   return id == 0 ? 1 : id;
 }
 
-Future<void> _storeApprovalAction(
+/// Lưu quyết định bấm lúc app không chạy (isolate nền) để lần mở / quay lại
+/// app gửi lên máy chủ. Giữ tối đa 16 quyết định mới nhất.
+@visibleForTesting
+Future<void> storePendingApprovalAction(
   ScopedNotificationApprovalAction action,
 ) async {
   try {
@@ -552,8 +565,10 @@ Future<void> _storeApprovalAction(
   }
 }
 
+/// Lấy rồi xoá các quyết định đã lưu; dữ liệu hỏng trả danh sách rỗng.
+@visibleForTesting
 Future<List<ScopedNotificationApprovalAction>>
-_drainStoredApprovalActions() async {
+drainStoredApprovalActions() async {
   try {
     const storage = FlutterSecureStorage();
     final records = await _readStoredApprovalRecords(storage);
@@ -591,9 +606,11 @@ Future<List<Map<String, Object?>>> _readStoredApprovalRecords(
 Map<String, Object?> _approvalActionToJson(
   ScopedNotificationApprovalAction action,
 ) => <String, Object?>{
+  'instance_id': ?action.instanceId,
   'workspace_id': action.workspaceId,
   'approval_id': action.approvalId,
   'approve': action.approve,
+  'decided_at': ?action.decidedAt?.toUtc().toIso8601String(),
 };
 
 ScopedNotificationApprovalAction? _approvalActionFromJson(
@@ -604,10 +621,13 @@ ScopedNotificationApprovalAction? _approvalActionFromJson(
   if (workspaceId.isEmpty || approvalId.isEmpty || json['approve'] is! bool) {
     return null;
   }
+  final instanceId = json['instance_id']?.toString().trim();
   return ScopedNotificationApprovalAction(
+    instanceId: instanceId == null || instanceId.isEmpty ? null : instanceId,
     workspaceId: workspaceId,
     approvalId: approvalId,
     approve: json['approve'] as bool,
+    decidedAt: DateTime.tryParse(json['decided_at']?.toString() ?? '')?.toUtc(),
   );
 }
 

@@ -278,6 +278,9 @@ class _MessagesList extends StatelessWidget {
     final quickChannels = [if (showQuick) ...state.quickChannels];
     final workTab = state.inboxFilters.indexOf(ConversationListFilter.bot);
     final showWorkGrid = state.messageFilter == ConversationListFilter.bot;
+    // Máy chủ bật phê duyệt nhưng tắt automation thì không có tab Nghiệp vụ:
+    // ô Phê duyệt (tự ẩn khi không có quyền) hiện ở Tất cả.
+    final showApprovalOnAll = workTab < 0 && showQuick;
     return RefreshIndicator(
       onRefresh: () async => onRetry(),
       child: CustomScrollView(
@@ -309,6 +312,10 @@ class _MessagesList extends StatelessWidget {
                   CustomerTicketInboxEntry(workspaceId: state.workspaceId),
                 ],
               ),
+            )
+          else if (showApprovalOnAll)
+            SliverToBoxAdapter(
+              child: ApprovalInboxEntry(workspaceId: state.workspaceId),
             ),
           if (state.isLoading)
             const SliverToBoxAdapter(

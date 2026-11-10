@@ -16,7 +16,7 @@ class ApprovalInboxEntry extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final access = ref.watch(approvalAccessProvider);
+    final access = ref.watch(approvalAccessProvider(workspaceId));
     final id = workspaceId.trim();
     if (!access.canView || id.isEmpty) return const SizedBox.shrink();
     return Padding(

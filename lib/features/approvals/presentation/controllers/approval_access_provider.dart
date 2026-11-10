@@ -4,27 +4,26 @@ import '../../../../app/providers/foundation_providers.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
 import '../../application/approval_access_policy.dart';
 
-/// Quyền vào mục Phê duyệt của workspace đang mở.
-final approvalAccessProvider = Provider.autoDispose<ApprovalAccess>((ref) {
-  final discovery = ref.watch(activeServerDiscoveryProvider);
-  if (!approvalServerSupported(discovery)) {
-    return const ApprovalAccess.unavailable();
-  }
-  final workspace = ref.watch(
-    workspaceControllerProvider.select(
-      (state) => (permissions: state.permissions, loading: state.isLoading),
-    ),
-  );
-  final access = ApprovalAccess.resolve(
-    discovery: discovery,
-    permissions: workspace.permissions,
-  );
-  if (access.isPending && !workspace.loading) {
-    return const ApprovalAccess(
-      serverSupported: true,
-      permissionsLoaded: true,
-      canView: false,
-    );
-  }
-  return access;
-});
+/// Quyền vào mục Phê duyệt của một workspace (`null` / rỗng = workspace đang
+/// mở). Xem [approvalAccessFor].
+final approvalAccessProvider = Provider.autoDispose
+    .family<ApprovalAccess, String?>((ref, workspaceId) {
+      final workspace = ref.watch(
+        workspaceControllerProvider.select(
+          (state) => (
+            permissions: state.permissions,
+            loading: state.isLoading,
+            activeId: state.activeWorkspace?.id,
+          ),
+        ),
+      );
+      return approvalAccessFor(
+        serverSupported: approvalServerSupported(
+          ref.watch(activeServerDiscoveryProvider),
+        ),
+        permissions: workspace.permissions,
+        permissionsLoading: workspace.loading,
+        activeWorkspaceId: workspace.activeId,
+        requestedWorkspaceId: workspaceId,
+      );
+    });

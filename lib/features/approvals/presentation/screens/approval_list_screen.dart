@@ -20,7 +20,7 @@ class ApprovalListScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final access = ref.watch(approvalAccessProvider);
+    final access = ref.watch(approvalAccessProvider(workspaceId));
     final gate = approvalAccessGate(access);
     final requested = workspaceId?.trim() ?? '';
     final active = ref.watch(
@@ -195,11 +195,28 @@ class _ApprovalListBodyState extends ConsumerState<_ApprovalListBody>
               trailing: item.canDecide && item.isPending
                   ? const Icon(Icons.how_to_vote_outlined)
                   : const Icon(Icons.chevron_right_rounded),
-              onTap: () => context.push('/approvals/${item.id}'),
+              onTap: () => context.push(
+                approvalDetailLocation(
+                  approvalId: item.id,
+                  workspaceId: widget.workspaceId,
+                ),
+              ),
             ),
           );
         },
       ),
     );
   }
+}
+
+/// Đường dẫn màn chi tiết, luôn kèm workspace của danh sách để không mở nhầm
+/// workspace đang chọn.
+String approvalDetailLocation({
+  required String approvalId,
+  required String workspaceId,
+}) {
+  return Uri(
+    path: '/approvals/${Uri.encodeComponent(approvalId.trim())}',
+    queryParameters: <String, String>{'workspaceId': workspaceId.trim()},
+  ).toString();
 }

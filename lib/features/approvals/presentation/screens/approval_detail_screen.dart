@@ -25,7 +25,9 @@ class ApprovalDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final gate = approvalAccessGate(ref.watch(approvalAccessProvider));
+    final gate = approvalAccessGate(
+      ref.watch(approvalAccessProvider(workspaceId)),
+    );
     final requested = workspaceId?.trim() ?? '';
     final active = ref.watch(
       workspaceControllerProvider.select((state) => state.activeWorkspace?.id),

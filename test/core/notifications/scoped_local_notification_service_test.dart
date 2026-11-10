@@ -1,4 +1,5 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/core/notifications/push_notification_service.dart';
 import 'package:webtui_chat/core/notifications/scoped_local_notification_service.dart';
@@ -316,6 +317,8 @@ void approvalNotificationTests() {
       expect(approve!.approve, isTrue);
       expect(approve.workspaceId, 'ws-1');
       expect(approve.approvalId, 'approval-9');
+      expect(approve.instanceId, _approvalInstanceId);
+      expect(approve.decidedAt, isNotNull);
       expect(reject!.approve, isFalse);
       // Bấm vào thân thông báo (không có nút) hoặc nút lạ: không là quyết định.
       expect(approvalActionFromResponse(null, payload), isNull);
@@ -324,6 +327,51 @@ void approvalNotificationTests() {
         approvalActionFromResponse('webtui_approval_approve', 'hong'),
         isNull,
       );
+    });
+
+    test(
+      'quyết định lưu từ isolate nền: đọc lại đủ, giữ 16 mới nhất',
+      () async {
+        FlutterSecureStorage.setMockInitialValues({});
+        final at = DateTime.utc(2026, 11, 10, 8);
+        for (var i = 0; i < 17; i++) {
+          await storePendingApprovalAction(
+            ScopedNotificationApprovalAction(
+              instanceId: _approvalInstanceId,
+              workspaceId: 'ws-1',
+              approvalId: 'a$i',
+              approve: i.isEven,
+              decidedAt: at,
+            ),
+          );
+        }
+        final drained = await drainStoredApprovalActions();
+        expect(drained, hasLength(16));
+        expect(drained.first.approvalId, 'a1');
+        expect(drained.last.approvalId, 'a16');
+        expect(drained.last.approve, isTrue);
+        expect(drained.last.instanceId, _approvalInstanceId);
+        expect(drained.last.decidedAt, at);
+        // Lấy ra là xoá: lần sau không gửi lại.
+        expect(await drainStoredApprovalActions(), isEmpty);
+      },
+    );
+
+    test('dữ liệu lưu hỏng không làm lỗi, bỏ bản ghi sai', () async {
+      FlutterSecureStorage.setMockInitialValues({
+        'pending_approval_actions_v1': 'khong-phai-json',
+      });
+      expect(await drainStoredApprovalActions(), isEmpty);
+      FlutterSecureStorage.setMockInitialValues({
+        'pending_approval_actions_v1':
+            '[{"workspace_id":"ws-1","approval_id":"a1","approve":"co"},'
+            '{"workspace_id":"","approval_id":"a2","approve":true},'
+            '{"workspace_id":"ws-1","approval_id":"a3","approve":false}]',
+      });
+      final drained = await drainStoredApprovalActions();
+      expect(drained.single.approvalId, 'a3');
+      expect(drained.single.instanceId, isNull);
+      expect(drained.single.decidedAt, isNull);
     });
 
     test('NotificationTarget nhận diện approval_requested / updated', () {

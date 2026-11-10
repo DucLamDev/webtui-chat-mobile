@@ -41,3 +41,38 @@ final class ApprovalAccess {
 bool approvalServerSupported(SelfHostedServerDiscovery? discovery) {
   return discovery != null && discovery.capabilities.approvals;
 }
+
+/// Quyền xem phê duyệt của [requestedWorkspaceId] (rỗng = workspace đang mở).
+/// Quyền đã tải chỉ thuộc workspace đang mở; workspace khác (mở từ thông báo)
+/// thì để máy chủ kiểm, trả 403 thì màn báo không có quyền.
+ApprovalAccess approvalAccessFor({
+  required bool serverSupported,
+  required PermissionSet? permissions,
+  required bool permissionsLoading,
+  required String? activeWorkspaceId,
+  required String? requestedWorkspaceId,
+}) {
+  if (!serverSupported) return const ApprovalAccess.unavailable();
+  final requested = requestedWorkspaceId?.trim() ?? '';
+  final active = activeWorkspaceId?.trim() ?? '';
+  if (requested.isNotEmpty && requested != active) {
+    return const ApprovalAccess(
+      serverSupported: true,
+      permissionsLoaded: true,
+      canView: true,
+    );
+  }
+  if (permissions == null) {
+    // Đang tải thì chờ; tải xong mà không có quyền thì coi như không quyền.
+    return ApprovalAccess(
+      serverSupported: true,
+      permissionsLoaded: !permissionsLoading,
+      canView: false,
+    );
+  }
+  return ApprovalAccess(
+    serverSupported: true,
+    permissionsLoaded: true,
+    canView: permissions.allows(approvalViewPermission),
+  );
+}

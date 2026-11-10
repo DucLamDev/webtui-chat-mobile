@@ -111,6 +111,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   StreamSubscription<ScopedNotificationQuickReply>? _quickReplySubscription;
   StreamSubscription<ScopedNotificationApprovalAction>?
   _approvalActionSubscription;
+  Future<void>? _approvalDrain;
   final Set<String> _nativeCallActionsInFlight = <String>{};
   final Set<String> _openedDeviceApprovals = <String>{};
   StreamSubscription<ConversationRealtimeEvent>?
@@ -164,6 +165,11 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       _startIncomingCallPolling(workspaceId);
       unawaited(_runWorkspaceCatchUp(workspaceId));
       unawaited(_drainBackgroundQuickReplies(workspaceId));
+      // Nút Duyệt / Từ chối bấm lúc app chạy nền được isolate nền lưu lại;
+      // quay lại app thì gửi ngay, không đợi khởi động lại.
+      if (_approvalActionSubscription != null) {
+        unawaited(_drainBackgroundApprovalActions());
+      }
       _drainMessageOutbox(workspaceId);
       return;
     }
@@ -526,26 +532,39 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         .instance
         .approvalActions
         .listen((action) {
-          if (!mounted || _approvalActionWorkspaceId != workspaceId) return;
-          unawaited(_decideFromNotification(workspaceId, action));
+          if (!mounted) return;
+          unawaited(_decideFromNotification([action]));
         });
-    unawaited(_drainBackgroundApprovalActions(workspaceId));
+    unawaited(_drainBackgroundApprovalActions());
   }
 
-  Future<void> _drainBackgroundApprovalActions(String workspaceId) async {
-    final actions = await ScopedLocalNotificationService.instance
-        .drainBackgroundApprovalActions();
-    if (!mounted || _approvalActionWorkspaceId != workspaceId) return;
-    for (final action in actions) {
-      await _decideFromNotification(workspaceId, action);
-    }
+  /// Lấy quyết định isolate nền đã lưu rồi gửi. Lượt đang chạy thì dùng lại,
+  /// tránh hai lượt cùng đọc kho và gửi trùng. Bộ gửi tạo trước khi lấy ra
+  /// khỏi kho nên màn hình đóng giữa chừng cũng không làm mất quyết định.
+  Future<void> _drainBackgroundApprovalActions() {
+    if (!mounted) return Future.value();
+    final send = _approvalSender();
+    return _approvalDrain ??= () async {
+      try {
+        final actions = await ScopedLocalNotificationService.instance
+            .drainBackgroundApprovalActions();
+        if (actions.isNotEmpty) await send(actions);
+      } finally {
+        _approvalDrain = null;
+      }
+    }();
   }
 
   Future<void> _decideFromNotification(
-    String activeWorkspaceId,
-    ScopedNotificationApprovalAction action,
-  ) async {
-    if (action.workspaceId != activeWorkspaceId) return;
+    List<ScopedNotificationApprovalAction> actions,
+  ) {
+    if (!mounted) return Future.value();
+    return _approvalSender()(actions);
+  }
+
+  /// Bộ gửi quyết định, đọc provider ngay lúc gọi (khi màn còn mở).
+  Future<void> Function(List<ScopedNotificationApprovalAction>)
+  _approvalSender() {
     final handler = ApprovalNotificationActionHandler(
       decide: ref.read(decideApprovalRequestUseCaseProvider),
       report: ({required approvalId, required title, required body}) {
@@ -556,12 +575,20 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         );
       },
     );
-    await handler.handle(
-      workspaceId: action.workspaceId,
-      approvalId: action.approvalId,
-      approve: action.approve,
-    );
-    if (mounted) ref.invalidate(approvalListControllerProvider);
+    final activeInstanceId = ref.read(activeInstanceScopeProvider).instanceId;
+    return (actions) async {
+      await handler.handleAll([
+        for (final action in actions)
+          (
+            instanceId: action.instanceId,
+            decidedAt: action.decidedAt,
+            workspaceId: action.workspaceId,
+            approvalId: action.approvalId,
+            approve: action.approve,
+          ),
+      ], activeInstanceId: activeInstanceId);
+      if (mounted) ref.invalidate(approvalListControllerProvider);
+    };
   }
 
   Future<void> _drainBackgroundQuickReplies(String workspaceId) async {
@@ -1790,7 +1817,7 @@ class _IncomingCallAction extends StatelessWidget {
 String? _locationForNotificationTarget(NotificationTarget target) {
   if (target.isApproval) {
     return Uri(
-      path: '/approvals/${target.approvalId!.trim()}',
+      path: '/approvals/${Uri.encodeComponent(target.approvalId!.trim())}',
       queryParameters: <String, String>{'workspaceId': target.workspaceId},
     ).toString();
   }
