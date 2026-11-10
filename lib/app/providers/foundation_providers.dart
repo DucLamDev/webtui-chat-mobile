@@ -1,10 +1,8 @@
 import 'dart:async';
-
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
 import '../../core/api/openapi_client_boundary.dart';
 import '../../core/database/app_database.dart';
 import '../../core/logging/redacting_logger.dart';
@@ -24,6 +22,7 @@ import '../../core/security/instance_scope.dart';
 import '../../core/security/secure_key_value_store.dart';
 import '../../core/security/server_account_registry.dart';
 import '../../features/auth/application/legal_acceptance_access_policy.dart';
+import '../../features/auth/application/use_cases/app_lock_timeout_use_cases.dart';
 import '../../features/auth/application/use_cases/app_lock_use_cases.dart';
 import '../../features/auth/application/use_cases/delete_account_use_case.dart';
 import '../../features/auth/application/use_cases/legal_acceptance_use_cases.dart';
@@ -41,10 +40,13 @@ import '../../features/auth/data/repositories/account_repository_impl.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/data/repositories/local_session_state_repository.dart';
 import '../../features/auth/data/repositories/secure_app_lock_repository.dart';
+import '../../features/auth/data/repositories/secure_app_lock_timeout_repository.dart';
 import '../../features/auth/data/repositories/secure_auth_token_repository.dart';
 import '../../features/auth/data/repositories/secure_device_identity_repository.dart';
+import '../../features/auth/domain/entities/app_lock_timeout_policy.dart';
 import '../../features/auth/domain/repositories/account_repository.dart';
 import '../../features/auth/domain/repositories/app_lock_repository.dart';
+import '../../features/auth/domain/repositories/app_lock_timeout_repository.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/domain/repositories/auth_token_repository.dart';
 import '../../features/auth/domain/repositories/device_identity_repository.dart';
@@ -53,6 +55,10 @@ import '../../features/business/application/use_cases/business_dashboard_use_cas
 import '../../features/business/data/datasources/business_remote_data_source.dart';
 import '../../features/business/data/repositories/business_repository_impl.dart';
 import '../../features/business/domain/repositories/business_repository.dart';
+import '../../features/call_privacy/application/use_cases/call_privacy_use_cases.dart';
+import '../../features/call_privacy/data/datasources/call_privacy_remote_data_source.dart';
+import '../../features/call_privacy/data/repositories/call_privacy_repository_impl.dart';
+import '../../features/call_privacy/domain/repositories/call_privacy_repository.dart';
 import '../../features/conversations/application/use_cases/call_use_cases.dart';
 import '../../features/conversations/application/use_cases/channel_use_cases.dart';
 import '../../features/conversations/application/use_cases/collaboration_task_use_cases.dart';
@@ -62,6 +68,7 @@ import '../../features/conversations/application/use_cases/message_outbox_use_ca
 import '../../features/conversations/application/use_cases/message_use_cases.dart';
 import '../../features/conversations/application/use_cases/open_direct_conversation_use_case.dart';
 import '../../features/conversations/application/use_cases/presence_use_cases.dart';
+import '../../features/conversations/application/use_cases/secret_message_use_cases.dart';
 import '../../features/conversations/data/datasources/call_remote_data_source.dart';
 import '../../features/conversations/data/datasources/conversation_cache_data_source.dart';
 import '../../features/conversations/data/datasources/conversation_remote_data_source.dart';
@@ -77,6 +84,7 @@ import '../../features/conversations/data/repositories/image_picker_message_atta
 import '../../features/conversations/data/repositories/local_conversation_draft_repository.dart';
 import '../../features/conversations/data/repositories/local_message_outbox_repository.dart';
 import '../../features/conversations/data/repositories/message_attachment_repository_impl.dart';
+import '../../features/conversations/data/repositories/secret_message_repository_impl.dart';
 import '../../features/conversations/data/repositories/web_socket_conversation_realtime_repository.dart';
 import '../../features/conversations/domain/repositories/call_repository.dart';
 import '../../features/conversations/domain/repositories/collaboration_task_repository.dart';
@@ -90,10 +98,17 @@ import '../../features/customer_tickets/data/repositories/image_picker_customer_
 import '../../features/customer_tickets/data/repositories/public_customer_ticket_image_repository.dart';
 import '../../features/customer_tickets/data/repositories/web_socket_customer_ticket_realtime_repository.dart';
 import '../../features/customer_tickets/domain/repositories/customer_ticket_repository.dart';
+import '../../features/mfa/application/mfa_use_cases.dart';
+import '../../features/mfa/data/mfa_repository_impl.dart';
 import '../../features/moderation/application/use_cases/moderation_use_cases.dart';
 import '../../features/moderation/data/datasources/moderation_remote_data_source.dart';
 import '../../features/moderation/data/repositories/moderation_repository_impl.dart';
 import '../../features/moderation/domain/repositories/moderation_repository.dart';
+import '../../features/my_notes/application/use_cases/my_notes_use_cases.dart';
+import '../../features/my_notes/data/datasources/my_notes_cache_data_source.dart';
+import '../../features/my_notes/data/datasources/my_notes_remote_data_source.dart';
+import '../../features/my_notes/data/repositories/my_notes_repository_impl.dart';
+import '../../features/my_notes/domain/repositories/my_notes_repository.dart';
 import '../../features/notifications/application/use_cases/notification_use_cases.dart';
 import '../../features/notifications/data/datasources/notification_remote_data_source.dart';
 import '../../features/notifications/data/repositories/notification_repository_impl.dart';
@@ -161,6 +176,24 @@ final class ActiveServerRuntime {
 
 final initialServerDiscoveryProvider = Provider<SelfHostedServerDiscovery?>(
   (_) => null,
+);
+
+final secretMessageUseCasesProvider = Provider<SecretMessageUseCases>(
+  (ref) => SecretMessageUseCases(
+    SecretMessageRepositoryImpl(
+      ref.watch(apiTransportProvider),
+      ref.watch(deviceIdentityRepositoryProvider),
+    ),
+  ),
+);
+
+final mfaUseCasesProvider = Provider<MfaUseCases>(
+  (ref) => MfaUseCases(
+    MfaRepositoryImpl(
+      ref.watch(apiTransportProvider),
+      ref.watch(deviceIdentityRepositoryProvider),
+    ),
+  ),
 );
 
 final activeServerRuntimeProvider = StateProvider<ActiveServerRuntime>((ref) {
@@ -517,6 +550,49 @@ final disableAppLockUseCaseProvider = Provider<DisableAppLockUseCase>((ref) {
   return DisableAppLockUseCase(ref.watch(appLockRepositoryProvider));
 });
 
+// Lõi 3.1: thời gian tự khoá (người dùng chọn ≤ mức máy chủ trong discovery).
+final appLockTimeoutRepositoryProvider = Provider<AppLockTimeoutRepository>((
+  ref,
+) {
+  return SecureAppLockTimeoutRepository(ref.watch(secureKeyValueStoreProvider));
+});
+
+final loadAppLockIdleMinutesUseCaseProvider =
+    Provider<LoadAppLockIdleMinutesUseCase>((ref) {
+      return LoadAppLockIdleMinutesUseCase(
+        ref.watch(appLockTimeoutRepositoryProvider),
+      );
+    });
+
+final saveAppLockIdleMinutesUseCaseProvider =
+    Provider<SaveAppLockIdleMinutesUseCase>((ref) {
+      return SaveAppLockIdleMinutesUseCase(
+        ref.watch(appLockTimeoutRepositoryProvider),
+      );
+    });
+
+/// Mức người dùng đã chọn (null = chưa chọn).
+final appLockIdleMinutesProvider = FutureProvider<int?>((ref) {
+  return ref.watch(loadAppLockIdleMinutesUseCaseProvider).execute();
+});
+
+/// Mức tối đa máy chủ cho phép (0 = máy chủ không ép).
+final appLockServerMaxMinutesProvider = Provider<int>((ref) {
+  return ref
+          .watch(activeServerDiscoveryProvider)
+          ?.privacyPolicy
+          .idleLockMinutes ??
+      0;
+});
+
+/// Số phút tự khoá đang có hiệu lực.
+final effectiveAppLockMinutesProvider = Provider<int>((ref) {
+  return AppLockTimeoutPolicy.effectiveMinutes(
+    serverMaxMinutes: ref.watch(appLockServerMaxMinutesProvider),
+    userMinutes: ref.watch(appLockIdleMinutesProvider).valueOrNull,
+  );
+});
+
 final workspaceRemoteDataSourceProvider = Provider<WorkspaceRemoteDataSource>((
   ref,
 ) {
@@ -757,6 +833,28 @@ final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
   );
 });
 
+// Lõi 3.5: ai được gọi cho tôi.
+final callPrivacyRemoteDataSourceProvider =
+    Provider<CallPrivacyRemoteDataSource>(
+      (ref) => CallPrivacyRemoteDataSource(ref.watch(apiTransportProvider)),
+    );
+
+final callPrivacyRepositoryProvider = Provider<CallPrivacyRepository>((ref) {
+  return CallPrivacyRepositoryImpl(
+    ref.watch(callPrivacyRemoteDataSourceProvider),
+  );
+});
+
+final loadCallPrivacyUseCaseProvider = Provider<LoadCallPrivacyUseCase>((ref) {
+  return LoadCallPrivacyUseCase(ref.watch(callPrivacyRepositoryProvider));
+});
+
+final updateCallPrivacyUseCaseProvider = Provider<UpdateCallPrivacyUseCase>((
+  ref,
+) {
+  return UpdateCallPrivacyUseCase(ref.watch(callPrivacyRepositoryProvider));
+});
+
 final moderationRemoteDataSourceProvider = Provider<ModerationRemoteDataSource>(
   (ref) => ModerationRemoteDataSource(ref.watch(apiTransportProvider)),
 );
@@ -786,6 +884,21 @@ final blockUserUseCaseProvider = Provider<BlockUserUseCase>((ref) {
 
 final unblockUserUseCaseProvider = Provider<UnblockUserUseCase>((ref) {
   return UnblockUserUseCase(ref.watch(moderationRepositoryProvider));
+});
+
+// My Note: sổ ghi chú cá nhân, có bản lưu trên máy theo máy chủ + workspace.
+final myNotesRepositoryProvider = Provider<MyNotesRepository>((ref) {
+  return MyNotesRepositoryImpl(
+    remote: MyNotesRemoteDataSource(ref.watch(apiTransportProvider)),
+    cache: MyNotesCacheDataSource(
+      ref.watch(appDatabaseProvider),
+      ref.watch(activeInstanceScopeProvider),
+    ),
+  );
+});
+
+final myNotesUseCasesProvider = Provider<MyNotesUseCases>((ref) {
+  return MyNotesUseCases(ref.watch(myNotesRepositoryProvider));
 });
 
 final workspaceSyncRemoteDataSourceProvider =

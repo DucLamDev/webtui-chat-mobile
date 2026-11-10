@@ -38,6 +38,25 @@ App lock/privacy:
   lần nhập PIN sai, form khóa 30 giây rồi tự mở lại; timer được hủy khi widget
   dispose.
 - `PrivacyGuard` phủ nội dung khi app inactive/paused; Android `MainActivity` bật `FLAG_SECURE` qua MethodChannel `webtui/privacy`.
+- `AppLockGate` là lớp phủ nằm trên router: khi khóa, nội dung bên dưới (màn gọi, phòng chat, chữ đang soạn) vẫn được
+  giữ, chỉ bị che và chặn chạm. App tự khóa khi không chạm vào app hoặc chạy nền quá N phút
+  (`effectiveAppLockMinutesProvider`: mức người dùng chọn, không vượt `privacy_policy.idle_lock_minutes` của máy chủ;
+  mặc định 30 phút). Trạng thái `inactive` (kéo thanh thông báo, trình chuyển app) không làm khóa. Màn gọi ghi vào
+  `activeCallTrackerProvider` nên đang gọi thì không tự khóa.
+
+## Quyền riêng tư lõi 3
+
+- Cài đặt → Xác thực TOTP: xác thực lại, lấy khoá để nhập vào ứng dụng xác thực, xác nhận bằng mã 6 số,
+  nhận mã khôi phục một lần; tắt TOTP cũng phải xác thực lại. Vân tay chỉ hỗ trợ mở ô nhập, không thay cho
+  xác thực lại phía máy chủ. Token chỉ sống trong thao tác hiện tại, không ghi xuống ổ.
+- Nút **Bí mật 24h** trong phòng mở ô soạn riêng (chỉ chữ); không đi qua draft/outbox. Nhấn **Xem** để
+  xác thực lại, mở nội dung tối đa 60 giây hoặc tới hạn máy chủ. Chạy nền đóng nội dung; Android bật
+  `FLAG_SECURE` trong lúc xem. Nội dung reveal không đưa vào `ChatMessage` hoặc Drift.
+- My Note có cache offline theo tài khoản/máy chủ; máy chủ kiểm chủ sở hữu trên mọi thao tác. Không cho lưu
+  tin bí mật vào My Note. Chính sách `who_can_call_me` được lưu và kiểm ở máy chủ.
+- Cờ `my_notes`, `secret_messages`, `mfa` từ discovery điều khiển giao diện; máy chủ cũ thiếu cờ thì ẩn.
+  Kiểm phần này: `flutter test test/features/mfa test/features/my_notes test/features/call_privacy
+  test/features/auth/application/app_lock_timeout_test.dart test/features/auth/presentation/app_lock_gate_overlay_test.dart`.
 
 ## Phase M3 Workspace/RBAC/Profile/Settings
 

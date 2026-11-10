@@ -10,6 +10,8 @@ import '../../features/conversations/presentation/screens/chat_room_screen.dart'
 import '../../features/customer_tickets/presentation/screens/customer_ticket_detail_screen.dart';
 import '../../features/customer_tickets/presentation/screens/customer_ticket_list_screen.dart';
 import '../../features/home/presentation/screens/home_shell_screen.dart';
+import '../../features/my_notes/presentation/screens/my_note_editor_screen.dart';
+import '../../features/my_notes/presentation/screens/my_notes_screen.dart';
 import '../../features/notifications/presentation/screens/notifications_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/settings/presentation/screens/app_settings_screen.dart';
@@ -129,6 +131,23 @@ final appRouterProvider = Provider<GoRouter>((_) {
         builder: (context, state) => CustomerTicketDetailScreen(
           ticketId: state.pathParameters['ticket_id'] ?? '',
           workspaceId: state.uri.queryParameters['workspaceId'],
+        ),
+      ),
+      // My Note: màn tự kiểm capabilities.my_notes; `new` = ghi chú mới.
+      GoRoute(
+        path: '/my-notes',
+        name: 'my-notes',
+        builder: (context, state) => MyNotesScreen(
+          workspaceId: state.uri.queryParameters['workspaceId'],
+        ),
+      ),
+      GoRoute(
+        path: '/my-notes/:note_id',
+        name: 'my-note',
+        builder: (context, state) => MyNoteEditorScreen(
+          noteId: state.pathParameters['note_id'] ?? 'new',
+          workspaceId: state.uri.queryParameters['workspaceId'],
+          initialFolderId: state.uri.queryParameters['folderId'],
         ),
       ),
     ],
