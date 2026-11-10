@@ -38,6 +38,9 @@ final class CallSession {
     this.startedAt,
     this.endedAt,
     this.metadata = const {},
+    this.initiatorDeviceId,
+    this.answeredDeviceId,
+    this.answeredAt,
   });
 
   final String id;
@@ -53,6 +56,13 @@ final class CallSession {
   final DateTime createdAt;
   final DateTime updatedAt;
   final Map<String, Object?> metadata;
+
+  /// Máy đã tạo cuộc gọi (máy chủ mới; máy chủ cũ để trống).
+  final String? initiatorDeviceId;
+
+  /// Máy đã nhận cuộc gọi (máy chủ mới; máy chủ cũ để trống).
+  final String? answeredDeviceId;
+  final DateTime? answeredAt;
 
   bool get isTerminal => status.isTerminal;
 
@@ -76,6 +86,9 @@ final class CallSession {
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       metadata: metadata,
+      initiatorDeviceId: initiatorDeviceId,
+      answeredDeviceId: answeredDeviceId,
+      answeredAt: answeredAt,
     );
   }
 }

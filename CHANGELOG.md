@@ -3,7 +3,19 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+
+## 1.3.1 · 10/11/2026
+### Sửa lỗi
+- Nhận cuộc gọi trên một máy, gửi lại tin chờ ở mọi hội thoại
+  Dừng chuông khi đã nhận trên máy khác và bỏ qua tín hiệu không dành cho máy này; giữ cuộc gọi của máy đang nghe.
+  Gửi lại tin chờ khi mở app, có mạng hoặc kết nối lại, theo thứ tự trong từng hội thoại và giữ mã chống gửi trùng.
+  Tải lại dữ liệu khi mốc đồng bộ hết hạn, khử sự kiện trùng; dừng hẹn gửi lại khi app vào nền. Cần máy chủ hỗ trợ
+  các trường và sự kiện mới để dùng đầy đủ xử lý cuộc gọi nhiều thiết bị.
+
+## 1.3.0 · 02/11/2026
+
 ## 1.7.0 · 10/11/2026
+
 ### Tính năng
 - Đăng nhập và quản lý thiết bị theo chính sách máy chủ
   Quét QR để đăng nhập máy tính, xác nhận hoặc từ chối thiết bị mới, xác minh email, nhận lời mời và chọn

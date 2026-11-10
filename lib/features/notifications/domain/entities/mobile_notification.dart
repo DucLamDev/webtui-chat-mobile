@@ -121,8 +121,12 @@ final class NotificationTarget {
     this.organizationName,
     this.organizationLogoUrl,
     this.taskId,
+
+    this.answeredDeviceId,
+
     this.sessionId,
     this.notificationType,
+
   });
 
   factory NotificationTarget.fromPayload({
@@ -189,11 +193,17 @@ final class NotificationTarget {
         'task_id',
         'taskId',
       ], fallback: linkTarget?.taskId),
+
+      answeredDeviceId: _firstString(data, const [
+        'answered_device_id',
+        'answeredDeviceId',
+
       sessionId: _firstString(data, const ['session_id', 'sessionId']),
       notificationType: _firstString(data, const [
         'type',
         'notification_type',
         'notificationType',
+
       ]),
     );
   }
@@ -248,6 +258,16 @@ final class NotificationTarget {
   /// Việc được giao (thông báo `target_type = task`).
   final String? taskId;
 
+
+  /// Máy đã nhận cuộc gọi (push `call_answered_elsewhere`).
+  final String? answeredDeviceId;
+
+  /// Push báo cuộc gọi đã được nhận ở một máy khác của chính người dùng.
+  bool get isCallAnsweredElsewhere =>
+      (targetType == null || targetType == 'call') &&
+      eventType?.trim().toLowerCase() == 'call_answered_elsewhere' &&
+      callId?.trim().isNotEmpty == true;
+
   /// Phiên đang chờ duyệt (`data.session_id` của thông báo
   /// `device_approval_requested`, Lõi 2.3).
   final String? sessionId;
@@ -264,6 +284,7 @@ final class NotificationTarget {
         targetType?.trim().toLowerCase() == kind;
     return matches && sessionId?.trim().isNotEmpty == true;
   }
+
 
   /// Bấm thông báo giao việc / đổi hạn thì mở tab Task của phòng.
   bool get opensTasks => targetType == 'task';

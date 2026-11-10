@@ -366,16 +366,18 @@ final class ConversationHomeController
   }
 
   /// Cập nhật danh sách ngầm (khi quay về từ phòng chat): không hiện vòng tải;
-  /// lỗi mạng thì giữ nguyên danh sách đang có.
-  Future<void> syncSilently() async {
-    if (state.isLoading) return;
+  /// lỗi mạng thì giữ nguyên danh sách đang có. Trả `false` khi tải lỗi.
+  Future<bool> syncSilently() async {
+    if (state.isLoading) return true;
     final result = await _loadConversationHomeUseCase.execute(
       workspaceId: state.workspaceId,
     );
-    if (!mounted) return;
+    if (!mounted) return false;
     if (result case Success<ConversationHomeData>(value: final data)) {
       _applyData(data);
+      return true;
     }
+    return false;
   }
 
   void _applyData(ConversationHomeData data) {

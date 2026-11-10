@@ -29,6 +29,31 @@ final class MessageOutboxDataSource {
     if (value == null) {
       return const [];
     }
+    return _decodeItems(value);
+  }
+
+  /// Mọi tin chờ của workspace (mọi hội thoại) cho bộ gửi lại toàn app.
+  Future<List<MessageOutboxItem>> listWorkspace({
+    required String workspaceId,
+  }) async {
+    final normalizedWorkspaceId = workspaceId.trim();
+    if (normalizedWorkspaceId.isEmpty) {
+      return const [];
+    }
+    final rows = await _database.readKeyValuesWithScopePrefix(
+      prefix: _instanceScope.localScope(
+        'message_outbox:$normalizedWorkspaceId:',
+      ),
+      key: 'items',
+    );
+    return [
+      for (final row in rows)
+        for (final item in _decodeItems(row.value))
+          if (item.workspaceId == normalizedWorkspaceId) item,
+    ];
+  }
+
+  List<MessageOutboxItem> _decodeItems(String value) {
     try {
       final decoded = jsonDecode(value);
       if (decoded is! Map<String, Object?>) {

@@ -47,6 +47,7 @@ final class WebSocketConversationRealtimeRepository
   Timer? _reconnectTimer;
   Timer? _heartbeatTimer;
   DateTime? _lastPongAt;
+  final RecentRealtimeEventIds _seenEventIds = RecentRealtimeEventIds();
 
   @override
   Stream<ConversationRealtimeEvent> subscribeToUser({
@@ -223,6 +224,13 @@ final class WebSocketConversationRealtimeRepository
 
   /// Báo cho mọi người nghe (cả từng phòng chat lẫn luồng của người dùng).
   void _emitReconnected(String workspaceId) {
+    _emitToAllListeners(workspaceId, ConversationRealtimeEventType.reconnected);
+  }
+
+  void _emitToAllListeners(
+    String workspaceId,
+    ConversationRealtimeEventType type,
+  ) {
     final controller = _controller;
     if (controller == null || controller.isClosed) return;
     final channelIds = {
@@ -232,7 +240,7 @@ final class WebSocketConversationRealtimeRepository
     for (final channelId in channelIds) {
       controller.add(
         ConversationRealtimeEvent(
-          type: ConversationRealtimeEventType.reconnected,
+          type: type,
           workspaceId: workspaceId,
           channelId: channelId,
         ),
@@ -241,8 +249,13 @@ final class WebSocketConversationRealtimeRepository
   }
 
   void _handleSocketData(Object? data, String workspaceId) {
-    if (_socketEventType(data) == 'pong') {
+    final socketEventType = _socketEventType(data);
+    if (socketEventType == 'pong') {
       _lastPongAt = DateTime.now().toUtc();
+      return;
+    }
+    if (socketEventType == 'ResyncRequired') {
+      _handleResyncRequired(workspaceId);
       return;
     }
     final event = ConversationRealtimeEventMapper.fromSocketData(
@@ -250,8 +263,28 @@ final class WebSocketConversationRealtimeRepository
       fallbackWorkspaceId: workspaceId,
       fallbackChannelId: '',
     );
-    if (event != null && !(_controller?.isClosed ?? true)) {
-      _controller?.add(event);
+    if (event == null || (_controller?.isClosed ?? true)) {
+      return;
+    }
+    // Cùng một sự kiện có thể tới hai lần (gửi lại sau khi nối lại, nhiều
+    // node): máy chủ mới gắn `event_id` duy nhất nên bỏ bản trùng.
+    if (!_seenEventIds.markSeen(event.eventId)) {
+      return;
+    }
+    _controller?.add(event);
+  }
+
+  /// Máy chủ báo máy này nhận chậm và sắp ngắt: báo người nghe đồng bộ bù, rồi
+  /// chủ động đóng để nối lại ngay (sau khi nối lại, người nghe nhận thêm
+  /// `reconnected` để tải lại phòng đang mở).
+  void _handleResyncRequired(String workspaceId) {
+    _emitToAllListeners(
+      workspaceId,
+      ConversationRealtimeEventType.resyncRequired,
+    );
+    final socket = _socket;
+    if (socket != null) {
+      unawaited(socket.close());
     }
   }
 
@@ -308,6 +341,7 @@ final class WebSocketConversationRealtimeRepository
       _joinedRooms.clear();
       _activeWorkspaceId = null;
       _hasConnected = false;
+      _seenEventIds.clear();
     }
   }
 
@@ -585,6 +619,53 @@ final class ConversationRealtimeEventMapper {
       reason: nullableStringField(payload, const ['reason']),
       callSdp: jsonMap(field(signalPayload, const ['sdp'])),
       callCandidate: jsonMap(field(signalPayload, const ['candidate'])),
+
+      payload: type == ConversationRealtimeEventType.orderTicketUpdated
+          ? payload
+          : const {},
+      eventId: nullableStringField(map, const ['event_id', 'eventId']),
+      targetDeviceId:
+          nullableStringField(payload, const [
+            'target_device_id',
+            'targetDeviceId',
+          ]) ??
+          nullableStringField(signal, const [
+            'target_device_id',
+            'targetDeviceId',
+          ]),
+      answeredDeviceId: nullableStringField(payload, const [
+        'answered_device_id',
+        'answeredDeviceId',
+      ]),
+      initiatorDeviceId: nullableStringField(payload, const [
+        'initiator_device_id',
+        'initiatorDeviceId',
+      ]),
+    );
+  }
+}
+
+/// Nhớ ~500 `event_id` gần nhất để bỏ sự kiện realtime trùng.
+final class RecentRealtimeEventIds {
+  RecentRealtimeEventIds({this.capacity = 500});
+
+  final int capacity;
+  final _ids = <String>{};
+
+  /// `true` nếu sự kiện mới (hoặc không có mã); `false` nếu đã thấy.
+  bool markSeen(String? eventId) {
+    final id = eventId?.trim() ?? '';
+    if (id.isEmpty) return true;
+    if (!_ids.add(id)) return false;
+    while (_ids.length > capacity) {
+      _ids.remove(_ids.first);
+    }
+    return true;
+  }
+
+  void clear() => _ids.clear();
+}
+
       payload: _keepsPayload.contains(type) ? payload : const {},
     );
   }
@@ -596,6 +677,7 @@ const _keepsPayload = {
   ConversationRealtimeEventType.sessionRevoked,
   ConversationRealtimeEventType.deviceApprovalRequested,
 };
+
 
 ConversationRealtimeEventType _eventType(String value) {
   return switch (value.trim()) {
@@ -618,6 +700,9 @@ ConversationRealtimeEventType _eventType(String value) {
     'CallCancelled' => ConversationRealtimeEventType.callCancelled,
     'CallEnded' => ConversationRealtimeEventType.callEnded,
     'CallMissed' => ConversationRealtimeEventType.callMissed,
+    'CallAnsweredElsewhere' =>
+      ConversationRealtimeEventType.callAnsweredElsewhere,
+    'ResyncRequired' => ConversationRealtimeEventType.resyncRequired,
     'ContactRequestCreated' =>
       ConversationRealtimeEventType.contactRequestCreated,
     'ContactRequestUpdated' =>
@@ -643,7 +728,8 @@ CallMode? _callMode(String? value) {
 CallStatus? _callStatusForEvent(ConversationRealtimeEventType type) {
   return switch (type) {
     ConversationRealtimeEventType.callInvited => CallStatus.ringing,
-    ConversationRealtimeEventType.callAccepted => CallStatus.accepted,
+    ConversationRealtimeEventType.callAccepted ||
+    ConversationRealtimeEventType.callAnsweredElsewhere => CallStatus.accepted,
     ConversationRealtimeEventType.callRejected => CallStatus.rejected,
     ConversationRealtimeEventType.callCancelled => CallStatus.cancelled,
     ConversationRealtimeEventType.callEnded => CallStatus.ended,
