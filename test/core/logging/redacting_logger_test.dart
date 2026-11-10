@@ -2,6 +2,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/core/logging/redacting_logger.dart';
 
 void main() {
+  test('che token lời mời trong path của log HTTP', () {
+    final logs = <String>[];
+    final logger = RedactingLogger(sink: logs.add);
+    logger.debug('Yêu cầu', {
+      'path': '/api/v1/invites/sensitive-invite/accept',
+    });
+    expect(logs.single, contains('/api/v1/invites/<redacted>/accept'));
+    expect(logs.single, isNot(contains('sensitive-invite')));
+  });
+
   test('redacts tokens from log messages and URLs', () {
     final logger = RedactingLogger(sink: (_) {});
 

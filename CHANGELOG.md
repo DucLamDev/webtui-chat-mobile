@@ -3,6 +3,32 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.7.0 · 10/11/2026
+### Tính năng
+- Đăng nhập và quản lý thiết bị theo chính sách máy chủ
+  Quét QR để đăng nhập máy tính, xác nhận hoặc từ chối thiết bị mới, xác minh email, nhận lời mời và chọn
+  workspace. Hồ sơ hiển thị thêm chức danh, phòng ban, nơi làm và ngày vào công ty khi máy chủ hỗ trợ.
+### Sửa lỗi
+- Thu hồi máy khác không đăng xuất máy đang dùng
+  Nhận diện phiên hiện tại bằng thông tin máy chủ; dọn dữ liệu phiên khi bị thu hồi, giữ luồng chờ duyệt và
+  yêu cầu chọn rõ workspace khi tài khoản thuộc nhiều workspace.
+
+## 1.6.0 · 10/11/2026
+### Tính năng
+- Theo dõi và xử lý phiếu hỗ trợ khách hàng
+  Xem danh sách và chi tiết, phản hồi kèm ảnh, nhận thay đổi trực tiếp và chuyển trạng thái theo quyền được cấp.
+
+## 1.5.0 · 10/11/2026
+### Tính năng
+- Bảng trắng dùng chung với web
+  Vẽ nét, hình, chữ và biểu tượng; giữ các đối tượng từ web khi chỉnh sửa trên app. Hiện lỗi khi lưu thất bại để người dùng có thể thử lại.
+
+## 1.4.0 · 10/11/2026
+### Tính năng
+- Quản lý việc trong phòng và xem Việc của tôi
+  Tạo, giao, sửa, xoá và cập nhật trạng thái theo vai trò; lọc việc được giao, việc đã giao và quá hạn. Thông báo đưa thẳng đến việc liên quan.
+- Cố định mốc giờ của bài kiểm thử quá hạn để kết quả không thay đổi theo ngày chạy.
+
 ## 1.3.1 · 10/11/2026
 ### Sửa lỗi
 - Chuẩn hóa định dạng và cú pháp Dart để kiểm tra tự động không dừng trước bước test.

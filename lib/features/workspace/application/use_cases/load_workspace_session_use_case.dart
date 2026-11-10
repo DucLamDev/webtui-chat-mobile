@@ -47,17 +47,23 @@ final class LoadWorkspaceSessionUseCase {
           );
         }
 
-        if (savedId != active.id) {
+        final activeWasSaved = savedId == active.id;
+        if (!activeWasSaved && workspaces.length == 1) {
           await _sessionRepository.saveActiveWorkspaceId(active.id);
         }
-        return _withPermissions(workspaces, active);
+        return _withPermissions(
+          workspaces,
+          active,
+          activeWasSaved: activeWasSaved,
+        );
     }
   }
 
   Future<Result<WorkspaceSession>> _withPermissions(
     List<Workspace> workspaces,
-    Workspace active,
-  ) async {
+    Workspace active, {
+    required bool activeWasSaved,
+  }) async {
     final permissionsResult = await _permissionRepository.listForWorkspace(
       active.id,
     );
@@ -68,6 +74,7 @@ final class LoadWorkspaceSessionUseCase {
             workspaces: workspaces,
             activeWorkspace: active,
             permissions: PermissionSet(permissions),
+            activeWasSaved: activeWasSaved,
           ),
         );
       case FailureResult<List<WorkspacePermission>>(failure: final failure):

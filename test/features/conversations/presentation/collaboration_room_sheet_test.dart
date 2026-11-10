@@ -4,7 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/app/providers/foundation_providers.dart';
 import 'package:webtui_chat/core/network/api_transport.dart';
+import 'package:webtui_chat/core/result/result.dart';
+import 'package:webtui_chat/features/conversations/application/use_cases/channel_use_cases.dart';
+import 'package:webtui_chat/features/conversations/domain/entities/chat_message.dart';
+import 'package:webtui_chat/features/conversations/domain/repositories/conversation_repository.dart';
+import 'package:webtui_chat/features/conversations/presentation/controllers/collaboration_task_controller.dart';
 import 'package:webtui_chat/features/conversations/presentation/widgets/collaboration_room_sheet.dart';
+import 'package:webtui_chat/features/workspace/domain/repositories/workspace_session_repository.dart';
 
 // Bảng dựng cả 6 tab cùng lúc (IndexedStack): chỉ một tab lỗi bố cục là cả bảng
 // trắng trơn, bấm ô nào ở tab Công việc cũng vậy. Mỗi tab phải mở ra có nội dung.
@@ -13,8 +19,8 @@ const _expectedTextByTab = {
   1: 'Họp video nhóm',
   2: 'Chưa có file, poll, task hoặc bản ghi.',
   3: 'Lưu biên bản',
-  4: 'Vẽ bằng một ngón tay · tự lưu khi nhấc tay',
-  5: 'Chưa có task trong phòng.',
+  4: 'Vẽ bằng một ngón tay · tự lưu sau mỗi nét',
+  5: 'Phòng chưa có việc nào',
 };
 
 void main() {
@@ -30,6 +36,13 @@ void main() {
         ProviderScope(
           overrides: [
             apiTransportProvider.overrideWithValue(_BackendLikeTransport()),
+            workspaceSessionRepositoryProvider.overrideWithValue(
+              _ActiveWorkspaceSession(),
+            ),
+            canManageWorkspaceChannelsProvider.overrideWithValue(false),
+            listChannelMembersUseCaseProvider.overrideWithValue(
+              ListChannelMembersUseCase(_NoMembersRepository()),
+            ),
           ],
           child: MaterialApp(
             home: Builder(
@@ -69,6 +82,9 @@ final class _BackendLikeTransport implements ApiTransport {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
+    if (path.endsWith('/users/me')) {
+      expect(queryParameters, {'workspace_id': 'ws-1'});
+    }
     return _ok<T>(path, _dataFor(path));
   }
 
@@ -161,4 +177,27 @@ final class _BackendLikeTransport implements ApiTransport {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async => _ok<T>(path, <String, Object?>{});
+}
+
+/// Tab Task tải thành viên phòng để chọn người làm; ở đây phòng chưa có ai.
+final class _NoMembersRepository implements ConversationRepository {
+  @override
+  Future<Result<List<ChannelMember>>> listMembers({
+    required String workspaceId,
+    required String channelId,
+  }) async => const Success([]);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName}');
+}
+
+/// Phòng đã mở trong workspace: không truy cập kho khóa native khi test widget.
+final class _ActiveWorkspaceSession implements WorkspaceSessionRepository {
+  @override
+  Future<String?> readActiveWorkspaceId() async => 'ws-1';
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName}');
 }

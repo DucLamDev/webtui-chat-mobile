@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
+import '../../../customer_tickets/presentation/controllers/customer_ticket_access_provider.dart';
+import '../../../customer_tickets/presentation/widgets/customer_ticket_inbox_entry.dart';
 import '../../../moderation/presentation/controllers/moderation_controller.dart';
 import '../../../moderation/presentation/widgets/moderation_actions.dart';
 import '../../../profile/presentation/controllers/profile_controller.dart';
@@ -60,7 +62,11 @@ class MessagesHomeView extends ConsumerWidget {
           conversations: conversations,
           blockedUserIds: blockedUserIds,
           selectedId: wide ? selected?.id : null,
-          onRetry: controller.load,
+          onRetry: () {
+            // Kéo làm mới cũng lấy lại số ticket khách chưa trả lời.
+            ref.invalidate(customerTicketUnansweredCountProvider(workspaceId));
+            controller.load();
+          },
           onSearch: controller.setSearchQuery,
           onFilterChanged: (index) {
             controller.setMessageFilter(state.inboxFilters[index]);
@@ -292,6 +298,10 @@ class _MessagesList extends StatelessWidget {
               ),
             ),
           ),
+          if (showWorkGrid)
+            SliverToBoxAdapter(
+              child: CustomerTicketInboxEntry(workspaceId: state.workspaceId),
+            ),
           if (state.isLoading)
             const SliverToBoxAdapter(
               child: WebTuiLoadingState(message: 'Đang tải hội thoại...'),

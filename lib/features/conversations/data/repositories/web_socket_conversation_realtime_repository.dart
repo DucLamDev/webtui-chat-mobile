@@ -90,6 +90,23 @@ final class WebSocketConversationRealtimeRepository
     return events.where((event) => event.channelId == normalizedChannelId);
   }
 
+  /// Phòng hộp thư ticket khách `workspace:<ws>:order-tickets` (máy chủ tự kiểm
+  /// quyền khi join). Chỉ trả `OrderTicketUpdated` và `reconnected` để màn
+  /// ticket tự tải lại sau khi rớt mạng.
+  Stream<ConversationRealtimeEvent> subscribeToOrderTickets({
+    required String workspaceId,
+  }) {
+    final events = _subscribe(workspaceId: workspaceId, channelId: '');
+    final room = _orderTicketsRoomFor(workspaceId);
+    _joinedRooms.add(room);
+    _joinRoomIfOpen(room);
+    return events.where(
+      (event) =>
+          event.type == ConversationRealtimeEventType.orderTicketUpdated ||
+          event.type == ConversationRealtimeEventType.reconnected,
+    );
+  }
+
   @override
   Future<void> sendTyping({
     required String workspaceId,
@@ -568,9 +585,17 @@ final class ConversationRealtimeEventMapper {
       reason: nullableStringField(payload, const ['reason']),
       callSdp: jsonMap(field(signalPayload, const ['sdp'])),
       callCandidate: jsonMap(field(signalPayload, const ['candidate'])),
+      payload: _keepsPayload.contains(type) ? payload : const {},
     );
   }
 }
+
+/// Sự kiện ngoài hội thoại cần giữ payload gốc cho nơi xử lý.
+const _keepsPayload = {
+  ConversationRealtimeEventType.orderTicketUpdated,
+  ConversationRealtimeEventType.sessionRevoked,
+  ConversationRealtimeEventType.deviceApprovalRequested,
+};
 
 ConversationRealtimeEventType _eventType(String value) {
   return switch (value.trim()) {
@@ -599,6 +624,10 @@ ConversationRealtimeEventType _eventType(String value) {
       ConversationRealtimeEventType.contactRequestUpdated,
     'ContactRequestCancelled' =>
       ConversationRealtimeEventType.contactRequestCancelled,
+    'OrderTicketUpdated' => ConversationRealtimeEventType.orderTicketUpdated,
+    'SessionRevoked' => ConversationRealtimeEventType.sessionRevoked,
+    'DeviceApprovalRequested' =>
+      ConversationRealtimeEventType.deviceApprovalRequested,
     _ => ConversationRealtimeEventType.unknown,
   };
 }
@@ -787,6 +816,10 @@ String _roomFor(String workspaceId, String channelId) {
     return 'workspace:$workspaceId:user-events';
   }
   return 'workspace:$workspaceId:channel:$channelId';
+}
+
+String _orderTicketsRoomFor(String workspaceId) {
+  return 'workspace:${workspaceId.trim()}:order-tickets';
 }
 
 String _heartbeatRoom(String workspaceId) {

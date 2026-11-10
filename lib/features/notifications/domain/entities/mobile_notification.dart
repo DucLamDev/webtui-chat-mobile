@@ -120,6 +120,9 @@ final class NotificationTarget {
     this.callerName,
     this.organizationName,
     this.organizationLogoUrl,
+    this.taskId,
+    this.sessionId,
+    this.notificationType,
   });
 
   factory NotificationTarget.fromPayload({
@@ -155,7 +158,10 @@ final class NotificationTarget {
         'messageId',
       ], fallback: messageId ?? linkTarget?.messageId),
       deepLink: linkTarget?.deepLink,
-      targetType: _firstString(data, const ['target_type', 'targetType']),
+      targetType: _firstString(data, const [
+        'target_type',
+        'targetType',
+      ], fallback: linkTarget?.targetType),
       eventType: _firstString(data, const ['event_type', 'eventType']),
       callId: _firstString(data, const ['call_id', 'callId']),
       callMode: _firstString(data, const ['mode', 'call_mode', 'callMode']),
@@ -178,6 +184,16 @@ final class NotificationTarget {
         'logo_url',
         'organization_logo_url',
         'organizationLogoUrl',
+      ]),
+      taskId: _firstString(data, const [
+        'task_id',
+        'taskId',
+      ], fallback: linkTarget?.taskId),
+      sessionId: _firstString(data, const ['session_id', 'sessionId']),
+      notificationType: _firstString(data, const [
+        'type',
+        'notification_type',
+        'notificationType',
       ]),
     );
   }
@@ -208,7 +224,10 @@ final class NotificationTarget {
       messageId:
           uri.queryParameters['messageId'] ?? uri.queryParameters['message_id'],
       deepLink: value,
-      targetType: uri.queryParameters['targetType'] ?? targetType,
+      targetType:
+          uri.queryParameters['targetType'] ??
+          (uri.queryParameters['tool'] == 'tasks' ? 'task' : targetType),
+      taskId: uri.queryParameters['taskId'] ?? uri.queryParameters['task_id'],
     );
   }
 
@@ -225,6 +244,29 @@ final class NotificationTarget {
   final String? callerName;
   final String? organizationName;
   final String? organizationLogoUrl;
+
+  /// Việc được giao (thông báo `target_type = task`).
+  final String? taskId;
+
+  /// Phiên đang chờ duyệt (`data.session_id` của thông báo
+  /// `device_approval_requested`, Lõi 2.3).
+  final String? sessionId;
+
+  /// Loại thông báo (`type` / `notification_type`) khi máy chủ gửi kèm.
+  final String? notificationType;
+
+  /// Có thiết bị mới chờ duyệt: mở màn duyệt (màn tự tải dữ liệu từ máy chủ).
+  bool get isDeviceApprovalRequest {
+    const kind = 'device_approval_requested';
+    final matches =
+        eventType?.trim().toLowerCase() == kind ||
+        notificationType?.trim().toLowerCase() == kind ||
+        targetType?.trim().toLowerCase() == kind;
+    return matches && sessionId?.trim().isNotEmpty == true;
+  }
+
+  /// Bấm thông báo giao việc / đổi hạn thì mở tab Task của phòng.
+  bool get opensTasks => targetType == 'task';
 
   bool get canOpenConversation =>
       workspaceId.trim().isNotEmpty && channelId?.trim().isNotEmpty == true;

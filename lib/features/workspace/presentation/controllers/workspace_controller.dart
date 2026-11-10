@@ -28,6 +28,7 @@ final class WorkspaceState {
     this.isSwitching = false,
     this.errorMessage,
     this.generation = 0,
+    this.needsInitialChoice = false,
   });
 
   final List<Workspace> workspaces;
@@ -38,7 +39,12 @@ final class WorkspaceState {
   final String? errorMessage;
   final int generation;
 
+  /// Lần đầu đăng nhập, tài khoản có nhiều workspace: cần hỏi chọn (2.4).
+  final bool needsInitialChoice;
+
   bool get hasActiveWorkspace => activeWorkspace != null;
+
+  bool get canSwitchWorkspace => workspaces.length > 1;
 
   WorkspaceState copyWith({
     List<Workspace>? workspaces,
@@ -49,8 +55,10 @@ final class WorkspaceState {
     String? errorMessage,
     bool clearError = false,
     int? generation,
+    bool? needsInitialChoice,
   }) {
     return WorkspaceState(
+      needsInitialChoice: needsInitialChoice ?? this.needsInitialChoice,
       workspaces: workspaces ?? this.workspaces,
       permissions: permissions ?? this.permissions,
       activeWorkspace: activeWorkspace ?? this.activeWorkspace,
@@ -110,6 +118,7 @@ final class WorkspaceController extends StateNotifier<WorkspaceState> {
           isLoading: isLoading,
           isSwitching: isSwitching,
           clearError: true,
+          needsInitialChoice: session.needsInitialChoice,
           generation: incrementGeneration
               ? state.generation + 1
               : state.generation,

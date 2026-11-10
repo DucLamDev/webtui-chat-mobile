@@ -8,19 +8,64 @@ import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../domain/entities/workspace.dart';
 import '../controllers/workspace_controller.dart';
 
-class WorkspaceSelectorScreen extends ConsumerWidget {
-  const WorkspaceSelectorScreen({this.onWorkspaceSelected, super.key});
+/// Đường dẫn ngay sau đăng nhập: hỏi chọn workspace nếu tài khoản có nhiều
+/// workspace và chưa chọn lần nào, không thì vào thẳng app.
+const workspacePickerAfterLoginPath = '/workspaces?first=1';
+
+class WorkspaceSelectorScreen extends ConsumerStatefulWidget {
+  const WorkspaceSelectorScreen({
+    this.onWorkspaceSelected,
+    this.firstLogin = false,
+    super.key,
+  });
 
   final VoidCallback? onWorkspaceSelected;
 
+  /// Mở ngay sau đăng nhập: tải lại danh sách, chỉ hiện khi cần hỏi chọn.
+  final bool firstLogin;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<WorkspaceSelectorScreen> createState() =>
+      _WorkspaceSelectorScreenState();
+}
+
+class _WorkspaceSelectorScreenState
+    extends ConsumerState<WorkspaceSelectorScreen> {
+  late bool _checkingFirstLogin = widget.firstLogin;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.firstLogin) {
+      Future<void>.microtask(_checkFirstLogin);
+    }
+  }
+
+  Future<void> _checkFirstLogin() async {
+    if (!mounted) return;
+    // Tài khoản vừa đăng nhập có thể khác tài khoản trước: luôn tải lại.
+    await ref.read(workspaceControllerProvider.notifier).load();
+    if (!mounted) return;
+    final state = ref.read(workspaceControllerProvider);
+    if (state.errorMessage == null &&
+        state.hasActiveWorkspace &&
+        !state.needsInitialChoice) {
+      widget.onWorkspaceSelected?.call();
+      return;
+    }
+    setState(() => _checkingFirstLogin = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(workspaceControllerProvider);
     final controller = ref.read(workspaceControllerProvider.notifier);
+    final onWorkspaceSelected = widget.onWorkspaceSelected;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chọn workspace'),
+        automaticallyImplyLeading: !widget.firstLogin,
         actions: [
           IconButton(
             tooltip: 'Tải lại',
@@ -32,6 +77,9 @@ class WorkspaceSelectorScreen extends ConsumerWidget {
       body: SafeArea(
         child: Builder(
           builder: (context) {
+            if (_checkingFirstLogin) {
+              return const WebTuiLoadingState(message: 'Đang tải workspace...');
+            }
             if (state.isLoading && state.workspaces.isEmpty) {
               return const WebTuiLoadingState(message: 'Đang tải workspace...');
             }
@@ -53,15 +101,19 @@ class WorkspaceSelectorScreen extends ConsumerWidget {
             return ListView(
               padding: const EdgeInsets.only(bottom: WebTuiSpacing.xl),
               children: [
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
                     WebTuiSpacing.lg,
                     WebTuiSpacing.sm,
                     WebTuiSpacing.lg,
                     WebTuiSpacing.md,
                   ),
                   child: Text(
-                    'Dữ liệu chat, cursor và quyền được tách theo workspace.',
+                    widget.firstLogin
+                        ? 'Tài khoản của bạn thuộc nhiều workspace. Chọn '
+                              'workspace để bắt đầu; bạn có thể đổi sau trong '
+                              'Cài đặt.'
+                        : 'Chọn tổ chức bạn muốn làm việc.',
                   ),
                 ),
                 WebTuiListSurface(

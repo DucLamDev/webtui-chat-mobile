@@ -25,6 +25,18 @@ enum ConversationRealtimeEventType {
   contactRequestUpdated,
   contactRequestCancelled,
 
+  /// Hộp thư ticket khách đổi (phòng `workspace:<ws>:order-tickets`); chi tiết
+  /// nằm trong [ConversationRealtimeEvent.payload].
+  orderTicketUpdated,
+
+  /// Phiên của chính kết nối này bị thu hồi (`SessionRevoked`, Lõi 2.1);
+  /// `payload.session_id`, `payload.reason`.
+  sessionRevoked,
+
+  /// Có thiết bị mới chờ người dùng / quản trị duyệt
+  /// (`DeviceApprovalRequested`, Lõi 2.3); chi tiết nằm trong `payload`.
+  deviceApprovalRequested,
+
   /// Kết nối realtime vừa nối lại sau khi rớt: tin trong lúc mất kết nối không
   /// được đẩy lại nên màn hình phải tự tải lại.
   reconnected,
@@ -48,6 +60,7 @@ final class ConversationRealtimeEvent {
     this.reason,
     this.callSdp = const {},
     this.callCandidate = const {},
+    this.payload = const {},
   });
 
   final ConversationRealtimeEventType type;
@@ -65,6 +78,10 @@ final class ConversationRealtimeEvent {
   final String? reason;
   final Map<String, dynamic> callSdp;
   final Map<String, dynamic> callCandidate;
+
+  /// Payload gốc, chỉ có với sự kiện ngoài hội thoại
+  /// ([ConversationRealtimeEventType.orderTicketUpdated]).
+  final Map<String, dynamic> payload;
 
   bool get isCallEvent => switch (type) {
     ConversationRealtimeEventType.callInvited ||
