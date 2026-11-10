@@ -4,6 +4,14 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
+## 1.4.0 · 10/11/2026
+### Quyền riêng tư trong trò chuyện
+- Tiếp tục lõi 3: My Note có cache, quyền nhận cuộc gọi và khoá ứng dụng theo thời gian không dùng, giữ nguyên màn gọi.
+- Hoàn thiện xác thực lại và cài đặt TOTP; gửi/xem tin bí mật qua API, không lưu nội dung vào draft hoặc outbox.
+- Tin bí mật tự che sau 60 giây hoặc khi chạy nền; bật bảo vệ chụp màn hình Android trong lúc xem.
+- Nhận sự kiện hết hạn để bỏ tin khỏi danh sách, giữ cờ/hạn dùng nhưng loại nội dung khỏi cache.
+
+
 ## 1.3.1 · 10/11/2026
 ### Sửa lỗi
 - Nhận cuộc gọi trên một máy, gửi lại tin chờ ở mọi hội thoại
@@ -11,6 +19,7 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   Gửi lại tin chờ khi mở app, có mạng hoặc kết nối lại, theo thứ tự trong từng hội thoại và giữ mã chống gửi trùng.
   Tải lại dữ liệu khi mốc đồng bộ hết hạn, khử sự kiện trùng; dừng hẹn gửi lại khi app vào nền. Cần máy chủ hỗ trợ
   các trường và sự kiện mới để dùng đầy đủ xử lý cuộc gọi nhiều thiết bị.
+
 
 ## 1.3.0 · 02/11/2026
 

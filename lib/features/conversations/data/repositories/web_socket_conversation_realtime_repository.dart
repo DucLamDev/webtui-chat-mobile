@@ -683,7 +683,8 @@ ConversationRealtimeEventType _eventType(String value) {
   return switch (value.trim()) {
     'MessageCreated' => ConversationRealtimeEventType.messageCreated,
     'MessageUpdated' => ConversationRealtimeEventType.messageUpdated,
-    'MessageDeleted' => ConversationRealtimeEventType.messageDeleted,
+    'MessageDeleted' ||
+    'MessageExpired' => ConversationRealtimeEventType.messageDeleted,
     'MessagePinned' => ConversationRealtimeEventType.messagePinned,
     'MessageUnpinned' => ConversationRealtimeEventType.messageUnpinned,
     'ReactionChanged' => ConversationRealtimeEventType.reactionChanged,
@@ -752,7 +753,9 @@ ChatMessage _messageFromMap(JsonMap map, String workspaceId, String channelId) {
       'channelId',
     ], fallback: channelId),
     kind: stringField(map, const ['kind'], fallback: 'text'),
-    body: stringField(map, const ['body']),
+    isSecret: map['secret'] == true,
+    expiresAt: nullableDateTimeField(map, const ['expires_at']),
+    body: map['secret'] == true ? '' : stringField(map, const ['body']),
     createdAt: dateTimeField(map, const ['created_at', 'sent_at', 'createdAt']),
     senderId: nullableStringField(map, const [
       'sender_id',

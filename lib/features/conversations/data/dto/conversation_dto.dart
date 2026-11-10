@@ -214,6 +214,8 @@ final class MessageDto {
     this.threadRootId,
     this.editedAt,
     this.deletedAt,
+    this.isSecret = false,
+    this.expiresAt,
   });
 
   final String id;
@@ -221,6 +223,8 @@ final class MessageDto {
   final String channelId;
   final String kind;
   final String body;
+  final bool isSecret;
+  final DateTime? expiresAt;
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<ReactionDto> reactions;
@@ -237,7 +241,9 @@ final class MessageDto {
       workspaceId: _string(json['workspace_id']),
       channelId: _string(json['channel_id']),
       kind: _string(json['kind'], fallback: 'text'),
-      body: _string(json['body']),
+      body: json['secret'] == true ? '' : _string(json['body']),
+      isSecret: json['secret'] == true,
+      expiresAt: _nullableDate(json['expires_at']),
       createdAt: _date(json['created_at']),
       updatedAt: _date(json['updated_at']),
       reactions: _listOf(
@@ -260,7 +266,13 @@ final class MessageDto {
       workspaceId: workspaceId,
       channelId: channelId,
       kind: kind,
-      body: deletedAt == null ? body : 'Tin nhắn đã được thu hồi',
+      body: isSecret
+          ? ''
+          : deletedAt == null
+          ? body
+          : 'Tin nhắn đã được thu hồi',
+      isSecret: isSecret,
+      expiresAt: expiresAt,
       createdAt: createdAt,
       senderId: senderId,
       parentId: parentId,

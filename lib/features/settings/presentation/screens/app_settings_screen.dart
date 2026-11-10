@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
+import '../../../auth/presentation/widgets/app_lock_timeout_setting_row.dart';
+import '../../../call_privacy/presentation/widgets/call_privacy_setting_row.dart';
+import '../../../mfa/presentation/mfa_settings_screen.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
 import '../../domain/entities/app_settings.dart';
 import '../../domain/entities/mobile_release_policy.dart';
@@ -205,7 +207,7 @@ class AppSettingsScreen extends ConsumerWidget {
                 WebTuiSettingRow(
                   title: 'Khóa ứng dụng',
                   subtitle:
-                      'Yêu cầu PIN hoặc sinh trắc học khi quay lại ứng dụng',
+                      'Yêu cầu PIN hoặc sinh trắc học khi mở lại sau thời gian không dùng',
                   icon: Icons.phonelink_lock_rounded,
                   trailing: appLockEnabled.isLoading
                       ? const SizedBox.square(
@@ -218,6 +220,23 @@ class AppSettingsScreen extends ConsumerWidget {
                               _setAppLock(context, ref, value),
                         ),
                 ),
+                const AppLockTimeoutSettingRow(),
+                if (ref
+                        .watch(activeServerDiscoveryProvider)
+                        ?.capabilities
+                        .mfa ==
+                    true)
+                  WebTuiSettingRow(
+                    title: 'Xác thực TOTP',
+                    subtitle: 'Bật mã xác thực và quản lý mã khôi phục',
+                    icon: Icons.security,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const MfaSettingsScreen(),
+                      ),
+                    ),
+                  ),
+                CallPrivacySettingRow(workspaceId: workspaceId),
               ],
             ),
             const WebTuiSectionLabel('Dữ liệu offline'),

@@ -8,6 +8,7 @@ import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/network/api_response.dart';
 import '../../../../core/notifications/call_tone_player.dart';
 import '../../../../core/notifications/native_incoming_call_service.dart';
+import '../../../../core/security/active_call_tracker.dart';
 import '../../../../core/security/instance_scope.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
@@ -83,11 +84,15 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   String? _localDeviceId;
   Offset? _localPreviewPosition;
   late final InstanceScope _instanceScope;
+  // Lõi 3.1: báo khoá ứng dụng không khoá khi màn gọi đang mở.
+  late final ActiveCallTracker _activeCalls;
 
   @override
   void initState() {
     super.initState();
     _instanceScope = ref.read(activeInstanceScopeProvider);
+    _activeCalls = ref.read(activeCallTrackerProvider.notifier)
+      ..begin(widget.callId);
     _speakerEnabled = widget.mode == CallMode.video;
     unawaited(_initialize());
     _stateTimer = Timer.periodic(
@@ -98,6 +103,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
 
   @override
   void dispose() {
+    _activeCalls.end(widget.callId);
     unawaited(_ringback.stop());
     _stateTimer?.cancel();
     _disconnectTimer?.cancel();

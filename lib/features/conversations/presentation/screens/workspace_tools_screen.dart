@@ -8,6 +8,7 @@ import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../moderation/presentation/controllers/moderation_controller.dart';
+import '../../../my_notes/presentation/widgets/my_notes_entry_card.dart';
 import '../../domain/entities/conversation_summary.dart';
 import '../controllers/conversation_home_controller.dart';
 import '../widgets/collaboration_room_sheet.dart';
@@ -76,6 +77,7 @@ class _WorkspaceToolsScreenState extends ConsumerState<WorkspaceToolsScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(WebTuiSpacing.lg),
         children: [
+          MyNotesEntryCard(workspaceId: widget.workspaceId),
           const SizedBox(height: 72),
           const WebTuiEmptyState(
             title: 'Chưa có cuộc trò chuyện để làm việc chung',
@@ -104,6 +106,7 @@ class _WorkspaceToolsScreenState extends ConsumerState<WorkspaceToolsScreen> {
           WebTuiSpacing.xl,
         ),
         children: [
+          MyNotesEntryCard(workspaceId: widget.workspaceId),
           MyTasksSection(workspaceId: widget.workspaceId, rooms: rooms),
           _RoomPicker(
             rooms: rooms,
