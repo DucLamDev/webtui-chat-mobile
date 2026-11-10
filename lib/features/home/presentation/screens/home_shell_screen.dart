@@ -19,8 +19,14 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../auth/application/session_termination.dart';
+import '../../../auth/presentation/controllers/device_approval_controllers.dart';
 import '../../../auth/presentation/controllers/legal_acceptance_controller.dart';
+
 import '../../../conversations/domain/entities/call_device_routing.dart';
+
+import '../../../auth/presentation/screens/device_approval_review_screen.dart';
+
 import '../../../conversations/domain/entities/call_session.dart';
 import '../../../conversations/domain/entities/conversation_realtime_event.dart';
 import '../../../conversations/domain/entities/conversation_summary.dart';
@@ -104,6 +110,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   StreamSubscription<ChatSharePayload>? _shareIntentSubscription;
   StreamSubscription<ScopedNotificationQuickReply>? _quickReplySubscription;
   final Set<String> _nativeCallActionsInFlight = <String>{};
+  final Set<String> _openedDeviceApprovals = <String>{};
   StreamSubscription<ConversationRealtimeEvent>?
   _incomingCallRealtimeSubscription;
   bool _notificationEnabled = true;
@@ -336,6 +343,14 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
                       onProfileTap: () => context.push('/profile'),
                       onAdvancedTap: () => context.push('/settings'),
                       onPrivacyTap: () => context.push('/privacy'),
+                      // Chỉ hiện khi tài khoản có từ 2 workspace (2.4).
+                      onSwitchWorkspaceTap: workspaceState.canSwitchWorkspace
+                          ? () => context.push('/workspaces')
+                          : null,
+                      // Máy chủ cũ không trả capability → ẩn (2.2).
+                      onQrLoginTap: organization?.capabilities.qrLogin == true
+                          ? () => context.push('/qr-login')
+                          : null,
                       onLogoutTap: () async {
                         try {
                           await ref
@@ -726,7 +741,9 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       if (!mounted) {
         return;
       }
-      if (target.isIncomingCall) {
+      if (target.isDeviceApprovalRequest) {
+        _openDeviceApprovalReview(target.sessionId);
+      } else if (target.isIncomingCall) {
         unawaited(_showIncomingCall(target));
       } else {
         _openNotificationTarget(target);
@@ -739,6 +756,10 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         return;
       }
       ref.invalidate(notificationCenterControllerProvider(target.workspaceId));
+      if (target.isDeviceApprovalRequest) {
+        _openDeviceApprovalReview(target.sessionId);
+        return;
+      }
       if (target.isIncomingCall) {
         unawaited(_showIncomingCall(target));
         return;
@@ -1058,13 +1079,50 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     return _isCallConfirmedTerminal(target.workspaceId, callId);
   }
 
+  /// Mở màn duyệt thiết bị (từ WS `DeviceApprovalRequested` hoặc push
+  /// `device_approval_requested`). Màn tự tải dữ liệu từ máy chủ, không tin
+  /// payload; mỗi phiên chỉ mở một lần.
+  void _openDeviceApprovalReview(String? sessionId) {
+    final id = sessionId?.trim() ?? '';
+    if (!mounted ||
+        !RegExp(r'^[A-Za-z0-9_-]{1,128}$').hasMatch(id) ||
+        !_openedDeviceApprovals.add(id)) {
+      return;
+    }
+    ref.invalidate(pendingDeviceApprovalsProvider);
+    unawaited(context.push(deviceApprovalReviewLocation(id)));
+  }
+
   void _listenIncomingCalls(String workspaceId) {
     unawaited(_incomingCallRealtimeSubscription?.cancel());
     _incomingCallRealtimeSubscription = ref
         .read(incomingCallRealtimeRepositoryProvider)
         .subscribeToUser(workspaceId: workspaceId)
         .listen((event) {
-          if (!mounted || event.workspaceId != workspaceId) {
+          if (!mounted) {
+            return;
+          }
+          if (event.type == ConversationRealtimeEventType.sessionRevoked) {
+            // Máy chủ chỉ gửi tới kết nối của đúng phiên bị thu hồi: xoá dữ
+            // liệu cục bộ rồi về đăng nhập (app lắng nghe bộ điều phối phiên).
+            unawaited(
+              ref
+                  .read(sessionTerminationCoordinatorProvider)
+                  .endSession(
+                    SessionEndedNotice.revokedByServer(
+                      event.payload['reason']?.toString(),
+                    ),
+                    revokedSessionId: event.payload['session_id']?.toString(),
+                  ),
+            );
+            return;
+          }
+          if (event.type ==
+              ConversationRealtimeEventType.deviceApprovalRequested) {
+            _openDeviceApprovalReview(event.payload['session_id']?.toString());
+            return;
+          }
+          if (event.workspaceId != workspaceId) {
             return;
           }
           if (event.type == ConversationRealtimeEventType.reconnected) {
@@ -1813,8 +1871,15 @@ class _SettingsTab extends StatelessWidget {
     required this.onCompactChanged,
     required this.onSoundChanged,
     required this.onTextScaleChanged,
+    this.onSwitchWorkspaceTap,
+    this.onQrLoginTap,
   });
 
+  /// null khi tài khoản chỉ có một workspace.
+  final VoidCallback? onSwitchWorkspaceTap;
+
+  /// null khi máy chủ không bật đăng nhập QR.
+  final VoidCallback? onQrLoginTap;
   final String workspaceName;
   final bool notificationEnabled;
   final bool compactMode;
@@ -1898,10 +1963,25 @@ class _SettingsTab extends StatelessWidget {
         WebTuiListSurface(
           children: [
             WebTuiSettingRow(
-              title: 'Workspace',
+              key: const Key('settings_workspace_row'),
+              title: onSwitchWorkspaceTap == null
+                  ? 'Workspace'
+                  : 'Chuyển workspace',
               subtitle: workspaceName,
               icon: Icons.business_rounded,
+              onTap: onSwitchWorkspaceTap,
+              trailing: onSwitchWorkspaceTap == null
+                  ? null
+                  : const Icon(Icons.swap_horiz_rounded),
             ),
+            if (onQrLoginTap != null)
+              WebTuiSettingRow(
+                key: const Key('settings_qr_login_row'),
+                title: 'Đăng nhập máy tính bằng QR',
+                subtitle: 'Quét mã trên trang đăng nhập của máy tính',
+                icon: Icons.qr_code_scanner_rounded,
+                onTap: onQrLoginTap,
+              ),
             WebTuiSettingRow(
               title: 'Hồ sơ cá nhân',
               subtitle: 'Cập nhật tên, ảnh đại diện và trạng thái',

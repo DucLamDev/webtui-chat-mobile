@@ -568,7 +568,9 @@ final class PushNotificationService {
         NativeIncomingCallService.endCall(target.callId!, remoteEnded: true),
       );
     }
-    if (target.canOpenConversation || target.deepLink != null) {
+    if (target.canOpenConversation ||
+        target.deepLink != null ||
+        target.isDeviceApprovalRequest) {
       controller.add(target);
     }
   }
@@ -688,7 +690,9 @@ NotificationTarget? scopedNotificationTargetIfCurrent({
     data: data,
   );
   if (!target.isBoundToInstance(instanceScope.instanceId) ||
-      (!target.canOpenConversation && target.deepLink == null)) {
+      (!target.canOpenConversation &&
+          target.deepLink == null &&
+          !target.isDeviceApprovalRequest)) {
     return null;
   }
   return target;

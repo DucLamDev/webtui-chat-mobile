@@ -130,7 +130,7 @@ class _FeedbackScreenState extends ConsumerState<FeedbackScreen> {
             ),
             const SizedBox(height: WebTuiSpacing.md),
             FilledButton.icon(
-              onPressed: canSend ? () => _send(workspaceId!) : null,
+              onPressed: canSend ? () => _send(workspaceId) : null,
               icon: const Icon(Icons.send_rounded),
               label: Text(_sending ? 'Đang gửi...' : 'Gửi góp ý'),
             ),

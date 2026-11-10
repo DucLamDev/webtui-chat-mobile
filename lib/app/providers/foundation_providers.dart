@@ -24,21 +24,29 @@ import '../../core/security/instance_scope.dart';
 import '../../core/security/secure_key_value_store.dart';
 import '../../core/security/server_account_registry.dart';
 import '../../features/auth/application/legal_acceptance_access_policy.dart';
+import '../../features/auth/application/session_termination.dart';
 import '../../features/auth/application/use_cases/app_lock_use_cases.dart';
 import '../../features/auth/application/use_cases/delete_account_use_case.dart';
+import '../../features/auth/application/use_cases/device_approval_use_cases.dart';
+import '../../features/auth/application/use_cases/email_verification_use_cases.dart';
 import '../../features/auth/application/use_cases/legal_acceptance_use_cases.dart';
 import '../../features/auth/application/use_cases/load_legal_document_versions_use_case.dart';
 import '../../features/auth/application/use_cases/login_use_case.dart';
 import '../../features/auth/application/use_cases/logout_use_case.dart';
 import '../../features/auth/application/use_cases/oidc_login_use_case.dart';
+import '../../features/auth/application/use_cases/qr_login_use_cases.dart';
 import '../../features/auth/application/use_cases/refresh_access_token_use_case.dart';
 import '../../features/auth/application/use_cases/register_use_case.dart';
 import '../../features/auth/application/use_cases/session_use_cases.dart';
 import '../../features/auth/data/datasources/auth_remote_data_source.dart';
+import '../../features/auth/data/datasources/device_approval_remote_data_source.dart';
+import '../../features/auth/data/datasources/email_verification_remote_data_source.dart';
+import '../../features/auth/data/datasources/qr_login_remote_data_source.dart';
 import '../../features/auth/data/interceptors/legal_acceptance_interceptor.dart';
 import '../../features/auth/data/network/auth_refresh_interceptor.dart';
 import '../../features/auth/data/repositories/account_repository_impl.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
+import '../../features/auth/data/repositories/core2_auth_repositories.dart';
 import '../../features/auth/data/repositories/local_session_state_repository.dart';
 import '../../features/auth/data/repositories/secure_app_lock_repository.dart';
 import '../../features/auth/data/repositories/secure_auth_token_repository.dart';
@@ -47,7 +55,10 @@ import '../../features/auth/domain/repositories/account_repository.dart';
 import '../../features/auth/domain/repositories/app_lock_repository.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/domain/repositories/auth_token_repository.dart';
+import '../../features/auth/domain/repositories/device_approval_repository.dart';
 import '../../features/auth/domain/repositories/device_identity_repository.dart';
+import '../../features/auth/domain/repositories/email_verification_repository.dart';
+import '../../features/auth/domain/repositories/qr_login_repository.dart';
 import '../../features/auth/domain/repositories/session_state_repository.dart';
 import '../../features/business/application/use_cases/business_dashboard_use_cases.dart';
 import '../../features/business/data/datasources/business_remote_data_source.dart';
@@ -119,13 +130,17 @@ import '../../features/sync/data/datasources/local_workspace_sync_cursor_data_so
 import '../../features/sync/data/datasources/workspace_sync_remote_data_source.dart';
 import '../../features/sync/data/repositories/workspace_sync_repository_impl.dart';
 import '../../features/sync/domain/repositories/workspace_sync_repository.dart';
+import '../../features/workspace/application/use_cases/invite_use_cases.dart';
 import '../../features/workspace/application/use_cases/load_workspace_session_use_case.dart';
 import '../../features/workspace/application/use_cases/select_workspace_use_case.dart';
+import '../../features/workspace/data/datasources/invite_remote_data_source.dart';
 import '../../features/workspace/data/datasources/permission_remote_data_source.dart';
 import '../../features/workspace/data/datasources/workspace_remote_data_source.dart';
+import '../../features/workspace/data/repositories/invite_repository_impl.dart';
 import '../../features/workspace/data/repositories/local_workspace_session_repository.dart';
 import '../../features/workspace/data/repositories/permission_repository_impl.dart';
 import '../../features/workspace/data/repositories/workspace_repository_impl.dart';
+import '../../features/workspace/domain/repositories/invite_repository.dart';
 import '../../features/workspace/domain/repositories/permission_repository.dart';
 import '../../features/workspace/domain/repositories/workspace_repository.dart';
 import '../../features/workspace/domain/repositories/workspace_session_repository.dart';
@@ -230,6 +245,12 @@ final dioProvider = Provider<Dio>((ref) {
       expectedInstanceScope: ref.watch(activeInstanceScopeProvider),
       tokenRepository: tokenRepository,
       refreshAccessTokenUseCase: refreshUseCase,
+      onSessionRevoked: (failure, guard) => ref
+          .read(sessionTerminationCoordinatorProvider)
+          .endSession(SessionEndedNotice.fromFailure(failure), guard: guard),
+      onDeviceApprovalPending: () => ref
+          .read(sessionTerminationCoordinatorProvider)
+          .reportApprovalPending(),
     ),
     LegalAcceptanceInterceptor(ref.watch(legalAcceptanceAccessPolicyProvider)),
     RedactingDioLogInterceptor(logger),
@@ -453,7 +474,133 @@ final refreshAccessTokenUseCaseProvider = Provider<RefreshAccessTokenUseCase>((
   return RefreshAccessTokenUseCase(
     authRepository: ref.watch(authRepositoryProvider),
     tokenRepository: ref.watch(authTokenRepositoryProvider),
+    // Refresh bị 401 (mọi mã) = phiên bị thu hồi / phải đăng nhập lại.
+    onRefreshRejected: (failure, guard) async {
+      await ref
+          .read(sessionTerminationCoordinatorProvider)
+          .endSession(SessionEndedNotice.fromFailure(failure), guard: guard);
+    },
   );
+});
+
+/// Nơi duy nhất kết thúc phiên bị thu hồi (2.1) / phải đăng nhập lại (2.8).
+final sessionTerminationCoordinatorProvider =
+    Provider<SessionTerminationCoordinator>((ref) {
+      final coordinator = SessionTerminationCoordinator(
+        sessionStateRepository: ref.watch(sessionStateRepositoryProvider),
+        tokenRepository: ref.watch(authTokenRepositoryProvider),
+      );
+      ref.onDispose(() => unawaited(coordinator.dispose()));
+      return coordinator;
+    });
+
+final sessionEndedNoticesProvider = StreamProvider<SessionEndedNotice>((ref) {
+  return ref.watch(sessionTerminationCoordinatorProvider).endedSessions;
+});
+
+/// Mỗi lần máy chủ trả `403 DEVICE_APPROVAL_PENDING` thì số đếm tăng.
+final deviceApprovalPendingSignalsProvider = StreamProvider<int>((ref) {
+  var count = 0;
+  return ref
+      .watch(sessionTerminationCoordinatorProvider)
+      .approvalPendingSignals
+      .map((_) => ++count);
+});
+
+final qrLoginRepositoryProvider = Provider<QrLoginRepository>((ref) {
+  return QrLoginRepositoryImpl(
+    QrLoginRemoteDataSource(ref.watch(apiTransportProvider)),
+  );
+});
+
+final readQrLoginPayloadUseCaseProvider = Provider<ReadQrLoginPayloadUseCase>((
+  ref,
+) {
+  return ReadQrLoginPayloadUseCase(
+    loadServerOrigin: () =>
+        ref.read(activeServerDiscoveryProvider)?.instanceScope.origin,
+  );
+});
+
+final scanQrLoginUseCaseProvider = Provider<ScanQrLoginUseCase>((ref) {
+  return ScanQrLoginUseCase(ref.watch(qrLoginRepositoryProvider));
+});
+
+final decideQrLoginUseCaseProvider = Provider<DecideQrLoginUseCase>((ref) {
+  return DecideQrLoginUseCase(ref.watch(qrLoginRepositoryProvider));
+});
+
+final deviceApprovalRepositoryProvider = Provider<DeviceApprovalRepository>((
+  ref,
+) {
+  return DeviceApprovalRepositoryImpl(
+    DeviceApprovalRemoteDataSource(ref.watch(apiTransportProvider)),
+  );
+});
+
+final loadMyDeviceApprovalUseCaseProvider =
+    Provider<LoadMyDeviceApprovalUseCase>((ref) {
+      return LoadMyDeviceApprovalUseCase(
+        ref.watch(deviceApprovalRepositoryProvider),
+      );
+    });
+
+final listPendingDeviceApprovalsUseCaseProvider =
+    Provider<ListPendingDeviceApprovalsUseCase>((ref) {
+      return ListPendingDeviceApprovalsUseCase(
+        ref.watch(deviceApprovalRepositoryProvider),
+      );
+    });
+
+final findDeviceApprovalRequestUseCaseProvider =
+    Provider<FindDeviceApprovalRequestUseCase>((ref) {
+      return FindDeviceApprovalRequestUseCase(
+        ref.watch(deviceApprovalRepositoryProvider),
+      );
+    });
+
+final decideDeviceApprovalUseCaseProvider =
+    Provider<DecideDeviceApprovalUseCase>((ref) {
+      return DecideDeviceApprovalUseCase(
+        ref.watch(deviceApprovalRepositoryProvider),
+      );
+    });
+
+final emailVerificationRepositoryProvider =
+    Provider<EmailVerificationRepository>((ref) {
+      return EmailVerificationRepositoryImpl(
+        EmailVerificationRemoteDataSource(ref.watch(authApiTransportProvider)),
+      );
+    });
+
+final verifyEmailCodeUseCaseProvider = Provider<VerifyEmailCodeUseCase>((ref) {
+  return VerifyEmailCodeUseCase(
+    repository: ref.watch(emailVerificationRepositoryProvider),
+    tokenRepository: ref.watch(authTokenRepositoryProvider),
+    deviceIdentityRepository: ref.watch(deviceIdentityRepositoryProvider),
+  );
+});
+
+final resendEmailCodeUseCaseProvider = Provider<ResendEmailCodeUseCase>((ref) {
+  return ResendEmailCodeUseCase(ref.watch(emailVerificationRepositoryProvider));
+});
+
+final inviteRepositoryProvider = Provider<InviteRepository>((ref) {
+  return InviteRepositoryImpl(
+    InviteRemoteDataSource(ref.watch(apiTransportProvider)),
+  );
+});
+
+final previewInviteUseCaseProvider = Provider<PreviewInviteUseCase>((ref) {
+  return PreviewInviteUseCase(
+    ref.watch(inviteRepositoryProvider),
+    loadServerHost: () =>
+        ref.read(activeServerDiscoveryProvider)?.instanceScope.origin.host,
+  );
+});
+
+final acceptInviteUseCaseProvider = Provider<AcceptInviteUseCase>((ref) {
+  return AcceptInviteUseCase(ref.watch(inviteRepositoryProvider));
 });
 
 final logoutUseCaseProvider = Provider<LogoutUseCase>((ref) {
@@ -484,6 +631,15 @@ final listSessionsUseCaseProvider = Provider<ListSessionsUseCase>((ref) {
 final revokeSessionUseCaseProvider = Provider<RevokeSessionUseCase>((ref) {
   return RevokeSessionUseCase(ref.watch(authSessionRepositoryProvider));
 });
+
+final revokeDeviceSessionUseCaseProvider = Provider<RevokeDeviceSessionUseCase>(
+  (ref) {
+    return RevokeDeviceSessionUseCase(
+      authRepository: ref.watch(authSessionRepositoryProvider),
+      signOutThisDevice: () => ref.read(logoutUseCaseProvider).execute(),
+    );
+  },
+);
 
 final revokeAllSessionsUseCaseProvider = Provider<RevokeAllSessionsUseCase>((
   ref,
@@ -570,7 +726,12 @@ final selectWorkspaceUseCaseProvider = Provider<SelectWorkspaceUseCase>((ref) {
 final profileRemoteDataSourceProvider = Provider<ProfileRemoteDataSource>((
   ref,
 ) {
-  return ProfileRemoteDataSource(ref.watch(apiTransportProvider));
+  return ProfileRemoteDataSource(
+    ref.watch(apiTransportProvider),
+    loadWorkspaceId: ref
+        .watch(workspaceSessionRepositoryProvider)
+        .readActiveWorkspaceId,
+  );
 });
 
 final avatarRemoteDataSourceProvider = Provider<AvatarRemoteDataSource>((ref) {

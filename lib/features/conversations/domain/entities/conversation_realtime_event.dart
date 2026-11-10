@@ -34,6 +34,14 @@ enum ConversationRealtimeEventType {
   /// nằm trong [ConversationRealtimeEvent.payload].
   orderTicketUpdated,
 
+  /// Phiên của chính kết nối này bị thu hồi (`SessionRevoked`, Lõi 2.1);
+  /// `payload.session_id`, `payload.reason`.
+  sessionRevoked,
+
+  /// Có thiết bị mới chờ người dùng / quản trị duyệt
+  /// (`DeviceApprovalRequested`, Lõi 2.3); chi tiết nằm trong `payload`.
+  deviceApprovalRequested,
+
   /// Kết nối realtime vừa nối lại sau khi rớt: tin trong lúc mất kết nối không
   /// được đẩy lại nên màn hình phải tự tải lại.
   reconnected,

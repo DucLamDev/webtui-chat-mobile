@@ -619,6 +619,7 @@ final class ConversationRealtimeEventMapper {
       reason: nullableStringField(payload, const ['reason']),
       callSdp: jsonMap(field(signalPayload, const ['sdp'])),
       callCandidate: jsonMap(field(signalPayload, const ['candidate'])),
+
       payload: type == ConversationRealtimeEventType.orderTicketUpdated
           ? payload
           : const {},
@@ -665,6 +666,19 @@ final class RecentRealtimeEventIds {
   void clear() => _ids.clear();
 }
 
+      payload: _keepsPayload.contains(type) ? payload : const {},
+    );
+  }
+}
+
+/// Sự kiện ngoài hội thoại cần giữ payload gốc cho nơi xử lý.
+const _keepsPayload = {
+  ConversationRealtimeEventType.orderTicketUpdated,
+  ConversationRealtimeEventType.sessionRevoked,
+  ConversationRealtimeEventType.deviceApprovalRequested,
+};
+
+
 ConversationRealtimeEventType _eventType(String value) {
   return switch (value.trim()) {
     'MessageCreated' => ConversationRealtimeEventType.messageCreated,
@@ -696,6 +710,9 @@ ConversationRealtimeEventType _eventType(String value) {
     'ContactRequestCancelled' =>
       ConversationRealtimeEventType.contactRequestCancelled,
     'OrderTicketUpdated' => ConversationRealtimeEventType.orderTicketUpdated,
+    'SessionRevoked' => ConversationRealtimeEventType.sessionRevoked,
+    'DeviceApprovalRequested' =>
+      ConversationRealtimeEventType.deviceApprovalRequested,
     _ => ConversationRealtimeEventType.unknown,
   };
 }

@@ -156,3 +156,32 @@ flutter build apk --debug --flavor dev -t lib/main_dev.dart
 `docs/design/mobile/references/webtui-mobile-zalo-reference.png`. Phase M1
 dựng shell và design tokens; Phase M2 thêm auth/session foundation và login
 entrypoint, chưa phụ thuộc backend/mock production trong widget test.
+
+## Đăng nhập và quản lý thiết bị
+
+- Tính năng QR, duyệt thiết bị và xác minh email theo capability của máy chủ, không theo tên miền cố định.
+- Quét mã đăng nhập máy tính trong Cài đặt; chỉ xác nhận mã cùng máy chủ đang dùng. Màn xác nhận
+  hiển thị thiết bị, địa chỉ IP và thời điểm yêu cầu trước khi đồng ý hoặc từ chối.
+- Phiên chờ duyệt chỉ xem trạng thái duyệt hoặc đăng xuất. Sau khi được duyệt, ứng dụng lấy phiên
+  mới rồi tải workspace. Có nhiều workspace thì người dùng chọn trước khi vào hộp thư.
+- Link `/invite/:token` giữ đích qua bước đăng nhập và có màn nhận lời mời rõ ràng.
+- Xác minh email có đếm thời gian gửi lại; mã hết hạn hoặc bị khoá cần gửi lại mã mới.
+- Danh sách phiên dùng `is_current` để nhận diện máy đang dùng; thu hồi máy khác không đăng xuất máy này.
+  Khi phiên hiện tại bị thu hồi hoặc refresh bị từ chối, ứng dụng dọn dữ liệu phiên trước khi về đăng nhập.
+- Hồ sơ hiển thị chức danh, phòng ban, nơi làm và ngày vào công ty khi máy chủ cung cấp.
+
+## Hiển thị tên và ảnh người gửi trong nhóm
+
+Tin nhắn nhóm hiển thị đúng người gửi, kể cả thành viên đã rời phòng; hội thoại trực tiếp giữ cách hiển thị hiện có.
+
+### Công việc trong phòng
+
+Tab Công việc có danh sách Việc của tôi và bộ lọc giao cho tôi / tôi giao / quá hạn. Trong phòng, người tạo và quản lý phòng được sửa hoặc xoá; người được giao được cập nhật trạng thái. Máy chủ vẫn kiểm tra quyền cho từng thao tác.
+
+### Bảng trắng dùng chung
+
+Bảng trắng dùng tài liệu schema 2 chung với web, có hình học, nét vẽ, chữ và biểu tượng. Lưu tuần tự, giữ đối tượng chưa hỗ trợ chỉnh sửa và thông báo lỗi lưu; người dùng có thể thử lại.
+
+### Phiếu hỗ trợ khách hàng
+
+Mục phiếu hỗ trợ có danh sách, chi tiết, phản hồi và ảnh đính kèm, đồng bộ thay đổi qua kết nối thời gian thực. App hiển thị hành động theo quyền; máy chủ kiểm tra quyền cho mọi thao tác.

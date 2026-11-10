@@ -2,7 +2,12 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/domain/entities/email_verification.dart';
+import '../../features/auth/presentation/screens/device_approval_pending_screen.dart';
+import '../../features/auth/presentation/screens/device_approval_review_screen.dart';
+import '../../features/auth/presentation/screens/email_verification_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/auth/presentation/screens/qr_login_screen.dart';
 import '../../features/conversations/domain/entities/conversation_summary.dart';
 import '../../features/conversations/presentation/screens/channel_create_screen.dart';
 import '../../features/conversations/presentation/screens/channel_detail_screen.dart';
@@ -15,6 +20,8 @@ import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/settings/presentation/screens/app_settings_screen.dart';
 import '../../features/settings/presentation/screens/feedback_screen.dart';
 import '../../features/settings/presentation/screens/privacy_sessions_screen.dart';
+import '../../features/workspace/presentation/screens/invite_screen.dart';
+import '../../features/workspace/presentation/screens/workspace_selector_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -27,13 +34,54 @@ final appRouterProvider = Provider<GoRouter>((_) {
         path: '/login',
         name: 'login',
         builder: (context, state) {
-          return LoginScreen(onLoginSuccess: () => context.go('/'));
+          return LoginScreen(
+            onLoginSuccess: () => context.go(workspacePickerAfterLoginPath),
+            onDeviceApprovalRequired: () =>
+                context.go(deviceApprovalPendingPath),
+            onEmailVerificationRequired: (ticket) =>
+                context.push(emailVerificationLocation(ticket)),
+          );
         },
       ),
       GoRoute(
         path: '/workspaces',
         name: 'workspaces',
-        redirect: (context, state) => '/',
+        builder: (context, state) {
+          return WorkspaceSelectorScreen(
+            firstLogin: state.uri.queryParameters['first'] == '1',
+            onWorkspaceSelected: () => context.go('/'),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/qr-login',
+        name: 'qr-login',
+        builder: (context, state) => const QrLoginScreen(),
+      ),
+      GoRoute(
+        path: deviceApprovalPendingPath,
+        name: 'device-approval-pending',
+        builder: (context, state) => const DeviceApprovalPendingScreen(),
+      ),
+      GoRoute(
+        path: '/device-approvals/:session_id',
+        name: 'device-approval-review',
+        builder: (context, state) => DeviceApprovalReviewScreen(
+          sessionId: state.pathParameters['session_id'] ?? '',
+        ),
+      ),
+      GoRoute(
+        path: emailVerificationPath,
+        name: 'verify-email',
+        builder: (context, state) => EmailVerificationScreen(
+          ticket: EmailVerificationTicket.fromQuery(state.uri.queryParameters),
+        ),
+      ),
+      GoRoute(
+        path: '/invite/:token',
+        name: 'invite',
+        builder: (context, state) =>
+            InviteScreen(token: state.pathParameters['token'] ?? ''),
       ),
       GoRoute(
         path: '/',

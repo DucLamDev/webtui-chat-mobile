@@ -6,7 +6,14 @@ import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 
 class QrScannerScreen extends StatefulWidget {
-  const QrScannerScreen({super.key});
+  const QrScannerScreen({
+    this.title = 'Quét mã QR',
+    this.hint = 'Đưa mã vào khung, nội dung sẽ được chèn vào tin nhắn.',
+    super.key,
+  });
+
+  final String title;
+  final String hint;
 
   @override
   State<QrScannerScreen> createState() => _QrScannerScreenState();
@@ -87,7 +94,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Quét mã QR',
+                      widget.title,
                       textAlign: TextAlign.center,
                       style: WebTuiTypography.titleMedium.copyWith(
                         color: Colors.white,
@@ -96,7 +103,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                     ),
                     const SizedBox(height: WebTuiSpacing.xs),
                     Text(
-                      'Đưa mã vào khung, nội dung sẽ được chèn vào tin nhắn.',
+                      widget.hint,
                       textAlign: TextAlign.center,
                       style: WebTuiTypography.bodySmall.copyWith(
                         color: Colors.white70,

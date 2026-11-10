@@ -281,10 +281,12 @@ import flutter_callkit_incoming
 
   private func isAllowedNavigationPath(_ path: String) -> Bool {
     if path == "/conversations" || path == "/notifications" { return true }
-    let prefix = "/conversations/"
-    guard path.hasPrefix(prefix) else { return false }
-    let identifier = path.dropFirst(prefix.count)
-    return !identifier.isEmpty && !identifier.contains("/")
+    // Lời mời workspace /invite/<token> (Flutter kiểm tiếp định dạng token).
+    for prefix in ["/conversations/", "/invite/"] where path.hasPrefix(prefix) {
+      let identifier = path.dropFirst(prefix.count)
+      return !identifier.isEmpty && !identifier.contains("/")
+    }
+    return false
   }
 
   private func canonicalHTTPSOrigin(_ rawValue: String) -> String? {
