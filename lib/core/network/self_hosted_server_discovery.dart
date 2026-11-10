@@ -180,6 +180,8 @@ final class SelfHostedServerDiscovery {
         myNotes: capabilities['my_notes'] == true,
         secretMessages: capabilities['secret_messages'] == true,
         mfa: capabilities['mfa'] == true,
+        // Lõi 5: phê duyệt chung; máy chủ cũ không trả → tắt.
+        approvals: capabilities['approvals'] == true,
         // Lõi 2: máy chủ cũ không trả các trường này → coi như tắt.
         qrLogin: capabilities['qr_login'] == true,
         deviceApproval: capabilities['device_approval'] == true,
@@ -359,6 +361,7 @@ final class SelfHostedCapabilities {
     this.myNotes = false,
     this.secretMessages = false,
     this.mfa = false,
+    this.approvals = false,
     this.qrLogin = false,
     this.deviceApproval = false,
     this.emailVerification = false,
@@ -397,6 +400,9 @@ final class SelfHostedCapabilities {
   /// Xác thực hai lớp (TOTP) và xác thực lại.
   final bool mfa;
 
+  /// Phê duyệt chung (Lõi 5): danh sách, duyệt / từ chối, duyệt nhanh từ thông báo.
+  final bool approvals;
+
   /// Đăng nhập máy tính bằng QR (Lõi 2.2).
   final bool qrLogin;
 
@@ -428,6 +434,7 @@ final class SelfHostedCapabilities {
       'my_notes': myNotes,
       'secret_messages': secretMessages,
       'mfa': mfa,
+      'approvals': approvals,
       'qr_login': qrLogin,
       'device_approval': deviceApproval,
       'email_verification': emailVerification,
