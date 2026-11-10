@@ -227,8 +227,7 @@ final class WebSocketConversationRealtimeRepository
     if (controller == null || controller.isClosed) return;
     final channelIds = {
       '',
-      for (final room in _joinedRooms)
-        if (_channelIdOfRoom(room) case final channelId?) channelId,
+      for (final room in _joinedRooms) ?_channelIdOfRoom(room),
     };
     for (final channelId in channelIds) {
       controller.add(
