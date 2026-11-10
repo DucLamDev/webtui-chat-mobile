@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
+import '../../../approvals/presentation/widgets/approval_inbox_entry.dart';
+import '../../../business/presentation/widgets/business_inbox_entry.dart';
 import '../../../customer_tickets/presentation/controllers/customer_ticket_access_provider.dart';
 import '../../../customer_tickets/presentation/widgets/customer_ticket_inbox_entry.dart';
 import '../../../moderation/presentation/controllers/moderation_controller.dart';
@@ -300,7 +302,13 @@ class _MessagesList extends StatelessWidget {
           ),
           if (showWorkGrid)
             SliverToBoxAdapter(
-              child: CustomerTicketInboxEntry(workspaceId: state.workspaceId),
+              child: Column(
+                children: [
+                  BusinessInboxEntry(workspaceId: state.workspaceId),
+                  ApprovalInboxEntry(workspaceId: state.workspaceId),
+                  CustomerTicketInboxEntry(workspaceId: state.workspaceId),
+                ],
+              ),
             ),
           if (state.isLoading)
             const SliverToBoxAdapter(

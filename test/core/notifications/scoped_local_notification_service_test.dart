@@ -4,6 +4,7 @@ import 'package:webtui_chat/core/notifications/push_notification_service.dart';
 import 'package:webtui_chat/core/notifications/scoped_local_notification_service.dart';
 import 'package:webtui_chat/core/security/instance_scope.dart';
 import 'package:webtui_chat/core/security/secure_key_value_store.dart';
+import 'package:webtui_chat/features/notifications/domain/entities/mobile_notification.dart';
 
 const _instanceAId = '11111111-1111-4111-8111-111111111111';
 const _instanceBId = '22222222-2222-4222-8222-222222222222';
@@ -13,6 +14,7 @@ final _instanceB = InstanceScope(
 );
 
 void main() {
+  approvalNotificationTests();
   test('stale A data-only push is not shown while valid B is shown', () async {
     final displayed = <Map<String, Object?>>[];
     Future<bool> display(Map<String, Object?> data) async {
@@ -264,4 +266,94 @@ Map<String, Object?> _messageData({
     'deep_link':
         'webtui://chat/conversations/channel-shared?workspaceId=$workspaceId',
   };
+}
+
+const _approvalInstanceId = '33333333-3333-4333-8333-333333333333';
+
+Map<String, Object?> _approvalPush(String type) => <String, Object?>{
+  'instance_id': _approvalInstanceId,
+  'type': type,
+  'workspace_id': 'ws-1',
+  'approval_id': 'approval-9',
+  'title': 'Chi 5 triệu',
+};
+
+void approvalNotificationTests() {
+  group('phê duyệt từ thông báo', () {
+    test('approval_requested có payload định tuyến và nút Duyệt / Từ chối', () {
+      final routing = scopedNotificationRoutingData(
+        _approvalPush('approval_requested'),
+      );
+      expect(routing, isNotNull);
+      expect(routing!['approval_id'], 'approval-9');
+      expect(routing['type'], 'approval_requested');
+      final notification = ScopedLocalNotification.fromData(
+        _approvalPush('approval_requested'),
+      );
+      expect(notification.approvalId, 'approval-9');
+      expect(notification.title, 'Chi 5 triệu');
+    });
+
+    test('approval_updated không hiện thông báo cục bộ', () {
+      expect(
+        scopedNotificationRoutingData(_approvalPush('approval_updated')),
+        isNull,
+      );
+    });
+
+    test('nút Duyệt / Từ chối đổi thành quyết định đúng workspace', () {
+      final payload = ScopedLocalNotification.fromData(
+        _approvalPush('approval_requested'),
+      ).encodedRoutingPayload;
+      final approve = approvalActionFromResponse(
+        'webtui_approval_approve',
+        payload,
+      );
+      final reject = approvalActionFromResponse(
+        'webtui_approval_reject',
+        payload,
+      );
+      expect(approve!.approve, isTrue);
+      expect(approve.workspaceId, 'ws-1');
+      expect(approve.approvalId, 'approval-9');
+      expect(reject!.approve, isFalse);
+      // Bấm vào thân thông báo (không có nút) hoặc nút lạ: không là quyết định.
+      expect(approvalActionFromResponse(null, payload), isNull);
+      expect(approvalActionFromResponse('khac', payload), isNull);
+      expect(
+        approvalActionFromResponse('webtui_approval_approve', 'hong'),
+        isNull,
+      );
+    });
+
+    test('NotificationTarget nhận diện approval_requested / updated', () {
+      final requested = NotificationTarget.fromPayload(
+        workspaceId: 'ws-1',
+        data: _approvalPush('approval_requested'),
+      );
+      expect(requested.isApprovalRequest, isTrue);
+      expect(requested.isApprovalUpdate, isFalse);
+      final updated = NotificationTarget.fromPayload(
+        workspaceId: 'ws-1',
+        data: _approvalPush('approval_updated'),
+      );
+      expect(updated.isApprovalUpdate, isTrue);
+      expect(updated.isApproval, isTrue);
+      final noId = NotificationTarget.fromPayload(
+        workspaceId: 'ws-1',
+        data: {'type': 'approval_requested'},
+      );
+      expect(noId.isApproval, isFalse);
+    });
+
+    test('push của instance khác bị loại', () {
+      final target = scopedNotificationTargetIfCurrent(
+        data: _approvalPush('approval_updated'),
+        instanceScope: _instanceB,
+        workspaceId: 'ws-1',
+        persistedBindingMatches: true,
+      );
+      expect(target, isNull);
+    });
+  });
 }

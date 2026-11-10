@@ -19,6 +19,8 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../approvals/application/approval_notification_actions.dart';
+import '../../../approvals/presentation/controllers/approval_list_controller.dart';
 import '../../../auth/application/session_termination.dart';
 import '../../../auth/presentation/controllers/device_approval_controllers.dart';
 import '../../../auth/presentation/controllers/legal_acceptance_controller.dart';
@@ -96,6 +98,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   String? _syncWorkspaceId;
   String? _shareIntentWorkspaceId;
   String? _quickReplyWorkspaceId;
+  String? _approvalActionWorkspaceId;
   bool _syncInFlight = false;
   bool _incomingCallPollInFlight = false;
   Timer? _pushRegistrationRetryTimer;
@@ -106,6 +109,8 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   StreamSubscription<NativeIncomingCallAction>? _nativeCallSubscription;
   StreamSubscription<ChatSharePayload>? _shareIntentSubscription;
   StreamSubscription<ScopedNotificationQuickReply>? _quickReplySubscription;
+  StreamSubscription<ScopedNotificationApprovalAction>?
+  _approvalActionSubscription;
   final Set<String> _nativeCallActionsInFlight = <String>{};
   final Set<String> _openedDeviceApprovals = <String>{};
   StreamSubscription<ConversationRealtimeEvent>?
@@ -139,6 +144,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     _nativeCallSubscription?.cancel();
     _shareIntentSubscription?.cancel();
     _quickReplySubscription?.cancel();
+    _approvalActionSubscription?.cancel();
     _incomingCallRealtimeSubscription?.cancel();
     final workspaceId = _presenceWorkspaceId;
     if (workspaceId != null) {
@@ -262,6 +268,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       if (mounted) {
         _ensureShareIntentListener(activeWorkspace.id);
         _ensureQuickReplyListener(activeWorkspace.id);
+        _ensureApprovalActionListener(activeWorkspace.id);
       }
     });
     final notificationState = ref.watch(
@@ -506,6 +513,55 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           unawaited(_sendQuickReply(workspaceId, reply));
         });
     unawaited(_drainBackgroundQuickReplies(workspaceId));
+  }
+
+  void _ensureApprovalActionListener(String workspaceId) {
+    if (_approvalActionWorkspaceId == workspaceId &&
+        _approvalActionSubscription != null) {
+      return;
+    }
+    _approvalActionWorkspaceId = workspaceId;
+    unawaited(_approvalActionSubscription?.cancel());
+    _approvalActionSubscription = ScopedLocalNotificationService
+        .instance
+        .approvalActions
+        .listen((action) {
+          if (!mounted || _approvalActionWorkspaceId != workspaceId) return;
+          unawaited(_decideFromNotification(workspaceId, action));
+        });
+    unawaited(_drainBackgroundApprovalActions(workspaceId));
+  }
+
+  Future<void> _drainBackgroundApprovalActions(String workspaceId) async {
+    final actions = await ScopedLocalNotificationService.instance
+        .drainBackgroundApprovalActions();
+    if (!mounted || _approvalActionWorkspaceId != workspaceId) return;
+    for (final action in actions) {
+      await _decideFromNotification(workspaceId, action);
+    }
+  }
+
+  Future<void> _decideFromNotification(
+    String activeWorkspaceId,
+    ScopedNotificationApprovalAction action,
+  ) async {
+    if (action.workspaceId != activeWorkspaceId) return;
+    final handler = ApprovalNotificationActionHandler(
+      decide: ref.read(decideApprovalRequestUseCaseProvider),
+      report: ({required approvalId, required title, required body}) {
+        return ScopedLocalNotificationService.instance.showApprovalResult(
+          approvalId: approvalId,
+          title: title,
+          body: body,
+        );
+      },
+    );
+    await handler.handle(
+      workspaceId: action.workspaceId,
+      approvalId: action.approvalId,
+      approve: action.approve,
+    );
+    if (mounted) ref.invalidate(approvalListControllerProvider);
   }
 
   Future<void> _drainBackgroundQuickReplies(String workspaceId) async {
@@ -753,6 +809,11 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         return;
       }
       ref.invalidate(notificationCenterControllerProvider(target.workspaceId));
+      if (target.isApprovalUpdate) {
+        // Trạng thái yêu cầu của mình đã đổi: tải lại danh sách, không làm phiền.
+        ref.invalidate(approvalListControllerProvider);
+        return;
+      }
       if (target.isDeviceApprovalRequest) {
         _openDeviceApprovalReview(target.sessionId);
         return;
@@ -1727,6 +1788,12 @@ class _IncomingCallAction extends StatelessWidget {
 }
 
 String? _locationForNotificationTarget(NotificationTarget target) {
+  if (target.isApproval) {
+    return Uri(
+      path: '/approvals/${target.approvalId!.trim()}',
+      queryParameters: <String, String>{'workspaceId': target.workspaceId},
+    ).toString();
+  }
   if (target.canOpenContacts) {
     return Uri(
       path: '/',
