@@ -85,6 +85,23 @@ final class OpenPrivateChannelSessionUseCase {
   }
 }
 
+/// Thành viên phòng (kể cả người đã rời) để hiện tên / ảnh người gửi tin.
+final class ListChannelMembersUseCase {
+  const ListChannelMembersUseCase(this._repository);
+
+  final ConversationRepository _repository;
+
+  Future<Result<List<ChannelMember>>> execute({
+    required String workspaceId,
+    required String channelId,
+  }) {
+    return _repository.listMembers(
+      workspaceId: workspaceId,
+      channelId: channelId,
+    );
+  }
+}
+
 final class LoadChannelDetailUseCase {
   const LoadChannelDetailUseCase(this._repository);
 

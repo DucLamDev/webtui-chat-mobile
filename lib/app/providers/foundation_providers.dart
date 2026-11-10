@@ -952,6 +952,12 @@ final loadChannelDetailUseCaseProvider = Provider<LoadChannelDetailUseCase>((
   return LoadChannelDetailUseCase(ref.watch(conversationRepositoryProvider));
 });
 
+final listChannelMembersUseCaseProvider = Provider<ListChannelMembersUseCase>((
+  ref,
+) {
+  return ListChannelMembersUseCase(ref.watch(conversationRepositoryProvider));
+});
+
 final inviteChannelMemberUseCaseProvider = Provider<InviteChannelMemberUseCase>(
   (ref) {
     return InviteChannelMemberUseCase(
