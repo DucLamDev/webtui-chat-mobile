@@ -28,10 +28,20 @@ final class WorkspaceSyncPage {
     required this.serverTime,
     this.nextCursor,
     this.hasMore = false,
+    this.resetRequired = false,
+    this.resetReason,
   });
 
   final List<WorkspaceSyncEvent> events;
   final String? nextCursor;
   final bool hasMore;
   final DateTime serverTime;
+
+  /// Con trỏ đồng bộ đã bị dọn / không còn: máy chủ không trả lại được các sự
+  /// kiện đã lỡ, app phải tải lại danh sách hội thoại và hội thoại đang mở rồi
+  /// đi tiếp từ [nextCursor] ("bây giờ").
+  final bool resetRequired;
+
+  /// `cursor_expired` hoặc `cursor_unknown` (chỉ để ghi nhận).
+  final String? resetReason;
 }

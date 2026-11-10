@@ -4,15 +4,23 @@ import '../../domain/entities/auth_session.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/repositories/auth_token_repository.dart';
 
+/// Gọi khi máy chủ từ chối refresh (HTTP 401, mọi mã lỗi): phiên coi như bị
+/// thu hồi (`SESSION_REVOKED`) hoặc phải đăng nhập lại (`RELOGIN_REQUIRED`).
+typedef RefreshRejectedHandler =
+    Future<void> Function(Failure failure, AuthTokenMutationGuard guard);
+
 final class RefreshAccessTokenUseCase {
   RefreshAccessTokenUseCase({
     required AuthRepository authRepository,
     required AuthTokenRepository tokenRepository,
+    RefreshRejectedHandler? onRefreshRejected,
   }) : _authRepository = authRepository,
-       _tokenRepository = tokenRepository;
+       _tokenRepository = tokenRepository,
+       _onRefreshRejected = onRefreshRejected;
 
   final AuthRepository _authRepository;
   final AuthTokenRepository _tokenRepository;
+  final RefreshRejectedHandler? _onRefreshRejected;
   Future<Result<AuthSession>>? _inFlight;
   AuthTokenMutationGuard? _inFlightGuard;
 
@@ -83,6 +91,8 @@ final class RefreshAccessTokenUseCase {
           return result;
         case FailureResult<AuthSession>(failure: final failure):
           if (failure.requiresLogin) {
+            // Xoá token + dữ liệu cục bộ (resetForLogout) rồi về đăng nhập.
+            await _onRefreshRejected?.call(failure, guard);
             await _tokenRepository.clearTokensIfCurrent(guard);
           }
           return result;

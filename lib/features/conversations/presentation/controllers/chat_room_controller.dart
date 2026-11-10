@@ -8,6 +8,7 @@ import '../../../profile/application/use_cases/profile_use_cases.dart';
 import '../../application/use_cases/call_use_cases.dart';
 import '../../application/use_cases/conversation_realtime_reducer.dart';
 import '../../application/use_cases/message_attachment_use_cases.dart';
+import '../../application/use_cases/message_outbox_dispatcher.dart';
 import '../../application/use_cases/message_outbox_use_cases.dart';
 import '../../application/use_cases/message_use_cases.dart';
 import '../../domain/entities/call_session.dart';
@@ -44,7 +45,6 @@ final chatRoomControllerProvider = StateNotifierProvider.autoDispose
         uploadMessageAttachmentUseCase: ref.watch(
           uploadMessageAttachmentUseCaseProvider,
         ),
-        attachUploadedFileUseCase: ref.watch(attachUploadedFileUseCaseProvider),
         listMessageAttachmentsUseCase: ref.watch(
           listMessageAttachmentsUseCaseProvider,
         ),
@@ -52,15 +52,10 @@ final chatRoomControllerProvider = StateNotifierProvider.autoDispose
         enqueueMessageOutboxUseCase: ref.watch(
           enqueueMessageOutboxUseCaseProvider,
         ),
-        saveMessageOutboxItemUseCase: ref.watch(
-          saveMessageOutboxItemUseCaseProvider,
-        ),
-        canDispatchMessageOutboxItemUseCase: ref.watch(
-          canDispatchMessageOutboxItemUseCaseProvider,
-        ),
-        deleteMessageOutboxItemUseCase: ref.watch(
-          deleteMessageOutboxItemUseCaseProvider,
-        ),
+        outboxDispatcher: ref.watch(messageOutboxDispatcherProvider),
+        workspaceResets: ref
+            .watch(workspaceRefreshSignalProvider)
+            .resetsFor(scope.workspaceId),
         newClientMessageIdUseCase: ref.watch(newClientMessageIdUseCaseProvider),
         newAttachmentUploadItemUseCase: ref.watch(
           newAttachmentUploadItemUseCaseProvider,
@@ -177,6 +172,7 @@ final class ChatRoomState {
       outboxItems.where((item) => item.isFailed).length;
   int get sendingOutboxCount =>
       outboxItems.where((item) => item.isSending).length;
+
   /// Còn tệp đang tải lên: chưa cho gửi, nếu không tệp đó bị bỏ khi gửi.
   bool get hasUploadingAttachments => pendingAttachments.any(
     (item) => item.status == MessageAttachmentUploadStatus.uploading,
@@ -293,14 +289,11 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     required CancelVoiceMessageRecordingUseCase
     cancelVoiceMessageRecordingUseCase,
     required UploadMessageAttachmentUseCase uploadMessageAttachmentUseCase,
-    required AttachUploadedFileUseCase attachUploadedFileUseCase,
     required ListMessageAttachmentsUseCase listMessageAttachmentsUseCase,
     required LoadMessageOutboxUseCase loadMessageOutboxUseCase,
     required EnqueueMessageOutboxUseCase enqueueMessageOutboxUseCase,
-    required SaveMessageOutboxItemUseCase saveMessageOutboxItemUseCase,
-    required CanDispatchMessageOutboxItemUseCase
-    canDispatchMessageOutboxItemUseCase,
-    required DeleteMessageOutboxItemUseCase deleteMessageOutboxItemUseCase,
+    required MessageOutboxDispatcher outboxDispatcher,
+    Stream<String>? workspaceResets,
     required NewClientMessageIdUseCase newClientMessageIdUseCase,
     required NewAttachmentUploadItemUseCase newAttachmentUploadItemUseCase,
     required StartCallUseCase startCallUseCase,
@@ -330,14 +323,11 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
        _stopVoiceMessageRecordingUseCase = stopVoiceMessageRecordingUseCase,
        _cancelVoiceMessageRecordingUseCase = cancelVoiceMessageRecordingUseCase,
        _uploadMessageAttachmentUseCase = uploadMessageAttachmentUseCase,
-       _attachUploadedFileUseCase = attachUploadedFileUseCase,
        _listMessageAttachmentsUseCase = listMessageAttachmentsUseCase,
        _loadMessageOutboxUseCase = loadMessageOutboxUseCase,
        _enqueueMessageOutboxUseCase = enqueueMessageOutboxUseCase,
-       _saveMessageOutboxItemUseCase = saveMessageOutboxItemUseCase,
-       _canDispatchMessageOutboxItemUseCase =
-           canDispatchMessageOutboxItemUseCase,
-       _deleteMessageOutboxItemUseCase = deleteMessageOutboxItemUseCase,
+       _outboxDispatcher = outboxDispatcher,
+       _workspaceResets = workspaceResets,
        _newClientMessageIdUseCase = newClientMessageIdUseCase,
        _newAttachmentUploadItemUseCase = newAttachmentUploadItemUseCase,
        _startCallUseCase = startCallUseCase,
@@ -370,14 +360,11 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   final StopVoiceMessageRecordingUseCase _stopVoiceMessageRecordingUseCase;
   final CancelVoiceMessageRecordingUseCase _cancelVoiceMessageRecordingUseCase;
   final UploadMessageAttachmentUseCase _uploadMessageAttachmentUseCase;
-  final AttachUploadedFileUseCase _attachUploadedFileUseCase;
   final ListMessageAttachmentsUseCase _listMessageAttachmentsUseCase;
   final LoadMessageOutboxUseCase _loadMessageOutboxUseCase;
   final EnqueueMessageOutboxUseCase _enqueueMessageOutboxUseCase;
-  final SaveMessageOutboxItemUseCase _saveMessageOutboxItemUseCase;
-  final CanDispatchMessageOutboxItemUseCase
-  _canDispatchMessageOutboxItemUseCase;
-  final DeleteMessageOutboxItemUseCase _deleteMessageOutboxItemUseCase;
+  final MessageOutboxDispatcher _outboxDispatcher;
+  final Stream<String>? _workspaceResets;
   final NewClientMessageIdUseCase _newClientMessageIdUseCase;
   final NewAttachmentUploadItemUseCase _newAttachmentUploadItemUseCase;
   final StartCallUseCase _startCallUseCase;
@@ -395,13 +382,15 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   final ConversationRealtimeReducer _reducer;
 
   StreamSubscription<ConversationRealtimeEvent>? _realtimeSubscription;
+  StreamSubscription<MessageOutboxDispatchUpdate>? _outboxSubscription;
+  StreamSubscription<String>? _workspaceResetSubscription;
   Timer? _typingStopTimer;
-  bool _outboxRetryInFlight = false;
 
   Future<void> load() async {
     // Subscribe before fetching history so a message committed while the
     // request is in flight cannot fall into the gap between GET and WebSocket.
     _subscribeRealtime();
+    _subscribeOutboxAndResets();
     // Tải lại khi đã có tin (quay lại app, cuộc gọi kết thúc): làm ngầm, không
     // thay danh sách bằng màn "đang tải" và không mất vị trí đang đọc.
     state = state.copyWith(
@@ -607,7 +596,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
         workspaceId: item.workspaceId,
         channelId: item.channelId,
       );
-      await _retryOutboxItem(item, auto: false);
+      await _dispatchOutbox(auto: false, focusItemId: item.id);
       if (mounted) {
         state = state.copyWith(isSending: false);
       }
@@ -647,167 +636,89 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     }
   }
 
+  /// Gửi lại tin chờ của phòng này qua bộ gửi lại chung của app (đúng thứ tự
+  /// tạo, không gửi trùng khi màn chính cũng đang gửi lại).
   Future<void> retryOutbox({bool auto = false}) async {
     if (!_guardUserContentMutation(notify: !auto)) return;
-    if (_outboxRetryInFlight) {
-      return;
-    }
-    // A persisted `sending` item may belong to a controller that was disposed
-    // when the user left the channel. Retrying with the same idempotency key is
-    // safe and closes that interrupted-send gap.
-    final candidates = state.outboxItems.toList(growable: false);
-    if (candidates.isEmpty) {
-      return;
-    }
-    _outboxRetryInFlight = true;
-    try {
-      for (final item in candidates) {
-        await _retryOutboxItem(item, auto: auto);
-      }
-    } finally {
-      _outboxRetryInFlight = false;
+    await _dispatchOutbox(auto: auto);
+  }
+
+  Future<void> _dispatchOutbox({
+    required bool auto,
+    String? focusItemId,
+  }) async {
+    final result = await _outboxDispatcher.drainChannel(
+      workspaceId: state.scope.workspaceId,
+      channelId: state.scope.channelId,
+    );
+    if (!mounted || auto) return;
+    final failure =
+        (focusItemId == null ? null : result.updates[focusItemId]) ??
+        result.firstFailure;
+    if (failure != null && failure.isFailed && failure.error != null) {
+      state = state.copyWith(errorMessage: failure.error);
     }
   }
 
-  Future<void> _retryOutboxItem(
-    MessageOutboxItem item, {
-    required bool auto,
-  }) async {
-    if (!_guardUserContentMutation(notify: !auto)) return;
-    final sending = item.copyWith(
-      status: MessageOutboxStatus.sending,
-      attemptCount: item.attemptCount + 1,
-      updatedAt: DateTime.now().toUtc(),
-    );
-    await _saveMessageOutboxItemUseCase.execute(sending);
-    if (mounted) {
-      state = state.copyWith(
-        messages: _setOptimisticDeliveryStatus(
-          state.messages,
-          sending.clientMessageId,
-          MessageOutboxStatus.sending,
-        ),
-        outboxItems: _replaceOutboxItem(sending),
-      );
-    }
+  void _subscribeOutboxAndResets() {
+    _outboxSubscription ??= _outboxDispatcher.updates
+        .where(
+          (update) =>
+              update.item.workspaceId == state.scope.workspaceId &&
+              update.item.channelId == state.scope.channelId,
+        )
+        .listen(_applyOutboxUpdate);
+    _workspaceResetSubscription ??= _workspaceResets?.listen((_) {
+      // Đồng bộ bù bị đặt lại: tải lại tin mới nhất (giữ bản nháp).
+      unawaited(_catchUpAfterReconnect());
+    });
+  }
 
-    if (!await _canDispatchMessageOutboxItemUseCase.execute(sending)) {
-      const error = 'Server đã thay đổi; tin nhắn chưa được gửi.';
-      final failed = sending.copyWith(
-        status: MessageOutboxStatus.failed,
-        lastError: error,
-        updatedAt: DateTime.now().toUtc(),
-      );
-      await _saveMessageOutboxItemUseCase.execute(failed);
-      if (mounted) {
+  /// Cập nhật trạng thái tin chờ khi bộ gửi lại (của phòng này hay của toàn
+  /// app) đổi trạng thái tin.
+  void _applyOutboxUpdate(MessageOutboxDispatchUpdate update) {
+    if (!mounted) return;
+    final item = update.item;
+    final message = update.message?.copyWith(
+      isMine: update.message?.senderId == state.currentUserId,
+    );
+    switch (update.phase) {
+      case MessageOutboxDispatchPhase.sent:
+        state = state.copyWith(
+          messages: message == null
+              ? state.messages
+              : _upsertLocal(state.messages, message),
+          outboxItems: _removeOutboxItem(item.id),
+          clearError: true,
+        );
+        unawaited(_markLatestRead());
+      case MessageOutboxDispatchPhase.failed when message != null:
         state = state.copyWith(
           messages: _setOptimisticDeliveryStatus(
-            state.messages,
-            sending.clientMessageId,
+            _upsertLocal(state.messages, message),
+            item.clientMessageId,
             MessageOutboxStatus.failed,
           ),
-          outboxItems: _replaceOutboxItem(failed),
-          errorMessage: auto ? null : error,
+          outboxItems: _upsertOutboxItem(item),
         );
-      }
-      return;
-    }
-
-    final result = await _sendMessageUseCase.execute(
-      workspaceId: sending.workspaceId,
-      channelId: sending.channelId,
-      body: sending.body,
-      clientMessageId: sending.clientMessageId,
-      parentId: sending.parentId,
-      silent: sending.silent,
-    );
-    switch (result) {
-      case Success<ChatMessage>(value: final message):
-        final prepared = message.copyWith(
-          isMine: mounted && message.senderId == state.currentUserId,
+      case MessageOutboxDispatchPhase.sending ||
+          MessageOutboxDispatchPhase.queued ||
+          MessageOutboxDispatchPhase.failed:
+        state = state.copyWith(
+          messages: _upsertLocal(
+            state.messages,
+            _optimisticMessage(item, state.currentUserId),
+          ),
+          outboxItems: _upsertOutboxItem(item),
         );
-        final attachmentResult = await _attachOutboxFiles(prepared, sending);
-        if (attachmentResult.error != null) {
-          final failed = sending.copyWith(
-            status: MessageOutboxStatus.failed,
-            lastError: attachmentResult.error,
-            updatedAt: DateTime.now().toUtc(),
-          );
-          await _saveMessageOutboxItemUseCase.execute(failed);
-          if (mounted) {
-            state = state.copyWith(
-              messages: _setOptimisticDeliveryStatus(
-                _upsertLocal(state.messages, prepared),
-                sending.clientMessageId,
-                MessageOutboxStatus.failed,
-              ),
-              outboxItems: _replaceOutboxItem(failed),
-              errorMessage: auto ? null : attachmentResult.error,
-            );
-          }
-          return;
-        }
-        await _deleteMessageOutboxItemUseCase.execute(sending);
-        if (mounted) {
-          state = state.copyWith(
-            messages: _upsertLocal(
-              state.messages,
-              prepared.copyWith(
-                attachments: attachmentResult.attachments.isEmpty
-                    ? prepared.attachments
-                    : attachmentResult.attachments,
-              ),
-            ),
-            outboxItems: _removeOutboxItem(sending.id),
-            clearError: true,
-          );
-          await _markLatestRead();
-        }
-      case FailureResult<ChatMessage>(failure: final failure):
-        final failed = sending.copyWith(
-          status: MessageOutboxStatus.failed,
-          lastError: failure.message,
-          updatedAt: DateTime.now().toUtc(),
-        );
-        await _saveMessageOutboxItemUseCase.execute(failed);
-        if (mounted) {
-          state = state.copyWith(
-            messages: _setOptimisticDeliveryStatus(
-              state.messages,
-              sending.clientMessageId,
-              MessageOutboxStatus.failed,
-            ),
-            outboxItems: _replaceOutboxItem(failed),
-            errorMessage: auto ? null : failure.message,
-          );
-        }
     }
   }
 
-  Future<({String? error, List<MessageAttachment> attachments})>
-  _attachOutboxFiles(ChatMessage message, MessageOutboxItem item) async {
-    final attachments = [...item.attachments]
-      ..sort((left, right) => left.sortOrder.compareTo(right.sortOrder));
-    final attached = <MessageAttachment>[];
-    for (final attachment in attachments) {
-      final result = await _attachUploadedFileUseCase.execute(
-        workspaceId: item.workspaceId,
-        channelId: item.channelId,
-        messageId: message.id,
-        fileId: attachment.fileId,
-        sortOrder: attachment.sortOrder,
-      );
-      switch (result) {
-        case Success<MessageAttachment>(value: final value):
-          attached.add(value);
-        case FailureResult<MessageAttachment>(failure: final failure):
-          return (error: failure.message, attachments: attached);
-      }
+  List<MessageOutboxItem> _upsertOutboxItem(MessageOutboxItem item) {
+    final exists = state.outboxItems.any((entry) => entry.id == item.id);
+    if (!exists) {
+      return [...state.outboxItems, item];
     }
-    return (error: null, attachments: attached);
-  }
-
-  List<MessageOutboxItem> _replaceOutboxItem(MessageOutboxItem item) {
     return state.outboxItems
         .map((entry) => entry.id == item.id ? item : entry)
         .toList(growable: false);
@@ -1522,6 +1433,8 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   void dispose() {
     _typingStopTimer?.cancel();
     unawaited(_realtimeSubscription?.cancel());
+    unawaited(_outboxSubscription?.cancel());
+    unawaited(_workspaceResetSubscription?.cancel());
     super.dispose();
   }
 }

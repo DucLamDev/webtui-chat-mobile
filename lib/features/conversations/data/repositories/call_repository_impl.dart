@@ -17,6 +17,7 @@ final class CallRepositoryImpl implements CallRepository {
     required CallMode mode,
     required String clientCallId,
     Map<String, Object?> metadata = const {},
+    String? deviceId,
   }) {
     return guardResult(
       () => _remote.createCall(
@@ -26,6 +27,7 @@ final class CallRepositoryImpl implements CallRepository {
         mode: mode,
         clientCallId: clientCallId,
         metadata: metadata,
+        deviceId: deviceId,
       ),
     );
   }
@@ -53,11 +55,13 @@ final class CallRepositoryImpl implements CallRepository {
   Future<Result<CallSession>> acceptCall({
     required String workspaceId,
     required String callId,
+    String? deviceId,
   }) {
     return _changeStatus(
       workspaceId: workspaceId,
       callId: callId,
       action: 'accept',
+      deviceId: deviceId,
     );
   }
 
@@ -66,12 +70,14 @@ final class CallRepositoryImpl implements CallRepository {
     required String workspaceId,
     required String callId,
     String? reason,
+    String? deviceId,
   }) {
     return _changeStatus(
       workspaceId: workspaceId,
       callId: callId,
       action: 'reject',
       reason: reason,
+      deviceId: deviceId,
     );
   }
 
@@ -139,6 +145,7 @@ final class CallRepositoryImpl implements CallRepository {
     required String callId,
     required String action,
     String? reason,
+    String? deviceId,
   }) {
     return guardResult(
       () => _remote.changeStatus(
@@ -146,6 +153,7 @@ final class CallRepositoryImpl implements CallRepository {
         callId: callId,
         action: action,
         reason: reason,
+        deviceId: deviceId,
       ),
     );
   }

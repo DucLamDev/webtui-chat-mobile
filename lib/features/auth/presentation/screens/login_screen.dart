@@ -7,12 +7,24 @@ import '../../../../design_system/components/webtui_avatar.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../domain/entities/email_verification.dart';
 import '../controllers/login_controller.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({this.onLoginSuccess, super.key});
+  const LoginScreen({
+    this.onLoginSuccess,
+    this.onDeviceApprovalRequired,
+    this.onEmailVerificationRequired,
+    super.key,
+  });
 
   final VoidCallback? onLoginSuccess;
+
+  /// Phiên mới đang chờ máy tin cậy / quản trị duyệt (Lõi 2.3).
+  final VoidCallback? onDeviceApprovalRequired;
+
+  /// Máy chủ yêu cầu nhập mã xác minh email (Lõi 2.6).
+  final ValueChanged<EmailVerificationTicket>? onEmailVerificationRequired;
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -24,7 +36,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     ref.listen<LoginState>(loginControllerProvider, (previous, next) {
       if (next.succeeded && previous?.succeeded != true) {
         ref.invalidate(authAccessTokenProvider);
-        widget.onLoginSuccess?.call();
+        final onApproval = widget.onDeviceApprovalRequired;
+        if (next.requiresDeviceApproval && onApproval != null) {
+          onApproval();
+        } else {
+          widget.onLoginSuccess?.call();
+        }
+      }
+      final ticket = next.emailVerification;
+      if (ticket != null && previous?.emailVerification != ticket) {
+        ref.read(loginControllerProvider.notifier).clearEmailVerification();
+        widget.onEmailVerificationRequired?.call(ticket);
       }
     });
 
@@ -125,18 +147,26 @@ class _ServerContent extends StatelessWidget {
           subtitle:
               'Nhập domain của tổ chức. Ứng dụng sẽ kiểm tra kết nối trước khi đăng nhập.',
         ),
-        const SizedBox(height: 34),
-        _AuthTextField(
-          fieldKey: const Key('server_domain_field'),
-          initialValue: state.domain,
-          label: 'Địa chỉ máy chủ',
-          hint: 'chat.example.com',
-          icon: Icons.dns_outlined,
-          enabled: !state.isLoading,
-          keyboardType: TextInputType.url,
-          textInputAction: TextInputAction.done,
-          onChanged: controller.updateDomain,
-          onSubmitted: (_) => controller.connectServer(),
+        if (state.noticeMessage case final notice?) ...[
+          _AuthNotice(message: notice),
+          const SizedBox(height: 16),
+        ] else
+          const SizedBox(height: 18),
+        KeyedSubtree(
+          // Dựng lại ô khi được điền sẵn tên miền (mở từ lời mời).
+          key: ValueKey('server-prefill-${state.prefillRevision}'),
+          child: _AuthTextField(
+            fieldKey: const Key('server_domain_field'),
+            initialValue: state.domain,
+            label: 'Địa chỉ máy chủ',
+            hint: 'chat.example.com',
+            icon: Icons.dns_outlined,
+            enabled: !state.isLoading,
+            keyboardType: TextInputType.url,
+            textInputAction: TextInputAction.done,
+            onChanged: controller.updateDomain,
+            onSubmitted: (_) => controller.connectServer(),
+          ),
         ),
         const SizedBox(height: 16),
         Text(
@@ -235,17 +265,25 @@ class _LoginContent extends StatelessWidget {
           domain: state.domain,
           onChange: state.isLoading ? null : controller.changeServer,
         ),
+        if (state.noticeMessage case final notice?) ...[
+          const SizedBox(height: 16),
+          _AuthNotice(message: notice),
+        ],
         const SizedBox(height: 24),
-        _AuthTextField(
-          fieldKey: const Key('login_identifier_field'),
-          initialValue: state.identifier,
-          label: 'Email hoặc username',
-          hint: 'duclamdev',
-          icon: Icons.alternate_email_rounded,
-          enabled: !state.isLoading,
-          keyboardType: TextInputType.emailAddress,
-          textInputAction: TextInputAction.next,
-          onChanged: controller.updateIdentifier,
+        KeyedSubtree(
+          // Dựng lại ô khi điền sẵn email / username đăng nhập gần nhất.
+          key: ValueKey('identifier-prefill-${state.prefillRevision}'),
+          child: _AuthTextField(
+            fieldKey: const Key('login_identifier_field'),
+            initialValue: state.identifier,
+            label: 'Email hoặc username',
+            hint: 'duclamdev',
+            icon: Icons.alternate_email_rounded,
+            enabled: !state.isLoading,
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            onChanged: controller.updateIdentifier,
+          ),
         ),
         const SizedBox(height: 16),
         _AuthTextField(
@@ -422,16 +460,19 @@ class _RegisterContent extends StatelessWidget {
           onChanged: controller.updateUsername,
         ),
         const SizedBox(height: 14),
-        _AuthTextField(
-          fieldKey: const Key('register_invite_token_field'),
-          initialValue: state.inviteToken,
-          label: 'Mã lời mời',
-          hint: 'Nhập mã nếu server yêu cầu',
-          icon: Icons.key_rounded,
-          enabled: !state.isLoading,
-          keyboardType: TextInputType.text,
-          textInputAction: TextInputAction.next,
-          onChanged: controller.updateInviteToken,
+        KeyedSubtree(
+          key: ValueKey('invite-prefill-${state.prefillRevision}'),
+          child: _AuthTextField(
+            fieldKey: const Key('register_invite_token_field'),
+            initialValue: state.inviteToken,
+            label: 'Mã lời mời',
+            hint: 'Nhập mã nếu server yêu cầu',
+            icon: Icons.key_rounded,
+            enabled: !state.isLoading,
+            keyboardType: TextInputType.text,
+            textInputAction: TextInputAction.next,
+            onChanged: controller.updateInviteToken,
+          ),
         ),
         const SizedBox(height: 14),
         _AuthTextField(
@@ -1201,6 +1242,49 @@ class _AuthStatus extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Lý do vừa phải đăng nhập lại / thông báo lời mời (màu vàng, không phải lỗi).
+class _AuthNotice extends StatelessWidget {
+  const _AuthNotice({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      key: const Key('login_notice'),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7E6),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFF2C97D)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(
+              Icons.info_outline_rounded,
+              color: Color(0xFF8A5A00),
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: WebTuiTypography.bodySmall.copyWith(
+                  color: const Color(0xFF5C3D00),
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

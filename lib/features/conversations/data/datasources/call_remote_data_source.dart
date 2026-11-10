@@ -14,6 +14,7 @@ final class CallRemoteDataSource {
     required CallMode mode,
     required String clientCallId,
     Map<String, Object?> metadata = const {},
+    String? deviceId,
   }) async {
     final response = await _api.post<Object>(
       '/api/v1/workspaces/${_e(workspaceId)}/calls',
@@ -23,6 +24,7 @@ final class CallRemoteDataSource {
         'client_call_id': clientCallId,
         'mode': _modeToApi(mode),
         'metadata': metadata,
+        'device_id': _deviceIdOrNull(deviceId),
       }),
     );
     return _callFromMap(envelopeItem(response.data, 'call'));
@@ -53,10 +55,14 @@ final class CallRemoteDataSource {
     required String callId,
     required String action,
     String? reason,
+    String? deviceId,
   }) async {
     final response = await _api.post<Object>(
       '/api/v1/workspaces/${_e(workspaceId)}/calls/${_e(callId)}/$action',
-      data: compactMap({'reason': reason}),
+      data: compactMap({
+        'reason': reason,
+        'device_id': _deviceIdOrNull(deviceId),
+      }),
     );
     return _callFromMap(envelopeItem(response.data, 'call'));
   }
@@ -98,7 +104,23 @@ CallSession _callFromMap(JsonMap map) {
     createdAt: dateTimeField(map, const ['created_at', 'createdAt']),
     updatedAt: dateTimeField(map, const ['updated_at', 'updatedAt']),
     metadata: jsonMap(field(map, const ['metadata'])),
+    initiatorDeviceId: nullableStringField(map, const [
+      'initiator_device_id',
+      'initiatorDeviceId',
+    ]),
+    answeredDeviceId: nullableStringField(map, const [
+      'answered_device_id',
+      'answeredDeviceId',
+    ]),
+    answeredAt: nullableDateTimeField(map, const ['answered_at', 'answeredAt']),
   );
+}
+
+/// Mã thiết bị gửi kèm cuộc gọi: tối đa 128 ký tự theo hợp đồng máy chủ.
+String? _deviceIdOrNull(String? value) {
+  final normalized = value?.trim() ?? '';
+  if (normalized.isEmpty || normalized.length > 128) return null;
+  return normalized;
 }
 
 CallSignal _signalFromMap(JsonMap map) {

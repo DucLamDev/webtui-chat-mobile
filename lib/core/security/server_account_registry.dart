@@ -72,11 +72,48 @@ final class SecureServerAccountRegistry {
       record
         ..remove('access_token')
         ..remove('refresh_token')
-        ..remove(_sessionPersistenceField);
+        ..remove(_sessionPersistenceField)
+        ..remove(_loginIdentifierField);
     }
     records.removeWhere((item) => item['base_url'] == key);
     records.insert(0, record);
     await _writeRecords(records.take(10).toList(growable: false));
+  }
+
+  /// Ghi nhớ email / username vừa đăng nhập thành công trên đúng máy chủ để
+  /// điền sẵn khi phải đăng nhập lại. Không bao giờ lưu mật khẩu.
+  Future<void> rememberLoginIdentifier({
+    required InstanceScope instanceScope,
+    required String identifier,
+  }) async {
+    final value = identifier.trim();
+    if (value.isEmpty || value.length > 320) return;
+    final records = await _readRecords();
+    final index = _indexForScope(records, instanceScope);
+    if (index < 0) return;
+    records[index][_loginIdentifierField] = value;
+    await _writeRecords(records);
+  }
+
+  Future<String?> loginIdentifierFor(InstanceScope instanceScope) async {
+    final records = await _readRecords();
+    final index = _indexForScope(records, instanceScope);
+    if (index < 0) return null;
+    final value = records[index][_loginIdentifierField]?.toString().trim();
+    return value == null || value.isEmpty ? null : value;
+  }
+
+  int _indexForScope(
+    List<Map<String, Object?>> records,
+    InstanceScope instanceScope,
+  ) {
+    final key = _serverKey(instanceScope.origin);
+    return records.indexWhere(
+      (item) =>
+          item['base_url'] == key &&
+          item['instance_id'] == instanceScope.instanceId &&
+          item['instance_scope_id'] == instanceScope.storageId,
+    );
   }
 
   Future<void> stashActiveSession() async {
@@ -278,3 +315,4 @@ String _serverKey(Uri uri) {
 }
 
 const _sessionPersistenceField = 'session_persistence';
+const _loginIdentifierField = 'login_identifier';

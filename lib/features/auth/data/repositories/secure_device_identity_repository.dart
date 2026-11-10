@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/security/instance_scope.dart';
+import '../../../../core/security/scoped_device_id.dart';
 import '../../../../core/security/secure_key_value_store.dart';
 import '../../domain/entities/device_identity.dart';
 import '../../domain/repositories/device_identity_repository.dart';
@@ -33,9 +34,10 @@ final class SecureDeviceIdentityRepository implements DeviceIdentityRepository {
       await _secureStore.write(SecureStoreKey.deviceMasterSecret, masterSecret);
       await _secureStore.delete(SecureStoreKey.deviceId);
     }
-    final deviceId = _uuid.v5(
-      Namespace.url.value,
-      '$masterSecret:${instanceScope.storageId}',
+    final deviceId = deriveScopedDeviceId(
+      masterSecret: masterSecret,
+      instanceStorageId: instanceScope.storageId,
+      uuid: _uuid,
     );
 
     final platform = Platform.operatingSystem;

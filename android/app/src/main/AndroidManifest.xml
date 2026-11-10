@@ -138,6 +138,10 @@
                     android:scheme="https"
                     android:host="${webtuiAppLinkHost}"
                     android:path="/notifications" />
+                <data
+                    android:scheme="https"
+                    android:host="${webtuiAppLinkHost}"
+                    android:pathPrefix="/invite/" />
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

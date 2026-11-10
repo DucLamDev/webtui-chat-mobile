@@ -7,6 +7,48 @@ import 'package:webtui_chat/features/sync/domain/entities/workspace_sync_event.d
 import 'package:webtui_chat/features/sync/domain/repositories/workspace_sync_repository.dart';
 
 void main() {
+  for (final reload in ['success', 'failure', 'missing']) {
+    test('reset chỉ xác nhận sau khi tải lại thành công: $reload', () async {
+      final repository = _FakeWorkspaceSyncRepository(
+        pages: [
+          WorkspaceSyncPage(
+            events: [],
+            nextCursor: 'new-head',
+            serverTime: DateTime.utc(2026, 11, 10),
+            resetRequired: true,
+            resetReason: 'cursor_expired',
+          ),
+        ],
+      );
+      final useCase = CatchUpWorkspaceSyncUseCase(
+        repository: repository,
+        deviceIdentityRepository: const _FakeDeviceIdentityRepository(),
+      );
+      var reloaded = false;
+      final result = await useCase.execute(
+        workspaceId: 'workspace-1',
+        onResetRequired: reload == 'missing'
+            ? null
+            : (page) async {
+                expect(repository.savedCursors, isEmpty);
+                expect(repository.ackedCursors, isEmpty);
+                if (reload == 'failure') throw StateError('Mất mạng');
+                reloaded = true;
+              },
+      );
+      if (reload == 'success') {
+        expect(reloaded, isTrue);
+        expect(result.valueOrNull!.resetRequired, isTrue);
+        expect(repository.savedCursors, ['new-head']);
+        expect(repository.ackedCursors, ['new-head']);
+      } else {
+        expect(result.failureOrNull?.code, 'SYNC_RESET_RELOAD_FAILURE');
+        expect(repository.savedCursors, isEmpty);
+        expect(repository.ackedCursors, isEmpty);
+      }
+    });
+  }
+
   test('catch-up reads cursor and acks each returned next cursor', () async {
     final repository = _FakeWorkspaceSyncRepository(
       pages: [

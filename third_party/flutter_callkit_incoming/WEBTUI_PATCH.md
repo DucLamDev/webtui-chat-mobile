@@ -46,3 +46,19 @@ The fork also contains process-recreation safety that must be preserved:
 
 When updating upstream, also port and re-run the durable-action source/Dart
 tests and the physical cold-process accept/decline/timeout matrix.
+
+# WebTUI iOS remote-cancel patch
+
+`SwiftFlutterCallkitIncomingPlugin.reportRemotelyEndedCall(_:reason:endExistingCall:completion:)`
+handles a VoIP push that cancels a call (answered on another device, rejected,
+cancelled or missed). PushKit requires every VoIP push to be reported to
+CallKit before its completion runs, so the method reports the call UUID and
+then ends it immediately with `CXCallEndedReason` (same reason codes as
+`saveEndCall`). It does not overwrite the plugin's current `data` /
+`isFromPushKit`, sends no event to Dart, and removes the call from the
+plugin's call list so no missed-call timer fires for it. With
+`endExistingCall == false` an already-existing UUID (the call answered on this
+device) is left untouched.
+
+When updating upstream, port this method and re-check the iOS cancel matrix
+(ringing, already answered here, app killed).

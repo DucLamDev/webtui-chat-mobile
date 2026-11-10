@@ -68,6 +68,31 @@ final class AppDatabase implements QueryExecutorUser {
     return rows.single['value']?.toString();
   }
 
+  /// Giá trị [key] của mọi scope bắt đầu đúng bằng [prefix]. So khớp tiền tố
+  /// bằng `substr` (không dùng LIKE) để `_` / `%` trong mã không thành ký tự
+  /// đại diện.
+  Future<List<({String scope, String value})>> readKeyValuesWithScopePrefix({
+    required String prefix,
+    required String key,
+  }) async {
+    await _ensureOpen();
+
+    final rows = await _executor.runSelect(
+      '''
+      SELECT scope, value
+      FROM key_value_entries
+      WHERE key = ? AND substr(scope, 1, length(?)) = ?
+      ORDER BY scope;
+      ''',
+      [key, prefix, prefix],
+    );
+    return [
+      for (final row in rows)
+        if (row['scope'] != null && row['value'] != null)
+          (scope: row['scope'].toString(), value: row['value'].toString()),
+    ];
+  }
+
   Future<void> deleteKeyValue({
     required String scope,
     required String key,

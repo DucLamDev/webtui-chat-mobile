@@ -88,20 +88,42 @@ final class LocalSessionStateRepository implements SessionStateRepository {
       final isCurrent =
           values[0] == guard.instanceScopeId && values[1] == guard.generation;
 
-      await _serverAccountRegistry?.clearSessionForScopeId(
-        guard.instanceScopeId,
-      );
-      await _database.deleteScopesWithPrefix(
-        'instance_v2:${guard.instanceScopeId}:',
-      );
+      // Một lỗi thu hồi cũ có thể tới sau khi đã đăng nhập lại cùng máy chủ.
+      // Kiểm generation trước mọi thao tác xoá, kể cả kho phiên và Drift.
       if (!isCurrent) return false;
 
       final instanceScope = _loadInstanceScope();
-      await _clearNativeInstanceBinding();
-      await _secureStore.clearSession();
-      await _terminateNativeCalls?.call(instanceScope);
-      await _clearMessageNotifications?.call();
-      await _clearScopedAttachmentFiles?.call(instanceScope);
+      Object? firstError;
+      StackTrace? firstStack;
+      Future<void> cleanup(Future<void> Function() action) async {
+        try {
+          await action();
+        } on Object catch (error, stack) {
+          firstError ??= error;
+          firstStack ??= stack;
+        }
+      }
+
+      await cleanup(_clearNativeInstanceBinding);
+      await cleanup(
+        () async => _serverAccountRegistry?.clearSessionForScopeId(
+          guard.instanceScopeId,
+        ),
+      );
+      await cleanup(_secureStore.clearSession);
+      await cleanup(() async => _terminateNativeCalls?.call(instanceScope));
+      await cleanup(() async => _clearMessageNotifications?.call());
+      await cleanup(
+        () async => _clearScopedAttachmentFiles?.call(instanceScope),
+      );
+      await cleanup(
+        () => _database.deleteScopesWithPrefix(
+          'instance_v2:${guard.instanceScopeId}:',
+        ),
+      );
+      if (firstError != null) {
+        Error.throwWithStackTrace(firstError!, firstStack!);
+      }
       return true;
     });
   }

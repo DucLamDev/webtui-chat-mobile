@@ -33,6 +33,11 @@ final class WorkspaceSyncRemoteDataSource {
       ]),
       hasMore: boolField(data, const ['has_more', 'hasMore']),
       serverTime: dateTimeField(data, const ['server_time', 'serverTime']),
+      resetRequired: boolField(data, const ['reset_required', 'resetRequired']),
+      resetReason: nullableStringField(data, const [
+        'reset_reason',
+        'resetReason',
+      ]),
     );
   }
 

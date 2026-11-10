@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,7 +19,14 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../auth/application/session_termination.dart';
+import '../../../auth/presentation/controllers/device_approval_controllers.dart';
 import '../../../auth/presentation/controllers/legal_acceptance_controller.dart';
+
+import '../../../conversations/domain/entities/call_device_routing.dart';
+
+import '../../../auth/presentation/screens/device_approval_review_screen.dart';
+
 import '../../../conversations/domain/entities/call_session.dart';
 import '../../../conversations/domain/entities/conversation_realtime_event.dart';
 import '../../../conversations/domain/entities/conversation_summary.dart';
@@ -38,6 +46,20 @@ bool nativeRejectActionIsStaleAfterAcceptance({
 }) {
   return (reason == 'timeout' || reason == 'declined') &&
       currentStatus != CallStatus.ringing;
+}
+
+/// Hành động gốc (decline / ended / timeout) của máy này với cuộc gọi đã được
+/// nhận ở máy khác của chính người dùng: không gửi reject / hangup (sẽ cắt cuộc
+/// gọi đang nói ở máy kia), chỉ xác nhận.
+bool nativeCallActionIsStaleForOtherDevice({
+  required CallSession current,
+  required String? localDeviceId,
+}) {
+  return current.status == CallStatus.accepted &&
+      callAnsweredOnAnotherDevice(
+        answeredDeviceId: current.answeredDeviceId,
+        localDeviceId: localDeviceId,
+      );
 }
 
 bool nativeCallActionMatchesInstance({
@@ -88,12 +110,16 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   StreamSubscription<ChatSharePayload>? _shareIntentSubscription;
   StreamSubscription<ScopedNotificationQuickReply>? _quickReplySubscription;
   final Set<String> _nativeCallActionsInFlight = <String>{};
+  final Set<String> _openedDeviceApprovals = <String>{};
   StreamSubscription<ConversationRealtimeEvent>?
   _incomingCallRealtimeSubscription;
   bool _notificationEnabled = true;
   bool _compactMode = false;
   bool _networkDegraded = false;
   String? _activeIncomingCallId;
+  String? _ringingDialogCallId;
+  ValueNotifier<bool>? _ringingDialogDismiss;
+  ({String scopeId, String deviceId})? _callDeviceId;
   double _soundLevel = 0.64;
   double _textScalePreview = 0.42;
 
@@ -135,6 +161,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       _startIncomingCallPolling(workspaceId);
       unawaited(_runWorkspaceCatchUp(workspaceId));
       unawaited(_drainBackgroundQuickReplies(workspaceId));
+      _drainMessageOutbox(workspaceId);
       return;
     }
 
@@ -143,6 +170,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     // online on the next presence heartbeat.
     _presenceTimer?.cancel();
     _incomingCallPollTimer?.cancel();
+    _pauseMessageOutboxRetry();
     final presence = switch (state) {
       AppLifecycleState.detached => ConversationPresence.offline,
       _ => ConversationPresence.away,
@@ -228,6 +256,8 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           unawaited(_runWorkspaceCatchUp(activeWorkspace.id));
+          // Mở app: gửi lại tin chờ của mọi hội thoại, không đợi mở đúng phòng.
+          _drainMessageOutbox(activeWorkspace.id);
         }
       });
     }
@@ -313,6 +343,14 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
                       onProfileTap: () => context.push('/profile'),
                       onAdvancedTap: () => context.push('/settings'),
                       onPrivacyTap: () => context.push('/privacy'),
+                      // Chỉ hiện khi tài khoản có từ 2 workspace (2.4).
+                      onSwitchWorkspaceTap: workspaceState.canSwitchWorkspace
+                          ? () => context.push('/workspaces')
+                          : null,
+                      // Máy chủ cũ không trả capability → ẩn (2.2).
+                      onQrLoginTap: organization?.capabilities.qrLogin == true
+                          ? () => context.push('/qr-login')
+                          : null,
                       onLogoutTap: () async {
                         try {
                           await ref
@@ -600,7 +638,10 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     try {
       final result = await ref
           .read(catchUpWorkspaceSyncUseCaseProvider)
-          .execute(workspaceId: workspaceId);
+          .execute(
+            workspaceId: workspaceId,
+            onResetRequired: (_) => _reloadAfterSyncReset(workspaceId),
+          );
       final page = result.valueOrNull;
       if (!mounted) {
         return;
@@ -611,6 +652,8 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       }
       if (_networkDegraded) {
         setState(() => _networkDegraded = false);
+        // Có mạng lại: gửi tin còn nằm trong hàng chờ.
+        _drainMessageOutbox(workspaceId);
       }
       if (page.events.isEmpty) {
         return;
@@ -627,6 +670,63 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     }
   }
 
+  /// Máy chủ báo con trỏ đồng bộ đã bị dọn (`reset_required`): tải lại danh
+  /// sách hội thoại, báo phòng đang mở tải lại tin mới nhất. Tải lại lỗi thì
+  /// ném lỗi để use case giữ con trỏ cũ (lần sau đặt lại tiếp).
+  Future<void> _reloadAfterSyncReset(String workspaceId) async {
+    if (!mounted) {
+      throw StateError('Màn hình đã đóng trước khi tải lại.');
+    }
+    final reloaded = await ref
+        .read(conversationHomeControllerProvider(workspaceId).notifier)
+        .syncSilently();
+    if (!mounted) {
+      throw StateError('Màn hình đã đóng trước khi tải lại.');
+    }
+    ref.invalidate(notificationCenterControllerProvider(workspaceId));
+    ref.read(workspaceRefreshSignalProvider).notifyReset(workspaceId);
+    if (!reloaded) {
+      throw StateError('Không tải lại được danh sách hội thoại.');
+    }
+  }
+
+  void _drainMessageOutbox(String workspaceId) {
+    try {
+      unawaited(
+        ref.read(messageOutboxDispatcherProvider).drainWorkspace(workspaceId),
+      );
+    } on Object {
+      // Hàng chờ vẫn được gửi lại ở lần kích hoạt sau.
+    }
+  }
+
+  void _pauseMessageOutboxRetry() {
+    try {
+      ref.read(messageOutboxDispatcherProvider).pauseAutoRetry();
+    } on Object {
+      // Provider có thể đã bị huỷ khi đổi máy chủ.
+    }
+  }
+
+  /// Mã máy đã đăng ký push (theo instance đang dùng), nhớ tạm trong màn.
+  Future<String?> _localCallDeviceId() async {
+    final String scopeId;
+    try {
+      scopeId = ref.read(activeInstanceScopeProvider).storageId;
+    } on Object {
+      return null;
+    }
+    final cached = _callDeviceId;
+    if (cached != null && cached.scopeId == scopeId) return cached.deviceId;
+    final resolved = await ref
+        .read(resolveCallDeviceIdUseCaseProvider)
+        .execute();
+    if (resolved != null) {
+      _callDeviceId = (scopeId: scopeId, deviceId: resolved);
+    }
+    return resolved;
+  }
+
   void _listenPushTargets() {
     final service = ref.read(pushNotificationServiceProvider);
     _nativeCallSubscription ??= NativeIncomingCallService.actions.listen((
@@ -641,7 +741,9 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       if (!mounted) {
         return;
       }
-      if (target.isIncomingCall) {
+      if (target.isDeviceApprovalRequest) {
+        _openDeviceApprovalReview(target.sessionId);
+      } else if (target.isIncomingCall) {
         unawaited(_showIncomingCall(target));
       } else {
         _openNotificationTarget(target);
@@ -654,6 +756,10 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         return;
       }
       ref.invalidate(notificationCenterControllerProvider(target.workspaceId));
+      if (target.isDeviceApprovalRequest) {
+        _openDeviceApprovalReview(target.sessionId);
+        return;
+      }
       if (target.isIncomingCall) {
         unawaited(_showIncomingCall(target));
         return;
@@ -697,37 +803,77 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       if (!mounted ||
           initialCall == null ||
           initialCall.status != CallStatus.ringing) {
-        await NativeIncomingCallService.endCall(callId);
+        await NativeIncomingCallService.endCall(callId, remoteEnded: true);
         return;
       }
-      final accepted = await showDialog<bool>(
-        context: context,
-        useRootNavigator: true,
-        barrierDismissible: false,
-        builder: (dialogContext) => _IncomingCallDialog(
-          callerName: target.callerName ?? 'Cuộc gọi đến',
-          mode: initialCall.mode,
-          checkStatus: () async {
-            final result = await ref
-                .read(getCallUseCaseProvider)
-                .execute(workspaceId: target.workspaceId, callId: callId);
-            return result.valueOrNull?.status;
-          },
-        ),
-      );
-      if (!mounted || accepted == null) {
-        return;
+      final dismiss = ValueNotifier<bool>(false);
+      _ringingDialogCallId = callId;
+      _ringingDialogDismiss = dismiss;
+      final _IncomingCallDialogResult? choice;
+      try {
+        choice = await showDialog<_IncomingCallDialogResult>(
+          context: context,
+          useRootNavigator: true,
+          barrierDismissible: false,
+          builder: (dialogContext) => _IncomingCallDialog(
+            callerName: target.callerName ?? 'Cuộc gọi đến',
+            mode: initialCall.mode,
+            dismissSignal: dismiss,
+            checkStatus: () async {
+              final result = await ref
+                  .read(getCallUseCaseProvider)
+                  .execute(workspaceId: target.workspaceId, callId: callId);
+              return result.valueOrNull?.status;
+            },
+          ),
+        );
+      } finally {
+        // Không dispose `dismiss`: hộp thoại còn gỡ listener khi hiệu ứng đóng
+        // chạy xong (sau khi future trả về).
+        if (identical(_ringingDialogDismiss, dismiss)) {
+          _ringingDialogCallId = null;
+          _ringingDialogDismiss = null;
+        }
       }
-      if (!accepted) {
-        await NativeIncomingCallService.endCall(callId);
-        await ref
-            .read(rejectCallUseCaseProvider)
-            .execute(
-              workspaceId: target.workspaceId,
-              callId: callId,
-              reason: 'declined',
-            );
-        return;
+      switch (choice) {
+        case _IncomingCallDialogResult.accepted:
+          break;
+        case _IncomingCallDialogResult.declined:
+          await NativeIncomingCallService.endCall(callId);
+          await ref
+              .read(rejectCallUseCaseProvider)
+              .execute(
+                workspaceId: target.workspaceId,
+                callId: callId,
+                reason: 'declined',
+              );
+          return;
+        case _IncomingCallDialogResult.timedOut:
+          // Hết giờ đổ chuông trong app: tắt cả chuông gốc, báo máy chủ "nhỡ
+          // máy" nếu cuộc gọi vẫn đang đổ chuông (như hết giờ ở CallKit).
+          await NativeIncomingCallService.endCall(callId, remoteEnded: true);
+          if (!mounted) return;
+          final current =
+              (await ref
+                      .read(getCallUseCaseProvider)
+                      .execute(workspaceId: target.workspaceId, callId: callId))
+                  .valueOrNull;
+          if (mounted && current?.status == CallStatus.ringing) {
+            await ref
+                .read(rejectCallUseCaseProvider)
+                .execute(
+                  workspaceId: target.workspaceId,
+                  callId: callId,
+                  reason: 'timeout',
+                );
+          }
+          return;
+        case _IncomingCallDialogResult.closedRemotely:
+        case null:
+          // Đã nhận ở máy khác / người gọi huỷ / máy chủ đổi trạng thái: hộp
+          // thoại tự đóng thì vẫn tắt chuông gốc, không gửi gì thêm.
+          await NativeIncomingCallService.endCall(callId, remoteEnded: true);
+          return;
       }
       if (!mounted) {
         return;
@@ -839,6 +985,14 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         await NativeIncomingCallService.endCall(callId);
         return true;
       }
+      if (nativeCallActionIsStaleForOtherDevice(
+        current: currentCall,
+        localDeviceId: await _localCallDeviceId(),
+      )) {
+        // Đã nhận ở máy khác: chỉ tắt giao diện gốc, không mở màn gọi.
+        await NativeIncomingCallService.endCall(callId, remoteEnded: true);
+        return true;
+      }
 
       if (!mounted) {
         return false;
@@ -893,6 +1047,12 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       return currentResult.failureOrNull?.kind == FailureKind.notFound;
     }
     if (current.isTerminal) return true;
+    if (nativeCallActionIsStaleForOtherDevice(
+      current: current,
+      localDeviceId: await _localCallDeviceId(),
+    )) {
+      return true;
+    }
     if (nativeRejectActionIsStaleAfterAcceptance(
       reason: reason,
       currentStatus: current.status,
@@ -919,13 +1079,50 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     return _isCallConfirmedTerminal(target.workspaceId, callId);
   }
 
+  /// Mở màn duyệt thiết bị (từ WS `DeviceApprovalRequested` hoặc push
+  /// `device_approval_requested`). Màn tự tải dữ liệu từ máy chủ, không tin
+  /// payload; mỗi phiên chỉ mở một lần.
+  void _openDeviceApprovalReview(String? sessionId) {
+    final id = sessionId?.trim() ?? '';
+    if (!mounted ||
+        !RegExp(r'^[A-Za-z0-9_-]{1,128}$').hasMatch(id) ||
+        !_openedDeviceApprovals.add(id)) {
+      return;
+    }
+    ref.invalidate(pendingDeviceApprovalsProvider);
+    unawaited(context.push(deviceApprovalReviewLocation(id)));
+  }
+
   void _listenIncomingCalls(String workspaceId) {
     unawaited(_incomingCallRealtimeSubscription?.cancel());
     _incomingCallRealtimeSubscription = ref
         .read(incomingCallRealtimeRepositoryProvider)
         .subscribeToUser(workspaceId: workspaceId)
         .listen((event) {
-          if (!mounted || event.workspaceId != workspaceId) {
+          if (!mounted) {
+            return;
+          }
+          if (event.type == ConversationRealtimeEventType.sessionRevoked) {
+            // Máy chủ chỉ gửi tới kết nối của đúng phiên bị thu hồi: xoá dữ
+            // liệu cục bộ rồi về đăng nhập (app lắng nghe bộ điều phối phiên).
+            unawaited(
+              ref
+                  .read(sessionTerminationCoordinatorProvider)
+                  .endSession(
+                    SessionEndedNotice.revokedByServer(
+                      event.payload['reason']?.toString(),
+                    ),
+                    revokedSessionId: event.payload['session_id']?.toString(),
+                  ),
+            );
+            return;
+          }
+          if (event.type ==
+              ConversationRealtimeEventType.deviceApprovalRequested) {
+            _openDeviceApprovalReview(event.payload['session_id']?.toString());
+            return;
+          }
+          if (event.workspaceId != workspaceId) {
             return;
           }
           if (event.type == ConversationRealtimeEventType.reconnected) {
@@ -933,11 +1130,29 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
             if (event.channelId.isNotEmpty) return;
             final home = conversationHomeControllerProvider(workspaceId);
             unawaited(ref.read(home.notifier).syncSilently());
+            // WebSocket nối lại = có mạng lại: gửi tin chờ của mọi hội thoại.
+            try {
+              ref
+                  .read(messageOutboxDispatcherProvider)
+                  .handleRealtimeEvent(event);
+            } on Object {
+              // Hàng chờ vẫn được gửi lại ở lần kích hoạt sau.
+            }
+            return;
+          }
+          if (event.type == ConversationRealtimeEventType.resyncRequired) {
+            if (event.channelId.isNotEmpty) return;
+            // Máy chủ sắp ngắt vì máy này nhận chậm: đồng bộ bù ngay; kho
+            // realtime tự nối lại và các phòng tải lại khi nhận `reconnected`.
+            unawaited(_runWorkspaceCatchUp(workspaceId, force: true));
             return;
           }
           if (event.isContactEvent) {
             ref.invalidate(conversationHomeControllerProvider(workspaceId));
             ref.invalidate(notificationCenterControllerProvider(workspaceId));
+            return;
+          }
+          if (_handleRemoteCallChange(event)) {
             return;
           }
           if (event.type != ConversationRealtimeEventType.callInvited ||
@@ -960,6 +1175,56 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           unawaited(_showIncomingCall(target));
         });
     _startIncomingCallPolling(workspaceId);
+  }
+
+  /// Cuộc gọi đang đổ chuông trên máy này kết thúc vì lý do phía máy chủ:
+  /// đã nhận ở máy khác (CallAccepted / CallAnsweredElsewhere mang mã máy khác
+  /// máy này) hoặc người gọi huỷ / cuộc gọi kết thúc.
+  bool _handleRemoteCallChange(ConversationRealtimeEvent event) {
+    final callId = event.callId?.trim();
+    if (callId == null || callId.isEmpty) return false;
+    switch (event.type) {
+      case ConversationRealtimeEventType.callAccepted ||
+          ConversationRealtimeEventType.callAnsweredElsewhere:
+        unawaited(_dismissIfAnsweredElsewhere(callId, event.answeredDeviceId));
+        return true;
+      case ConversationRealtimeEventType.callCancelled ||
+          ConversationRealtimeEventType.callRejected ||
+          ConversationRealtimeEventType.callEnded ||
+          ConversationRealtimeEventType.callMissed:
+        unawaited(_dismissRingingCall(callId));
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  Future<void> _dismissIfAnsweredElsewhere(
+    String callId,
+    String? answeredDeviceId,
+  ) async {
+    final localDeviceId = await _localCallDeviceId();
+    if (!mounted ||
+        !callAnsweredOnAnotherDevice(
+          answeredDeviceId: answeredDeviceId,
+          localDeviceId: localDeviceId,
+        )) {
+      return;
+    }
+    await _dismissRingingCall(callId);
+  }
+
+  /// Tắt chuông (hộp thoại trong app + giao diện gốc) của [callId] mà không gửi
+  /// reject / hangup. Chỉ đụng tới cuộc gọi đang thật sự đổ chuông trên máy.
+  Future<void> _dismissRingingCall(String callId) async {
+    if (_ringingDialogCallId == callId) {
+      _ringingDialogDismiss?.value = true;
+    }
+    await NativeIncomingCallService.endCallIfActive(
+      callId,
+      remoteEnded: true,
+      incomingOnly: true,
+    );
   }
 
   void _startIncomingCallPolling(String workspaceId) {
@@ -1027,6 +1292,13 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       return currentResult.failureOrNull?.kind == FailureKind.notFound;
     }
     if (current.isTerminal) {
+      return true;
+    }
+    // Đã nhận ở máy khác của chính người dùng: không gác máy hộ máy kia.
+    if (nativeCallActionIsStaleForOtherDevice(
+      current: current,
+      localDeviceId: await _localCallDeviceId(),
+    )) {
       return true;
     }
     if (current.status == CallStatus.ringing) {
@@ -1249,16 +1521,32 @@ class _OrganizationMark extends StatelessWidget {
   }
 }
 
+/// Lý do hộp thoại cuộc gọi đến đóng.
+enum _IncomingCallDialogResult {
+  accepted,
+  declined,
+
+  /// Hết 30 giây đổ chuông trong app.
+  timedOut,
+
+  /// Máy chủ đổi trạng thái (đã nhận ở máy khác, người gọi huỷ...).
+  closedRemotely,
+}
+
 class _IncomingCallDialog extends StatefulWidget {
   const _IncomingCallDialog({
     required this.callerName,
     required this.mode,
     required this.checkStatus,
+    required this.dismissSignal,
   });
 
   final String callerName;
   final CallMode mode;
   final Future<CallStatus?> Function() checkStatus;
+
+  /// Bật `true` khi máy chủ báo cuộc gọi đã được nhận ở máy khác / đã huỷ.
+  final ValueListenable<bool> dismissSignal;
 
   @override
   State<_IncomingCallDialog> createState() => _IncomingCallDialogState();
@@ -1271,13 +1559,19 @@ class _IncomingCallDialogState extends State<_IncomingCallDialog> {
   int _remainingSeconds = 30;
   bool _checking = false;
 
+  bool _closed = false;
+
   @override
   void initState() {
     super.initState();
     unawaited(_ringtone.start());
     unawaited(HapticFeedback.vibrate());
+    widget.dismissSignal.addListener(_onDismissSignal);
+    if (widget.dismissSignal.value) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _onDismissSignal());
+    }
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) {
+      if (!mounted || _closed) {
         return;
       }
       setState(() => _remainingSeconds -= 1);
@@ -1286,17 +1580,32 @@ class _IncomingCallDialogState extends State<_IncomingCallDialog> {
       }
       unawaited(_checkCall());
       if (_remainingSeconds <= 0) {
-        Navigator.of(context).pop();
+        _close(_IncomingCallDialogResult.timedOut);
       }
     });
   }
 
   @override
   void dispose() {
+    widget.dismissSignal.removeListener(_onDismissSignal);
     _timer?.cancel();
     // Dừng chuông trước khi màn gọi bật micro / WebRTC.
     unawaited(_ringtone.stop());
     super.dispose();
+  }
+
+  void _onDismissSignal() {
+    if (widget.dismissSignal.value) {
+      _close(_IncomingCallDialogResult.closedRemotely);
+    }
+  }
+
+  void _close(_IncomingCallDialogResult result) {
+    if (!mounted || _closed) return;
+    _closed = true;
+    _timer?.cancel();
+    unawaited(_ringtone.stop());
+    Navigator.of(context).pop(result);
   }
 
   Future<void> _checkCall() async {
@@ -1307,7 +1616,7 @@ class _IncomingCallDialogState extends State<_IncomingCallDialog> {
     try {
       final status = await widget.checkStatus();
       if (mounted && status != null && status != CallStatus.ringing) {
-        Navigator.of(context).pop();
+        _close(_IncomingCallDialogResult.closedRemotely);
       }
     } finally {
       _checking = false;
@@ -1362,13 +1671,13 @@ class _IncomingCallDialogState extends State<_IncomingCallDialog> {
                     label: 'Từ chối',
                     icon: Icons.call_end_rounded,
                     color: WebTuiColors.danger,
-                    onPressed: () => Navigator.of(context).pop(false),
+                    onPressed: () => _close(_IncomingCallDialogResult.declined),
                   ),
                   _IncomingCallAction(
                     label: 'Nghe',
                     icon: video ? Icons.videocam_rounded : Icons.call_rounded,
                     color: const Color(0xFF16A34A),
-                    onPressed: () => Navigator.of(context).pop(true),
+                    onPressed: () => _close(_IncomingCallDialogResult.accepted),
                   ),
                 ],
               ),
@@ -1562,8 +1871,15 @@ class _SettingsTab extends StatelessWidget {
     required this.onCompactChanged,
     required this.onSoundChanged,
     required this.onTextScaleChanged,
+    this.onSwitchWorkspaceTap,
+    this.onQrLoginTap,
   });
 
+  /// null khi tài khoản chỉ có một workspace.
+  final VoidCallback? onSwitchWorkspaceTap;
+
+  /// null khi máy chủ không bật đăng nhập QR.
+  final VoidCallback? onQrLoginTap;
   final String workspaceName;
   final bool notificationEnabled;
   final bool compactMode;
@@ -1647,10 +1963,25 @@ class _SettingsTab extends StatelessWidget {
         WebTuiListSurface(
           children: [
             WebTuiSettingRow(
-              title: 'Workspace',
+              key: const Key('settings_workspace_row'),
+              title: onSwitchWorkspaceTap == null
+                  ? 'Workspace'
+                  : 'Chuyển workspace',
               subtitle: workspaceName,
               icon: Icons.business_rounded,
+              onTap: onSwitchWorkspaceTap,
+              trailing: onSwitchWorkspaceTap == null
+                  ? null
+                  : const Icon(Icons.swap_horiz_rounded),
             ),
+            if (onQrLoginTap != null)
+              WebTuiSettingRow(
+                key: const Key('settings_qr_login_row'),
+                title: 'Đăng nhập máy tính bằng QR',
+                subtitle: 'Quét mã trên trang đăng nhập của máy tính',
+                icon: Icons.qr_code_scanner_rounded,
+                onTap: onQrLoginTap,
+              ),
             WebTuiSettingRow(
               title: 'Hồ sơ cá nhân',
               subtitle: 'Cập nhật tên, ảnh đại diện và trạng thái',

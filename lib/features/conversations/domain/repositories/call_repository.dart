@@ -9,6 +9,7 @@ abstract interface class CallRepository {
     required CallMode mode,
     required String clientCallId,
     Map<String, Object?> metadata = const {},
+    String? deviceId,
   });
 
   Future<Result<CallSession>> getCall({
@@ -23,12 +24,14 @@ abstract interface class CallRepository {
   Future<Result<CallSession>> acceptCall({
     required String workspaceId,
     required String callId,
+    String? deviceId,
   });
 
   Future<Result<CallSession>> rejectCall({
     required String workspaceId,
     required String callId,
     String? reason,
+    String? deviceId,
   });
 
   Future<Result<CallSession>> cancelCall({

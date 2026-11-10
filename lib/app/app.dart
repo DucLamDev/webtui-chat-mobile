@@ -14,8 +14,11 @@ import '../core/privacy/background_privacy.dart';
 import '../core/security/instance_scope.dart';
 import '../design_system/components/webtui_avatar.dart';
 import '../design_system/theme/webtui_theme.dart';
+import '../features/auth/application/session_termination.dart';
+import '../features/auth/presentation/controllers/auth_flow_providers.dart';
 import '../features/auth/presentation/controllers/legal_acceptance_controller.dart';
 import '../features/auth/presentation/controllers/login_controller.dart';
+import '../features/auth/presentation/screens/device_approval_pending_screen.dart';
 import '../features/auth/presentation/widgets/app_lock_gate.dart';
 import '../features/auth/presentation/widgets/legal_acceptance_gate.dart';
 import '../features/settings/presentation/widgets/mobile_update_gate.dart';
@@ -37,6 +40,7 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp> {
   int _imageCacheEpoch = 0;
   StreamSubscription<Uri>? _deepLinkSubscription;
   late final AppDeepLinkCoordinator _deepLinkCoordinator;
+  late final Listenable _routerChanges;
 
   @override
   void initState() {
@@ -50,10 +54,67 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp> {
           ref.read(appRouterProvider).go(location);
         }
       },
+      isAuthenticationReady: _isAuthenticationReady,
       handleOidcCallback: (uri) =>
           ref.read(loginControllerProvider.notifier).handleDeepLink(uri),
+      onInviteRequiresLogin: (token, serverHost) {
+        if (mounted) {
+          ref.read(loginPrefillProvider.notifier).state = LoginPrefill(
+            inviteToken: token,
+            domain: serverHost,
+          );
+        }
+      },
     );
+    _routerChanges = ref.read(appRouterProvider).routerDelegate;
+    _routerChanges.addListener(_resumePendingLink);
     Future<void>.microtask(_startDeepLinkHandling);
+  }
+
+  bool _isAuthenticationReady() {
+    if (!mounted) return false;
+    final path = ref
+        .read(appRouterProvider)
+        .routerDelegate
+        .currentConfiguration
+        .uri
+        .path;
+    return path != '/login' &&
+        path != '/verify-email' &&
+        path != '/workspaces' &&
+        path != deviceApprovalPendingPath;
+  }
+
+  void _resumePendingLink() {
+    if (!_isAuthenticationReady() ||
+        _deepLinkCoordinator.pendingLocation == null) {
+      return;
+    }
+    // Đợi chuyển màn đăng nhập / chọn workspace hoàn tất để không ghi đè
+    // đích của lời mời trong cùng một frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_isAuthenticationReady()) return;
+      final token = ref.read(authAccessTokenProvider).valueOrNull;
+      unawaited(_deepLinkCoordinator.onAuthenticationChanged(token));
+    });
+  }
+
+  /// Phiên bị thu hồi / phải đăng nhập lại: dữ liệu cục bộ đã xoá, về màn
+  /// đăng nhập kèm lời giải thích.
+  void _onSessionEnded(SessionEndedNotice notice) {
+    if (!mounted) return;
+    ref.read(loginNoticeProvider.notifier).state = notice;
+    ref.invalidate(authAccessTokenProvider);
+    ref.read(appRouterProvider).go('/login');
+  }
+
+  /// Máy chủ báo phiên còn chờ duyệt thiết bị: chuyển sang màn chờ duyệt.
+  void _onDeviceApprovalPending() {
+    if (!mounted) return;
+    final router = ref.read(appRouterProvider);
+    final path = router.routerDelegate.currentConfiguration.uri.path;
+    if (path == deviceApprovalPendingPath || path == '/login') return;
+    router.go(deviceApprovalPendingPath);
   }
 
   Future<void> _startDeepLinkHandling() async {
@@ -73,16 +134,26 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp> {
   @override
   void dispose() {
     _deepLinkSubscription?.cancel();
+    _routerChanges.removeListener(_resumePendingLink);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     ref.listen<AsyncValue<String?>>(authAccessTokenProvider, (previous, next) {
-      next.whenData(
-        (token) =>
-            unawaited(_deepLinkCoordinator.onAuthenticationChanged(token)),
-      );
+      next.whenData((_) => _resumePendingLink());
+    });
+    ref.listen<AsyncValue<SessionEndedNotice>>(sessionEndedNoticesProvider, (
+      _,
+      next,
+    ) {
+      if (next.valueOrNull case final notice?) _onSessionEnded(notice);
+    });
+    ref.listen<AsyncValue<int>>(deviceApprovalPendingSignalsProvider, (
+      _,
+      next,
+    ) {
+      if (next.hasValue) _onDeviceApprovalPending();
     });
     final config = ref.watch(appConfigProvider);
     final activeServerUri = ref.watch(activeServerUriProvider);
