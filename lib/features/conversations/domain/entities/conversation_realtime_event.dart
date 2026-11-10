@@ -1,5 +1,6 @@
 import 'call_session.dart';
 import 'chat_message.dart';
+import 'rich_message.dart';
 
 enum ConversationRealtimeEventType {
   messageCreated,
@@ -9,6 +10,13 @@ enum ConversationRealtimeEventType {
   messageUnpinned,
   reactionChanged,
   attachmentCreated,
+
+  /// Một đoạn chữ của tin đang chạy dần; chi tiết ở
+  /// [ConversationRealtimeEvent.delta].
+  messageDelta,
+
+  /// Chép lời tin thoại đổi trạng thái (`payload` gốc có `file_id`, `status`).
+  transcriptUpdated,
   typingStarted,
   typingStopped,
   callInvited,
@@ -53,6 +61,7 @@ final class ConversationRealtimeEvent {
     this.callSdp = const {},
     this.callCandidate = const {},
     this.payload = const {},
+    this.delta,
   });
 
   final ConversationRealtimeEventType type;
@@ -72,8 +81,12 @@ final class ConversationRealtimeEvent {
   final Map<String, dynamic> callCandidate;
 
   /// Payload gốc, chỉ có với sự kiện ngoài hội thoại
-  /// ([ConversationRealtimeEventType.orderTicketUpdated]).
+  /// ([ConversationRealtimeEventType.orderTicketUpdated]) và
+  /// [ConversationRealtimeEventType.transcriptUpdated].
   final Map<String, dynamic> payload;
+
+  /// Chỉ có với [ConversationRealtimeEventType.messageDelta].
+  final MessageStreamDelta? delta;
 
   bool get isCallEvent => switch (type) {
     ConversationRealtimeEventType.callInvited ||

@@ -38,6 +38,7 @@ final class SendMessageUseCase {
     String? clientMessageId,
     String? parentId,
     bool silent = false,
+    Map<String, Object?> metadata = const {},
   }) {
     final normalized = body.trim();
     final failure = _validateMessageBody(normalized);
@@ -51,6 +52,7 @@ final class SendMessageUseCase {
       clientMessageId: clientMessageId,
       parentId: parentId,
       silent: silent,
+      metadata: metadata,
     );
   }
 }

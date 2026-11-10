@@ -9,11 +9,15 @@ import '../../application/use_cases/call_use_cases.dart';
 import '../../application/use_cases/conversation_realtime_reducer.dart';
 import '../../application/use_cases/message_attachment_use_cases.dart';
 import '../../application/use_cases/message_outbox_use_cases.dart';
+import '../../application/use_cases/message_stream_merger.dart';
 import '../../application/use_cases/message_use_cases.dart';
+import '../../application/use_cases/rich_message_use_cases.dart';
 import '../../domain/entities/call_session.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/conversation_realtime_event.dart';
 import '../../domain/entities/message_outbox_item.dart';
+import '../../domain/entities/message_voice.dart';
+import '../../domain/entities/rich_message.dart';
 
 final chatRoomControllerProvider = StateNotifierProvider.autoDispose
     .family<ChatRoomController, ChatRoomState, ChatRoomScope>((ref, scope) {
@@ -78,6 +82,7 @@ final chatRoomControllerProvider = StateNotifierProvider.autoDispose
         saveDraftUseCase: ref.watch(saveDraftUseCaseProvider),
         clearDraftUseCase: ref.watch(clearDraftUseCaseProvider),
         loadProfileUseCase: ref.watch(loadProfileUseCaseProvider),
+        getMessageUseCase: ref.watch(getMessageUseCaseProvider),
         canCreateUserContent: () => legalPolicy.canCreateUserContent,
         onLegalAcceptanceRequired: legalPolicy.requireAcceptance,
       )..load();
@@ -177,6 +182,7 @@ final class ChatRoomState {
       outboxItems.where((item) => item.isFailed).length;
   int get sendingOutboxCount =>
       outboxItems.where((item) => item.isSending).length;
+
   /// Còn tệp đang tải lên: chưa cho gửi, nếu không tệp đó bị bỏ khi gửi.
   bool get hasUploadingAttachments => pendingAttachments.any(
     (item) => item.status == MessageAttachmentUploadStatus.uploading,
@@ -313,6 +319,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     required SaveDraftUseCase saveDraftUseCase,
     required ClearDraftUseCase clearDraftUseCase,
     required LoadProfileUseCase loadProfileUseCase,
+    GetMessageUseCase? getMessageUseCase,
     bool Function()? canCreateUserContent,
     void Function()? onLegalAcceptanceRequired,
     ConversationRealtimeReducer reducer = const ConversationRealtimeReducer(),
@@ -350,6 +357,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
        _saveDraftUseCase = saveDraftUseCase,
        _clearDraftUseCase = clearDraftUseCase,
        _loadProfileUseCase = loadProfileUseCase,
+       _getMessageUseCase = getMessageUseCase,
        _canCreateUserContent =
            canCreateUserContent ?? _allowUserContentByDefault,
        _onLegalAcceptanceRequired = onLegalAcceptanceRequired ?? _noop,
@@ -390,6 +398,9 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   final SaveDraftUseCase _saveDraftUseCase;
   final ClearDraftUseCase _clearDraftUseCase;
   final LoadProfileUseCase _loadProfileUseCase;
+
+  /// Tải lại một tin chạy dần khi thiếu đoạn (`null` = không tải lại, chờ bản cuối).
+  final GetMessageUseCase? _getMessageUseCase;
   final bool Function() _canCreateUserContent;
   final void Function() _onLegalAcceptanceRequired;
   final ConversationRealtimeReducer _reducer;
@@ -397,6 +408,12 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   StreamSubscription<ConversationRealtimeEvent>? _realtimeSubscription;
   Timer? _typingStopTimer;
   bool _outboxRetryInFlight = false;
+
+  /// Đoạn chữ của tin chạy dần chưa ghép được (đang tải lại tin / chờ đoạn trước).
+  final Map<String, List<MessageStreamDelta>> _streamBuffers = {};
+  final Set<String> _streamReloads = {};
+  final Map<String, int> _streamReloadAttempts = {};
+  static const _maxStreamReloads = 3;
 
   Future<void> load() async {
     // Subscribe before fetching history so a message committed while the
@@ -577,6 +594,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     final attachmentFallback = _attachmentMessageFallback(
       state.pendingAttachments,
     );
+    final voice = _uploadedVoiceMetadata(state.pendingAttachments);
     final clientMessageId = _newClientMessageIdUseCase.execute();
     state = state.copyWith(isSending: true, clearError: true);
     final editing = state.editingMessage;
@@ -589,6 +607,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
         parentId: state.replyToMessage?.id,
         attachments: uploadedOutboxAttachments(state.pendingAttachments),
         silent: silent,
+        metadata: voice == null ? const {} : {'voice': voice.toJson()},
       );
       if (mounted) {
         state = state.copyWith(
@@ -669,6 +688,29 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     }
   }
 
+  /// Nút `reply` của thẻ bot: gửi chữ của nút như tin người dùng vào cùng
+  /// kênh (qua hàng chờ gửi như tin thường), không đụng bản nháp đang gõ.
+  Future<void> sendCardReply(String text) async {
+    final body = text.trim();
+    if (body.isEmpty) return;
+    if (!_guardUserContentMutation()) return;
+    final item = await _enqueueMessageOutboxUseCase.execute(
+      workspaceId: state.scope.workspaceId,
+      channelId: state.scope.channelId,
+      clientMessageId: _newClientMessageIdUseCase.execute(),
+      body: body,
+    );
+    if (!mounted) return;
+    state = state.copyWith(
+      messages: _upsertLocal(
+        state.messages,
+        _optimisticMessage(item, state.currentUserId),
+      ),
+      outboxItems: [...state.outboxItems, item],
+    );
+    await _retryOutboxItem(item, auto: false);
+  }
+
   Future<void> _retryOutboxItem(
     MessageOutboxItem item, {
     required bool auto,
@@ -720,6 +762,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
       clientMessageId: sending.clientMessageId,
       parentId: sending.parentId,
       silent: sending.silent,
+      metadata: sending.metadata,
     );
     switch (result) {
       case Success<ChatMessage>(value: final message):
@@ -1409,6 +1452,18 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
       unawaited(_catchUpAfterReconnect());
       return;
     }
+    if (event.type == ConversationRealtimeEventType.messageDelta) {
+      final delta = event.delta;
+      if (delta != null) _handleMessageDelta(delta);
+      return;
+    }
+    if (_isStaleStreamingCopy(event)) return;
+    if (event.type == ConversationRealtimeEventType.messageUpdated ||
+        event.type == ConversationRealtimeEventType.messageDeleted) {
+      // Bản cuối (hoặc tin bị xoá) thay toàn bộ: bỏ các đoạn còn chờ.
+      final messageId = event.messageId ?? event.message?.id;
+      if (messageId != null) _forgetStream(messageId);
+    }
     final reduced = _reducer.reduce(
       ConversationRealtimeState(
         messages: state.messages,
@@ -1442,6 +1497,106 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
         unawaited(_hydrateMessageAttachments(messageId));
       }
     }
+  }
+
+  /// `MessageCreated` lặp lại đến sau khi đã ghép thêm đoạn: giữ bản mới hơn.
+  bool _isStaleStreamingCopy(ConversationRealtimeEvent event) {
+    final incoming = event.message;
+    if (event.type != ConversationRealtimeEventType.messageCreated ||
+        incoming == null ||
+        !incoming.isStreaming) {
+      return false;
+    }
+    final current = _messageById(incoming.id);
+    return current != null &&
+        current.isStreaming &&
+        (current.streamSeq ?? 0) > (incoming.streamSeq ?? 0);
+  }
+
+  void _handleMessageDelta(MessageStreamDelta delta) {
+    final messageId = delta.messageId;
+    final buffered = _streamBuffers[messageId] ?? const [];
+    if (_streamReloads.contains(messageId)) {
+      _streamBuffers[messageId] = [...buffered, delta];
+      return;
+    }
+    final current = _messageById(messageId);
+    if (current == null) {
+      // Đoạn đến trước MessageCreated (hoặc tin chưa tải): giữ lại, tải tin.
+      _streamBuffers[messageId] = [...buffered, delta];
+      unawaited(_reloadStreamingMessage(messageId));
+      return;
+    }
+    _applyStreamMerge(mergeMessageStreamDeltas(current, [...buffered, delta]));
+  }
+
+  void _applyStreamMerge(MessageStreamMergeResult outcome) {
+    final messageId = outcome.message.id;
+    if (outcome.hasGap) {
+      _streamBuffers[messageId] = outcome.pending;
+    } else {
+      _streamBuffers.remove(messageId);
+    }
+    if (outcome.changed) {
+      state = state.copyWith(
+        messages: _replaceStreamingMessage(state.messages, outcome.message),
+        threadMessages: state.threadMessages.any((m) => m.id == messageId)
+            ? _replaceStreamingMessage(state.threadMessages, outcome.message)
+            : null,
+      );
+    }
+    if (outcome.hasGap) unawaited(_reloadStreamingMessage(messageId));
+  }
+
+  /// Thiếu đoạn: tải lại tin rồi chỉ ghép đoạn có `seq` lớn hơn
+  /// `metadata.stream_seq` của bản vừa tải.
+  Future<void> _reloadStreamingMessage(String messageId) async {
+    final getMessage = _getMessageUseCase;
+    final attempts = _streamReloadAttempts[messageId] ?? 0;
+    if (getMessage == null ||
+        attempts >= _maxStreamReloads ||
+        !_streamReloads.add(messageId)) {
+      return;
+    }
+    _streamReloadAttempts[messageId] = attempts + 1;
+    final result = await getMessage.execute(
+      workspaceId: state.scope.workspaceId,
+      channelId: state.scope.channelId,
+      messageId: messageId,
+    );
+    _streamReloads.remove(messageId);
+    if (!mounted) return;
+    final buffered = _streamBuffers.remove(messageId) ?? const [];
+    final loaded = result.valueOrNull;
+    if (loaded == null) return;
+    final current = _messageById(messageId);
+    // Bản cuối đã đến qua MessageUpdated trong lúc tải: giữ bản cuối.
+    if (current != null && !current.isStreaming) return;
+    final prepared = loaded.copyWith(
+      isMine: loaded.senderId == state.currentUserId,
+    );
+    final base =
+        current != null &&
+            prepared.isStreaming &&
+            (current.streamSeq ?? 0) > (prepared.streamSeq ?? 0)
+        ? current
+        : prepared;
+    state = state.copyWith(messages: _upsertLocal(state.messages, base));
+    final outcome = mergeMessageStreamDeltas(base, buffered);
+    if (outcome.changed || outcome.hasGap) _applyStreamMerge(outcome);
+    if (!base.isStreaming) _forgetStream(messageId);
+  }
+
+  void _forgetStream(String messageId) {
+    _streamBuffers.remove(messageId);
+    _streamReloadAttempts.remove(messageId);
+  }
+
+  ChatMessage? _messageById(String messageId) {
+    for (final message in state.messages) {
+      if (message.id == messageId) return message;
+    }
+    return null;
   }
 
   void _handleRealtimeCallEvent(ConversationRealtimeEvent event) {
@@ -1522,6 +1677,8 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   void dispose() {
     _typingStopTimer?.cancel();
     unawaited(_realtimeSubscription?.cancel());
+    _streamBuffers.clear();
+    _streamReloads.clear();
     super.dispose();
   }
 }
@@ -1586,6 +1743,7 @@ ChatMessage _optimisticMessage(MessageOutboxItem item, String? currentUserId) {
         : 'local-current-user',
     parentId: item.parentId,
     metadata: {
+      ...item.metadata,
       'client_message_id': item.clientMessageId,
       'delivery_status': item.status.name,
     },
@@ -1798,4 +1956,38 @@ String _attachmentMessageFallback(
   return ready.length == 1
       ? 'Đã gửi tệp đính kèm'
       : 'Đã gửi ${ready.length} file';
+}
+
+/// Thay tin đang chạy dần bằng bản vừa ghép (giữ tệp, ghim của bản cũ).
+List<ChatMessage> _replaceStreamingMessage(
+  List<ChatMessage> messages,
+  ChatMessage merged,
+) {
+  return messages
+      .map(
+        (message) => message.id == merged.id
+            ? merged.copyWith(
+                attachments: merged.attachments.isEmpty
+                    ? message.attachments
+                    : null,
+                isPinned: message.isPinned || merged.isPinned,
+              )
+            : message,
+      )
+      .toList(growable: false);
+}
+
+/// Thời lượng / sóng âm của bản ghi âm đầu tiên đã tải lên (gửi kèm tin).
+MessageVoiceMetadata? _uploadedVoiceMetadata(
+  List<MessageAttachmentUploadItem> attachments,
+) {
+  for (final item in attachments) {
+    final voice = item.picked?.voice;
+    if (item.status == MessageAttachmentUploadStatus.uploaded &&
+        item.picked?.kind == MessageAttachmentKind.audio &&
+        voice != null) {
+      return voice;
+    }
+  }
+  return null;
 }

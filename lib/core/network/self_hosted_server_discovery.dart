@@ -171,6 +171,9 @@ final class SelfHostedServerDiscovery {
         blocking: capabilities['blocking'] == true,
         accountDeletion: capabilities['account_deletion'] == true,
         legalAcceptance: capabilities['legal_acceptance'] == true,
+        richCardsV2: capabilities['rich_cards_v2'] == true,
+        aiStreaming: capabilities['ai_streaming'] == true,
+        transcription: capabilities['transcription'] == true,
       ),
       logoUrl: logoUrl,
       zoneKind: _text(zone['kind']).toLowerCase(),
@@ -274,6 +277,9 @@ final class SelfHostedCapabilities {
     this.blocking = false,
     this.accountDeletion = false,
     this.legalAcceptance = false,
+    this.richCardsV2 = false,
+    this.aiStreaming = false,
+    this.transcription = false,
   });
 
   final bool chat;
@@ -289,6 +295,16 @@ final class SelfHostedCapabilities {
   final bool blocking;
   final bool accountDeletion;
   final bool legalAcceptance;
+
+  /// Máy chủ hiểu thẻ bản 2, nút `callback` và biểu mẫu (thiếu cờ = `false`;
+  /// thẻ bản 2 đã có trong tin thì vẫn vẽ).
+  final bool richCardsV2;
+
+  /// Máy chủ phát `MessageDelta` cho tin trả lời dần.
+  final bool aiStreaming;
+
+  /// Máy chủ đã cấu hình dịch vụ chép lời tin thoại.
+  final bool transcription;
 
   Map<String, bool> toJson() {
     return {
@@ -306,6 +322,9 @@ final class SelfHostedCapabilities {
       'blocking': blocking,
       'account_deletion': accountDeletion,
       'legal_acceptance': legalAcceptance,
+      'rich_cards_v2': richCardsV2,
+      'ai_streaming': aiStreaming,
+      'transcription': transcription,
     };
   }
 }

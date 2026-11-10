@@ -156,3 +156,16 @@ flutter build apk --debug --flavor dev -t lib/main_dev.dart
 `docs/design/mobile/references/webtui-mobile-zalo-reference.png`. Phase M1
 dựng shell và design tokens; Phase M2 thêm auth/session foundation và login
 entrypoint, chưa phụ thuộc backend/mock production trong widget test.
+
+
+## Tin nhắn nâng cao
+
+App đọc thẻ bot bản 1 và bản 2 (biểu đồ, sơ đồ, kế hoạch, bảng, biểu mẫu).
+Nút callback và gửi biểu mẫu chỉ hoạt động khi máy chủ công bố `rich_cards_v2`;
+máy chủ cũ vẫn hiển thị nội dung tin thường khi thẻ không hợp lệ. Xác nhận phê duyệt
+cần máy chủ có API phê duyệt tương ứng.
+
+Tin đang chạy dần nhận `MessageDelta`, bỏ đoạn trùng và tải lại khi thiếu thứ tự.
+Kết quả cuối là tin đầy đủ. Nút xem lời chép phụ thuộc khả năng `transcription`
+của máy chủ. Lịch sử ghi chú/bảng trắng hỗ trợ xem trước và khôi phục; xung đột
+với người sửa khác được báo để tải lại, không âm thầm ghi đè.

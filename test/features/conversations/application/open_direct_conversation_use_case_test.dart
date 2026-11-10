@@ -302,6 +302,7 @@ final class _FakeConversationRepository implements ConversationRepository {
     String? clientMessageId,
     String? parentId,
     bool silent = false,
+    Map<String, Object?> metadata = const {},
   }) {
     throw UnimplementedError();
   }

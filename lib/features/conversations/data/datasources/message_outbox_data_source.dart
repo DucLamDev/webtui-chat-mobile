@@ -170,6 +170,7 @@ Map<String, Object?> _itemToJson(MessageOutboxItem item) {
         .map(_attachmentToJson)
         .toList(growable: false),
     'silent': item.silent,
+    if (item.metadata.isNotEmpty) 'metadata': item.metadata,
     'status': item.status.name,
     'attemptCount': item.attemptCount,
     'lastError': item.lastError,
@@ -180,6 +181,7 @@ Map<String, Object?> _itemToJson(MessageOutboxItem item) {
 
 MessageOutboxItem _itemFromJson(Map<String, Object?> json) {
   final attachments = json['attachments'];
+  final metadata = json['metadata'];
   return MessageOutboxItem(
     id: _string(json['id']),
     instanceScopeId: _string(json['instanceScopeId']),
@@ -195,6 +197,12 @@ MessageOutboxItem _itemFromJson(Map<String, Object?> json) {
               .toList(growable: false)
         : const [],
     silent: _bool(json['silent']),
+    metadata: metadata is Map
+        ? {
+            for (final entry in metadata.entries)
+              entry.key.toString(): entry.value as Object?,
+          }
+        : const {},
     status: _status(json['status']),
     attemptCount: _int(json['attemptCount']),
     lastError: _nullableString(json['lastError']),

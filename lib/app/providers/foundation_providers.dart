@@ -55,6 +55,7 @@ import '../../features/business/data/repositories/business_repository_impl.dart'
 import '../../features/business/domain/repositories/business_repository.dart';
 import '../../features/conversations/application/use_cases/call_use_cases.dart';
 import '../../features/conversations/application/use_cases/channel_use_cases.dart';
+import '../../features/conversations/application/use_cases/collaboration_document_history_use_cases.dart';
 import '../../features/conversations/application/use_cases/collaboration_task_use_cases.dart';
 import '../../features/conversations/application/use_cases/load_conversation_home_use_case.dart';
 import '../../features/conversations/application/use_cases/message_attachment_use_cases.dart';
@@ -62,27 +63,34 @@ import '../../features/conversations/application/use_cases/message_outbox_use_ca
 import '../../features/conversations/application/use_cases/message_use_cases.dart';
 import '../../features/conversations/application/use_cases/open_direct_conversation_use_case.dart';
 import '../../features/conversations/application/use_cases/presence_use_cases.dart';
+import '../../features/conversations/application/use_cases/rich_message_use_cases.dart';
 import '../../features/conversations/data/datasources/call_remote_data_source.dart';
+import '../../features/conversations/data/datasources/collaboration_document_history_remote_data_source.dart';
 import '../../features/conversations/data/datasources/conversation_cache_data_source.dart';
 import '../../features/conversations/data/datasources/conversation_remote_data_source.dart';
 import '../../features/conversations/data/datasources/message_attachment_remote_data_source.dart';
 import '../../features/conversations/data/datasources/message_outbox_data_source.dart';
+import '../../features/conversations/data/datasources/rich_message_remote_data_source.dart';
 import '../../features/conversations/data/files/scoped_attachment_file_store.dart';
 import '../../features/conversations/data/repositories/audio_message_attachment_repository.dart';
 import '../../features/conversations/data/repositories/caching_conversation_repository.dart';
 import '../../features/conversations/data/repositories/call_repository_impl.dart';
+import '../../features/conversations/data/repositories/collaboration_document_history_repository_impl.dart';
 import '../../features/conversations/data/repositories/collaboration_task_repository_impl.dart';
 import '../../features/conversations/data/repositories/conversation_repository_impl.dart';
 import '../../features/conversations/data/repositories/image_picker_message_attachment_repository.dart';
 import '../../features/conversations/data/repositories/local_conversation_draft_repository.dart';
 import '../../features/conversations/data/repositories/local_message_outbox_repository.dart';
 import '../../features/conversations/data/repositories/message_attachment_repository_impl.dart';
+import '../../features/conversations/data/repositories/rich_message_repository_impl.dart';
 import '../../features/conversations/data/repositories/web_socket_conversation_realtime_repository.dart';
 import '../../features/conversations/domain/repositories/call_repository.dart';
+import '../../features/conversations/domain/repositories/collaboration_document_history_repository.dart';
 import '../../features/conversations/domain/repositories/collaboration_task_repository.dart';
 import '../../features/conversations/domain/repositories/conversation_repository.dart';
 import '../../features/conversations/domain/repositories/message_attachment_repository.dart';
 import '../../features/conversations/domain/repositories/message_outbox_repository.dart';
+import '../../features/conversations/domain/repositories/rich_message_repository.dart';
 import '../../features/customer_tickets/application/use_cases/customer_ticket_use_cases.dart';
 import '../../features/customer_tickets/data/datasources/customer_ticket_remote_data_source.dart';
 import '../../features/customer_tickets/data/repositories/customer_ticket_repository_impl.dart';
@@ -738,6 +746,31 @@ final messageAttachmentRepositoryProvider =
       );
     });
 
+final richMessageRemoteDataSourceProvider =
+    Provider<RichMessageRemoteDataSource>((ref) {
+      return RichMessageRemoteDataSource(ref.watch(apiTransportProvider));
+    });
+
+final richMessageRepositoryProvider = Provider<RichMessageRepository>((ref) {
+  return RichMessageRepositoryImpl(
+    ref.watch(richMessageRemoteDataSourceProvider),
+  );
+});
+
+final collaborationDocumentHistoryRemoteDataSourceProvider =
+    Provider<CollaborationDocumentHistoryRemoteDataSource>((ref) {
+      return CollaborationDocumentHistoryRemoteDataSource(
+        ref.watch(apiTransportProvider),
+      );
+    });
+
+final collaborationDocumentHistoryRepositoryProvider =
+    Provider<CollaborationDocumentHistoryRepository>((ref) {
+      return CollaborationDocumentHistoryRepositoryImpl(
+        ref.watch(collaborationDocumentHistoryRemoteDataSourceProvider),
+      );
+    });
+
 final callRemoteDataSourceProvider = Provider<CallRemoteDataSource>((ref) {
   return CallRemoteDataSource(ref.watch(apiTransportProvider));
 });
@@ -1269,6 +1302,72 @@ final saveDraftUseCaseProvider = Provider<SaveDraftUseCase>((ref) {
 final clearDraftUseCaseProvider = Provider<ClearDraftUseCase>((ref) {
   return ClearDraftUseCase(ref.watch(conversationDraftRepositoryProvider));
 });
+
+// ---------------------------------------------------------------------------
+// Tin nhắn nâng cao: thẻ có nút / biểu mẫu, tin chạy dần, chép lời tin thoại,
+// lịch sử ghi chú / bảng trắng.
+// ---------------------------------------------------------------------------
+
+final getMessageUseCaseProvider = Provider<GetMessageUseCase>((ref) {
+  return GetMessageUseCase(ref.watch(richMessageRepositoryProvider));
+});
+
+final invokeMessageActionUseCaseProvider = Provider<InvokeMessageActionUseCase>(
+  (ref) {
+    return InvokeMessageActionUseCase(ref.watch(richMessageRepositoryProvider));
+  },
+);
+
+final submitMessageFormUseCaseProvider = Provider<SubmitMessageFormUseCase>((
+  ref,
+) {
+  return SubmitMessageFormUseCase(ref.watch(richMessageRepositoryProvider));
+});
+
+final loadMyMessageInteractionsUseCaseProvider =
+    Provider<LoadMyMessageInteractionsUseCase>((ref) {
+      return LoadMyMessageInteractionsUseCase(
+        ref.watch(richMessageRepositoryProvider),
+      );
+    });
+
+final decideApprovalUseCaseProvider = Provider<DecideApprovalUseCase>((ref) {
+  return DecideApprovalUseCase(ref.watch(richMessageRepositoryProvider));
+});
+
+final loadFileTranscriptUseCaseProvider = Provider<LoadFileTranscriptUseCase>((
+  ref,
+) {
+  return LoadFileTranscriptUseCase(ref.watch(richMessageRepositoryProvider));
+});
+
+final loadCollaborationDocumentUseCaseProvider =
+    Provider<LoadCollaborationDocumentUseCase>((ref) {
+      return LoadCollaborationDocumentUseCase(
+        ref.watch(collaborationDocumentHistoryRepositoryProvider),
+      );
+    });
+
+final listCollaborationDocumentVersionsUseCaseProvider =
+    Provider<ListCollaborationDocumentVersionsUseCase>((ref) {
+      return ListCollaborationDocumentVersionsUseCase(
+        ref.watch(collaborationDocumentHistoryRepositoryProvider),
+      );
+    });
+
+final loadCollaborationDocumentVersionUseCaseProvider =
+    Provider<LoadCollaborationDocumentVersionUseCase>((ref) {
+      return LoadCollaborationDocumentVersionUseCase(
+        ref.watch(collaborationDocumentHistoryRepositoryProvider),
+      );
+    });
+
+final restoreCollaborationDocumentVersionUseCaseProvider =
+    Provider<RestoreCollaborationDocumentVersionUseCase>((ref) {
+      return RestoreCollaborationDocumentVersionUseCase(
+        ref.watch(collaborationDocumentHistoryRepositoryProvider),
+      );
+    });
 
 String _mobileReleasePlatform() {
   return switch (defaultTargetPlatform) {

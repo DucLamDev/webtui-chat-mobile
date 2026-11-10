@@ -3,6 +3,13 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.4.0 · 10/11/2026
+### Tính năng
+- Hiển thị thẻ tin nhắn và thao tác ngay trong hội thoại
+  Thêm biểu đồ, sơ đồ, kế hoạch, bảng, nút bấm và biểu mẫu theo khả năng máy chủ công bố.
+- Theo dõi câu trả lời đang viết, xem lời chép và lịch sử tài liệu
+  Ghép đoạn trả lời theo thứ tự; hỗ trợ lời chép tin thoại và xem, khôi phục ghi chú hoặc bảng trắng.
+
 ## 1.3.0 · 02/11/2026
 ### Tính năng
 - Tên người gửi trong nhóm, giao việc có hạn, bảng trắng đủ công cụ, trả lời ticket khách

@@ -33,6 +33,7 @@ final class MessageOutboxItem {
     this.parentId,
     this.attachments = const [],
     this.silent = false,
+    this.metadata = const {},
     this.status = MessageOutboxStatus.queued,
     this.attemptCount = 0,
     this.lastError,
@@ -47,6 +48,9 @@ final class MessageOutboxItem {
   final String? parentId;
   final List<MessageOutboxAttachment> attachments;
   final bool silent;
+
+  /// `metadata` gửi kèm tin (vd. `voice` của tin thoại).
+  final Map<String, Object?> metadata;
   final MessageOutboxStatus status;
   final int attemptCount;
   final String? lastError;
@@ -72,6 +76,7 @@ final class MessageOutboxItem {
       parentId: parentId,
       attachments: attachments,
       silent: silent,
+      metadata: metadata,
       status: status ?? this.status,
       attemptCount: attemptCount ?? this.attemptCount,
       lastError: lastError ?? this.lastError,

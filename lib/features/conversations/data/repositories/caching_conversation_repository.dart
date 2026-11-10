@@ -364,6 +364,7 @@ final class CachingConversationRepository implements ConversationRepository {
     String? clientMessageId,
     String? parentId,
     bool silent = false,
+    Map<String, Object?> metadata = const {},
   }) async {
     final result = await _remote.sendMessage(
       workspaceId: workspaceId,
@@ -372,6 +373,7 @@ final class CachingConversationRepository implements ConversationRepository {
       clientMessageId: clientMessageId,
       parentId: parentId,
       silent: silent,
+      metadata: metadata,
     );
     if (result case Success<ChatMessage>(value: final message)) {
       await _cacheMessage(
