@@ -144,6 +144,58 @@ void main() {
     expect(restored.capabilities.legalAcceptance, isTrue);
   });
 
+  test('cold-start snapshot keeps account, privacy and session policy', () {
+    final payload = _payload();
+    final discovery =
+        (payload['data']! as Map<String, Object?>)['discovery']!
+            as Map<String, Object?>;
+    (discovery['capabilities']! as Map<String, Object?>).addAll(<String, bool>{
+      'rich_cards_v2': true,
+      'secret_messages': true,
+      'mfa': true,
+      'qr_login': true,
+      'device_approval': true,
+      'email_verification': true,
+    });
+    discovery['privacy_policy'] = {
+      'idle_lock_minutes': 15,
+      'secret_message_ttl_hours': 6,
+      'reveal_requires_reauth': false,
+    };
+    discovery['session_policy'] = {
+      'max_session_age_hours': 720,
+      'relogin_after_hours': 168,
+      'device_approval_mode': 'required',
+    };
+    final live = SelfHostedServerDiscovery.fromApiResponse(
+      payload: payload,
+      requestedServer: Uri.parse('https://chat.company.example'),
+      mobileVersion: '1.2.0',
+    );
+
+    final restored = SelfHostedServerDiscovery.fromStorageSnapshot(
+      encodedSnapshot: live.toStorageSnapshot(),
+      mobileVersion: '1.2.0',
+    );
+
+    expect(restored.capabilities.qrLogin, isTrue);
+    expect(restored.capabilities.deviceApproval, isTrue);
+    expect(restored.capabilities.emailVerification, isTrue);
+    expect(restored.capabilities.richCardsV2, isTrue);
+    expect(restored.capabilities.secretMessages, isTrue);
+    expect(restored.capabilities.mfa, isTrue);
+    expect(restored.privacyPolicy.idleLockMinutes, 15);
+    expect(restored.privacyPolicy.secretMessageTtlHours, 6);
+    expect(restored.privacyPolicy.revealRequiresReauth, isFalse);
+    expect(restored.sessionPolicy.toJson(), live.sessionPolicy.toJson());
+    expect(restored.sessionPolicy.maxSessionAgeHours, 720);
+    expect(
+      live.privacyPolicy.toJson().keys,
+      isNot(contains('qr_login')),
+      reason: 'cờ đăng nhập thuộc capabilities, không thuộc privacy_policy',
+    );
+  });
+
   test('rejects discovery missing a mandatory safety capability', () {
     final payload = _payload();
     final discovery =

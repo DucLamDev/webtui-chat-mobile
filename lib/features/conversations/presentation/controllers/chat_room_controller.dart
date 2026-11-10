@@ -661,7 +661,6 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     await _dispatchOutbox(auto: auto);
   }
 
-
   /// Nút `reply` của thẻ bot: gửi chữ của nút như tin người dùng vào cùng
   /// kênh (qua hàng chờ gửi như tin thường), không đụng bản nháp đang gõ.
   Future<void> sendCardReply(String text) async {
@@ -680,16 +679,12 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
         state.messages,
         _optimisticMessage(item, state.currentUserId),
       ),
-      outboxItems: [...state.outboxItems, item],
+      outboxItems: _upsertOutboxItem(item),
     );
-    await _retryOutboxItem(item, auto: false);
+    await _dispatchOutbox(auto: false, focusItemId: item.id);
   }
 
-  Future<void> _retryOutboxItem(
-    MessageOutboxItem item, {
-
   Future<void> _dispatchOutbox({
-
     required bool auto,
     String? focusItemId,
   }) async {
@@ -745,30 +740,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
             item.clientMessageId,
             MessageOutboxStatus.failed,
           ),
-
-          outboxItems: _replaceOutboxItem(failed),
-          errorMessage: auto ? null : error,
-        );
-      }
-      return;
-    }
-
-    final result = await _sendMessageUseCase.execute(
-      workspaceId: sending.workspaceId,
-      channelId: sending.channelId,
-      body: sending.body,
-      clientMessageId: sending.clientMessageId,
-      parentId: sending.parentId,
-      silent: sending.silent,
-      metadata: sending.metadata,
-    );
-    switch (result) {
-      case Success<ChatMessage>(value: final message):
-        final prepared = message.copyWith(
-          isMine: mounted && message.senderId == state.currentUserId,
-
           outboxItems: _upsertOutboxItem(item),
-
         );
       case MessageOutboxDispatchPhase.sending ||
           MessageOutboxDispatchPhase.queued ||
@@ -1614,13 +1586,10 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   void dispose() {
     _typingStopTimer?.cancel();
     unawaited(_realtimeSubscription?.cancel());
-
     _streamBuffers.clear();
     _streamReloads.clear();
-
     unawaited(_outboxSubscription?.cancel());
     unawaited(_workspaceResetSubscription?.cancel());
-
     super.dispose();
   }
 }

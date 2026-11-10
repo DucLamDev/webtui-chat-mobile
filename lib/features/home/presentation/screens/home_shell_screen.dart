@@ -22,11 +22,8 @@ import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../auth/application/session_termination.dart';
 import '../../../auth/presentation/controllers/device_approval_controllers.dart';
 import '../../../auth/presentation/controllers/legal_acceptance_controller.dart';
-
-import '../../../conversations/domain/entities/call_device_routing.dart';
-
 import '../../../auth/presentation/screens/device_approval_review_screen.dart';
-
+import '../../../conversations/domain/entities/call_device_routing.dart';
 import '../../../conversations/domain/entities/call_session.dart';
 import '../../../conversations/domain/entities/conversation_realtime_event.dart';
 import '../../../conversations/domain/entities/conversation_summary.dart';

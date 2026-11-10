@@ -19,11 +19,8 @@ final class SelfHostedServerDiscovery {
     required this.capabilities,
     this.logoUrl,
     this.zoneKind = '',
-
     this.privacyPolicy = const SelfHostedPrivacyPolicy(),
-
     this.sessionPolicy = const SessionPolicy(),
-
   });
 
   /// Host duy nhất được bật chức năng nội bộ VPSTTT (Automation, kênh bot / lệnh
@@ -177,32 +174,23 @@ final class SelfHostedServerDiscovery {
         blocking: capabilities['blocking'] == true,
         accountDeletion: capabilities['account_deletion'] == true,
         legalAcceptance: capabilities['legal_acceptance'] == true,
-
         richCardsV2: capabilities['rich_cards_v2'] == true,
         aiStreaming: capabilities['ai_streaming'] == true,
         transcription: capabilities['transcription'] == true,
-
-
         myNotes: capabilities['my_notes'] == true,
         secretMessages: capabilities['secret_messages'] == true,
         mfa: capabilities['mfa'] == true,
-      ),
-      logoUrl: logoUrl,
-      zoneKind: _text(zone['kind']).toLowerCase(),
-      privacyPolicy: SelfHostedPrivacyPolicy.fromJson(privacyPolicy),
-
         // Lõi 2: máy chủ cũ không trả các trường này → coi như tắt.
         qrLogin: capabilities['qr_login'] == true,
         deviceApproval: capabilities['device_approval'] == true,
         emailVerification: capabilities['email_verification'] == true,
-
       ),
       logoUrl: logoUrl,
       zoneKind: _text(zone['kind']).toLowerCase(),
+      privacyPolicy: SelfHostedPrivacyPolicy.fromJson(privacyPolicy),
       sessionPolicy: SessionPolicy.fromJson(
         _jsonMap(discovery['session_policy']),
       ),
-
     );
   }
 
@@ -289,11 +277,8 @@ final class SelfHostedServerDiscovery {
         },
         'deployment': {'status': 'ready'},
         'capabilities': capabilities.toJson(),
-
         'privacy_policy': privacyPolicy.toJson(),
-
         'session_policy': sessionPolicy.toJson(),
-
       },
     });
   }
@@ -368,21 +353,15 @@ final class SelfHostedCapabilities {
     this.blocking = false,
     this.accountDeletion = false,
     this.legalAcceptance = false,
-
     this.richCardsV2 = false,
     this.aiStreaming = false,
     this.transcription = false,
-
-
     this.myNotes = false,
     this.secretMessages = false,
     this.mfa = false,
-
     this.qrLogin = false,
     this.deviceApproval = false,
     this.emailVerification = false,
-
-
   });
 
   final bool chat;
@@ -399,7 +378,6 @@ final class SelfHostedCapabilities {
   final bool accountDeletion;
   final bool legalAcceptance;
 
-
   /// Máy chủ hiểu thẻ bản 2, nút `callback` và biểu mẫu (thiếu cờ = `false`;
   /// thẻ bản 2 đã có trong tin thì vẫn vẽ).
   final bool richCardsV2;
@@ -409,7 +387,6 @@ final class SelfHostedCapabilities {
 
   /// Máy chủ đã cấu hình dịch vụ chép lời tin thoại.
   final bool transcription;
-
 
   /// Sổ ghi chú cá nhân My Note.
   final bool myNotes;
@@ -429,8 +406,6 @@ final class SelfHostedCapabilities {
   /// Zone bắt xác minh email và máy chủ đã cấu hình SMTP (Lõi 2.6).
   final bool emailVerification;
 
-
-
   Map<String, bool> toJson() {
     return {
       'self_hosted': true,
@@ -447,15 +422,15 @@ final class SelfHostedCapabilities {
       'blocking': blocking,
       'account_deletion': accountDeletion,
       'legal_acceptance': legalAcceptance,
-
       'rich_cards_v2': richCardsV2,
       'ai_streaming': aiStreaming,
       'transcription': transcription,
-
-
       'my_notes': myNotes,
       'secret_messages': secretMessages,
       'mfa': mfa,
+      'qr_login': qrLogin,
+      'device_approval': deviceApproval,
+      'email_verification': emailVerification,
     };
   }
 }
@@ -489,11 +464,6 @@ final class SelfHostedPrivacyPolicy {
       'idle_lock_minutes': idleLockMinutes,
       'secret_message_ttl_hours': secretMessageTtlHours,
       'reveal_requires_reauth': revealRequiresReauth,
-
-      'qr_login': qrLogin,
-      'device_approval': deviceApproval,
-      'email_verification': emailVerification,
-
     };
   }
 }
