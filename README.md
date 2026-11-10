@@ -168,3 +168,7 @@ Tab Công việc có danh sách Việc của tôi và bộ lọc giao cho tôi /
 ### Bảng trắng dùng chung
 
 Bảng trắng dùng tài liệu schema 2 chung với web, có hình học, nét vẽ, chữ và biểu tượng. Lưu tuần tự, giữ đối tượng chưa hỗ trợ chỉnh sửa và thông báo lỗi lưu; người dùng có thể thử lại.
+
+### Phiếu hỗ trợ khách hàng
+
+Mục phiếu hỗ trợ có danh sách, chi tiết, phản hồi và ảnh đính kèm, đồng bộ thay đổi qua kết nối thời gian thực. App hiển thị hành động theo quyền; máy chủ kiểm tra quyền cho mọi thao tác.
