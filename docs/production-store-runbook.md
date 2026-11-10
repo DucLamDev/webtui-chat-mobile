@@ -190,3 +190,18 @@ Release chỉ được gọi là production khi có đủ bằng chứng:
 Source code có thể chuẩn bị mọi gate trên, nhưng việc deploy domain, tạo store
 record, ký và bấm submit cần quyền của chủ tài khoản/server và không thể được giả
 lập bằng credential placeholder.
+
+## Nghiệm thu lõi ổn định trên thiết bị thật
+
+Phát hành máy chủ có hợp đồng gọi nhiều thiết bị và đồng bộ bù trước app. Bản app mới đăng ký khả năng
+`call_cancel_push`; bản cũ vẫn chạy nhưng không nhận push huỷ mới. Mã Dart đã kiểm thử không thay thế được
+kiểm thử PushKit / CallKit bằng Xcode và thiết bị thật.
+
+- Dùng cùng tài khoản trên web, Android, iPhone: nghe ở một máy, hai máy còn lại phải ngừng chuông trong 2 giây.
+  Thử cả app nền và app đã tắt; máy đang nghe không bị cắt khi máy khác nhận push hoặc thao tác CallKit cũ.
+- Mất mạng 10 phút, gửi 5 tin ở nhiều hội thoại rồi về màn chính; bật mạng, kiểm đủ tin theo thứ tự mỗi hội thoại,
+  không trùng. Vào nền giữa lúc gửi lỗi không được tạo lại hẹn gửi nền. Đổi máy chủ không gửi tin cũ sang máy mới.
+- Mốc đồng bộ hết hạn: tải lại hội thoại; tải lại lỗi phải giữ mốc cũ để thử lại, không báo đồng bộ thành công.
+- Khoá tài khoản hoặc thu hồi phiên thử: thiết bị tương ứng không nhận thông báo tiếp theo.
+
+Các bước này cần tài khoản và thiết bị thử riêng; chưa được nghiệm thu chỉ bằng unit test.

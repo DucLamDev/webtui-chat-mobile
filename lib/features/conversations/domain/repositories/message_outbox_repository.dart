@@ -6,6 +6,9 @@ abstract interface class MessageOutboxRepository {
     required String channelId,
   });
 
+  /// Mọi tin chờ của workspace, ở mọi hội thoại.
+  Future<List<MessageOutboxItem>> listWorkspace({required String workspaceId});
+
   Future<void> upsert(MessageOutboxItem item);
 
   Future<bool> canDispatch(MessageOutboxItem item);

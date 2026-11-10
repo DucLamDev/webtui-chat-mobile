@@ -10,6 +10,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../features/auth/domain/repositories/device_identity_repository.dart';
 import '../../features/notifications/domain/entities/mobile_notification.dart';
 import '../network/api_transport.dart';
+import '../platform/native_instance_binding_service.dart';
 import '../security/instance_scope.dart';
 import '../security/secure_key_value_store.dart';
 import '../security/server_account_registry.dart';
@@ -230,6 +231,12 @@ final class PushNotificationService {
     final normalizedWorkspaceId = ticket.workspaceId;
     final device = await _deviceIdentityRepository.currentDevice();
     if (!_canContinue(ticket)) return;
+    if (Platform.isIOS) {
+      // PushKit chạy trước Flutter: cần mã máy để không bao giờ tắt cuộc gọi
+      // đang nói trên chính máy này khi nhận VoIP "đã nhận ở máy khác".
+      await const NativeInstanceBindingService().setCallDeviceId(device.id);
+      if (!_canContinue(ticket)) return;
+    }
     final firebase = await ensureFirebaseRuntime();
     if (!_canContinue(ticket)) return;
     final permission = firebase
@@ -466,18 +473,17 @@ final class PushNotificationService {
   }) async {
     await _api.post<Object>(
       '/api/v1/mobile/devices',
-      data: {
-        'workspace_id': workspaceId,
-        'device_id': deviceId,
-        'platform': platform,
-        'push_provider': pushProvider,
-        'push_token': pushToken ?? '',
-        'notification_permission': notificationPermission,
-        'release_channel': 'mobile',
-        'locale': WidgetsBinding.instance.platformDispatcher.locale
+      data: pushDeviceRegistrationBody(
+        workspaceId: workspaceId,
+        deviceId: deviceId,
+        platform: platform,
+        pushProvider: pushProvider,
+        pushToken: pushToken,
+        notificationPermission: notificationPermission,
+        locale: WidgetsBinding.instance.platformDispatcher.locale
             .toLanguageTag(),
-        'timezone': DateTime.now().timeZoneName,
-      },
+        timezone: DateTime.now().timeZoneName,
+      ),
     );
   }
 
@@ -537,15 +543,72 @@ final class PushNotificationService {
         _seenEventIds.add(eventId);
       }
     }
+    if (target.isCallAnsweredElsewhere) {
+      // Không hiện thông báo / "cuộc gọi nhỡ": chỉ tắt chuông nếu máy đã nhận
+      // không phải máy này.
+      final localDeviceId = await _localDeviceId();
+      if (NativeIncomingCallService.isTerminalCallTarget(
+        target,
+        localDeviceId: localDeviceId,
+      )) {
+        unawaited(
+          NativeIncomingCallService.endCallIfActive(
+            target.callId!,
+            remoteEnded: true,
+            incomingOnly: true,
+          ),
+        );
+      }
+      return;
+    }
     if (target.targetType == 'call' &&
         target.eventType == 'call_ended' &&
         target.callId?.trim().isNotEmpty == true) {
-      unawaited(NativeIncomingCallService.endCall(target.callId!));
+      unawaited(
+        NativeIncomingCallService.endCall(target.callId!, remoteEnded: true),
+      );
     }
     if (target.canOpenConversation || target.deepLink != null) {
       controller.add(target);
     }
   }
+
+  Future<String?> _localDeviceId() async {
+    try {
+      return (await _deviceIdentityRepository.currentDevice()).id;
+    } on Object {
+      return null;
+    }
+  }
+}
+
+/// Khả năng của bản app này, gửi kèm khi đăng ký thiết bị: máy chủ chỉ gửi
+/// push huỷ / kết thúc cuộc gọi kiểu mới (kể cả VoIP trên iOS) cho máy có
+/// `call_cancel_push`.
+const pushDeviceCapabilities = <String>['call_cancel_push'];
+
+Map<String, Object?> pushDeviceRegistrationBody({
+  required String workspaceId,
+  required String deviceId,
+  required String platform,
+  required String pushProvider,
+  required String? pushToken,
+  required String notificationPermission,
+  required String locale,
+  required String timezone,
+}) {
+  return {
+    'workspace_id': workspaceId,
+    'device_id': deviceId,
+    'platform': platform,
+    'push_provider': pushProvider,
+    'push_token': pushToken ?? '',
+    'notification_permission': notificationPermission,
+    'release_channel': 'mobile',
+    'locale': locale,
+    'timezone': timezone,
+    'capabilities': pushDeviceCapabilities,
+  };
 }
 
 Future<bool> _payloadMatchesPersistedActiveInstance(

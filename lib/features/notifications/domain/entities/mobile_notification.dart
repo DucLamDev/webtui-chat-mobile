@@ -121,6 +121,7 @@ final class NotificationTarget {
     this.organizationName,
     this.organizationLogoUrl,
     this.taskId,
+    this.answeredDeviceId,
   });
 
   factory NotificationTarget.fromPayload({
@@ -187,6 +188,10 @@ final class NotificationTarget {
         'task_id',
         'taskId',
       ], fallback: linkTarget?.taskId),
+      answeredDeviceId: _firstString(data, const [
+        'answered_device_id',
+        'answeredDeviceId',
+      ]),
     );
   }
 
@@ -239,6 +244,15 @@ final class NotificationTarget {
 
   /// Việc được giao (thông báo `target_type = task`).
   final String? taskId;
+
+  /// Máy đã nhận cuộc gọi (push `call_answered_elsewhere`).
+  final String? answeredDeviceId;
+
+  /// Push báo cuộc gọi đã được nhận ở một máy khác của chính người dùng.
+  bool get isCallAnsweredElsewhere =>
+      (targetType == null || targetType == 'call') &&
+      eventType?.trim().toLowerCase() == 'call_answered_elsewhere' &&
+      callId?.trim().isNotEmpty == true;
 
   /// Bấm thông báo giao việc / đổi hạn thì mở tab Task của phòng.
   bool get opensTasks => targetType == 'task';

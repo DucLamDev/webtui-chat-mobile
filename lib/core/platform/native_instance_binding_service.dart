@@ -37,6 +37,22 @@ final class NativeInstanceBindingService {
     }
   }
 
+  /// Mã thiết bị đã đăng ký push của instance đang hoạt động. PushKit (iOS)
+  /// dùng mã này để nhận ra VoIP "đã nhận ở máy khác" nói về chính máy mình.
+  Future<void> setCallDeviceId(String deviceId) async {
+    final normalized = deviceId.trim();
+    if (normalized.isEmpty) return;
+    try {
+      await _channel.invokeMethod<void>('setCallDeviceId', {
+        'device_id': normalized,
+      });
+    } on MissingPluginException {
+      // Android lọc push cuộc gọi bằng Dart / secure storage.
+    } on PlatformException {
+      // Best effort; máy chủ vẫn loại máy đã nhận khỏi push huỷ.
+    }
+  }
+
   Future<void> clear() async {
     try {
       await _channel.invokeMethod<void>('clearValidatedInstance');

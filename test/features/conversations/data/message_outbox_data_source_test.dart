@@ -9,6 +9,43 @@ import 'package:webtui_chat/features/conversations/domain/entities/chat_message.
 import 'package:webtui_chat/features/conversations/domain/entities/message_outbox_item.dart';
 
 void main() {
+  test('liệt kê toàn workspace giữ phạm vi máy chủ và hội thoại', () async {
+    final database = AppDatabase(createInMemoryDriftConnection());
+    addTearDown(database.close);
+    final source = MessageOutboxDataSource(
+      database,
+      _instanceA,
+      _MemorySecureStore.boundTo(_instanceA),
+    );
+    final otherServer = MessageOutboxDataSource(
+      database,
+      _instanceB,
+      _MemorySecureStore.boundTo(_instanceB),
+    );
+    final now = DateTime.utc(2026, 11, 10);
+    for (final channel in ['a', 'b']) {
+      for (final workspace in ['ws', 'ws-other']) {
+        await source.upsert(
+          MessageOutboxItem(
+            id: '$workspace-$channel',
+            instanceScopeId: _instanceA.storageId,
+            workspaceId: workspace,
+            channelId: channel,
+            clientMessageId: '$workspace-$channel',
+            body: 'Tin chờ',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+      }
+    }
+    expect(
+      (await source.listWorkspace(workspaceId: 'ws')).map((i) => i.id).toSet(),
+      {'ws-a', 'ws-b'},
+    );
+    expect(await otherServer.listWorkspace(workspaceId: 'ws'), isEmpty);
+  });
+
   test('stores outbox items scoped by workspace and channel', () async {
     final database = AppDatabase(createInMemoryDriftConnection());
     addTearDown(database.close);

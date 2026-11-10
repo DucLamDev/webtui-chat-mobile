@@ -106,10 +106,12 @@ final class ConversationRealtimeReducer {
       ConversationRealtimeEventType.callCancelled ||
       ConversationRealtimeEventType.callEnded ||
       ConversationRealtimeEventType.callMissed ||
+      ConversationRealtimeEventType.callAnsweredElsewhere ||
       ConversationRealtimeEventType.contactRequestCreated ||
       ConversationRealtimeEventType.contactRequestUpdated ||
       ConversationRealtimeEventType.contactRequestCancelled => state,
-      ConversationRealtimeEventType.reconnected => state,
+      ConversationRealtimeEventType.reconnected ||
+      ConversationRealtimeEventType.resyncRequired => state,
       ConversationRealtimeEventType.orderTicketUpdated => state,
       ConversationRealtimeEventType.unknown => state,
     };

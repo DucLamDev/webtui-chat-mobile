@@ -58,6 +58,7 @@ import '../../features/conversations/application/use_cases/channel_use_cases.dar
 import '../../features/conversations/application/use_cases/collaboration_task_use_cases.dart';
 import '../../features/conversations/application/use_cases/load_conversation_home_use_case.dart';
 import '../../features/conversations/application/use_cases/message_attachment_use_cases.dart';
+import '../../features/conversations/application/use_cases/message_outbox_dispatcher.dart';
 import '../../features/conversations/application/use_cases/message_outbox_use_cases.dart';
 import '../../features/conversations/application/use_cases/message_use_cases.dart';
 import '../../features/conversations/application/use_cases/open_direct_conversation_use_case.dart';
@@ -113,6 +114,7 @@ import '../../features/settings/data/datasources/mobile_release_remote_data_sour
 import '../../features/settings/data/repositories/local_app_settings_repository.dart';
 import '../../features/settings/domain/repositories/app_settings_repository.dart';
 import '../../features/sync/application/use_cases/workspace_sync_use_cases.dart';
+import '../../features/sync/application/workspace_refresh_signal.dart';
 import '../../features/sync/data/datasources/local_workspace_sync_cursor_data_source.dart';
 import '../../features/sync/data/datasources/workspace_sync_remote_data_source.dart';
 import '../../features/sync/data/repositories/workspace_sync_repository_impl.dart';
@@ -810,6 +812,12 @@ final workspaceSyncRepositoryProvider = Provider<WorkspaceSyncRepository>((
   );
 });
 
+final workspaceRefreshSignalProvider = Provider<WorkspaceRefreshSignal>((ref) {
+  final signal = WorkspaceRefreshSignal();
+  ref.onDispose(() => unawaited(signal.dispose()));
+  return signal;
+});
+
 final catchUpWorkspaceSyncUseCaseProvider =
     Provider<CatchUpWorkspaceSyncUseCase>((ref) {
       return CatchUpWorkspaceSyncUseCase(
@@ -915,6 +923,37 @@ final deleteMessageOutboxItemUseCaseProvider =
         ref.watch(messageOutboxRepositoryProvider),
       );
     });
+
+/// Bộ gửi lại tin chờ cho toàn app (mọi hội thoại), dùng chung bởi màn chính và
+/// các phòng chat.
+final messageOutboxDispatcherProvider = Provider<MessageOutboxDispatcher>((
+  ref,
+) {
+  final sendMessage = ref.watch(sendMessageUseCaseProvider);
+  final attachUploadedFile = ref.watch(attachUploadedFileUseCaseProvider);
+  final legalPolicy = ref.watch(legalAcceptanceAccessPolicyProvider);
+  final dispatcher = MessageOutboxDispatcher(
+    repository: ref.watch(messageOutboxRepositoryProvider),
+    sendMessage: (item) => sendMessage.execute(
+      workspaceId: item.workspaceId,
+      channelId: item.channelId,
+      body: item.body,
+      clientMessageId: item.clientMessageId,
+      parentId: item.parentId,
+      silent: item.silent,
+    ),
+    attachFile: (item, message, attachment) => attachUploadedFile.execute(
+      workspaceId: item.workspaceId,
+      channelId: item.channelId,
+      messageId: message.id,
+      fileId: attachment.fileId,
+      sortOrder: attachment.sortOrder,
+    ),
+    canCreateUserContent: () => legalPolicy.canCreateUserContent,
+  );
+  ref.onDispose(dispatcher.dispose);
+  return dispatcher;
+});
 
 final newClientMessageIdUseCaseProvider = Provider<NewClientMessageIdUseCase>((
   ref,
@@ -1152,8 +1191,19 @@ final newAttachmentUploadItemUseCaseProvider =
       return const NewAttachmentUploadItemUseCase();
     });
 
+final resolveCallDeviceIdUseCaseProvider = Provider<ResolveCallDeviceIdUseCase>(
+  (ref) {
+    return ResolveCallDeviceIdUseCase(
+      ref.watch(deviceIdentityRepositoryProvider),
+    );
+  },
+);
+
 final startCallUseCaseProvider = Provider<StartCallUseCase>((ref) {
-  return StartCallUseCase(ref.watch(callRepositoryProvider));
+  return StartCallUseCase(
+    ref.watch(callRepositoryProvider),
+    resolveDeviceId: ref.watch(resolveCallDeviceIdUseCaseProvider),
+  );
 });
 
 final getCallUseCaseProvider = Provider<GetCallUseCase>((ref) {
@@ -1167,7 +1217,10 @@ final findIncomingCallUseCaseProvider = Provider<FindIncomingCallUseCase>((
 });
 
 final acceptCallUseCaseProvider = Provider<AcceptCallUseCase>((ref) {
-  return AcceptCallUseCase(ref.watch(callRepositoryProvider));
+  return AcceptCallUseCase(
+    ref.watch(callRepositoryProvider),
+    resolveDeviceId: ref.watch(resolveCallDeviceIdUseCaseProvider),
+  );
 });
 
 final endCallUseCaseProvider = Provider<EndCallUseCase>((ref) {
@@ -1175,7 +1228,10 @@ final endCallUseCaseProvider = Provider<EndCallUseCase>((ref) {
 });
 
 final rejectCallUseCaseProvider = Provider<RejectCallUseCase>((ref) {
-  return RejectCallUseCase(ref.watch(callRepositoryProvider));
+  return RejectCallUseCase(
+    ref.watch(callRepositoryProvider),
+    resolveDeviceId: ref.watch(resolveCallDeviceIdUseCaseProvider),
+  );
 });
 
 final sendCallSignalUseCaseProvider = Provider<SendCallSignalUseCase>((ref) {

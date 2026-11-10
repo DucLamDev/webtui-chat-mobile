@@ -16,6 +16,11 @@ final class LocalMessageOutboxRepository implements MessageOutboxRepository {
   }
 
   @override
+  Future<List<MessageOutboxItem>> listWorkspace({required String workspaceId}) {
+    return _dataSource.listWorkspace(workspaceId: workspaceId);
+  }
+
+  @override
   Future<void> upsert(MessageOutboxItem item) {
     return _dataSource.upsert(item);
   }

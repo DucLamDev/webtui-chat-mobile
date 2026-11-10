@@ -19,6 +19,8 @@ import flutter_callkit_incoming
   private let activeInstanceOriginKey = "webtui.active_instance_origin"
   private let validatedInstanceKey = "webtui.instance_binding_validated"
   private let durableSessionKey = "webtui.session_binding_durable"
+  private let callDeviceIDKey = "webtui.call_device_id"
+  private let callObserver = CXCallObserver()
 
   override func application(
     _ application: UIApplication,
@@ -70,6 +72,24 @@ import flutter_callkit_incoming
           defaults.set(false, forKey: self.durableSessionKey)
           defaults.removeObject(forKey: self.activeInstanceIDKey)
           defaults.removeObject(forKey: self.activeInstanceOriginKey)
+          defaults.removeObject(forKey: self.callDeviceIDKey)
+          result(nil)
+          return
+        }
+        if call.method == "setCallDeviceId" {
+          guard
+            let arguments = call.arguments as? [String: Any],
+            let rawDeviceID = arguments["device_id"] as? String
+          else {
+            result(FlutterError(code: "INVALID_CALL_DEVICE_ID", message: nil, details: nil))
+            return
+          }
+          let deviceID = rawDeviceID.trimmingCharacters(in: .whitespacesAndNewlines)
+          guard !deviceID.isEmpty, deviceID.count <= 128 else {
+            result(FlutterError(code: "INVALID_CALL_DEVICE_ID", message: nil, details: nil))
+            return
+          }
+          defaults.set(deviceID, forKey: self.callDeviceIDKey)
           result(nil)
           return
         }
@@ -418,12 +438,85 @@ import flutter_callkit_incoming
         args[key] = value
       }
     }
+    if payloadString(info, "call_action")?.lowercased() == "cancel" {
+      reportCancelledCall(args: args, payload: info, callID: callID, completion: completion)
+      return
+    }
     let data = flutter_callkit_incoming.Data(args: args)
     SwiftFlutterCallkitIncomingPlugin.sharedInstance?.showCallkitIncoming(
       data,
       fromPushKit: true,
       completion: completion
     )
+  }
+
+  // MARK: - VoIP huỷ cuộc gọi (đã nhận ở máy khác / đã kết thúc)
+  // PushKit bắt buộc báo CallKit trong completion cho mọi VoIP push, kể cả push huỷ: báo đúng UUID cuộc gọi rồi kết
+  // thúc ngay với lý do. Không hiện "cuộc gọi nhỡ" và không bao giờ tắt cuộc gọi đang nói trên chính máy này.
+
+  private func reportCancelledCall(
+    args: [String: Any?],
+    payload: [AnyHashable: Any],
+    callID: String,
+    completion: @escaping () -> Void
+  ) {
+    guard let plugin = SwiftFlutterCallkitIncomingPlugin.sharedInstance else {
+      completion()
+      return
+    }
+    var cancelArgs = args
+    cancelArgs["missedCallNotification"] = ["showNotification": false]
+    let eventType = payloadString(payload, "event_type")?.lowercased()
+    let endReason = payloadString(payload, "end_reason")?.lowercased()
+      ?? (eventType == "call_answered_elsewhere" ? "answered_elsewhere" : "ended")
+    let answeredHere = endReason == "answered_elsewhere"
+      && isCallAnsweredOnThisDevice(
+        callID: callID,
+        answeredDeviceID: payloadString(payload, "answered_device_id")
+      )
+    plugin.reportRemotelyEndedCall(
+      flutter_callkit_incoming.Data(args: cancelArgs),
+      reason: callKitEndReasonCode(endReason),
+      endExistingCall: !answeredHere,
+      completion: completion
+    )
+  }
+
+  /// Mã lý do của plugin (saveEndCall): 2 remoteEnded, 3 unanswered, 4 answeredElsewhere, 5 declinedElsewhere.
+  private func callKitEndReasonCode(_ endReason: String) -> Int {
+    switch endReason {
+    case "answered_elsewhere":
+      return 4
+    case "rejected":
+      return 5
+    case "missed":
+      return 3
+    default:
+      return 2
+    }
+  }
+
+  private func isCallAnsweredOnThisDevice(callID: String, answeredDeviceID: String?) -> Bool {
+    if let answered = answeredDeviceID?.trimmingCharacters(in: .whitespacesAndNewlines),
+       !answered.isEmpty,
+       let local = UserDefaults.standard.string(forKey: callDeviceIDKey),
+       !local.isEmpty,
+       answered == local || answered == "\(local):voip" {
+      return true
+    }
+    guard let uuid = UUID(uuidString: callID) else { return false }
+    // Cuộc gọi đã kết nối trên chính máy này thì không bao giờ tắt theo push "đã nhận ở máy khác".
+    return callObserver.calls.contains { $0.uuid == uuid && !$0.hasEnded && $0.hasConnected }
+  }
+
+  /// Đọc khoá ở gốc payload, hoặc trong `extra` (lồng tối đa hai lớp như payload call_invite).
+  private func payloadString(_ payload: [AnyHashable: Any], _ key: String, depth: Int = 0) -> String? {
+    if let value = payload[key] as? String {
+      let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+      if !trimmed.isEmpty { return trimmed }
+    }
+    guard depth < 2, let extra = payload["extra"] as? [AnyHashable: Any] else { return nil }
+    return payloadString(extra, key, depth: depth + 1)
   }
 
   // MARK: - CallKit ↔ WebRTC audio

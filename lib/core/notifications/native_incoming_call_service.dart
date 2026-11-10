@@ -7,8 +7,10 @@ import 'package:flutter_callkit_incoming/entities/entities.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../../features/conversations/domain/entities/call_device_routing.dart';
 import '../../features/notifications/domain/entities/mobile_notification.dart';
 import '../security/instance_scope.dart';
+import '../security/scoped_device_id.dart';
 import '../security/secure_key_value_store.dart';
 import '../security/server_account_registry.dart';
 
@@ -119,6 +121,12 @@ final class NativeIncomingCallService {
   static final _retryTimers = <String, Timer>{};
   static final _targetsByCallId = <String, NotificationTarget>{};
   static final _invalidatedInstanceIds = <String>{};
+
+  /// Cuộc gọi app tự tắt chuông vì máy chủ báo đã kết thúc / đã nhận ở máy
+  /// khác. Hành động decline / ended / timeout mà plugin phát lại sau đó chỉ là
+  /// tiếng vọng của lệnh tắt, không được gửi reject / hangup lên máy chủ.
+  static final _remotelyEndedCallIds = <String>{};
+  static const _remotelyEndedCallIdLimit = 64;
   static StreamSubscription<CallEvent?>? _subscription;
   static bool _permissionsRequested = false;
   static bool _pendingRestoreStarted = false;
@@ -322,8 +330,95 @@ final class NativeIncomingCallService {
       await showIncomingCall(target);
       return;
     }
-    if (_isTerminalCall(target)) {
-      await endCall(target.callId!);
+    if (target.isCallAnsweredElsewhere) {
+      final localDeviceId = await readLocalCallDeviceId();
+      if (isTerminalCallTarget(target, localDeviceId: localDeviceId)) {
+        await endCallIfActive(
+          target.callId!,
+          remoteEnded: true,
+          incomingOnly: true,
+        );
+      }
+      return;
+    }
+    if (isTerminalCallTarget(target)) {
+      await endCall(target.callId!, remoteEnded: true);
+    }
+  }
+
+  /// Chỉ tắt khi [callId] đang thật sự có trên giao diện gốc. Plugin tắt theo
+  /// cuộc gọi đang lưu (iOS PushKit) và dừng dịch vụ cuộc gọi Android dù mã
+  /// không khớp, nên không được gọi `endCall` cho cuộc gọi không có ở máy này.
+  ///
+  /// [incomingOnly]: chỉ tắt cuộc gọi ĐẾN còn đang đổ chuông (không đụng cuộc
+  /// gọi đi hoặc cuộc gọi máy này đã nhận).
+  static Future<bool> endCallIfActive(
+    String callId, {
+    bool remoteEnded = false,
+    bool incomingOnly = false,
+  }) async {
+    final normalizedCallId = callId.trim();
+    if (normalizedCallId.isEmpty) return false;
+    // Chỉ ghi nhớ "đã tắt theo máy chủ" khi thật sự tắt (trong endCall): cuộc
+    // gọi đi / đã nhận không bị bỏ qua hành động kết thúc sau này.
+    final List<CallKitParams> calls;
+    try {
+      calls = await FlutterCallkitIncoming.activeCalls();
+    } on Object {
+      if (incomingOnly) return false;
+      await endCall(normalizedCallId, remoteEnded: remoteEnded);
+      return true;
+    }
+    final matching = calls.where(
+      (call) => nativeCallMatches(
+        call.toJson(),
+        normalizedCallId,
+        incomingOnly: incomingOnly,
+      ),
+    );
+    if (matching.isEmpty) return false;
+    await endCall(normalizedCallId, remoteEnded: remoteEnded);
+    return true;
+  }
+
+  /// Cuộc gọi gốc (JSON từ `activeCalls`) có phải [callId] không; với
+  /// [incomingOnly] chỉ nhận cuộc gọi đến chưa được nhận trên máy này.
+  static bool nativeCallMatches(
+    Map<String, dynamic> body,
+    String callId, {
+    bool incomingOnly = false,
+  }) {
+    final expected = callId.trim().toLowerCase();
+    if (expected.isEmpty) return false;
+    final raw = _stringObjectMap(body);
+    final extra = _stringObjectMap(raw['extra']);
+    final ids = {
+      raw['id']?.toString().trim().toLowerCase(),
+      extra['call_id']?.toString().trim().toLowerCase(),
+    };
+    if (!ids.contains(expected)) return false;
+    if (!incomingOnly) return true;
+    final eventType = _firstStringValue(
+      extra['event_type'],
+      raw['event_type'],
+    )?.toLowerCase();
+    final accepted =
+        raw['isAccepted'] == true ||
+        raw['accepted'] == true ||
+        extra['status']?.toString().trim().toLowerCase() == 'accepted';
+    return eventType == 'call_invite' && !accepted;
+  }
+
+  /// Mã thiết bị của instance đang hoạt động, đọc thẳng từ secure storage để
+  /// dùng được cả trong isolate nền (push khi app đã tắt).
+  static Future<String?> readLocalCallDeviceId() async {
+    try {
+      const storage = FlutterSecureKeyValueStore(FlutterSecureStorage());
+      final scopeId = await storage.read(SecureStoreKey.activeInstanceScopeId);
+      if (scopeId == null || scopeId.trim().isEmpty) return null;
+      return readScopedDeviceId(storage, instanceStorageId: scopeId.trim());
+    } on Object {
+      return null;
     }
   }
 
@@ -502,10 +597,18 @@ final class NativeIncomingCallService {
     );
   }
 
-  static Future<void> endCall(String callId) async {
+  /// Tắt giao diện cuộc gọi gốc của [callId].
+  ///
+  /// [remoteEnded] = máy chủ đã quyết định cuộc gọi kết thúc với máy này (đã
+  /// nhận ở máy khác, người gọi huỷ, ...): hành động mà plugin phát lại do lệnh
+  /// tắt này được xác nhận ngay, không gửi reject / hangup.
+  static Future<void> endCall(String callId, {bool remoteEnded = false}) async {
     final normalizedCallId = callId.trim();
     if (normalizedCallId.isEmpty) {
       return;
+    }
+    if (remoteEnded) {
+      _rememberRemotelyEnded(normalizedCallId);
     }
     try {
       await FlutterCallkitIncoming.endCall(normalizedCallId);
@@ -553,7 +656,29 @@ final class NativeIncomingCallService {
         callId.isNotEmpty) {
       _targetsByCallId.remove(callId);
     }
+    if (isEchoOfRemoteEnd(action)) {
+      unawaited(acknowledge(action));
+      return;
+    }
     _emit(action);
+  }
+
+  /// Hành động decline / ended / timeout sinh ra do app vừa tự tắt chuông theo
+  /// lệnh của máy chủ (xem [endCall] với `remoteEnded`).
+  static bool isEchoOfRemoteEnd(NativeIncomingCallAction action) {
+    final callId = action.target.callId?.trim();
+    return action.type != NativeIncomingCallActionType.accept &&
+        callId != null &&
+        _remotelyEndedCallIds.contains(callId);
+  }
+
+  static void _rememberRemotelyEnded(String callId) {
+    _remotelyEndedCallIds
+      ..remove(callId)
+      ..add(callId);
+    while (_remotelyEndedCallIds.length > _remotelyEndedCallIdLimit) {
+      _remotelyEndedCallIds.remove(_remotelyEndedCallIds.first);
+    }
   }
 
   static NativeIncomingCallAction? actionFromCallkitEvent(CallEvent? event) {
@@ -679,9 +804,24 @@ final class NativeIncomingCallService {
     return const {};
   }
 
-  static bool _isTerminalCall(NotificationTarget target) {
+  /// Push báo cuộc gọi đã xong với máy này: kết thúc / huỷ / từ chối, hoặc
+  /// `call_answered_elsewhere` (trạng thái `accepted`) khi máy đã nhận KHÔNG
+  /// phải máy này.
+  static bool isTerminalCallTarget(
+    NotificationTarget target, {
+    String? localDeviceId,
+  }) {
     final callId = target.callId?.trim();
-    if (target.targetType != 'call' || callId == null || callId.isEmpty) {
+    if (callId == null || callId.isEmpty) {
+      return false;
+    }
+    if (target.isCallAnsweredElsewhere) {
+      return !callAnsweredOnThisDevice(
+        answeredDeviceId: target.answeredDeviceId,
+        localDeviceId: localDeviceId,
+      );
+    }
+    if (target.targetType != 'call') {
       return false;
     }
     final status = target.callStatus?.trim().toLowerCase();
@@ -944,16 +1084,39 @@ final class _BackgroundCallActionClient {
     if (callId.isEmpty) return false;
 
     var lookup = await _lookup(binding, callId);
-    if (lookup == _CallLookup.notFound || lookup.isTerminal) return true;
-    if (lookup == _CallLookup.failed) return false;
+    if (lookup.state == _CallLookup.notFound || lookup.state.isTerminal) {
+      return true;
+    }
+    if (lookup.state == _CallLookup.failed) return false;
+
+    final localDeviceId = await readScopedDeviceId(
+      FlutterSecureKeyValueStore(_storage),
+      instanceStorageId: binding.instanceScopeId,
+    );
+    // Đã nhận ở máy khác của chính người dùng: decline / ended / timeout trên
+    // máy này (kể cả do app tự tắt chuông) không được gác máy hộ máy kia.
+    if (action.type != NativeIncomingCallActionType.accept &&
+        lookup.state.isActive &&
+        callAnsweredOnAnotherDevice(
+          answeredDeviceId: lookup.answeredDeviceId,
+          localDeviceId: localDeviceId,
+        )) {
+      return true;
+    }
 
     final (endpoint, reason) = switch (action.type) {
       NativeIncomingCallActionType.accept => ('accept', null),
-      NativeIncomingCallActionType.timeout when lookup.isActive => (null, null),
-      NativeIncomingCallActionType.decline when lookup.isActive => (null, null),
+      NativeIncomingCallActionType.timeout when lookup.state.isActive => (
+        null,
+        null,
+      ),
+      NativeIncomingCallActionType.decline when lookup.state.isActive => (
+        null,
+        null,
+      ),
       NativeIncomingCallActionType.decline => ('reject', 'declined'),
       NativeIncomingCallActionType.timeout => ('reject', 'timeout'),
-      NativeIncomingCallActionType.ended when lookup.isRinging => (
+      NativeIncomingCallActionType.ended when lookup.state.isRinging => (
         'reject',
         'ended',
       ),
@@ -969,7 +1132,12 @@ final class _BackgroundCallActionClient {
       path:
           '/api/v1/workspaces/${Uri.encodeComponent(binding.workspaceId)}/'
           'calls/${Uri.encodeComponent(callId)}/$endpoint',
-      data: reason == null ? const {} : <String, Object?>{'reason': reason},
+      data: <String, Object?>{
+        'reason': ?reason,
+        if ((endpoint == 'reject' || endpoint == 'accept') &&
+            localDeviceId != null)
+          'device_id': localDeviceId,
+      },
     );
     if (response?.isSuccess == true || response?.statusCode == 404) {
       return true;
@@ -979,9 +1147,10 @@ final class _BackgroundCallActionClient {
     // server timeout won the race. Ack only after a fresh read proves the
     // requested action is no longer applicable.
     lookup = await _lookup(binding, callId);
-    return lookup == _CallLookup.notFound ||
-        lookup.isTerminal ||
-        (action.type == NativeIncomingCallActionType.accept && lookup.isActive);
+    return lookup.state == _CallLookup.notFound ||
+        lookup.state.isTerminal ||
+        (action.type == NativeIncomingCallActionType.accept &&
+            lookup.state.isActive);
   }
 
   Future<_BackgroundServerBinding?> _bindingFor(
@@ -1047,12 +1216,13 @@ final class _BackgroundCallActionClient {
     }
   }
 
-  Future<_CallLookup> _lookup(
+  Future<({_CallLookup state, String? answeredDeviceId})> _lookup(
     _BackgroundServerBinding binding,
     String callId,
   ) async {
+    const failed = (state: _CallLookup.failed, answeredDeviceId: null);
     if (!await _bindingIsStillCurrent(binding)) {
-      return _CallLookup.failed;
+      return failed;
     }
     final response = await _authorizedRequest(
       binding,
@@ -1062,13 +1232,15 @@ final class _BackgroundCallActionClient {
           'calls/${Uri.encodeComponent(callId)}',
     );
     if (!await _bindingIsStillCurrent(binding)) {
-      return _CallLookup.failed;
+      return failed;
     }
-    if (response == null) return _CallLookup.failed;
-    if (response.statusCode == 404) return _CallLookup.notFound;
-    if (!response.isSuccess) return _CallLookup.failed;
+    if (response == null) return failed;
+    if (response.statusCode == 404) {
+      return (state: _CallLookup.notFound, answeredDeviceId: null);
+    }
+    if (!response.isSuccess) return failed;
     final status = _findStringField(response.jsonBody, 'status')?.toLowerCase();
-    return switch (status) {
+    final state = switch (status) {
       'ringing' => _CallLookup.ringing,
       'accepted' || 'connecting' || 'active' => _CallLookup.active,
       'rejected' ||
@@ -1078,6 +1250,13 @@ final class _BackgroundCallActionClient {
       'missed' => _CallLookup.terminal,
       _ => _CallLookup.failed,
     };
+    return (
+      state: state,
+      answeredDeviceId: _findStringField(
+        response.jsonBody,
+        'answered_device_id',
+      ),
+    );
   }
 
   Future<_BackgroundHttpResponse?> _authorizedRequest(
