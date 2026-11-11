@@ -187,10 +187,16 @@ class _ApprovalListBodyState extends ConsumerState<_ApprovalListBody>
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              subtitle: Text(
-                '${item.sourceLabel} · ${item.status.label} · '
-                '${item.approvalsCount}/${item.requiredApprovals} phiếu'
-                '${item.expiresAt == null ? '' : ' · hạn ${formatApprovalTime(item.expiresAt!)}'}',
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ApprovalStatusText(approval: item),
+                  Text(
+                    '${item.sourceLabel} · '
+                    '${item.approvalsCount}/${item.requiredApprovals} phiếu'
+                    '${item.expiresAt == null ? '' : ' · hạn ${formatApprovalTime(item.expiresAt!)}'}',
+                  ),
+                ],
               ),
               trailing: item.canDecide && item.isPending
                   ? const Icon(Icons.how_to_vote_outlined)
