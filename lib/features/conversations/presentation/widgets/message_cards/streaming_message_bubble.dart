@@ -9,6 +9,8 @@ import '../../../application/use_cases/message_stream_merger.dart';
 
 /// Bong bóng tin đang chạy dần (AI / bot trả lời từng đoạn): chữ đã có và con
 /// trỏ nhấp nháy ở cuối. Hệ thống bật giảm chuyển động thì con trỏ đứng yên.
+/// AI đang viết khối thẻ (biểu đồ / sơ đồ / kế hoạch) thì giấu JSON thô, ghi
+/// "Đang vẽ…".
 class StreamingMessageBubble extends StatefulWidget {
   const StreamingMessageBubble({
     required this.text,
@@ -54,8 +56,10 @@ class _StreamingMessageBubbleState extends State<StreamingMessageBubble>
 
   @override
   Widget build(BuildContext context) {
-    final trimmed = widget.text.trim();
+    final visible = visibleStreamingText(widget.text);
+    final trimmed = visible.text.trim();
     final waiting = trimmed.isEmpty || trimmed == messageStreamPlaceholder;
+    final status = visible.drawing ? 'Đang vẽ…' : 'Đang trả lời…';
     final style = WebTuiTypography.bodyMedium.copyWith(
       color: WebTuiColors.textPrimary,
       fontWeight: FontWeight.w500,
@@ -93,11 +97,11 @@ class _StreamingMessageBubbleState extends State<StreamingMessageBubble>
                   children: [
                     Semantics(
                       liveRegion: true,
-                      label: waiting ? 'Đang trả lời' : null,
+                      label: waiting ? status : null,
                       child: Text.rich(
                         TextSpan(
                           children: [
-                            if (!waiting) TextSpan(text: widget.text),
+                            if (!waiting) TextSpan(text: visible.text),
                             WidgetSpan(
                               alignment: PlaceholderAlignment.middle,
                               child: ExcludeSemantics(
@@ -120,9 +124,7 @@ class _StreamingMessageBubbleState extends State<StreamingMessageBubble>
                     ),
                     const SizedBox(height: WebTuiSpacing.xs),
                     Text(
-                      waiting
-                          ? 'Đang trả lời…'
-                          : '${widget.timeLabel} · Đang trả lời…',
+                      waiting ? status : '${widget.timeLabel} · $status',
                       style: WebTuiTypography.labelSmall.copyWith(
                         color: WebTuiColors.textMuted,
                       ),
