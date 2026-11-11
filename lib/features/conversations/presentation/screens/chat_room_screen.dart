@@ -4506,19 +4506,14 @@ class _MessageAttachmentList extends StatelessWidget {
                       apiBaseUri: networkScope?.apiBaseUri,
                     )
                   : attachment.isAudio
-                  ? Column(
-                      crossAxisAlignment: outgoing
-                          ? CrossAxisAlignment.end
-                          : CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        MessageVoiceAttachmentView(
-                          attachment: attachment,
-                          apiBaseUri: networkScope?.apiBaseUri,
-                          voice: attachment.id == firstAudioId ? voice : null,
-                        ),
-                        VoiceTranscriptView(attachment: attachment),
-                      ],
+                  ? VoiceAttachmentWithTranscript(
+                      key: ValueKey(
+                        'voice-${attachment.messageId}-${attachment.id}',
+                      ),
+                      attachment: attachment,
+                      outgoing: outgoing,
+                      apiBaseUri: networkScope?.apiBaseUri,
+                      voice: attachment.id == firstAudioId ? voice : null,
                     )
                   : attachment.isVideo
                   ? MessageVideoAttachmentView(

@@ -32,11 +32,15 @@ final class VoiceTranscriptState {
   const VoiceTranscriptState({
     this.phase = VoiceTranscriptPhase.idle,
     this.text = '',
+    this.segments = const [],
     this.errorMessage,
   });
 
   final VoiceTranscriptPhase phase;
   final String text;
+
+  /// Các đoạn lời kèm giờ (có thì hiện chép lời đồng bộ); rỗng thì chỉ có [text].
+  final List<FileTranscriptSegment> segments;
   final String? errorMessage;
 }
 
@@ -100,11 +104,16 @@ final class VoiceTranscriptController
     if (!mounted) return;
     switch (result) {
       case Success(:final value):
+        final segments = [
+          for (final segment in value.segments)
+            if (segment.text.isNotEmpty) segment,
+        ];
         if (value.status == FileTranscriptStatus.ready &&
-            value.text.isNotEmpty) {
+            (value.text.isNotEmpty || segments.isNotEmpty)) {
           state = VoiceTranscriptState(
             phase: VoiceTranscriptPhase.ready,
             text: value.text,
+            segments: List.unmodifiable(segments),
           );
         } else if (value.status.isPending && _polls < _maxPolls) {
           _polls += 1;

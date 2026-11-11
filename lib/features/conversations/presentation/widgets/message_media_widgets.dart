@@ -23,6 +23,7 @@ import '../../application/use_cases/message_attachment_use_cases.dart';
 import '../../data/files/scoped_attachment_file_store.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/message_voice.dart';
+import '../controllers/voice_playback_link.dart';
 
 Future<void> openMessageImageGallery(
   BuildContext context, {
@@ -301,6 +302,7 @@ class MessageVoiceAttachmentView extends ConsumerStatefulWidget {
     required this.attachment,
     this.apiBaseUri,
     this.voice,
+    this.playbackLink,
     super.key,
   });
 
@@ -309,6 +311,9 @@ class MessageVoiceAttachmentView extends ConsumerStatefulWidget {
 
   /// `metadata.voice` của tin: hiện thời lượng và sóng âm trước khi tải tệp.
   final MessageVoiceMetadata? voice;
+
+  /// Nối với phần "Xem lời": báo vị trí đang phát, nhận lệnh tua tới một đoạn.
+  final VoicePlaybackLink? playbackLink;
 
   @override
   ConsumerState<MessageVoiceAttachmentView> createState() =>
@@ -366,6 +371,7 @@ class _MessageVoiceAttachmentViewState
   @override
   void initState() {
     super.initState();
+    widget.playbackLink?.attach(_seekAndPlay);
     _subscriptions
       ..add(
         _player.onDurationChanged.listen((duration) {
@@ -374,7 +380,9 @@ class _MessageVoiceAttachmentViewState
       )
       ..add(
         _player.onPositionChanged.listen((position) {
-          if (mounted) setState(() => _position = position);
+          if (!mounted) return;
+          setState(() => _position = position);
+          widget.playbackLink?.reportPosition(position.inMilliseconds);
         }),
       )
       ..add(
@@ -389,6 +397,7 @@ class _MessageVoiceAttachmentViewState
               _position = Duration.zero;
               _playerState = PlayerState.completed;
             });
+            widget.playbackLink?.reportPosition(0);
           }
         }),
       );
@@ -396,6 +405,7 @@ class _MessageVoiceAttachmentViewState
 
   @override
   void dispose() {
+    widget.playbackLink?.detach(_seekAndPlay);
     _loadGeneration += 1;
     for (final subscription in _subscriptions) {
       unawaited(subscription.cancel());
@@ -407,6 +417,10 @@ class _MessageVoiceAttachmentViewState
   @override
   void didUpdateWidget(covariant MessageVoiceAttachmentView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.playbackLink, widget.playbackLink)) {
+      oldWidget.playbackLink?.detach(_seekAndPlay);
+      widget.playbackLink?.attach(_seekAndPlay);
+    }
     if (oldWidget.attachment.file.downloadPath !=
             widget.attachment.file.downloadPath ||
         oldWidget.apiBaseUri != widget.apiBaseUri) {
@@ -417,6 +431,7 @@ class _MessageVoiceAttachmentViewState
       _loading = false;
       _failed = false;
       unawaited(_player.stop());
+      widget.playbackLink?.reportPosition(0);
       if (previousFile != null) unawaited(_deleteFile(previousFile));
     }
   }
@@ -538,6 +553,18 @@ class _MessageVoiceAttachmentViewState
     final milliseconds = (_duration.inMilliseconds * fraction.clamp(0, 1))
         .round();
     await _player.seek(Duration(milliseconds: milliseconds));
+  }
+
+  /// Phần "Xem lời" chạm một đoạn: phát (tải tệp nếu chưa có) rồi tua tới đầu đoạn.
+  Future<void> _seekAndPlay(int milliseconds) async {
+    if (_loading) return;
+    if (!_playing) await _togglePlayback();
+    if (!mounted || _failed || _audioFile == null) return;
+    final target = Duration(milliseconds: milliseconds < 0 ? 0 : milliseconds);
+    await _player.seek(target);
+    if (!mounted) return;
+    setState(() => _position = target);
+    widget.playbackLink?.reportPosition(target.inMilliseconds);
   }
 
   Future<void> _cycleRate() async {
