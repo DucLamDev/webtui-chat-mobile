@@ -36,7 +36,7 @@ Use this checklist before any internal, beta, or production Android release.
 - `dart run tool/check_public_release_endpoints.dart --platform=android` after backend/portal deployment.
 - `flutter analyze`
 - `flutter test`
-- `flutter test integration_test`
+- `flutter test integration_test/app_smoke_test.dart -d flutter-tester`
 - Signed APK/AAB SHA-256 checksum generated and stored with the artifact.
 - Merged production manifest and 16 KB ZIP/ELF alignment checks pass.
 - AAB signature is verified and Play App Signing fingerprints match public `assetlinks.json`.

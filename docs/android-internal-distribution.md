@@ -96,7 +96,7 @@ all production plugins. The release workflow intentionally omits `--no-pub`.
 Use a separately controlled local APK only for a QA group:
 
 ```powershell
-cd C:\Users\MSI\Desktop\vpsttt-project\github-ready\webtui-chat-mobile
+cd webtui-chat-mobile
 flutter pub get
 dart run tool/check_architecture.dart
 flutter analyze
@@ -105,7 +105,9 @@ flutter build apk --release --flavor prod -t lib/main_prod.dart --build-name=1.0
 Get-FileHash build\app\outputs\flutter-apk\app-prod-release.apk -Algorithm SHA256
 ```
 
-For customer distribution, upload the AAB to Play Internal/Closed testing. Do
+For customer distribution, upload the AAB to Play Internal/Closed testing (CI
+can do the internal upload automatically; see "Automatic upload to the Play
+internal track" in `docs/release-credentials.md`). Do
 not turn the locally built upload-key APK into a public fallback. If a fallback
 is approved later, follow the certificate-safe procedure above.
 

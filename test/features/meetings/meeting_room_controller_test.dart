@@ -86,6 +86,18 @@ void main() {
     expect(c.micOn, isFalse);
     expect(c.mediaNotice, contains('micro'));
   });
+
+  test('đóng màn khi connect chưa xong: rời phòng sau khi nối xong', () async {
+    final client = _FakeClient()..connectGate = Completer<void>();
+    final c = MeetingRoomController(client: client, join: _join());
+    final started = c.start();
+    await Future<void>.delayed(Duration.zero);
+    c.dispose();
+    client.connectGate!.complete();
+    await started;
+    expect(client.disconnects, 1);
+    expect(c.micOn, isFalse);
+  });
 }
 
 final class _FakeClient implements MeetingRoomClient {
@@ -93,6 +105,7 @@ final class _FakeClient implements MeetingRoomClient {
   bool failConnect = false;
   bool denyMic = false;
   int disconnects = 0;
+  Completer<void>? connectGate;
 
   void emit(MeetingRoomSignal s) => _ctrl.add(s);
 
@@ -105,6 +118,7 @@ final class _FakeClient implements MeetingRoomClient {
     required String serverUrl,
     required String token,
   }) async {
+    await connectGate?.future;
     if (failConnect) throw StateError('lỗi');
   }
 

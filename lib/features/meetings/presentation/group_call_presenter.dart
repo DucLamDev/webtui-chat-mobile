@@ -36,6 +36,13 @@ final class ShellGroupCallPresenter implements GroupCallPresenter {
   Future<GroupCallChoice?> showRinging(GroupCall call) async {
     final ctx = context();
     if (ctx == null || !ctx.mounted) return null;
+    // Giờ chuông theo máy chủ nếu có; hết rồi thì không hiện nữa.
+    var timeout = ringTimeout;
+    final endsAt = call.ringEndsAt;
+    if (endsAt != null) {
+      timeout = endsAt.difference(DateTime.now());
+      if (timeout <= Duration.zero) return null;
+    }
     final dismiss = ValueNotifier<bool>(false);
     _dismissSignals[call.id] = dismiss;
     try {
@@ -47,7 +54,7 @@ final class ShellGroupCallPresenter implements GroupCallPresenter {
           title: call.ringTitle,
           isVideo: call.isVideo,
           dismissSignal: dismiss,
-          timeout: ringTimeout,
+          timeout: timeout,
         ),
       );
     } finally {

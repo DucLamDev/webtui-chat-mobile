@@ -137,6 +137,22 @@ final class GroupCall {
   final String channelName;
   final bool ringTruncated;
 
+  /// Bản sao có `workspaceId` (danh sách đang đổ chuông có thể không kèm).
+  GroupCall withWorkspace(String value) => GroupCall(
+    id: id,
+    workspaceId: value,
+    channelId: channelId,
+    meetingId: meetingId,
+    kind: kind,
+    status: status,
+    provider: provider,
+    startedBy: startedBy,
+    startedByName: startedByName,
+    channelName: channelName,
+    ringTruncated: ringTruncated,
+    ringEndsAt: ringEndsAt,
+  );
+
   bool get isVideo => kind == 'video';
   bool get isRinging => status == GroupCallStatus.ringing;
 

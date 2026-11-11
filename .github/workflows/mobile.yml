@@ -43,6 +43,8 @@ jobs:
       - run: dart run tool/check_mobile_release.dart
       - run: flutter analyze
       - run: flutter test
+      # Smoke test chạy bằng flutter_tester (không cần thiết bị / emulator).
+      - run: flutter test integration_test/app_smoke_test.dart -d flutter-tester
       - run: flutter build apk --debug --flavor dev -t lib/main_dev.dart
 
   android-release:
@@ -165,6 +167,17 @@ jobs:
             release/native-debug-symbols.zip
           if-no-files-found: error
           retention-days: 30
+      # Tuỳ chọn: đẩy AAB lên kênh thử nội bộ của Google Play. Chỉ chạy khi bật
+      # biến ENABLE_ANDROID_PLAY_INTERNAL=true (xem docs/release-credentials.md).
+      - name: Upload AAB to Google Play internal track
+        if: ${{ vars.ENABLE_ANDROID_PLAY_INTERNAL == 'true' }}
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: ${{ vars.PLAY_PACKAGE_NAME || 'com.vpsttt.webtui_chat' }}
+          releaseFiles: release/app-prod-release.aab
+          track: internal
+          status: ${{ vars.PLAY_INTERNAL_STATUS || 'draft' }}
       # The upload-key APK is used only for checks inside this job and is not
       # uploaded or published. With the recommended Play App Signing setup, the
       # upload key differs from the app-signing key; distributing this APK would

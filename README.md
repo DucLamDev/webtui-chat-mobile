@@ -143,7 +143,7 @@ dart run tool/check_architecture.dart
 dart run tool/check_mobile_release.dart
 flutter analyze
 flutter test
-flutter test integration_test
+flutter test integration_test/app_smoke_test.dart -d flutter-tester
 flutter build apk --debug --flavor dev -t lib/main_dev.dart
 ```
 
@@ -156,8 +156,9 @@ flutter build apk --debug --flavor dev -t lib/main_dev.dart
   `ANDROID_KEY_PASSWORD` cùng biến Firebase/privacy production bắt buộc.
 - Release artifact có APK, AAB, native debug symbols, SHA-256 checksum và
   `mobile-release-manifest.json`.
-- Lệnh `flutter test integration_test` cần Android emulator/device; GitHub
-  Actions chạy qua Android emulator.
+- Smoke test `integration_test/app_smoke_test.dart` chạy bằng
+  `flutter test integration_test/app_smoke_test.dart -d flutter-tester` (không
+  cần emulator/thiết bị); CI chạy lệnh này trong job `verify`.
 - Hướng dẫn vận hành: `docs/android-internal-distribution.md`.
 - Checklist security/privacy: `docs/release-security-checklist.md`.
 - Device matrix M10/M11: `docs/android-device-matrix.md`.
