@@ -12,6 +12,11 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../meetings/application/meeting_join_flow.dart';
+import '../../../meetings/application/meeting_providers.dart';
+import '../../../meetings/domain/meeting_models.dart';
+import '../../../meetings/presentation/group_call_button.dart';
+import '../../../meetings/presentation/meeting_room_screen.dart';
 import '../../domain/entities/collaboration_room.dart';
 import '../../domain/entities/conversation_summary.dart';
 import '../controllers/collaboration_task_controller.dart';
@@ -620,6 +625,14 @@ class _CollaborationRoomSheetState
                         : 'Media server chưa cấu hình',
                   ),
                 ),
+                if (settings.canOpenMeeting && !settings.isDirect && _canManage)
+                  Padding(
+                    padding: const EdgeInsets.only(top: WebTuiSpacing.sm),
+                    child: GroupCallButton(
+                      busy: _saving,
+                      onStart: (kind) => unawaited(_startGroupCall(kind)),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -1751,8 +1764,36 @@ class _CollaborationRoomSheetState
     });
   }
 
+  ChannelMeeting? get _liveMeeting =>
+      _meetings.where((item) => item.isLive).firstOrNull;
+
   Future<void> _openMeeting(String roomKey) async {
+    try {
+      await _openMeetingUnsafe(roomKey);
+    } on Object catch (error) {
+      _notice(userFacingErrorMessage(error));
+    }
+  }
+
+  Future<void> _openMeetingUnsafe(String roomKey) async {
     final settings = _settings!;
+    if (settings.meetingProvider == 'livekit') {
+      final inApp = opensMeetingInApp(
+        meetingProvider: settings.meetingProvider,
+        livekitCapability:
+            ref.read(activeServerDiscoveryProvider)?.capabilities.livekit ==
+            true,
+      );
+      final live = _liveMeeting;
+      if (!inApp) {
+        _notice('Máy chủ chưa bật họp trực tuyến trong ứng dụng.');
+      } else if (live == null) {
+        _notice('Chưa có cuộc họp nào đang diễn ra.');
+      } else {
+        await _openLiveKitMeeting(live.id, live.title);
+      }
+      return;
+    }
     final baseUrl = settings.meetingBaseUrl?.trim() ?? '';
     final base = Uri.tryParse(baseUrl);
     if (baseUrl.isEmpty || base == null) {
@@ -1795,11 +1836,78 @@ class _CollaborationRoomSheetState
         'interfaceConfig.TILE_VIEW_MAX_COLUMNS': '4',
       },
     ).query;
-    final roomUri = base.resolve('${Uri.encodeComponent(roomKey)}#$fragment');
+    // Máy chủ bật JWT cho Jitsi thì kèm token; máy chủ cũ (404) mở như trước.
+    final jwt = await fetchJitsiJwtOrEmpty(
+      ref.read(meetingApiProvider),
+      workspaceId: widget.workspaceId,
+      channelId: widget.channelId,
+      meetingId: _liveMeeting?.id,
+    );
+    final jwtQuery = jwt.isEmpty ? '' : '?jwt=${Uri.encodeQueryComponent(jwt)}';
+    final roomUri = base.resolve(
+      '${Uri.encodeComponent(roomKey)}$jwtQuery#$fragment',
+    );
     final opened = await ref
         .read(externalUrlLauncherProvider)
         .open(roomUri.toString());
     if (!opened) _notice('Không mở được phòng họp trên thiết bị này.');
+  }
+
+  Future<void> _openLiveKitMeeting(
+    String meetingId,
+    String title, {
+    MeetingJoinInfo? prefetched,
+    bool startWithVideo = false,
+  }) async {
+    final api = ref.read(meetingApiProvider);
+    final join =
+        prefetched ??
+        await api.fetchJoinToken(
+          workspaceId: widget.workspaceId,
+          channelId: widget.channelId,
+          meetingId: meetingId,
+        );
+    if (!mounted) return;
+    await Navigator.of(context, rootNavigator: true).push<void>(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (_) => MeetingRoomScreen(
+          title: title.isEmpty ? widget.title : title,
+          join: join,
+          startWithVideo: startWithVideo,
+          refreshJoin: () => api.fetchJoinToken(
+            workspaceId: widget.workspaceId,
+            channelId: widget.channelId,
+            meetingId: meetingId,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Đổ chuông cả nhóm rồi vào họp; máy chủ kiểm quyền gọi và giới hạn 1 cuộc
+  /// đổ chuông mỗi kênh.
+  Future<void> _startGroupCall(String kind) async {
+    final live = _liveMeeting;
+    if (live == null) {
+      _notice('Hãy bắt đầu cuộc họp trước khi gọi cả nhóm.');
+      return;
+    }
+    await _guard(() async {
+      final api = ref.read(meetingApiProvider);
+      final call = await api.startGroupCall(
+        workspaceId: widget.workspaceId,
+        channelId: widget.channelId,
+        meetingId: live.id,
+        kind: kind,
+      );
+      _notice(
+        call.ringTruncated
+            ? 'Đang đổ chuông 50 thành viên hoạt động gần nhất.'
+            : 'Đang đổ chuông cả nhóm.',
+      );
+      await _openMeeting(_settings!.meetingRoomKey ?? '');
+    });
   }
 
   Future<void> _saveNotes() async {

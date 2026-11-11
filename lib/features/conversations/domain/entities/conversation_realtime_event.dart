@@ -38,6 +38,13 @@ enum ConversationRealtimeEventType {
   contactRequestUpdated,
   contactRequestCancelled,
 
+  /// Gọi nhóm có đổ chuông (Lõi 7), gửi vào room cá nhân: bắt đầu đổ chuông
+  /// (`payload` là `GroupCall`), ngừng đổ chuông máy này
+  /// (`payload.group_call_id`, `payload.reason`), cuộc gọi nhóm kết thúc.
+  groupCallStarted,
+  groupCallRingStopped,
+  groupCallEnded,
+
   /// Hộp thư ticket khách đổi (phòng `workspace:<ws>:order-tickets`); chi tiết
   /// nằm trong [ConversationRealtimeEvent.payload].
   orderTicketUpdated,

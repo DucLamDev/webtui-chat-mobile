@@ -184,6 +184,9 @@ final class SelfHostedServerDiscovery {
         approvals: capabilities['approvals'] == true,
         // Lõi 6: hộp thư khách đa kênh; máy chủ cũ không trả → tắt.
         omnichannelInbox: capabilities['omnichannel_inbox'] == true,
+        // Lõi 7: họp LiveKit và gọi nhóm; thiếu trường = tắt.
+        livekit: capabilities['livekit'] == true,
+        groupCalls: capabilities['group_calls'] == true,
         // Lõi 2: máy chủ cũ không trả các trường này → coi như tắt.
         qrLogin: capabilities['qr_login'] == true,
         deviceApproval: capabilities['device_approval'] == true,
@@ -365,6 +368,8 @@ final class SelfHostedCapabilities {
     this.mfa = false,
     this.approvals = false,
     this.omnichannelInbox = false,
+    this.livekit = false,
+    this.groupCalls = false,
     this.qrLogin = false,
     this.deviceApproval = false,
     this.emailVerification = false,
@@ -409,6 +414,12 @@ final class SelfHostedCapabilities {
   /// Hộp thư khách đa kênh (Lõi 6).
   final bool omnichannelInbox;
 
+  /// Máy chủ đã cấu hình LiveKit: họp ngay trong app (Lõi 7).
+  final bool livekit;
+
+  /// Gọi cả nhóm có đổ chuông (Lõi 7).
+  final bool groupCalls;
+
   /// Đăng nhập máy tính bằng QR (Lõi 2.2).
   final bool qrLogin;
 
@@ -442,6 +453,8 @@ final class SelfHostedCapabilities {
       'mfa': mfa,
       'approvals': approvals,
       'omnichannel_inbox': omnichannelInbox,
+      'livekit': livekit,
+      'group_calls': groupCalls,
       'qr_login': qrLogin,
       'device_approval': deviceApproval,
       'email_verification': emailVerification,
