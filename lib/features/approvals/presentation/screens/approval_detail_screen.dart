@@ -136,7 +136,16 @@ class _ApprovalDetailViewState extends State<ApprovalDetailView> {
       children: [
         Text(approval.title, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: WebTuiSpacing.sm),
-        _row('Trạng thái', approval.status.label),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(width: 96, child: Text('Trạng thái')),
+              Expanded(child: ApprovalStatusText(approval: approval)),
+            ],
+          ),
+        ),
         _row('Nguồn', approval.sourceLabel),
         _row('Hành động', approval.action),
         if (approval.requestedBy != null)

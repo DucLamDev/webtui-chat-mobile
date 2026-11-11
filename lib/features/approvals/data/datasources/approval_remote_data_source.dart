@@ -64,6 +64,10 @@ final class ApprovalRemoteDataSource {
 ApprovalRequest approvalFromMap(JsonMap map) {
   final rawChannel = stringField(map, const ['channel_id']);
   final requestedBy = stringField(map, const ['requested_by']);
+  final rawMode = stringField(map, const ['execution_mode']);
+  final result = jsonMap(field(map, const ['result']));
+  final resultExecutor = stringField(result, const ['executor']);
+  final resultError = stringField(result, const ['error']);
   return ApprovalRequest(
     id: stringField(map, const ['id', 'approval_id']),
     workspaceId: stringField(map, const ['workspace_id']),
@@ -82,6 +86,13 @@ ApprovalRequest approvalFromMap(JsonMap map) {
     decidedAt: _time(field(map, const ['decided_at'])),
     createdAt: _time(field(map, const ['created_at'])),
     canDecide: boolField(map, const ['can_decide']),
+    executionMode: rawMode.isEmpty
+        ? null
+        : ApprovalExecutionMode.fromApi(rawMode),
+    executionStartedAt: _time(field(map, const ['execution_started_at'])),
+    reportedAt: _time(field(map, const ['reported_at'])),
+    resultExecutor: resultExecutor.isEmpty ? null : resultExecutor,
+    resultError: resultError.isEmpty ? null : resultError,
     decisions: jsonMapList(field(map, const ['decisions']))
         .map(
           (vote) => ApprovalVote(

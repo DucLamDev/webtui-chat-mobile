@@ -46,7 +46,7 @@ final class ApprovalNotificationActionHandler {
         await _report(
           approvalId: approvalId,
           title: approve ? 'Đã duyệt yêu cầu' : 'Đã từ chối yêu cầu',
-          body: approval.title,
+          body: _bodyWithStatus(approval),
         );
         return true;
       case FailureResult(failure: final failure):
@@ -106,3 +106,14 @@ typedef ApprovalNotificationDecision = ({
   String approvalId,
   bool approve,
 });
+
+/// Tên phiếu, kèm trạng thái khi máy chủ đã đi tiếp sau bước duyệt (đang
+/// thực hiện, đã thực hiện, lỗi...). Trạng thái trơn "Đã duyệt" thì bỏ qua.
+String _bodyWithStatus(ApprovalRequest approval) {
+  final label = approval.display.label;
+  final skip =
+      approval.isPending ||
+      approval.status == ApprovalStatus.unknown ||
+      label == 'Đã duyệt';
+  return skip ? approval.title : '${approval.title} · $label';
+}

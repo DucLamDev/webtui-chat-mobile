@@ -3,6 +3,13 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.15.0 · 11/11/2026
+### Sửa lỗi
+- Phê duyệt hiện đúng tình trạng sau khi duyệt
+  Trước đây phiếu đã duyệt có thể hiện "Đã thực hiện" dù chưa có gì được làm. Nay app hiện "Đã duyệt", "Đã duyệt –
+  chờ bot thực hiện", "Đã duyệt – đang thực hiện", "Đã thực hiện" hoặc "Thực hiện lỗi" kèm lý do, theo thông tin
+  máy chủ gửi. Máy chủ cũ chưa gửi thông tin mới thì app vẫn hiện như trước (không báo nhầm "Đã thực hiện").
+
 ## 1.14.0 · 11/11/2026
 ### Tính năng
 - Gọi cả nhóm ổn định hơn và chuẩn bị phát hành đều đặn
