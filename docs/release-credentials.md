@@ -146,6 +146,26 @@ a signed Internal-only AAB, obtain the Play App Signing SHA-256, redeploy
 versionCode through the complete gate. Never use the upload certificate in the
 production association file.
 
+### Automatic upload to the Play internal track (optional)
+
+The `android-release` job can push the signed AAB to the Play **internal**
+testing track after it is built and verified. It is off by default and runs only
+when the repository variable `ENABLE_ANDROID_PLAY_INTERNAL` is `true`.
+
+- Secret `PLAY_SERVICE_ACCOUNT_JSON`: the JSON key of a Google Cloud service
+  account that is invited in Play Console (Users and permissions) with permission
+  to release to testing tracks for this app. Store it only in the `production`
+  environment secrets.
+- Optional variable `PLAY_INTERNAL_STATUS`: `draft` (default; the release waits
+  in Play Console until someone rolls it out, required while the app has never
+  been published) or `completed` (rolls out to internal testers immediately).
+- Optional variable `PLAY_PACKAGE_NAME`: only when the Play package differs from
+  the default application id.
+
+The upload never promotes beyond the internal track; promotion to closed or
+production stays a manual Play Console step. The first Play upload still needs
+the bootstrap sequence above.
+
 If Play Console already shows the real App signing key certificate before the
 first upload, skip the bootstrap job and configure that fingerprint directly.
 

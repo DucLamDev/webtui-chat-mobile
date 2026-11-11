@@ -170,6 +170,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     if (state == AppLifecycleState.resumed) {
       _activatePresence(workspaceId);
       _startIncomingCallPolling(workspaceId);
+      unawaited(_groupCalls.restoreRinging(workspaceId));
       unawaited(_runWorkspaceCatchUp(workspaceId));
       unawaited(_drainBackgroundQuickReplies(workspaceId));
       // Nút Duyệt / Từ chối bấm lúc app chạy nền được isolate nền lưu lại;
@@ -831,7 +832,9 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       if (target.isDeviceApprovalRequest) {
         _openDeviceApprovalReview(target.sessionId);
       } else if (_handleGroupCallTarget(target)) {
-        // Gọi nhóm: chuông / tắt chuông do bộ điều phối xử lý.
+        // Gọi nhóm: chuông / tắt chuông do bộ điều phối xử lý; mở từ thông
+        // báo thì hỏi lại máy chủ các cuộc còn đổ chuông.
+        unawaited(_groupCalls.restoreRinging(target.workspaceId));
       } else if (target.isIncomingCall) {
         unawaited(_showIncomingCall(target));
       } else {
@@ -1281,11 +1284,13 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           unawaited(_showIncomingCall(target));
         });
     _startIncomingCallPolling(workspaceId);
+    unawaited(_groupCalls.restoreRinging(workspaceId));
   }
 
   GroupCallCoordinator get _groupCalls {
     return _groupCallCoordinator ??= GroupCallCoordinator(
       api: ref.read(meetingApiProvider),
+      localDeviceId: _localCallDeviceId,
       presenter: ShellGroupCallPresenter(
         context: () => mounted ? context : null,
         api: ref.read(meetingApiProvider),

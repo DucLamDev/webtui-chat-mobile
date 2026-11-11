@@ -125,10 +125,14 @@ class MeetingRoomController extends ChangeNotifier {
     try {
       await _client.connect(serverUrl: _join.serverUrl, token: _join.token);
     } on Object catch (error) {
-      _fail(error);
+      if (!_disposed) _fail(error);
       return;
     }
-    if (_disposed) return;
+    if (_disposed) {
+      // Màn họp đã đóng khi `connect` chưa xong: rời phòng, không để mic mở.
+      await _client.disconnect().catchError((_) {});
+      return;
+    }
     _error = null;
     _set(MeetingConnectionState.connected);
     await _client.setSpeakerphone(_speakerOn).catchError((_) {});

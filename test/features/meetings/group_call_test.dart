@@ -75,6 +75,118 @@ void main() {
     expect(presenter.opened, ['g1']);
   });
 
+  test(
+    'nhận gọi gửi kèm mã máy push để máy chủ dừng chuông máy khác',
+    () async {
+      final api = _Api();
+      await GroupCallCoordinator(
+        api: api,
+        presenter: _Presenter(),
+        localDeviceId: () async => 'dev-1',
+      ).accept(_call);
+      expect(api.acceptedDeviceId, 'dev-1');
+    },
+  );
+
+  test('không đọc được mã máy: vẫn nhận gọi, không gửi mã', () async {
+    final api = _Api();
+    final ok = await GroupCallCoordinator(
+      api: api,
+      presenter: _Presenter(),
+      localDeviceId: () async => throw StateError('x'),
+    ).accept(_call);
+    expect(ok, isTrue);
+    expect(api.acceptedDeviceId, isNull);
+  });
+
+  test('mở lại app: hiện lại cuộc gọi nhóm còn đổ chuông', () async {
+    final api = _Api()
+      ..ringing = [
+        const GroupCall(
+          id: 'g9',
+          workspaceId: '',
+          channelId: 'c1',
+          meetingId: 'm1',
+          kind: 'video',
+          status: GroupCallStatus.ringing,
+        ),
+        GroupCall(
+          id: 'old',
+          workspaceId: 'w1',
+          channelId: 'c1',
+          meetingId: 'm1',
+          kind: 'audio',
+          status: GroupCallStatus.ringing,
+          ringEndsAt: DateTime.now().subtract(const Duration(minutes: 1)),
+        ),
+      ];
+    final presenter = _Presenter();
+    final coordinator = GroupCallCoordinator(api: api, presenter: presenter);
+    await coordinator.restoreRinging('w1');
+    await Future<void>.delayed(Duration.zero);
+    expect(api.log, ['ringing w1']);
+    expect(presenter.shown, ['g9']);
+    // Gọi lại lần nữa khi đang chuông: không hiện trùng.
+    await coordinator.restoreRinging('w1');
+    await Future<void>.delayed(Duration.zero);
+    expect(presenter.shown, ['g9']);
+  });
+
+  test('hỏi danh sách đang chuông lỗi mạng: im lặng', () async {
+    final api = _Api()
+      ..ringingError = const Failure(
+        kind: FailureKind.network,
+        message: 'mất mạng',
+      );
+    final presenter = _Presenter();
+    await GroupCallCoordinator(
+      api: api,
+      presenter: presenter,
+    ).restoreRinging('w1');
+    expect(presenter.shown, isEmpty);
+    expect(presenter.errors, isEmpty);
+  });
+
+  test('đã từ chối: push invite tới muộn không đổ chuông lại', () async {
+    var now = DateTime(2026, 1, 1, 10);
+    final presenter = _Presenter();
+    final coordinator = GroupCallCoordinator(
+      api: _Api(),
+      presenter: presenter,
+      now: () => now,
+    );
+    final first = coordinator.handleStarted(_call);
+    await Future<void>.delayed(Duration.zero);
+    presenter.finish(GroupCallChoice.decline);
+    await first;
+    expect(presenter.shown, ['g1']);
+    await coordinator.handleStarted(_call);
+    expect(presenter.shown, ['g1']);
+    // Quá hạn nhớ thì cuộc gọi mới cùng mã mới được hiện lại.
+    now = now.add(const Duration(minutes: 3));
+    final again = coordinator.handleStarted(_call);
+    await Future<void>.delayed(Duration.zero);
+    expect(presenter.shown, ['g1', 'g1']);
+    presenter.finish(null);
+    await again;
+  });
+
+  test('đã hết giờ chuông theo máy chủ: không đổ chuông', () async {
+    final presenter = _Presenter();
+    await GroupCallCoordinator(api: _Api(), presenter: presenter).handleStarted(
+      GroupCall(
+        id: 'g3',
+        workspaceId: 'w1',
+        channelId: 'c1',
+        meetingId: 'm1',
+        kind: 'audio',
+        status: GroupCallStatus.ringing,
+        ringEndsAt: DateTime.now().subtract(const Duration(seconds: 5)),
+      ),
+    );
+    expect(presenter.shown, isEmpty);
+  });
+
   test('từ chối gọi đúng API', () async {
     final api = _Api();
     final ok = await GroupCallCoordinator(
@@ -223,6 +335,9 @@ final class _Presenter implements GroupCallPresenter {
 final class _Api implements MeetingApi {
   final log = <String>[];
   Failure? acceptError;
+  String? acceptedDeviceId;
+  List<GroupCall> ringing = const [];
+  Failure? ringingError;
 
   @override
   Future<GroupCallAcceptance> acceptGroupCall({
@@ -232,6 +347,7 @@ final class _Api implements MeetingApi {
     String? deviceId,
   }) async {
     log.add('accept $workspaceId/$channelId/$groupCallId');
+    acceptedDeviceId = deviceId;
     if (acceptError != null) throw acceptError!;
     return const GroupCallAcceptance(
       call: null,
@@ -268,7 +384,11 @@ final class _Api implements MeetingApi {
   @override
   Future<List<GroupCall>> fetchRingingGroupCalls({
     required String workspaceId,
-  }) async => const [];
+  }) async {
+    log.add('ringing $workspaceId');
+    if (ringingError != null) throw ringingError!;
+    return ringing;
+  }
 
   @override
   Future<GroupCall> startGroupCall({

@@ -28,26 +28,58 @@ final class GroupCallCoordinator {
     required MeetingApi api,
     required GroupCallPresenter presenter,
     String? Function()? currentUserId,
+    Future<String?> Function()? localDeviceId,
+    DateTime Function()? now,
+    this.handledTtl = const Duration(minutes: 2),
   }) : _api = api,
        _presenter = presenter,
-       _currentUserId = currentUserId;
+       _currentUserId = currentUserId,
+       _localDeviceId = localDeviceId,
+       _now = now ?? DateTime.now;
 
   final MeetingApi _api;
   final GroupCallPresenter _presenter;
   final String? Function()? _currentUserId;
+  final Future<String?> Function()? _localDeviceId;
+  final DateTime Function() _now;
+
+  /// Thời gian nhớ cuộc gọi đã xử lý (từ chối / nhận / hết giờ / kết thúc), để
+  /// push FCM tới muộn không đổ chuông lại.
+  final Duration handledTtl;
+  final _handled = <String, DateTime>{};
   final _ringing = <String>{};
   final _accepting = <String>{};
 
   bool isRinging(String groupCallId) => _ringing.contains(groupCallId);
+
+  void _markHandled(String id, {DateTime? ringEndsAt}) {
+    if (id.isEmpty) return;
+    final now = _now();
+    _handled.removeWhere((_, until) => !until.isAfter(now));
+    var until = now.add(handledTtl);
+    if (ringEndsAt != null && ringEndsAt.isAfter(until)) until = ringEndsAt;
+    _handled[id] = until;
+  }
+
+  bool _isHandled(String id) {
+    final until = _handled[id];
+    if (until == null) return false;
+    if (until.isAfter(_now())) return true;
+    _handled.remove(id);
+    return false;
+  }
 
   /// `GroupCallStarted` hoặc push `group_call_invite`.
   Future<void> handleStarted(GroupCall call) async {
     if (call.id.isEmpty ||
         !call.isRinging ||
         _ringing.contains(call.id) ||
-        _accepting.contains(call.id)) {
+        _accepting.contains(call.id) ||
+        _isHandled(call.id)) {
       return;
     }
+    final endsAt = call.ringEndsAt;
+    if (endsAt != null && !endsAt.isAfter(_now())) return;
     final self = _currentUserId?.call();
     if (self != null && self.isNotEmpty && call.startedBy == self) return;
     _ringing.add(call.id);
@@ -57,6 +89,7 @@ final class GroupCallCoordinator {
     } finally {
       _ringing.remove(call.id);
     }
+    _markHandled(call.id, ringEndsAt: call.ringEndsAt);
     switch (choice) {
       case GroupCallChoice.accept:
         await accept(call);
@@ -68,10 +101,40 @@ final class GroupCallCoordinator {
     }
   }
 
+  /// App mở từ thông báo / CallKit hoặc quay lại foreground: hỏi máy chủ các
+  /// cuộc gọi nhóm còn đổ chuông và hiện lại (đã hiện thì bỏ qua). Lỗi mạng
+  /// thì im lặng, vì push / WebSocket vẫn là đường chính.
+  Future<void> restoreRinging(String workspaceId) async {
+    final List<GroupCall> calls;
+    try {
+      calls = await _api.fetchRingingGroupCalls(workspaceId: workspaceId);
+    } on Failure {
+      return;
+    }
+    for (final call in calls) {
+      final endsAt = call.ringEndsAt;
+      if (endsAt != null && endsAt.isBefore(DateTime.now())) continue;
+      unawaited(
+        handleStarted(
+          call.workspaceId.isEmpty ? call.withWorkspace(workspaceId) : call,
+        ),
+      );
+    }
+  }
+
+  Future<String?> _deviceId() async {
+    try {
+      return await _localDeviceId?.call();
+    } on Object {
+      return null;
+    }
+  }
+
   /// `GroupCallRingStopped`, `GroupCallEnded` hoặc push `group_call_cancel`.
   Future<void> handleStopped(String groupCallId) async {
     final id = groupCallId.trim();
     if (id.isEmpty || _accepting.contains(id)) return;
+    _markHandled(id);
     await _presenter.dismissRinging(id);
   }
 
@@ -79,11 +142,13 @@ final class GroupCallCoordinator {
   /// cuộc gọi đã kết thúc), `false` khi nên thử lại (mất mạng, lỗi máy chủ).
   Future<bool> accept(GroupCall call) async {
     if (!_accepting.add(call.id)) return false;
+    _markHandled(call.id, ringEndsAt: call.ringEndsAt);
     try {
       final acceptance = await _api.acceptGroupCall(
         workspaceId: call.workspaceId,
         channelId: call.channelId,
         groupCallId: call.id,
+        deviceId: await _deviceId(),
       );
       // Đã nhận ở máy này: tắt chuông còn lại (chuông gốc, hộp thoại).
       await _presenter.dismissRinging(call.id);
@@ -103,6 +168,7 @@ final class GroupCallCoordinator {
 
   /// Từ chối: máy chủ ngừng đổ chuông mọi máy của người này.
   Future<bool> decline(GroupCall call) async {
+    _markHandled(call.id, ringEndsAt: call.ringEndsAt);
     await _presenter.dismissRinging(call.id);
     try {
       await _api.declineGroupCall(

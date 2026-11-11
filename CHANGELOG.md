@@ -3,6 +3,15 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.14.0 · 11/11/2026
+### Tính năng
+- Gọi cả nhóm ổn định hơn và chuẩn bị phát hành đều đặn
+  Mở app từ thông báo "gọi cả nhóm" (hoặc quay lại app) thì cuộc gọi còn đang đổ chuông hiện lại để bấm nhận. Đã từ
+  chối thì thông báo tới muộn không làm máy đổ chuông lại; thời gian đổ chuông theo đúng giờ của máy chủ. Khi nhận gọi,
+  app báo máy nào đã nhận để các máy khác của mình thôi đổ chuông. Đóng màn họp lúc đang kết nối thì app ngắt kết nối
+  hẳn. Bản phát hành Android có thể tự đẩy lên kênh thử nội bộ của Google Play khi quản trị bật trong cài đặt CI; bài
+  kiểm tra khởi động app chạy lại trong CI; tài liệu cũ đã được dọn cho bản mã nguồn mở.
+
 ## 1.13.0 · 11/11/2026
 ### Tính năng
 - Họp LiveKit và gọi cả nhóm trên app
