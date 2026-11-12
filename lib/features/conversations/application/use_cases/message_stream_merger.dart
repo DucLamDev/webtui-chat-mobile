@@ -79,3 +79,27 @@ bool _isPlaceholder(String body) {
       trimmed == messageStreamPlaceholder ||
       trimmed == '...';
 }
+
+const _aiCardFence = '```webtui-card';
+
+/// Chữ hiện trong lúc AI chạy dần. AI trả biểu đồ / sơ đồ / kế hoạch bằng khối
+/// ```webtui-card ở cuối câu trả lời; máy chủ tách khối này thành thẻ khi trả
+/// xong, nên trong lúc chạy dần không cho người dùng thấy JSON thô:
+/// - từ dòng mở khối đầu tiên trở đi bị giấu, [drawing] = true;
+/// - dòng cuối đang gõ dở mà là đầu của dòng mở khối (vd. "```web") cũng giấu
+///   tạm; "```" đứng riêng (có thể là dòng đóng khối mã thường) vẫn hiện.
+({String text, bool drawing}) visibleStreamingText(String body) {
+  final lines = body.split('\n');
+  for (var index = 0; index < lines.length; index += 1) {
+    final line = lines[index].trim();
+    final isLast = index == lines.length - 1;
+    if (line == _aiCardFence ||
+        (isLast && line.length > 3 && _aiCardFence.startsWith(line))) {
+      return (
+        text: lines.sublist(0, index).join('\n').trimRight(),
+        drawing: true,
+      );
+    }
+  }
+  return (text: body, drawing: false);
+}
