@@ -69,7 +69,7 @@ class PrivacySessionsScreen extends ConsumerWidget {
               data: (result) {
                 return switch (result) {
                   Success<List<UserSession>>(value: final value) =>
-                    _SessionList(sessions: value),
+                    SessionListSection(sessions: value),
                   FailureResult<List<UserSession>>(failure: final failure) =>
                     failure.requiresLogin
                         ? _RequiresLoginState(message: failure.message)
@@ -487,13 +487,23 @@ class _RequiresLoginState extends ConsumerWidget {
   }
 }
 
-class _SessionList extends ConsumerWidget {
-  const _SessionList({required this.sessions});
+/// Danh sách phiên đăng nhập: mặc định chỉ hiện vài phiên gần nhất còn dùng
+/// được, phần còn lại (phiên cũ, đã thu hồi, hết hạn) ẩn sau nút "Xem tất cả".
+class SessionListSection extends ConsumerStatefulWidget {
+  const SessionListSection({required this.sessions, super.key});
 
   final List<UserSession> sessions;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SessionListSection> createState() => _SessionListSectionState();
+}
+
+class _SessionListSectionState extends ConsumerState<SessionListSection> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final sessions = widget.sessions;
     if (sessions.isEmpty) {
       return const WebTuiEmptyState(
         title: 'Chưa có phiên khác',
@@ -503,10 +513,11 @@ class _SessionList extends ConsumerWidget {
     }
 
     final now = DateTime.now();
-    final ordered = orderSessionsForDisplay(sessions);
+    final display = sessionsForDisplay(sessions, expanded: _expanded);
+    final canToggle = _expanded || display.hiddenCount > 0;
     return WebTuiListSurface(
       children: [
-        for (final session in ordered)
+        for (final session in display.visible)
           _SessionTile(
             key: ValueKey('session-${session.id}'),
             session: session,
@@ -514,6 +525,29 @@ class _SessionList extends ConsumerWidget {
             onRevoke: session.revokedAt != null
                 ? null
                 : () => _revokeSession(context, ref, session),
+          ),
+        if (canToggle)
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: WebTuiSpacing.sm,
+              vertical: WebTuiSpacing.xs,
+            ),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                key: const ValueKey('session-list-toggle'),
+                style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                onPressed: () => setState(() => _expanded = !_expanded),
+                icon: Icon(
+                  _expanded
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded,
+                ),
+                label: Text(
+                  _expanded ? 'Thu gọn' : 'Xem tất cả ${sessions.length} phiên',
+                ),
+              ),
+            ),
           ),
       ],
     );
@@ -562,16 +596,52 @@ class _SessionList extends ConsumerWidget {
   }
 }
 
-/// Máy này lên đầu, rồi phiên hoạt động gần nhất.
+/// Số phiên hiện khi thu gọn (gồm cả máy này).
+const collapsedSessionLimit = 3;
+
+/// Phiên cần hiện và số phiên đang ẩn.
+final class SessionDisplay {
+  const SessionDisplay({required this.visible, required this.hiddenCount});
+
+  final List<UserSession> visible;
+  final int hiddenCount;
+}
+
+/// Máy này lên đầu, rồi phiên còn dùng được theo hoạt động gần nhất, cuối cùng
+/// là phiên đã thu hồi / hết hạn (cũng theo hoạt động gần nhất).
 List<UserSession> orderSessionsForDisplay(List<UserSession> sessions) {
   final ordered = [...sessions];
   ordered.sort((left, right) {
     if (left.isCurrent != right.isCurrent) {
       return left.isCurrent ? -1 : 1;
     }
+    if (left.isActive != right.isActive) {
+      return left.isActive ? -1 : 1;
+    }
     return right.lastActivityAt.compareTo(left.lastActivityAt);
   });
   return ordered;
+}
+
+/// Thu gọn: máy này + các phiên còn dùng được gần nhất, tối đa [limit] phiên;
+/// phiên đã thu hồi / hết hạn luôn ẩn. Mở rộng: hiện tất cả.
+SessionDisplay sessionsForDisplay(
+  List<UserSession> sessions, {
+  required bool expanded,
+  int limit = collapsedSessionLimit,
+}) {
+  final ordered = orderSessionsForDisplay(sessions);
+  if (expanded) {
+    return SessionDisplay(visible: ordered, hiddenCount: 0);
+  }
+  final visible = ordered
+      .where((session) => session.isCurrent || session.isActive)
+      .take(limit)
+      .toList(growable: false);
+  return SessionDisplay(
+    visible: visible,
+    hiddenCount: ordered.length - visible.length,
+  );
 }
 
 class _SessionTile extends StatelessWidget {

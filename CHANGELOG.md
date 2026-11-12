@@ -4,12 +4,19 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
-## 1.17.1 · 12/11/2026
+## 1.17.2 · 12/11/2026
 ### Sửa lỗi
 - Icon app trên điện thoại giống logo WebTui Chat
   Trên Android 8 trở lên, icon ngoài màn hình chính bị phóng to quá khung nên chỉ thấy một khối trắng có chữ W. Nay
   icon có nền xanh bao quanh bóng chat, giống logo trên Google Play và màn đăng nhập; icon theo màu hình nền (Android
   13+) cũng hiện rõ chữ W. Trên iPhone, icon cũ kiểu khác được thay bằng đúng logo này. Cần cài bản app mới để thấy.
+
+## 1.17.1 · 12/11/2026
+### Sửa lỗi
+- Danh sách phiên đăng nhập gọn lại
+  Màn Quyền riêng tư trước đây liệt kê mọi lần đăng nhập, kể cả các phiên đã thu hồi hay hết hạn từ lâu, nên rất dài.
+  Nay chỉ hiện máy đang dùng và vài phiên còn hoạt động gần nhất (tối đa 3 phiên). Bấm "Xem tất cả" để xem hết, các
+  phiên đã thu hồi / hết hạn xếp xuống cuối; bấm "Thu gọn" để ẩn lại.
 
 ## 1.17.0 · 11/11/2026
 ### Tính năng
