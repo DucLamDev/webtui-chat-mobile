@@ -4,6 +4,14 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
+## 1.18.0 · 12/11/2026
+### Tính năng
+- Bấm kênh Ticket là vào thẳng màn trả lời ticket khách
+  Trước đây bấm kênh Ticket trong hộp thư chỉ mở khung chat của bot, còn màn trả lời ticket khách (giống mục Ticket
+  trên web) nằm khuất ở tab Nghiệp vụ. Nay nhân viên có quyền xem ticket bấm kênh Ticket là mở ngay danh sách ticket
+  (Chưa trả lời / Đã trả lời / Tất cả) để đọc và trả lời khách. Nút "Mở kênh chat Ticket" ở góc trên giúp quay lại
+  khung chat của bot khi cần gõ lệnh. Người không có quyền xem ticket vẫn vào kênh chat như cũ.
+
 ## 1.17.3 · 12/11/2026
 ### Sửa lỗi
 - Màn quét mã QR làm lại: camera tràn màn, khung quét lớn ở giữa
