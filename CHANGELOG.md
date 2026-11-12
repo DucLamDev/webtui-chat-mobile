@@ -3,11 +3,20 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+
 ## 1.17.0 · 11/11/2026
 ### Tính năng
 - Bot AI đang vẽ biểu đồ thì ghi "Đang vẽ…" thay vì hiện dữ liệu thô
   Bot AI nay có thể trả biểu đồ, sơ đồ, kế hoạch hoặc bảng. Trong lúc bot còn đang trả lời, app giấu phần dữ liệu dùng
   để vẽ và ghi "Đang vẽ…" dưới tin. Trả lời xong thì tin hiện thẻ có hình như các thẻ bot khác.
+
+## 1.16.0 · 11/11/2026
+### Tính năng
+- Lời tin nhắn thoại chạy theo tiếng
+  Khi bấm "Xem lời" mà máy chủ có lời chia đoạn kèm giờ, app hiện từng đoạn kèm mốc giờ. Trong lúc nghe, đoạn đang nói
+  được tô sáng và in đậm, khung lời tự cuộn tới đoạn đó mà không kéo cả khung chat. Chạm một đoạn thì tin thoại tua tới
+  đầu đoạn và phát (chưa tải thì tải rồi phát). Máy chủ chỉ có lời gộp một khối thì vẫn hiện như cũ.
+
 
 ## 1.15.0 · 11/11/2026
 ### Sửa lỗi
