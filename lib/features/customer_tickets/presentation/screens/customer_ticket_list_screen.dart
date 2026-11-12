@@ -9,6 +9,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
+import '../../application/customer_ticket_channel_route.dart';
 import '../../domain/entities/customer_ticket.dart';
 import '../controllers/customer_ticket_access_provider.dart';
 import '../controllers/customer_ticket_list_controller.dart';
@@ -17,9 +18,19 @@ import '../widgets/customer_ticket_states.dart';
 
 /// Hộp thư ticket khách (máy chủ nội bộ): lọc, tìm, cuộn tải thêm.
 class CustomerTicketListScreen extends ConsumerWidget {
-  const CustomerTicketListScreen({this.workspaceId, super.key});
+  const CustomerTicketListScreen({
+    this.workspaceId,
+    this.channelId,
+    this.channelTitle,
+    super.key,
+  });
 
   final String? workspaceId;
+
+  /// Kênh bot "Ticket" đã bấm để vào đây (nếu có): hiện nút mở kênh chat đó
+  /// để vẫn dùng được lệnh bot.
+  final String? channelId;
+  final String? channelTitle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -33,6 +44,15 @@ class CustomerTicketListScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Ticket khách'),
         surfaceTintColor: Colors.transparent,
+        actions: [
+          if (_channelChatLocation(resolvedWorkspaceId) case final location?)
+            IconButton(
+              key: const ValueKey('customer-ticket-open-channel'),
+              tooltip: 'Mở kênh chat Ticket',
+              icon: const Icon(Icons.forum_outlined),
+              onPressed: () => context.push<void>(location),
+            ),
+        ],
       ),
       body: SafeArea(
         top: false,
@@ -48,6 +68,17 @@ class CustomerTicketListScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+extension on CustomerTicketListScreen {
+  String? _channelChatLocation(String resolvedWorkspaceId) =>
+      customerTicketChannelChatLocation(
+        channelId: channelId,
+        channelTitle: channelTitle,
+        workspaceId: resolvedWorkspaceId.isEmpty
+            ? workspaceId
+            : resolvedWorkspaceId,
+      );
 }
 
 String _workspaceIdOrActive(WidgetRef ref, String? workspaceId) {

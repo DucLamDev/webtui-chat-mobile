@@ -7,6 +7,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../approvals/presentation/widgets/approval_inbox_entry.dart';
 import '../../../business/presentation/widgets/business_inbox_entry.dart';
+import '../../../customer_tickets/application/customer_ticket_channel_route.dart';
 import '../../../customer_tickets/presentation/controllers/customer_ticket_access_provider.dart';
 import '../../../customer_tickets/presentation/widgets/customer_ticket_inbox_entry.dart';
 import '../../../inbox/presentation/widgets/inbox_entry.dart';
@@ -645,6 +646,19 @@ void _openChat(
   ConversationSummary conversation, {
   Future<void> Function()? onReturn,
 }) {
+  // Kênh bot "Ticket": người xem được ticket khách vào thẳng hộp thư trả lời
+  // ticket (như mục Ticket trên web); màn đó có nút mở lại kênh chat.
+  final ticketLocation = customerTicketLocationForConversation(
+    conversation,
+    ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(customerTicketAccessProvider),
+  );
+  if (ticketLocation != null) {
+    context.push<void>(ticketLocation).then((_) => onReturn?.call());
+    return;
+  }
   final queryParameters = {
     'workspaceId': conversation.workspaceId,
     'title': conversation.title,
