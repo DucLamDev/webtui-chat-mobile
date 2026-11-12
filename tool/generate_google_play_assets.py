@@ -58,9 +58,12 @@ def resize_cover(image: Image.Image, size: tuple[int, int]) -> Image.Image:
 
 
 def make_icon() -> None:
-    logo = Image.open(LOGO).convert("RGBA")
-    icon = logo.resize((512, 512), Image.Resampling.LANCZOS)
-    icon.save(OUT / "icon-512.png", optimize=True)
+    # Giống icon app: ô trắng tràn viền, logo bóng chat ở giữa (68,6% cạnh, như ảnh icon Android / iOS).
+    size = round(512 * 0.686)
+    logo = Image.open(LOGO).convert("RGBA").resize((size, size), Image.Resampling.LANCZOS)
+    icon = Image.new("RGBA", (512, 512), (255, 255, 255, 255))
+    icon.alpha_composite(logo, ((512 - size) // 2, (512 - size) // 2))
+    icon.convert("RGB").save(OUT / "icon-512.png", optimize=True)
 
 
 def make_feature_graphic() -> None:
