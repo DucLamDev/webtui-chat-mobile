@@ -53,7 +53,7 @@ class _QrLoginScreenState extends ConsumerState<QrLoginScreen> {
       MaterialPageRoute(
         builder: (_) => const QrScannerScreen(
           title: 'Quét mã đăng nhập',
-          hint: 'Quét mã QR hiển thị trên trang đăng nhập của máy tính.',
+          hint: 'Hướng camera vào mã QR trên trang đăng nhập của máy tính.',
         ),
       ),
     );

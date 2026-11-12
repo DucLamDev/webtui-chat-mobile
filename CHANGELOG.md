@@ -4,6 +4,15 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
+## 1.17.3 · 12/11/2026
+### Sửa lỗi
+- Màn quét mã QR làm lại: camera tràn màn, khung quét lớn ở giữa
+  Trước đây khi quét mã đăng nhập máy tính (hoặc quét QR trong chat), camera chỉ hiện một dải nhỏ ở đỉnh màn hình,
+  khung quét bé và bị dòng chữ che, phần còn lại đen. Nay camera phủ cả màn hình, khung quét vuông lớn nằm giữa với
+  4 góc trắng bo tròn và vạch quét chạy lên xuống (tự tắt khi điện thoại bật giảm chuyển động), chữ hướng dẫn nằm
+  ngay dưới khung, nút Đèn pin to ở đáy và đổi màu khi đèn đang bật. Quét được mã thì điện thoại rung nhẹ. Không mở
+  được camera (chưa cấp quyền, camera bận) thì hiện lời hướng dẫn rõ ràng kèm nút "Thử lại". Cần cài bản app mới để thấy.
+
 ## 1.17.2 · 12/11/2026
 ### Sửa lỗi
 - App dùng đúng logo ở thanh bên trái của web
