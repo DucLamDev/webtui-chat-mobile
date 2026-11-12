@@ -6,10 +6,11 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
 
 ## 1.17.2 · 12/11/2026
 ### Sửa lỗi
-- Icon app trên điện thoại giống logo WebTui Chat
-  Trên Android 8 trở lên, icon ngoài màn hình chính bị phóng to quá khung nên chỉ thấy một khối trắng có chữ W. Nay
-  icon có nền xanh bao quanh bóng chat, giống logo trên Google Play và màn đăng nhập; icon theo màu hình nền (Android
-  13+) cũng hiện rõ chữ W. Trên iPhone, icon cũ kiểu khác được thay bằng đúng logo này. Cần cài bản app mới để thấy.
+- App dùng đúng logo WebTui Chat như trên web
+  Icon app trên Android và iPhone, logo ở màn đăng nhập, màn chờ khi mở app và icon trên Google Play nay cùng một mẫu
+  với logo trên web: ô vuông xanh, chữ W trắng, bóng chat nhỏ ở góc. Trước đây Android 8 trở lên chỉ hiện một khối
+  trắng có chữ W vì hình bị phóng quá khung. Icon đổi màu theo hình nền (Android 13+) hiện rõ chữ W và bóng chat. Cần
+  cài bản app mới để thấy.
 
 ## 1.17.1 · 12/11/2026
 ### Sửa lỗi
