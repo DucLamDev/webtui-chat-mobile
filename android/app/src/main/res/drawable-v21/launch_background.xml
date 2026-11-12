@@ -4,6 +4,6 @@
     <item
         android:width="96dp"
         android:height="96dp"
-        android:drawable="@drawable/ic_launcher_foreground"
+        android:drawable="@drawable/splash_logo"
         android:gravity="center" />
 </layer-list>

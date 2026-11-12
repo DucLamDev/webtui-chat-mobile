@@ -199,9 +199,9 @@ void main() {
       file: File('android/app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml'),
       mustContain: const [
         '<adaptive-icon',
-        '@drawable/ic_launcher_foreground',
+        '@mipmap/ic_launcher_foreground',
         '<monochrome',
-        '@drawable/ic_launcher_monochrome',
+        '@mipmap/ic_launcher_monochrome',
       ],
     ),
     _ReleaseCheck(

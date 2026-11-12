@@ -4,6 +4,14 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
+## 1.17.2 · 12/11/2026
+### Sửa lỗi
+- App dùng đúng logo ở thanh bên trái của web
+  Icon app trên Android và iPhone, logo màn đăng nhập, màn chờ khi mở app và icon trên Google Play nay cùng một logo
+  với thanh bên trái của web: bóng chat xanh có chữ W trắng, đặt trên ô trắng. Trước đây Android 8 trở lên chỉ hiện
+  một khối trắng có chữ W vì hình bị phóng quá khung. Icon đổi màu theo hình nền (Android 13+) cũng hiện đúng hình
+  bóng chat có chữ W. Cần cài bản app mới để thấy.
+
 ## 1.17.1 · 12/11/2026
 ### Sửa lỗi
 - Danh sách phiên đăng nhập gọn lại
