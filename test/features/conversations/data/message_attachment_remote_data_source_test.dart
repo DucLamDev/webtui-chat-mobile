@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
@@ -85,7 +86,13 @@ void main() {
         'tiến độ tăng dần tới 1', () async {
       final size = chunk * 6 + 123; // 7 mảnh
       final attachment = await makeFile(size);
-      final api = _ResumableApi(totalChunks: 7, totalSize: size);
+      // Giữ các mảnh tới khi đủ 3 mảnh cùng chạy: máy CI chậm tính mã kiểm tra
+      // mảnh lâu hơn thời gian gửi giả, nên chỉ chờ cố định thì đo hụt song song.
+      final api = _ResumableApi(
+        totalChunks: 7,
+        totalSize: size,
+        holdUntilConcurrent: 3,
+      );
       final remote = MessageAttachmentRemoteDataSource(api, wait: (_) async {});
       final progress = <double>[];
 
@@ -278,11 +285,17 @@ final class _ResumableApi extends _FakeApiTransport {
     required this.totalChunks,
     required this.totalSize,
     this.uploadedParts = const [],
+    this.holdUntilConcurrent,
   }) : super(const <String, Object?>{});
 
   final int totalChunks;
   final int totalSize;
   final List<int> uploadedParts;
+
+  /// Có giá trị thì mỗi lần gửi mảnh chờ tới khi đủ ngần ấy mảnh cùng chạy
+  /// (tối đa 5 giây, để bộ gửi tuần tự làm test đỏ chứ không treo).
+  final int? holdUntilConcurrent;
+  final Completer<void> _concurrencyGate = Completer<void>();
   final Map<int, int> putLengths = {};
   final Map<int, int> putCalls = {};
   Map<int, List<int>> failures = {};
@@ -340,6 +353,17 @@ final class _ResumableApi extends _FakeApiTransport {
     _running++;
     if (_running > maxConcurrent) maxConcurrent = _running;
     try {
+      final hold = holdUntilConcurrent;
+      if (hold != null && !_concurrencyGate.isCompleted) {
+        if (_running >= hold) {
+          _concurrencyGate.complete();
+        } else {
+          await _concurrencyGate.future.timeout(
+            const Duration(seconds: 5),
+            onTimeout: () {},
+          );
+        }
+      }
       await Future<void>.delayed(const Duration(milliseconds: 20));
       final queue = failures[part];
       if (queue != null && queue.isNotEmpty) {
