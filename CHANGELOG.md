@@ -4,6 +4,13 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
+## 1.18.1 · 13/11/2026
+### Sửa lỗi
+- Bản build TestFlight không còn bị chặn bởi một test chập chờn
+  Bước kiểm tra trước khi build đôi khi báo lỗi ở test "tải video theo từng phần, tối đa 3 phần cùng lúc" trên máy
+  build chậm, dù app không có lỗi, làm bản build dừng giữa chừng. Nay test chờ đủ 3 phần cùng chạy rồi mới đo, nên
+  kết quả ổn định. App không thay đổi gì.
+
 ## 1.18.0 · 12/11/2026
 ### Tính năng
 - Bấm kênh Ticket là vào thẳng màn trả lời ticket khách
