@@ -57,50 +57,11 @@ class WorkspaceToolsScreen extends ConsumerWidget {
       key: const Key('workspace_tools_list'),
       padding: const EdgeInsets.fromLTRB(
         WebTuiSpacing.lg,
-        WebTuiSpacing.sm,
+        WebTuiSpacing.md,
         WebTuiSpacing.lg,
         WebTuiSpacing.xxl,
       ),
       children: [
-        Padding(
-          // 14: khoảng tiêu đề → thẻ đầu theo ảnh mẫu (giữa md 12 và lg 16).
-          padding: const EdgeInsets.fromLTRB(WebTuiSpacing.xs, 0, 0, 14),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Công việc',
-                  style: WebTuiTypography.titleLarge.copyWith(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w800,
-                    color: WebTuiColors.textPrimary,
-                  ),
-                ),
-              ),
-              Material(
-                color: WebTuiColors.primarySoft,
-                shape: const CircleBorder(),
-                child: IconButton(
-                  key: const Key('work_search'),
-                  tooltip: 'Tìm việc của tôi',
-                  iconSize: 24,
-                  color: WebTuiColors.textSecondary,
-                  constraints: const BoxConstraints.tightFor(
-                    width: 48,
-                    height: 48,
-                  ),
-                  icon: const Icon(WebTuiIcons.search),
-                  onPressed: () => context.push(
-                    Uri(
-                      path: '/my-tasks',
-                      queryParameters: {'workspaceId': id, 'search': '1'},
-                    ).toString(),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
         MyTasksCard(workspaceId: id),
         for (final module in modules) ...[
           const SizedBox(height: 14),

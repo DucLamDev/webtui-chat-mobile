@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../icons/webtui_icons.dart';
 import '../tokens/webtui_colors.dart';
 import '../tokens/webtui_spacing.dart';
 import '../tokens/webtui_typography.dart';
@@ -157,7 +158,7 @@ class _ReactionChip extends StatelessWidget {
           children: [
             if (isLike)
               const Icon(
-                Icons.thumb_up_alt_outlined,
+                WebTuiIcons.like,
                 size: 13,
                 color: WebTuiColors.primary,
               )

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
+import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../domain/entities/call_privacy.dart';
 
 /// Cài đặt hiện tại theo workspace.
@@ -62,26 +64,30 @@ class CallPrivacySettingRow extends ConsumerWidget {
     String id,
     WhoCanCallMe current,
   ) async {
-    final selected = await showModalBottomSheet<WhoCanCallMe>(
+    final selected = await showWebTuiSheet<WhoCanCallMe>(
       context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            const ListTile(title: Text('Ai được gọi thoại / video cho bạn')),
-            for (final option in WhoCanCallMe.values)
-              ListTile(
-                key: Key('call_privacy_choice_${option.apiValue}'),
-                title: Text(option.label),
-                subtitle: Text(option.description),
-                trailing: option == current
-                    ? const Icon(Icons.check_rounded)
-                    : null,
-                onTap: () => Navigator.of(sheetContext).pop(option),
-              ),
-          ],
-        ),
+      builder: (sheetContext) => ListView(
+        shrinkWrap: true,
+        children: [
+          const WebTuiSheetHeader(title: 'Ai được gọi thoại / video cho bạn'),
+          for (final option in WhoCanCallMe.values)
+            WebTuiSheetActionTile(
+              key: Key('call_privacy_choice_${option.apiValue}'),
+              icon: WebTuiIcons.phoneCall,
+              title: option.label,
+              subtitle: option.description,
+              selected: option == current,
+              trailing: option == current
+                  ? const Icon(
+                      WebTuiIcons.check,
+                      size: 20,
+                      color: WebTuiColors.primary,
+                    )
+                  : null,
+              onTap: () => Navigator.of(sheetContext).pop(option),
+            ),
+          const SizedBox(height: 8),
+        ],
       ),
     );
     if (selected == null || selected == current) {

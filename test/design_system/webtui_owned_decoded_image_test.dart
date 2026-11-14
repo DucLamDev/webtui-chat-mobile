@@ -69,6 +69,29 @@ void main() {
       ..clearLiveImages();
   });
 
+  testWidgets('onImageSize báo kích thước ảnh gốc sau khi giải mã', (
+    tester,
+  ) async {
+    Size? reported;
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: WebTuiOwnedDecodedImage(
+          requestKey: 'size',
+          loadBytes: () async => _onePixelPng,
+          maxEncodedBytes: 1024 * 1024,
+          decodeTargetWidth: 64,
+          decodeTargetHeight: 64,
+          fallback: const SizedBox(),
+          loading: const SizedBox(),
+          onImageSize: (size) => reported = size,
+        ),
+      ),
+    );
+    await _pumpUntil(tester, () => reported != null);
+    expect(reported, const Size(1, 1));
+  });
+
   testWidgets('padded encoded bytes never enter Flutter global ImageCache', (
     tester,
   ) async {

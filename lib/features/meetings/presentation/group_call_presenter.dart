@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/platform/external_url_launcher.dart';
+import '../../../design_system/components/webtui_components.dart';
+import '../../../design_system/icons/webtui_icons.dart';
 import '../application/group_call_coordinator.dart';
 import '../data/meeting_remote_data_source.dart';
 import '../domain/meeting_models.dart';
@@ -168,24 +170,22 @@ class _GroupCallRingDialogState extends State<GroupCallRingDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      icon: Icon(widget.isVideo ? Icons.videocam_rounded : Icons.call_rounded),
-      title: Text(widget.title, textAlign: TextAlign.center),
-      content: Text(
-        widget.isVideo ? 'Cuộc gọi nhóm video' : 'Cuộc gọi nhóm thoại',
-        textAlign: TextAlign.center,
-      ),
-      actionsAlignment: MainAxisAlignment.spaceEvenly,
+    return WebTuiDialog(
+      title: widget.title,
+      message: widget.isVideo ? 'Cuộc gọi nhóm video' : 'Cuộc gọi nhóm thoại',
+      icon: widget.isVideo ? WebTuiIcons.video : WebTuiIcons.phoneCall,
       actions: [
-        TextButton(
+        WebTuiDialogAction(
           key: const Key('group-call-decline'),
+          label: 'Từ chối',
+          destructive: true,
           onPressed: () => _close(GroupCallChoice.decline),
-          child: const Text('Từ chối'),
         ),
-        FilledButton(
+        WebTuiDialogAction(
           key: const Key('group-call-accept'),
+          label: 'Nhận',
+          primary: true,
           onPressed: () => _close(GroupCallChoice.accept),
-          child: const Text('Nhận'),
         ),
       ],
     );

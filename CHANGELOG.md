@@ -4,6 +4,22 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
+## 1.24.0 · 14/11/2026
+### Tính năng
+- App gọn hơn, xem tệp ngay, hộp thoại làm mới theo góp ý đợt 2
+  Tin nhắn: tab Nghiệp vụ chỉ còn 3 kênh Đơn hàng, Gia hạn, Kế toán; các kênh hệ thống khác (giám sát, cảnh báo,
+  webhook, nhật ký...) ẩn khỏi app (máy chủ và web giữ nguyên). Nút lọc theo thứ tự Tất cả, Nhóm, Cá nhân (chat 1-1),
+  Nghiệp vụ, Chưa đọc; chat bot thông báo không tính vào Nhóm hay Cá nhân. "Tạo kênh" đổi thành "Tạo nhóm": đặt tên,
+  mô tả, chọn thành viên ngay khi tạo, nhóm luôn riêng tư (thêm người lỗi thì nhóm vẫn tạo và báo số người chưa thêm).
+  Chat: ảnh và video hiện đúng tỉ lệ, sát phía người gửi, giờ nằm ở góc ảnh; thẻ cuộc gọi chỉ còn một biểu tượng
+  hướng gọi (đến / đi / nhỡ) và nút "Gọi lại"; "Tạo bình chọn" chỉ có trong nhóm, không có ở chat 1-1.
+  Công việc: bỏ tiêu đề lớn, nút tìm nhỏ cạnh "Xem tất cả"; biểu tượng tab Công việc là chiếc cặp.
+  Tệp chia sẻ: ảnh và video có ảnh thu nhỏ, tài liệu có logo PDF / Word / Excel / PowerPoint; bấm ghi âm là nghe ngay
+  tại dòng; video phát ngay không cần tải hết tệp; PDF xem ngay trong app; tệp đã mở được lưu tạm (xoá khi đăng
+  xuất) để lần sau mở tức thì; lưu / chia sẻ tệp qua "Mở bằng ứng dụng khác".
+  Mọi hộp thoại và bảng chọn đổi sang kiểu mới đồng bộ (nền trắng, bo tròn, nút lớn, thao tác xoá / chặn nút đỏ);
+  My Note gom việc chọn, tạo, đổi tên, xoá thư mục vào một bảng Lọc; hộp "Xác thực lại" chọn cách xác thực bằng nút.
+
 ## 1.23.0 · 14/11/2026
 ### Tính năng
 - Màn chat mới theo ảnh mẫu, có "Đã xem"

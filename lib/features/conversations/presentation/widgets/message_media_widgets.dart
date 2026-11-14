@@ -164,6 +164,81 @@ class MessageMediaTimeBadge extends StatelessWidget {
   }
 }
 
+/// Tỉ lệ rộng / cao đã biết của ảnh, video theo mã tệp (bộ nhớ trong, có giới
+/// hạn số mục) để cuộn lên xuống không bị nhảy khung.
+final class MessageMediaAspectCache {
+  const MessageMediaAspectCache._();
+
+  static const int maxEntries = 256;
+  static final LinkedHashMap<String, double> _entries =
+      LinkedHashMap<String, double>();
+
+  static double? get(String key) {
+    final value = _entries.remove(key);
+    if (value != null) _entries[key] = value;
+    return value;
+  }
+
+  static void put(String key, double ratio) {
+    if (key.isEmpty || !ratio.isFinite || ratio <= 0) return;
+    _entries.remove(key);
+    _entries[key] = ratio;
+    while (_entries.length > maxEntries) {
+      _entries.remove(_entries.keys.first);
+    }
+  }
+
+  static int get length => _entries.length;
+
+  @visibleForTesting
+  static void clear() => _entries.clear();
+}
+
+const double messageMediaMinRatio = 0.5;
+const double messageMediaMaxRatio = 2.0;
+const double messageMediaUnknownRatio = 4 / 3;
+
+/// Kích thước ô ảnh / video ôm đúng tỉ lệ (kẹp [0.5, 2.0]) trong khung tối đa:
+/// ảnh dọc cao tối đa, ảnh ngang rộng tối đa.
+Size fitMessageMediaBox({
+  required double ratio,
+  required double maxWidth,
+  required double maxHeight,
+}) {
+  final safe = ratio.isFinite && ratio > 0 ? ratio : messageMediaUnknownRatio;
+  final clamped = safe.clamp(messageMediaMinRatio, messageMediaMaxRatio);
+  var width = maxWidth;
+  var height = width / clamped;
+  if (height > maxHeight) {
+    height = maxHeight;
+    width = height * clamped;
+  }
+  return Size(width, height);
+}
+
+/// Giới hạn ô ảnh / video đơn trong bong bóng (theo bề ngang màn hình).
+Size messageMediaMaxBox(BuildContext context) {
+  final viewportWidth = MediaQuery.sizeOf(context).width;
+  return Size(
+    (viewportWidth * 0.66).clamp(188, 258).toDouble(),
+    (viewportWidth * 0.72).clamp(188, 286).toDouble(),
+  );
+}
+
+Widget _coverVideo(VideoPlayerController controller) {
+  final size = controller.value.size;
+  if (size.width <= 0 || size.height <= 0) return VideoPlayer(controller);
+  return FittedBox(
+    fit: BoxFit.cover,
+    clipBehavior: Clip.hardEdge,
+    child: SizedBox(
+      width: size.width,
+      height: size.height,
+      child: VideoPlayer(controller),
+    ),
+  );
+}
+
 class MessageImageAttachmentView extends ConsumerStatefulWidget {
   const MessageImageAttachmentView({
     required this.attachment,
@@ -175,11 +250,16 @@ class MessageImageAttachmentView extends ConsumerStatefulWidget {
     this.onPressed,
     this.preferThumbnail = true,
     this.timeLabel,
+    this.adaptive = false,
     super.key,
   });
 
   final MessageAttachment attachment;
   final Uri? apiBaseUri;
+
+  /// Ô ôm sát đúng tỉ lệ ảnh thật (trong khung [maxWidth] x [maxHeight]) thay
+  /// vì rộng cố định; dùng cho ảnh đơn trong bong bóng.
+  final bool adaptive;
 
   /// Giờ gửi hiện trên góc dưới phải của ảnh (null: không hiện).
   final String? timeLabel;
@@ -206,6 +286,54 @@ class _MessageImageAttachmentViewState
   Uri? _thumbnailUri;
   File? _localImageFile;
   int _loadGeneration = 0;
+  double? _reportedRatio;
+  ImageStream? _sizeStream;
+  ImageStreamListener? _sizeListener;
+
+  String get _ratioKey {
+    final attachment = widget.attachment;
+    return attachment.fileId.isNotEmpty ? attachment.fileId : attachment.id;
+  }
+
+  double? get _knownRatio {
+    final file = widget.attachment.file;
+    final width = file.width ?? 0;
+    final height = file.height ?? 0;
+    if (width > 0 && height > 0) return width / height;
+    return MessageMediaAspectCache.get(_ratioKey) ?? _reportedRatio;
+  }
+
+  void _onImageSize(Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+    final ratio = size.width / size.height;
+    MessageMediaAspectCache.put(_ratioKey, ratio);
+    scheduleMicrotask(() {
+      if (!mounted || _reportedRatio == ratio) return;
+      setState(() => _reportedRatio = ratio);
+    });
+  }
+
+  void _stopSizeListener() {
+    final stream = _sizeStream;
+    final listener = _sizeListener;
+    if (stream != null && listener != null) stream.removeListener(listener);
+    _sizeStream = null;
+    _sizeListener = null;
+  }
+
+  void _listenLocalSize(File file) {
+    _stopSizeListener();
+    if (!widget.adaptive || _knownRatio != null) return;
+    final stream = FileImage(file).resolve(ImageConfiguration.empty);
+    final listener = ImageStreamListener((info, _) {
+      _onImageSize(
+        Size(info.image.width.toDouble(), info.image.height.toDouble()),
+      );
+    }, onError: (_, _) {});
+    stream.addListener(listener);
+    _sizeStream = stream;
+    _sizeListener = listener;
+  }
 
   @override
   void initState() {
@@ -241,9 +369,11 @@ class _MessageImageAttachmentViewState
       _localImageFile = File(localPath);
       _imageUri = null;
       _thumbnailUri = null;
+      _listenLocalSize(_localImageFile!);
       return;
     }
     _localImageFile = null;
+    _stopSizeListener();
     _thumbnailUri = widget.preferThumbnail
         ? attachmentThumbnailUri(widget.attachment, widget.apiBaseUri)
         : null;
@@ -298,6 +428,7 @@ class _MessageImageAttachmentViewState
   @override
   void dispose() {
     _loadGeneration += 1;
+    _stopSizeListener();
     super.dispose();
   }
 
@@ -306,16 +437,24 @@ class _MessageImageAttachmentViewState
     final uri = _thumbnailUri ?? _imageUri;
     final localImageFile = _localImageFile;
     final generation = _loadGeneration;
-    final placeholder = _ImagePlaceholder(
-      height: widget.height,
-      width: widget.maxWidth,
-    );
+    final adaptive = widget.adaptive;
+    final box = adaptive
+        ? fitMessageMediaBox(
+            ratio: _knownRatio ?? messageMediaUnknownRatio,
+            maxWidth: widget.maxWidth,
+            maxHeight: widget.maxHeight,
+          )
+        : null;
+    final boxWidth = box?.width ?? widget.maxWidth;
+    final boxHeight = box?.height ?? widget.height;
+    final boxFit = adaptive ? BoxFit.cover : widget.fit;
+    final placeholder = _ImagePlaceholder(height: boxHeight, width: boxWidth);
     final image = localImageFile != null
         ? Image.file(
             localImageFile,
-            width: widget.maxWidth,
-            height: widget.height,
-            fit: widget.fit,
+            width: boxWidth,
+            height: boxHeight,
+            fit: boxFit,
             errorBuilder: (_, _, _) => placeholder,
           )
         : uri == null
@@ -326,16 +465,17 @@ class _MessageImageAttachmentViewState
                 '${widget.attachment.file.mimeType}|$generation',
             loadBytes: () => _load(uri, generation),
             maxEncodedBytes: maxImagePreviewBytes,
-            decodeTargetWidth: (widget.maxWidth * 3).ceil().clamp(1, 2048),
+            decodeTargetWidth: (boxWidth * 3).ceil().clamp(1, 2048),
             decodeTargetHeight: widget.maxHeight.isFinite
                 ? (widget.maxHeight * 3).ceil().clamp(1, 2048)
                 : 2048,
-            width: widget.maxWidth,
-            height: widget.height,
-            fit: widget.fit,
+            width: boxWidth,
+            height: boxHeight,
+            fit: boxFit,
+            onImageSize: adaptive ? _onImageSize : null,
             loading: _ImagePlaceholder(
-              height: widget.height,
-              width: widget.maxWidth,
+              height: boxHeight,
+              width: boxWidth,
               loading: true,
             ),
             fallback: placeholder,
@@ -826,6 +966,21 @@ class _MessageVideoAttachmentViewState
   static const _downloader = RedirectSafeFileDownloader();
   static const _fileStore = ScopedAttachmentFileStore();
 
+  double? _thumbnailRatio;
+
+  void _onThumbnailSize(Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+    final ratio = size.width / size.height;
+    final key = widget.attachment.fileId.isNotEmpty
+        ? widget.attachment.fileId
+        : widget.attachment.id;
+    MessageMediaAspectCache.put(key, ratio);
+    scheduleMicrotask(() {
+      if (!mounted || _thumbnailRatio == ratio) return;
+      setState(() => _thumbnailRatio = ratio);
+    });
+  }
+
   VideoPlayerController? _controller;
   File? _videoFile;
   _AttachmentDownloadBinding? _binding;
@@ -1072,6 +1227,7 @@ class _MessageVideoAttachmentViewState
           key: ValueKey('video-thumbnail-${widget.attachment.fileId}'),
           uri: thumbnailUri,
           apiBaseUri: widget.apiBaseUri,
+          onImageSize: _onThumbnailSize,
         ),
         Center(
           child: _loading
@@ -1159,18 +1315,36 @@ class _MessageVideoAttachmentViewState
     );
     final knownWidth = file.width ?? 0;
     final knownHeight = file.height ?? 0;
-    final aspectRatio = initialized
-        ? activeController!.value.aspectRatio.clamp(0.65, 1.9)
-        : thumbnailUri != null && knownWidth > 0 && knownHeight > 0
-        ? (knownWidth / knownHeight).clamp(0.65, 1.9)
-        : 16 / 9;
+    final ratioKey = widget.attachment.fileId.isNotEmpty
+        ? widget.attachment.fileId
+        : widget.attachment.id;
+    if (initialized && activeController!.value.aspectRatio > 0) {
+      MessageMediaAspectCache.put(ratioKey, activeController.value.aspectRatio);
+    }
+    final double rawRatio = initialized
+        ? activeController!.value.aspectRatio
+        : knownWidth > 0 && knownHeight > 0
+        ? knownWidth / knownHeight
+        : MessageMediaAspectCache.get(ratioKey) ?? _thumbnailRatio ?? 16 / 9;
     final durationMs = file.durationMs ?? 0;
     final durationText = durationMs > 0
         ? _formatDuration(Duration(milliseconds: durationMs))
         : null;
-    final width = widget.allowFullscreen
-        ? (MediaQuery.sizeOf(context).width * 0.72).clamp(230, 320).toDouble()
-        : MediaQuery.sizeOf(context).width;
+    final Size box;
+    if (widget.allowFullscreen) {
+      final maxBox = messageMediaMaxBox(context);
+      box = fitMessageMediaBox(
+        ratio: rawRatio,
+        maxWidth: maxBox.width,
+        maxHeight: maxBox.height,
+      );
+    } else {
+      final screenWidth = MediaQuery.sizeOf(context).width;
+      final ratio = rawRatio.clamp(0.65, 1.9).toDouble();
+      box = Size(screenWidth, screenWidth / ratio);
+    }
+    final width = box.width;
+    final aspectRatio = box.width / box.height;
     return SizedBox(
       width: width,
       child: ClipRRect(
@@ -1188,7 +1362,7 @@ class _MessageVideoAttachmentViewState
                   fit: StackFit.expand,
                   children: [
                     if (activeController != null)
-                      VideoPlayer(activeController)
+                      _coverVideo(activeController)
                     else if (thumbnailUri != null)
                       _buildThumbnailCover(thumbnailUri, durationText)
                     else
@@ -1300,11 +1474,13 @@ class _VideoThumbnailImage extends ConsumerStatefulWidget {
   const _VideoThumbnailImage({
     required this.uri,
     required this.apiBaseUri,
+    this.onImageSize,
     super.key,
   });
 
   final Uri uri;
   final Uri? apiBaseUri;
+  final ValueChanged<Size>? onImageSize;
 
   @override
   ConsumerState<_VideoThumbnailImage> createState() =>
@@ -1377,6 +1553,7 @@ class _VideoThumbnailImageState extends ConsumerState<_VideoThumbnailImage> {
           width: width,
           height: height,
           fit: BoxFit.cover,
+          onImageSize: widget.onImageSize,
           loading: const ColoredBox(color: Color(0xFF1B1F27)),
           fallback: const ColoredBox(color: Color(0xFF1B1F27)),
         );
@@ -1465,12 +1642,26 @@ class _MessageLocalVideoPreviewState extends State<MessageLocalVideoPreview> {
   Widget build(BuildContext context) {
     final controller = _controller;
     final ready = controller?.value.isInitialized == true;
-    final aspectRatio = ready
-        ? controller!.value.aspectRatio.clamp(0.65, 1.9).toDouble()
-        : 16 / 9;
-    final width = widget.allowFullscreen
-        ? (MediaQuery.sizeOf(context).width * 0.72).clamp(230, 320).toDouble()
-        : MediaQuery.sizeOf(context).width;
+    if (ready && controller!.value.aspectRatio > 0) {
+      MessageMediaAspectCache.put(widget.path, controller.value.aspectRatio);
+    }
+    final rawRatio = ready
+        ? controller!.value.aspectRatio
+        : MessageMediaAspectCache.get(widget.path) ?? 16 / 9;
+    final Size box;
+    if (widget.allowFullscreen) {
+      final maxBox = messageMediaMaxBox(context);
+      box = fitMessageMediaBox(
+        ratio: rawRatio,
+        maxWidth: maxBox.width,
+        maxHeight: maxBox.height,
+      );
+    } else {
+      final screenWidth = MediaQuery.sizeOf(context).width;
+      box = Size(screenWidth, screenWidth / rawRatio.clamp(0.65, 1.9));
+    }
+    final width = box.width;
+    final aspectRatio = box.width / box.height;
     final progress = widget.progress;
     final compressing = widget.stage == 'compressing';
     final percent = ((progress ?? 0) * 100).clamp(0, 100).round();
@@ -1487,7 +1678,7 @@ class _MessageLocalVideoPreviewState extends State<MessageLocalVideoPreview> {
               fit: StackFit.expand,
               children: [
                 if (ready)
-                  IgnorePointer(child: VideoPlayer(controller!))
+                  IgnorePointer(child: _coverVideo(controller!))
                 else
                   const SizedBox.expand(),
                 if (progress == null)

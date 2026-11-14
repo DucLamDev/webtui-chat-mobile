@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../../app/providers/foundation_providers.dart';
 import '../../../../../core/privacy/background_privacy.dart';
+import '../../../../../design_system/components/webtui_components.dart';
+import '../../../../../design_system/icons/webtui_icons.dart';
+import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../mfa/presentation/reauth_prompt.dart';
 import '../../../domain/entities/chat_message.dart';
 
@@ -24,7 +27,7 @@ class SecretMessageComposer extends ConsumerWidget {
       return const SizedBox.shrink();
     }
     return TextButton.icon(
-      icon: const Icon(Icons.lock_clock),
+      icon: const Icon(WebTuiIcons.lock),
       label: const Text('Bí mật 24h'),
       onPressed: () async {
         final sent = await showDialog<bool>(
@@ -79,41 +82,45 @@ class _SecretComposerState extends ConsumerState<_SecretComposer> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Tin bí mật 24h'),
-    content: SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('Chỉ gửi chữ. Không lưu bản nháp hoặc hàng chờ offline.'),
-          TextField(
-            controller: _body,
-            autofocus: true,
-            enabled: !_busy,
-            maxLength: 8000,
-            minLines: 2,
-            maxLines: 6,
-            autocorrect: false,
-            enableSuggestions: false,
-            decoration: const InputDecoration(labelText: 'Nội dung tin bí mật'),
-            onChanged: (_) => _clientId = const Uuid().v4(),
-          ),
-          if (_error != null)
-            Text(
+  Widget build(BuildContext context) => WebTuiDialog(
+    title: 'Tin bí mật 24h',
+    message: 'Chỉ gửi chữ. Không lưu bản nháp hoặc hàng chờ offline.',
+    icon: WebTuiIcons.lock,
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: _body,
+          autofocus: true,
+          enabled: !_busy,
+          maxLength: 8000,
+          minLines: 2,
+          maxLines: 6,
+          autocorrect: false,
+          enableSuggestions: false,
+          decoration: const InputDecoration(labelText: 'Nội dung tin bí mật'),
+          onChanged: (_) => _clientId = const Uuid().v4(),
+        ),
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
               _error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
+              style: const TextStyle(color: WebTuiColors.danger),
             ),
-        ],
-      ),
+          ),
+      ],
     ),
     actions: [
-      TextButton(
+      WebTuiDialogAction(
+        label: 'Huỷ',
         onPressed: _busy ? null : () => Navigator.pop(context),
-        child: const Text('Huỷ'),
       ),
-      FilledButton(
+      WebTuiDialogAction(
+        label: _busy ? 'Đang gửi…' : 'Gửi',
+        primary: true,
         onPressed: _busy ? null : _send,
-        child: Text(_busy ? 'Đang gửi…' : 'Gửi'),
       ),
     ],
   );
@@ -261,13 +268,15 @@ class _SecretRevealState extends State<_SecretReveal>
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Tin bí mật'),
-    content: SingleChildScrollView(child: Text(widget.body)),
+  Widget build(BuildContext context) => WebTuiDialog(
+    title: 'Tin bí mật',
+    icon: WebTuiIcons.lock,
+    content: Text(widget.body),
     actions: [
-      TextButton(
+      WebTuiDialogAction(
+        label: 'Đóng',
+        primary: true,
         onPressed: () => Navigator.pop(context),
-        child: const Text('Đóng'),
       ),
     ],
   );

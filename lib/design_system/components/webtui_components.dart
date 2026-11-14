@@ -1,5 +1,6 @@
 export 'webtui_avatar.dart';
 export 'webtui_badges.dart';
+export 'webtui_dialogs.dart';
 export 'webtui_list_items.dart';
 export 'webtui_message_bubble.dart';
 export 'webtui_mobile_scaffold.dart';

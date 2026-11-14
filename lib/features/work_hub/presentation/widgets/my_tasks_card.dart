@@ -100,6 +100,29 @@ class MyTasksCard extends ConsumerWidget {
                             ),
                           ),
                         ),
+                        // Kính lúp nhỏ cạnh "Xem tất cả": mở Việc của tôi ở
+                        // chế độ tìm (vùng bấm 44).
+                        IconButton(
+                          key: const Key('work_search'),
+                          tooltip: 'Tìm việc của tôi',
+                          iconSize: 22,
+                          color: WebTuiColors.textSecondary,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 44,
+                            height: 44,
+                          ),
+                          icon: const Icon(WebTuiIcons.search),
+                          onPressed: () => context.push(
+                            Uri(
+                              path: '/my-tasks',
+                              queryParameters: {
+                                'workspaceId': workspaceId,
+                                'search': '1',
+                              },
+                            ).toString(),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 2),

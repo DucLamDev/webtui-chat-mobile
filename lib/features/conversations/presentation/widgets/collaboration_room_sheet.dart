@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/error/error_mapper.dart';
+import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
@@ -1386,8 +1388,9 @@ class _CollaborationRoomSheetState
     final approved = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Tạo link khách ngoài'),
+        builder: (context, setDialogState) => WebTuiDialog(
+          title: 'Tạo link khách ngoài',
+          icon: WebTuiIcons.share,
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1408,13 +1411,14 @@ class _CollaborationRoomSheetState
             ],
           ),
           actions: [
-            TextButton(
+            WebTuiDialogAction(
+              label: 'Hủy',
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Hủy'),
             ),
-            FilledButton(
+            WebTuiDialogAction(
+              label: 'Tạo link',
+              primary: true,
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Tạo link'),
             ),
           ],
         ),
@@ -1711,21 +1715,23 @@ class _CollaborationRoomSheetState
     final controller = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Tạo phòng nhỏ'),
-        content: TextField(
+      builder: (context) => WebTuiDialog(
+        title: 'Tạo phòng nhỏ',
+        icon: WebTuiIcons.group,
+        content: WebTuiDialogTextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(labelText: 'Tên phòng'),
+          label: 'Tên phòng',
         ),
         actions: [
-          TextButton(
+          WebTuiDialogAction(
+            label: 'Hủy',
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Hủy'),
           ),
-          FilledButton(
+          WebTuiDialogAction(
+            label: 'Tạo',
+            primary: true,
             onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-            child: const Text('Tạo'),
           ),
         ],
       ),
@@ -1939,50 +1945,44 @@ class _CollaborationRoomSheetState
       if (!mounted) return;
       await showDialog<void>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Row(
+        builder: (context) => WebTuiDialog(
+          title: 'Tóm tắt AI nội bộ',
+          icon: WebTuiIcons.bot,
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.auto_awesome_rounded),
-              SizedBox(width: WebTuiSpacing.sm),
-              Expanded(child: Text('Tóm tắt AI nội bộ')),
+              Text(summary.summary),
+              if (summary.decisions.isNotEmpty) ...[
+                const SizedBox(height: WebTuiSpacing.md),
+                const Text(
+                  'Quyết định',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                for (final item in summary.decisions) Text('• $item'),
+              ],
+              if (summary.actionItems.isNotEmpty) ...[
+                const SizedBox(height: WebTuiSpacing.md),
+                const Text(
+                  'Việc cần làm',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                for (final item in summary.actionItems) Text('• $item'),
+              ],
+              const SizedBox(height: WebTuiSpacing.md),
+              Text(
+                '${summary.messageCount} tin nhắn · ${summary.model}',
+                style: WebTuiTypography.bodySmall.copyWith(
+                  color: WebTuiColors.textSecondary,
+                ),
+              ),
             ],
           ),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(summary.summary),
-                if (summary.decisions.isNotEmpty) ...[
-                  const SizedBox(height: WebTuiSpacing.md),
-                  const Text(
-                    'Quyết định',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  for (final item in summary.decisions) Text('• $item'),
-                ],
-                if (summary.actionItems.isNotEmpty) ...[
-                  const SizedBox(height: WebTuiSpacing.md),
-                  const Text(
-                    'Việc cần làm',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  for (final item in summary.actionItems) Text('• $item'),
-                ],
-                const SizedBox(height: WebTuiSpacing.md),
-                Text(
-                  '${summary.messageCount} tin nhắn · ${summary.model}',
-                  style: WebTuiTypography.bodySmall.copyWith(
-                    color: WebTuiColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
           actions: [
-            TextButton(
+            WebTuiDialogAction(
+              label: 'Đóng',
+              primary: true,
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Đóng'),
             ),
           ],
         ),

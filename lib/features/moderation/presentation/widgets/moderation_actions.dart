@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/result/result.dart';
+import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../domain/entities/moderation.dart';
@@ -22,36 +24,30 @@ Future<void> showUserSafetyActions(
   }
   final provider = moderationControllerProvider(workspaceId);
   final blocked = ref.read(provider).isBlocked(normalizedUserId);
-  final action = await showModalBottomSheet<UserSafetyAction>(
+  final action = await showWebTuiSheet<UserSafetyAction>(
     context: context,
-    showDragHandle: true,
-    builder: (sheetContext) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.flag_outlined),
-            title: const Text('Báo cáo người dùng'),
-            subtitle: Text('Gửi báo cáo về $userLabel cho đội ngũ kiểm duyệt.'),
-            onTap: () => Navigator.pop(sheetContext, UserSafetyAction.report),
-          ),
-          ListTile(
-            leading: Icon(
-              blocked ? Icons.person_add_alt_1 : Icons.block_rounded,
-              color: blocked ? null : WebTuiColors.danger,
-            ),
-            title: Text(blocked ? 'Bỏ chặn người dùng' : 'Chặn người dùng'),
-            subtitle: Text(
-              blocked
-                  ? 'Cho phép hiển thị lại nội dung từ $userLabel.'
-                  : 'Ẩn nội dung và ngăn tương tác trực tiếp với $userLabel.',
-            ),
-            onTap: () =>
-                Navigator.pop(sheetContext, UserSafetyAction.toggleBlock),
-          ),
-          const SizedBox(height: WebTuiSpacing.sm),
-        ],
-      ),
+    builder: (sheetContext) => Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        WebTuiSheetHeader(title: userLabel, subtitle: 'An toàn'),
+        WebTuiSheetActionTile(
+          icon: WebTuiIcons.report,
+          title: 'Báo cáo người dùng',
+          subtitle: 'Gửi báo cáo về $userLabel cho đội ngũ kiểm duyệt.',
+          onTap: () => Navigator.pop(sheetContext, UserSafetyAction.report),
+        ),
+        WebTuiSheetActionTile(
+          icon: blocked ? WebTuiIcons.unblock : WebTuiIcons.block,
+          tone: blocked ? WebTuiDialogTone.normal : WebTuiDialogTone.danger,
+          title: blocked ? 'Bỏ chặn người dùng' : 'Chặn người dùng',
+          subtitle: blocked
+              ? 'Cho phép hiển thị lại nội dung từ $userLabel.'
+              : 'Ẩn nội dung và ngăn tương tác trực tiếp với $userLabel.',
+          onTap: () =>
+              Navigator.pop(sheetContext, UserSafetyAction.toggleBlock),
+        ),
+        const SizedBox(height: WebTuiSpacing.md),
+      ],
     ),
   );
   if (action == null || !context.mounted) {
@@ -139,24 +135,23 @@ Future<bool> toggleUserBlock(
   final blocked = ref.read(provider).isBlocked(userId);
   final confirmed = await showDialog<bool>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: Text(blocked ? 'Bỏ chặn $userLabel?' : 'Chặn $userLabel?'),
-      content: Text(
-        blocked
-            ? 'Nội dung mới từ người dùng này sẽ hiển thị lại.'
-            : 'Tin nhắn của người dùng này sẽ bị ẩn. Bạn có thể bỏ chặn trong mục Quyền riêng tư.',
-      ),
+    builder: (dialogContext) => WebTuiDialog(
+      title: blocked ? 'Bỏ chặn $userLabel?' : 'Chặn $userLabel?',
+      message: blocked
+          ? 'Nội dung mới từ người dùng này sẽ hiển thị lại.'
+          : 'Tin nhắn của người dùng này sẽ bị ẩn. Bạn có thể bỏ chặn trong mục Quyền riêng tư.',
+      icon: blocked ? WebTuiIcons.unblock : WebTuiIcons.block,
+      tone: blocked ? WebTuiDialogTone.normal : WebTuiDialogTone.danger,
       actions: [
-        TextButton(
+        WebTuiDialogAction(
+          label: 'Hủy',
           onPressed: () => Navigator.pop(dialogContext, false),
-          child: const Text('Hủy'),
         ),
-        FilledButton(
-          style: blocked
-              ? null
-              : FilledButton.styleFrom(backgroundColor: WebTuiColors.danger),
+        WebTuiDialogAction(
+          label: blocked ? 'Bỏ chặn' : 'Chặn',
+          primary: true,
+          destructive: !blocked,
           onPressed: () => Navigator.pop(dialogContext, true),
-          child: Text(blocked ? 'Bỏ chặn' : 'Chặn'),
         ),
       ],
     ),
@@ -252,74 +247,58 @@ class _ModerationReportDialogState extends State<_ModerationReportDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.title),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(widget.description),
-            const SizedBox(height: WebTuiSpacing.md),
-            DropdownButtonFormField<ModerationReportReason>(
-              initialValue: _reason,
-              decoration: const InputDecoration(labelText: 'Lý do'),
-              items: [
-                for (final item in ModerationReportReason.values)
-                  DropdownMenuItem(
-                    value: item,
-                    child: Text(_reasonLabel(item)),
-                  ),
-              ],
-              onChanged: _isSubmitting
-                  ? null
-                  : (value) {
-                      if (value != null) {
-                        setState(() => _reason = value);
-                      }
-                    },
-            ),
-            const SizedBox(height: WebTuiSpacing.md),
-            TextField(
-              controller: _detailsController,
-              enabled: !_isSubmitting,
-              minLines: 3,
-              maxLines: 5,
-              maxLength: 2000,
-              decoration: const InputDecoration(
-                labelText: 'Chi tiết (không bắt buộc)',
-                hintText: 'Mô tả ngắn gọn điều đã xảy ra',
-                alignLabelWithHint: true,
+    return WebTuiDialog(
+      title: widget.title,
+      message: widget.description,
+      icon: WebTuiIcons.report,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DropdownButtonFormField<ModerationReportReason>(
+            initialValue: _reason,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Lý do'),
+            items: [
+              for (final item in ModerationReportReason.values)
+                DropdownMenuItem(value: item, child: Text(_reasonLabel(item))),
+            ],
+            onChanged: _isSubmitting
+                ? null
+                : (value) {
+                    if (value != null) {
+                      setState(() => _reason = value);
+                    }
+                  },
+          ),
+          const SizedBox(height: WebTuiSpacing.md),
+          WebTuiDialogTextField(
+            controller: _detailsController,
+            label: 'Chi tiết (không bắt buộc)',
+            hint: 'Mô tả ngắn gọn điều đã xảy ra',
+            maxLength: 2000,
+            textInputAction: TextInputAction.done,
+          ),
+          if (_errorMessage != null)
+            Padding(
+              padding: const EdgeInsets.only(top: WebTuiSpacing.sm),
+              child: Text(
+                _errorMessage!,
+                style: const TextStyle(color: WebTuiColors.danger),
               ),
             ),
-            if (_errorMessage != null)
-              Padding(
-                padding: const EdgeInsets.only(top: WebTuiSpacing.sm),
-                child: Text(
-                  _errorMessage!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
       actions: [
-        TextButton(
+        WebTuiDialogAction(
+          label: 'Hủy',
           onPressed: _isSubmitting ? null : () => Navigator.pop(context, false),
-          child: const Text('Hủy'),
         ),
-        FilledButton.icon(
+        WebTuiDialogAction(
+          label: _isSubmitting ? 'Đang gửi...' : 'Gửi báo cáo',
+          primary: true,
+          loading: _isSubmitting,
           onPressed: _isSubmitting ? null : _submit,
-          icon: _isSubmitting
-              ? const SizedBox.square(
-                  dimension: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : const Icon(Icons.flag_outlined),
-          label: Text(_isSubmitting ? 'Đang gửi...' : 'Gửi báo cáo'),
         ),
       ],
     );

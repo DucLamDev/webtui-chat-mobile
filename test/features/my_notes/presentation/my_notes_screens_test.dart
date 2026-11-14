@@ -105,7 +105,7 @@ void main() {
       expect(find.byKey(const Key('my_notes_filter_sheet')), findsOneWidget);
       expect(find.text('Công việc'), findsOneWidget);
       expect(find.text('#việc (2)'), findsOneWidget);
-      expect(find.byKey(const Key('my_notes_manage_folders')), findsOneWidget);
+      expect(find.byKey(const Key('my_notes_folder_create')), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('my_notes_pinned_filter')));
       await tester.pumpAndSettle();
@@ -118,6 +118,64 @@ void main() {
       await tester.tap(find.text('Công việc'));
       await tester.pumpAndSettle();
       expect(repository.listFilters.last.folderId, 'folder-1');
+    },
+  );
+
+  testWidgets(
+    'bảng Lọc duy nhất: tạo, đổi tên, xoá thư mục bằng hộp khung chung',
+    (tester) async {
+      final repository = FakeMyNotesRepository()
+        ..folders = [testFolder('folder-1', name: 'Công việc')];
+      await tester.pumpWidget(
+        app(
+          const MyNotesScreen(workspaceId: 'workspace-1'),
+          repository: repository,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('my_notes_filter_button')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('my_notes_folder_create')));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(find.byKey(const Key('webtui_dialog_input')), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const Key('webtui_dialog_input')),
+        'Dự án mới',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('webtui_dialog_confirm')));
+      await tester.pumpAndSettle();
+      expect(repository.calls, contains('createFolder'));
+      expect(repository.lastFolder, {'name': 'Dự án mới', 'parentId': null});
+      expect(
+        find.byType(BottomSheet),
+        findsOneWidget,
+        reason: 'không chồng bảng',
+      );
+
+      await tester.tap(find.byKey(const Key('my_notes_folder_more_folder-1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Đổi tên'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('webtui_dialog_input')),
+        'Việc chung',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('webtui_dialog_confirm')));
+      await tester.pumpAndSettle();
+      expect(repository.calls, contains('updateFolder:folder-1'));
+      expect(repository.lastFolder?['name'], 'Việc chung');
+
+      await tester.ensureVisible(find.text('Xoá'));
+      await tester.tap(find.text('Xoá'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      await tester.tap(find.byKey(const Key('webtui_dialog_confirm')));
+      await tester.pumpAndSettle();
+      expect(repository.calls, contains('deleteFolder:folder-1'));
     },
   );
 

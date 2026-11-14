@@ -7,6 +7,7 @@ import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
@@ -319,52 +320,57 @@ _confirmAccountDeletion(BuildContext context) {
         builder: (context, setDialogState) {
           final canDelete =
               confirmationController.text.trim().toUpperCase() == 'DELETE';
-          return AlertDialog(
-            title: const Text('Xóa vĩnh viễn tài khoản?'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Thao tác này không thể hoàn tác. Các phiên đăng nhập sẽ bị thu hồi; dữ liệu phải lưu theo quy định pháp luật hoặc chính sách tổ chức có thể được giữ lại trong thời hạn đã công bố.',
+          return WebTuiDialog(
+            title: 'Xóa vĩnh viễn tài khoản?',
+            tone: WebTuiDialogTone.danger,
+            icon: WebTuiIcons.delete,
+            message:
+                'Thao tác này không thể hoàn tác. Các phiên đăng nhập sẽ bị thu hồi; dữ liệu phải lưu theo quy định pháp luật hoặc chính sách tổ chức có thể được giữ lại trong thời hạn đã công bố.',
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: successorController,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: 'Email thành viên nhận quyền',
+                    hintText: 'Chỉ nhập nếu bạn là owner',
                   ),
-                  const SizedBox(height: WebTuiSpacing.md),
-                  const Text('Nhập DELETE để xác nhận.'),
-                  const SizedBox(height: WebTuiSpacing.sm),
-                  TextField(
-                    controller: successorController,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'Email thành viên nhận quyền',
-                      helperText:
-                          'Chỉ nhập nếu bạn là owner; người nhận phải đang hoạt động trong mọi workspace bạn sở hữu.',
-                    ),
+                ),
+                const SizedBox(height: WebTuiSpacing.xs),
+                Text(
+                  'Người nhận phải đang hoạt động trong mọi workspace bạn sở hữu.',
+                  style: WebTuiTypography.bodySmall.copyWith(
+                    color: WebTuiColors.textMuted,
                   ),
-                  const SizedBox(height: WebTuiSpacing.md),
-                  TextField(
-                    controller: confirmationController,
-                    autofocus: true,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    textCapitalization: TextCapitalization.characters,
-                    decoration: const InputDecoration(
-                      labelText: 'Xác nhận',
-                      hintText: 'DELETE',
-                    ),
-                    onChanged: (_) => setDialogState(() {}),
+                ),
+                const SizedBox(height: WebTuiSpacing.md),
+                TextField(
+                  controller: confirmationController,
+                  autofocus: true,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(
+                    labelText: 'Nhập DELETE để xác nhận',
+                    hintText: 'DELETE',
                   ),
-                ],
-              ),
+                  onChanged: (_) => setDialogState(() {}),
+                ),
+              ],
             ),
             actions: [
-              TextButton(
+              WebTuiDialogAction(
+                label: 'Hủy',
                 onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Hủy'),
               ),
-              FilledButton(
+              WebTuiDialogAction(
+                label: 'Xóa tài khoản',
+                primary: true,
+                destructive: true,
                 onPressed: canDelete
                     ? () {
                         final successorEmail = successorController.text.trim();
@@ -376,10 +382,6 @@ _confirmAccountDeletion(BuildContext context) {
                         ));
                       }
                     : null,
-                style: FilledButton.styleFrom(
-                  backgroundColor: WebTuiColors.danger,
-                ),
-                child: const Text('Xóa tài khoản'),
               ),
             ],
           );
@@ -401,13 +403,15 @@ Future<void> _showAccountDeletionConflict(
       : serverMessage;
   return showDialog<void>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: const Text('Cần chuyển quyền sở hữu'),
-      content: Text(message),
+    builder: (dialogContext) => WebTuiDialog(
+      title: 'Cần chuyển quyền sở hữu',
+      icon: WebTuiIcons.key,
+      message: message,
       actions: [
-        FilledButton(
+        WebTuiDialogAction(
+          label: 'Đã hiểu',
+          primary: true,
           onPressed: () => Navigator.pop(dialogContext),
-          child: const Text('Đã hiểu'),
         ),
       ],
     ),
@@ -821,26 +825,15 @@ Future<bool> _confirmDestructiveAction(
   required String message,
   required String confirmLabel,
 }) async {
-  final result = await showDialog<bool>(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Hủy'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(confirmLabel),
-          ),
-        ],
-      );
-    },
+  return showWebTuiConfirmDialog(
+    context,
+    title: title,
+    message: message,
+    confirmLabel: confirmLabel,
+    cancelLabel: 'Hủy',
+    destructive: true,
+    icon: WebTuiIcons.shieldCheck,
   );
-  return result ?? false;
 }
 
 void _showSnackBar(BuildContext context, String message) {

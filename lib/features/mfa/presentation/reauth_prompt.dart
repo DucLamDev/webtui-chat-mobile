@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/providers/foundation_providers.dart';
+import '../../../design_system/components/webtui_components.dart';
+import '../../../design_system/icons/webtui_icons.dart';
+import '../../../design_system/tokens/webtui_spacing.dart';
 
 /// Mỗi thao tác xác thực riêng; không lưu token ra đĩa hoặc dùng lại sau đổi tài khoản.
 Future<String?> requestReauthToken(
@@ -28,6 +31,7 @@ class _ReauthDialogState extends ConsumerState<_ReauthDialog> {
   String _method = 'password';
   String? _error;
   bool _busy = false;
+  bool _showPassword = false;
   @override
   void dispose() {
     _value.dispose();
@@ -68,75 +72,104 @@ class _ReauthDialogState extends ConsumerState<_ReauthDialog> {
     if (mounted && ok) _focus.requestFocus();
   }
 
+  static const _methods = <(String, String)>[
+    ('password', 'Mật khẩu'),
+    ('totp', 'Mã OTP'),
+    ('recovery_code', 'Khôi phục'),
+  ];
+
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Xác thực lại'),
-    content: SingleChildScrollView(
-      child: Column(
+  Widget build(BuildContext context) {
+    final password = _method == 'password';
+    return WebTuiDialog(
+      title: 'Xác thực lại',
+      message: widget.reason ?? 'Nhập mật khẩu hoặc mã xác thực để tiếp tục.',
+      icon: WebTuiIcons.lock,
+      content: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(widget.reason ?? 'Nhập mật khẩu hoặc mã xác thực để tiếp tục.'),
-          DropdownButton<String>(
-            value: _method,
-            isExpanded: true,
-            items: const [
-              DropdownMenuItem(value: 'password', child: Text('Mật khẩu')),
-              DropdownMenuItem(value: 'totp', child: Text('Mã TOTP')),
-              DropdownMenuItem(
-                value: 'recovery_code',
-                child: Text('Mã khôi phục'),
+          SegmentedButton<String>(
+            key: const Key('reauth_method'),
+            showSelectedIcon: false,
+            style: const ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              padding: WidgetStatePropertyAll(
+                EdgeInsets.symmetric(horizontal: 4),
               ),
+            ),
+            segments: [
+              for (final (value, label) in _methods)
+                ButtonSegment<String>(
+                  value: value,
+                  label: Text(label, maxLines: 1),
+                ),
             ],
-            onChanged: _busy
+            selected: {_method},
+            onSelectionChanged: _busy
                 ? null
-                : (value) {
-                    if (value != null) {
-                      setState(() {
-                        _method = value;
-                        _value.clear();
-                        _error = null;
-                      });
-                    }
-                  },
+                : (value) => setState(() {
+                    _method = value.first;
+                    _value.clear();
+                    _error = null;
+                    _showPassword = false;
+                  }),
           ),
-          TextField(
+          const SizedBox(height: WebTuiSpacing.md),
+          WebTuiDialogTextField(
+            key: const Key('reauth_input'),
             controller: _value,
             focusNode: _focus,
-            autofocus: true,
             enabled: !_busy,
-            obscureText: _method == 'password',
             autocorrect: false,
             enableSuggestions: false,
+            label: password ? 'Mật khẩu' : 'Mã xác thực',
+            autofocus: true,
+            obscureText: password && !_showPassword,
             keyboardType: _method == 'totp'
                 ? TextInputType.number
                 : TextInputType.text,
-            decoration: InputDecoration(
-              labelText: _method == 'password' ? 'Mật khẩu' : 'Mã xác thực',
-            ),
+            errorText: _error,
+            prefixIcon: password ? WebTuiIcons.key : WebTuiIcons.shieldCheck,
+            suffix: password
+                ? IconButton(
+                    key: const Key('reauth_toggle_password'),
+                    tooltip: _showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu',
+                    icon: Icon(
+                      _showPassword ? WebTuiIcons.lock : WebTuiIcons.view,
+                      size: 20,
+                    ),
+                    onPressed: () =>
+                        setState(() => _showPassword = !_showPassword),
+                  )
+                : null,
             onSubmitted: (_) => _submit(),
           ),
-          TextButton.icon(
-            onPressed: _busy ? null : _focusWithBiometric,
-            icon: const Icon(Icons.fingerprint),
-            label: const Text('Mở ô nhập bằng vân tay'),
-          ),
-          if (_error != null)
-            Text(
-              _error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
+          const SizedBox(height: WebTuiSpacing.sm),
+          Align(
+            child: TextButton.icon(
+              key: const Key('reauth_biometric'),
+              onPressed: _busy ? null : _focusWithBiometric,
+              icon: const Icon(WebTuiIcons.fingerprint, size: 20),
+              label: const Text('Mở ô nhập bằng vân tay'),
             ),
+          ),
         ],
       ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Huỷ'),
-      ),
-      FilledButton(
-        onPressed: _busy ? null : _submit,
-        child: Text(_busy ? 'Đang kiểm tra…' : 'Xác nhận'),
-      ),
-    ],
-  );
+      actions: [
+        WebTuiDialogAction(
+          key: const Key('reauth_cancel'),
+          label: 'Huỷ',
+          onPressed: () => Navigator.pop(context),
+        ),
+        WebTuiDialogAction(
+          key: const Key('reauth_confirm'),
+          label: 'Xác nhận',
+          primary: true,
+          loading: _busy,
+          onPressed: _busy ? null : _submit,
+        ),
+      ],
+    );
+  }
 }

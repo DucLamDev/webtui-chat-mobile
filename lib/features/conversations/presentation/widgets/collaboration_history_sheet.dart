@@ -3,7 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../design_system/components/webtui_states.dart';
+import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
@@ -80,7 +81,7 @@ class CollaborationHistorySheet extends ConsumerWidget {
                     IconButton(
                       tooltip: 'Về danh sách',
                       onPressed: controller.closePreview,
-                      icon: const Icon(Icons.arrow_back_rounded),
+                      icon: const Icon(WebTuiIcons.back),
                     )
                   else
                     const SizedBox(width: WebTuiSpacing.md),
@@ -96,7 +97,7 @@ class CollaborationHistorySheet extends ConsumerWidget {
                   IconButton(
                     tooltip: 'Đóng',
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.close_rounded),
+                    icon: const Icon(WebTuiIcons.close),
                   ),
                 ],
               ),
@@ -128,30 +129,18 @@ class CollaborationHistorySheet extends ConsumerWidget {
     final provider = collaborationHistoryControllerProvider(scope);
     final selected = ref.read(provider).selected;
     if (selected == null) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Khôi phục bản v${selected.version}?'),
-        content: Text(
-          _isWhiteboard
-              ? 'Bảng trắng sẽ trở về nội dung của bản này. Bản hiện tại vẫn '
-                    'còn trong lịch sử.'
-              : 'Ghi chú sẽ trở về nội dung của bản này. Bản hiện tại vẫn còn '
-                    'trong lịch sử.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Huỷ'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Khôi phục'),
-          ),
-        ],
-      ),
+    final confirmed = await showWebTuiConfirmDialog(
+      context,
+      title: 'Khôi phục bản v${selected.version}?',
+      message: _isWhiteboard
+          ? 'Bảng trắng sẽ trở về nội dung của bản này. Bản hiện tại vẫn '
+                'còn trong lịch sử.'
+          : 'Ghi chú sẽ trở về nội dung của bản này. Bản hiện tại vẫn còn '
+                'trong lịch sử.',
+      confirmLabel: 'Khôi phục',
+      icon: WebTuiIcons.refresh,
     );
-    if (confirmed != true || !context.mounted) return;
+    if (!confirmed || !context.mounted) return;
     final restored = await ref
         .read(provider.notifier)
         .restoreSelected(expectedVersion: currentVersion);

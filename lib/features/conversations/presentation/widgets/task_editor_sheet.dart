@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
@@ -162,7 +163,7 @@ class _TaskEditorSheetState extends ConsumerState<TaskEditorSheet> {
               enabled: canEdit,
               minTileHeight: 52,
               leading: assignee == null
-                  ? const Icon(Icons.person_add_alt_1_outlined)
+                  ? const Icon(WebTuiIcons.addFriend)
                   : WebTuiAvatar(
                       label: assignee.name,
                       imageUrl: assignee.avatarUrl,
@@ -172,7 +173,7 @@ class _TaskEditorSheetState extends ConsumerState<TaskEditorSheet> {
               subtitle: assignee == null && canEdit
                   ? const Text('Chạm để chọn người trong phòng')
                   : null,
-              trailing: canEdit ? const Icon(Icons.expand_more_rounded) : null,
+              trailing: canEdit ? const Icon(WebTuiIcons.forward) : null,
               onTap: () => _pickAssignee(state.members),
             ),
           ),
@@ -199,7 +200,7 @@ class _TaskEditorSheetState extends ConsumerState<TaskEditorSheet> {
                 ),
               ActionChip(
                 key: const Key('task_editor_pick_due'),
-                avatar: const Icon(Icons.event_outlined, size: 18),
+                avatar: const Icon(WebTuiIcons.meetings, size: 18),
                 label: Text(
                   _dueAt == null
                       ? 'Chọn ngày giờ'
@@ -248,7 +249,7 @@ class _TaskEditorSheetState extends ConsumerState<TaskEditorSheet> {
                   style: TextButton.styleFrom(
                     foregroundColor: WebTuiColors.danger,
                   ),
-                  icon: const Icon(Icons.delete_outline_rounded),
+                  icon: const Icon(WebTuiIcons.delete),
                   label: const Text('Xoá'),
                 ),
               const Spacer(),
@@ -276,11 +277,8 @@ class _TaskEditorSheetState extends ConsumerState<TaskEditorSheet> {
   }
 
   Future<void> _pickAssignee(List<TaskAssigneeOption> members) async {
-    final selected = await showModalBottomSheet<String>(
+    final selected = await showWebTuiSheet<String>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
       builder: (_) =>
           _AssigneePicker(members: members, selectedUserId: _assigneeUserId),
     );
@@ -378,19 +376,22 @@ class _TaskEditorSheetState extends ConsumerState<TaskEditorSheet> {
   Future<void> _delete(CollaborationTask task) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Xoá công việc?'),
-        content: Text('"${task.title}" sẽ bị xoá và không khôi phục được.'),
+      builder: (dialogContext) => WebTuiDialog(
+        title: 'Xoá công việc?',
+        message: '"${task.title}" sẽ bị xoá và không khôi phục được.',
+        icon: WebTuiIcons.delete,
+        tone: WebTuiDialogTone.danger,
         actions: [
-          TextButton(
+          WebTuiDialogAction(
+            label: 'Huỷ',
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Huỷ'),
           ),
-          FilledButton(
+          WebTuiDialogAction(
             key: const Key('task_editor_delete_confirm'),
-            style: FilledButton.styleFrom(backgroundColor: WebTuiColors.danger),
+            label: 'Xoá',
+            primary: true,
+            destructive: true,
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Xoá'),
           ),
         ],
       ),
@@ -462,6 +463,7 @@ class _AssigneePickerState extends State<_AssigneePicker> {
       height: MediaQuery.sizeOf(context).height * 0.7,
       child: Column(
         children: [
+          const WebTuiSheetHeader(title: 'Giao cho ai'),
           Padding(
             padding: const EdgeInsets.fromLTRB(
               WebTuiSpacing.lg,
@@ -473,7 +475,7 @@ class _AssigneePickerState extends State<_AssigneePicker> {
               key: const Key('task_assignee_search'),
               autofocus: false,
               decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search_rounded),
+                prefixIcon: Icon(WebTuiIcons.search),
                 hintText: 'Tìm người trong phòng',
                 border: OutlineInputBorder(),
               ),
@@ -483,9 +485,9 @@ class _AssigneePickerState extends State<_AssigneePicker> {
           Expanded(
             child: ListView(
               children: [
-                ListTile(
-                  leading: const Icon(Icons.person_off_outlined),
-                  title: const Text('Chưa giao cho ai'),
+                WebTuiSheetActionTile(
+                  icon: WebTuiIcons.close,
+                  title: 'Chưa giao cho ai',
                   selected: widget.selectedUserId == null,
                   onTap: () => Navigator.of(context).pop(''),
                 ),
@@ -505,7 +507,7 @@ class _AssigneePickerState extends State<_AssigneePicker> {
                     title: Text(member.name),
                     selected: member.userId == widget.selectedUserId,
                     trailing: member.userId == widget.selectedUserId
-                        ? const Icon(Icons.check_rounded)
+                        ? const Icon(WebTuiIcons.check)
                         : null,
                     onTap: () => Navigator.of(context).pop(member.userId),
                   ),

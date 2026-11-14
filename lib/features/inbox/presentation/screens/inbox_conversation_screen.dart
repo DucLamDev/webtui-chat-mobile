@@ -307,9 +307,8 @@ class _Header extends StatelessWidget {
     final tags = await controller.loadTags();
     if (!context.mounted) return;
     final selected = {for (final tag in conversation.tags) tag.id};
-    final result = await showModalBottomSheet<Set<String>>(
+    final result = await showWebTuiSheet<Set<String>>(
       context: context,
-      showDragHandle: true,
       builder: (context) => _TagSheet(tags: tags, selected: selected),
     );
     if (result != null) await controller.setTags(result.toList());
@@ -332,15 +331,27 @@ class _TagSheetState extends State<_TagSheet> {
   @override
   Widget build(BuildContext context) {
     if (widget.tags.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(WebTuiSpacing.xl),
-        child: Text('Workspace chưa có tag nào.'),
+      return const Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          WebTuiSheetHeader(title: 'Gắn tag'),
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              WebTuiSpacing.xl,
+              0,
+              WebTuiSpacing.xl,
+              WebTuiSpacing.xl,
+            ),
+            child: Text('Workspace chưa có tag nào.'),
+          ),
+        ],
       );
     }
     return SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          const WebTuiSheetHeader(title: 'Gắn tag'),
           Flexible(
             child: ListView(
               shrinkWrap: true,

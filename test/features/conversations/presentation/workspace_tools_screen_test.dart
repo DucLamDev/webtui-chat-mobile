@@ -70,7 +70,19 @@ void main() {
   ) async {
     await pumpTab(tester);
 
-    expect(find.text('Công việc'), findsOneWidget);
+    // Không còn tiêu đề lớn 'Công việc'; kính lúp nằm trong thẻ Việc của tôi.
+    expect(find.text('Công việc'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('my_tasks_card')),
+        matching: find.byKey(const Key('work_search')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('work_search'))).width,
+      inInclusiveRange(44, 48),
+    );
     expect(find.text('Việc của tôi'), findsOneWidget);
     expect(
       find.text('Tự gom từ bảng việc trong các cuộc trò chuyện'),

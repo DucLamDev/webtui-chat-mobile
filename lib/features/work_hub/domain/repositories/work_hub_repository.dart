@@ -39,4 +39,9 @@ abstract interface class WorkHubRepository {
     required String workspaceId,
     int limit = 100,
   });
+
+  Future<Result<SharedFileStreamLink>> createFileStreamLink({
+    required String workspaceId,
+    required String fileId,
+  });
 }

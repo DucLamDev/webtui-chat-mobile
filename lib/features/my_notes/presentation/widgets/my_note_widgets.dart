@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
@@ -139,72 +141,17 @@ Future<String?> showMyNoteTextDialog(
   required String confirmLabel,
   String initialValue = '',
   int maxLength = 80,
+  IconData? icon,
 }) {
-  return showDialog<String>(
-    context: context,
-    builder: (context) => _MyNoteTextDialog(
-      title: title,
-      label: label,
-      confirmLabel: confirmLabel,
-      initialValue: initialValue,
-      maxLength: maxLength,
-    ),
+  return showWebTuiTextInputDialog(
+    context,
+    title: title,
+    label: label,
+    confirmLabel: confirmLabel,
+    initialValue: initialValue,
+    maxLength: maxLength,
+    icon: icon,
   );
-}
-
-class _MyNoteTextDialog extends StatefulWidget {
-  const _MyNoteTextDialog({
-    required this.title,
-    required this.label,
-    required this.confirmLabel,
-    required this.initialValue,
-    required this.maxLength,
-  });
-
-  final String title;
-  final String label;
-  final String confirmLabel;
-  final String initialValue;
-  final int maxLength;
-
-  @override
-  State<_MyNoteTextDialog> createState() => _MyNoteTextDialogState();
-}
-
-class _MyNoteTextDialogState extends State<_MyNoteTextDialog> {
-  late final TextEditingController _controller = TextEditingController(
-    text: widget.initialValue,
-  );
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.title),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        maxLength: widget.maxLength,
-        decoration: InputDecoration(labelText: widget.label),
-        onSubmitted: (value) => Navigator.of(context).pop(value),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Huỷ'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(_controller.text),
-          child: Text(widget.confirmLabel),
-        ),
-      ],
-    );
-  }
 }
 
 Future<bool> confirmMyNoteAction(
@@ -212,26 +159,15 @@ Future<bool> confirmMyNoteAction(
   required String title,
   required String message,
   required String confirmLabel,
-}) async {
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(title),
-      content: Text(message),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Huỷ'),
-        ),
-        FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: WebTuiColors.danger),
-          onPressed: () => Navigator.of(context).pop(true),
-          child: Text(confirmLabel),
-        ),
-      ],
-    ),
+}) {
+  return showWebTuiConfirmDialog(
+    context,
+    title: title,
+    message: message,
+    confirmLabel: confirmLabel,
+    destructive: true,
+    icon: WebTuiIcons.delete,
   );
-  return confirmed ?? false;
 }
 
 void showMyNoteSnack(BuildContext context, String message) {

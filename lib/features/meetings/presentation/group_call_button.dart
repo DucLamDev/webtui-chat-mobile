@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers/foundation_providers.dart';
+import '../../../design_system/components/webtui_components.dart';
+import '../../../design_system/icons/webtui_icons.dart';
 
 /// Nút "Gọi cả nhóm": chỉ hiện khi máy chủ báo `capabilities.group_calls`.
 /// Quyền thật vẫn do máy chủ kiểm khi gọi API.
@@ -27,21 +29,30 @@ class GroupCallButton extends ConsumerWidget {
   }
 
   Future<void> _choose(BuildContext context) async {
-    final kind = await showDialog<String>(
+    final kind = await showWebTuiSheet<String>(
       context: context,
-      builder: (dialogContext) => SimpleDialog(
-        title: const Text('Gọi cả nhóm'),
+      builder: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          SimpleDialogOption(
+          const WebTuiSheetHeader(
+            title: 'Gọi cả nhóm',
+            subtitle: 'Đổ chuông tới mọi thành viên',
+          ),
+          WebTuiSheetActionTile(
             key: const Key('group-call-audio'),
-            onPressed: () => Navigator.of(dialogContext).pop('audio'),
-            child: const Text('Gọi thoại: đổ chuông tới mọi thành viên'),
+            icon: WebTuiIcons.phoneCall,
+            title: 'Gọi thoại',
+            subtitle: 'Gọi thoại: đổ chuông tới mọi thành viên',
+            onTap: () => Navigator.of(sheetContext).pop('audio'),
           ),
-          SimpleDialogOption(
+          WebTuiSheetActionTile(
             key: const Key('group-call-video'),
-            onPressed: () => Navigator.of(dialogContext).pop('video'),
-            child: const Text('Gọi video: đổ chuông tới mọi thành viên'),
+            icon: WebTuiIcons.video,
+            title: 'Gọi video',
+            subtitle: 'Gọi video: đổ chuông tới mọi thành viên',
+            onTap: () => Navigator.of(sheetContext).pop('video'),
           ),
+          const SizedBox(height: 8),
         ],
       ),
     );

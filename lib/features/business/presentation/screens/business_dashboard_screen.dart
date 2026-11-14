@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
@@ -494,29 +495,28 @@ Future<void> _showCreateTicketDialog(
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('Tạo ticket'),
+            return WebTuiDialog(
+              title: 'Tạo ticket',
+              icon: WebTuiIcons.ticket,
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    TextField(
+                    WebTuiDialogTextField(
                       controller: titleController,
                       autofocus: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Tiêu đề',
-                        hintText: 'Nhập vấn đề cần xử lý',
-                      ),
+                      label: 'Tiêu đề',
+                      hint: 'Nhập vấn đề cần xử lý',
+                      textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: WebTuiSpacing.md),
-                    TextField(
+                    WebTuiDialogTextField(
                       controller: descriptionController,
+                      label: 'Mô tả',
+                      hint: 'Bổ sung ngữ cảnh nếu có',
                       minLines: 2,
-                      maxLines: 4,
-                      decoration: const InputDecoration(
-                        labelText: 'Mô tả',
-                        hintText: 'Bổ sung ngữ cảnh nếu có',
-                      ),
+                      maxLines: 5,
                     ),
                     const SizedBox(height: WebTuiSpacing.md),
                     DropdownButtonFormField<String>(
@@ -544,11 +544,13 @@ Future<void> _showCreateTicketDialog(
                 ),
               ),
               actions: [
-                TextButton(
+                WebTuiDialogAction(
+                  label: 'Hủy',
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Hủy'),
                 ),
-                FilledButton(
+                WebTuiDialogAction(
+                  label: 'Tạo',
+                  primary: true,
                   onPressed: () {
                     final title = titleController.text.trim();
                     if (title.isEmpty) {
@@ -563,7 +565,6 @@ Future<void> _showCreateTicketDialog(
                       ),
                     );
                   },
-                  child: const Text('Tạo'),
                 ),
               ],
             );

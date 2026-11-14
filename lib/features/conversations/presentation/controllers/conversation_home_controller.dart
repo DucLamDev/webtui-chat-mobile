@@ -38,13 +38,14 @@ final conversationHomeControllerProvider = StateNotifierProvider.autoDispose
 /// module nội bộ (automation).
 enum ConversationListFilter { all, unread, direct, group, favorite, bot }
 
-/// Bộ lọc hiện trên hộp thư: Tất cả, Chưa đọc, Nghiệp vụ (chỉ khi bật
-/// automation), Nhóm. Ghim chỉ là thứ tự (ghim lên đầu Tất cả), không còn tab.
+/// Bộ lọc hiện trên hộp thư: Tất cả, Nhóm, Cá nhân, Nghiệp vụ (chỉ khi bật
+/// automation), Chưa đọc. Ghim chỉ là thứ tự (ghim lên đầu Tất cả), không còn tab.
 const _inboxFilterOrder = [
   ConversationListFilter.all,
-  ConversationListFilter.unread,
-  ConversationListFilter.bot,
   ConversationListFilter.group,
+  ConversationListFilter.direct,
+  ConversationListFilter.bot,
+  ConversationListFilter.unread,
 ];
 
 const _inboxFilterLabels = {
@@ -142,7 +143,9 @@ final class ConversationHomeState {
 
     for (final item in unread) {
       bump(ConversationListFilter.unread);
-      if (item.kind == ConversationKind.channel && !item.isAutomation) {
+      if (_isPersonalChat(item)) {
+        bump(ConversationListFilter.direct);
+      } else if (_isGroupChat(item)) {
         bump(ConversationListFilter.group);
       }
     }
@@ -191,7 +194,7 @@ final class ConversationHomeState {
     if (!automationEnabled) return const [];
     final byChannel = <String, ConversationSummary>{};
     for (final item in [...channels, ...conversations]) {
-      if (!item.isAutomation) continue;
+      if (!item.isAutomation || isHiddenSystemChannel(item)) continue;
       final existing = byChannel[item.channelId];
       // Cùng kênh có trong cả hai danh sách: giữ bản mới hơn / còn chưa đọc.
       if (existing == null ||
@@ -234,6 +237,7 @@ final class ConversationHomeState {
     return channels
         .where((channel) {
           if (channel.isMember || channel.isAutomation) return false;
+          if (isHiddenSystemChannel(channel)) return false;
           if (channel.privateSessionMode) return false;
           if (channel.channelVisibility != ChannelVisibility.public) {
             return false;
@@ -257,6 +261,7 @@ final class ConversationHomeState {
     final query = searchQuery.trim().toLowerCase();
     return channels
         .where((channel) {
+          if (isHiddenSystemChannel(channel)) return false;
           if (channel.isAutomation) {
             // Kênh automation chỉ xuất hiện khi server bật capability và người
             // dùng đang ở tab "Automation"; ngược lại luôn ẩn.
@@ -536,6 +541,7 @@ List<ConversationSummary> _filterConversations(
         if (conversation.isAutomation && !automationEnabled) {
           return false;
         }
+        if (isHiddenSystemChannel(conversation)) return false;
         final matchesFilter = switch (filter) {
           ConversationListFilter.all => true,
           ConversationListFilter.unread => conversation.isUnread,
@@ -582,13 +588,13 @@ List<ConversationSummary> _buildInbox({
   final result = items
       .where((item) {
         if (item.isAutomation && !automationEnabled) return false;
-        final isGroup = item.kind == ConversationKind.channel;
+        if (isHiddenSystemChannel(item)) return false;
         final matchesFilter = switch (filter) {
           ConversationListFilter.all =>
             !item.isAutomation || normalizedQuery.isNotEmpty,
           ConversationListFilter.unread => item.isUnread,
-          ConversationListFilter.direct => !isGroup,
-          ConversationListFilter.group => isGroup && !item.isAutomation,
+          ConversationListFilter.direct => _isPersonalChat(item),
+          ConversationListFilter.group => _isGroupChat(item),
           ConversationListFilter.favorite => item.favorite,
           ConversationListFilter.bot => item.isAutomation,
         };
@@ -602,6 +608,20 @@ List<ConversationSummary> _buildInbox({
   result.sort(_compareInbox);
   return result;
 }
+
+/// Chat 1-1 với người: không gồm chat bot thông báo, kênh, nhóm.
+/// Nhóm / kênh thường (không phải kênh nghiệp vụ, không phải chat bot thông
+/// báo: máy chủ trả chat bot dưới dạng kênh nhưng nó không phải nhóm).
+bool _isGroupChat(ConversationSummary item) {
+  return item.kind == ConversationKind.channel &&
+      !item.isAutomation &&
+      !item.noticeBot;
+}
+
+bool _isPersonalChat(ConversationSummary item) =>
+    item.kind == ConversationKind.direct &&
+    !item.noticeBot &&
+    !item.isAutomation;
 
 bool _matchesQuery(ConversationSummary item, String normalizedQuery) {
   return '${item.title} ${item.preview}'.toLowerCase().contains(

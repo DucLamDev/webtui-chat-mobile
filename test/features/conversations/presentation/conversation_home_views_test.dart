@@ -122,7 +122,7 @@ void main() {
       (chip.label as Text).data!,
   ];
 
-  testWidgets('bộ lọc đúng 4 chip khi bật nghiệp vụ, không dải kênh nhanh', (
+  testWidgets('bộ lọc đúng 5 chip khi bật nghiệp vụ, không dải kênh nhanh', (
     tester,
   ) async {
     await pump(
@@ -134,8 +134,13 @@ void main() {
         _item('team', 'Nhóm team'),
       ],
     );
-    expect(chipLabels(tester), ['Tất cả', 'Chưa đọc', 'Nghiệp vụ', 'Nhóm']);
-    expect(find.text('Cá nhân'), findsNothing);
+    expect(chipLabels(tester), [
+      'Tất cả',
+      'Nhóm',
+      'Cá nhân',
+      'Nghiệp vụ',
+      'Chưa đọc',
+    ]);
     expect(find.text('Ghim'), findsNothing);
     expect(find.byKey(const ValueKey('quick-channel-strip')), findsNothing);
     expect(find.text('Lan'), findsOneWidget);
@@ -143,13 +148,13 @@ void main() {
     expect(find.text('Đơn hàng'), findsNothing);
   });
 
-  testWidgets('tắt nghiệp vụ: chỉ còn 3 chip', (tester) async {
+  testWidgets('tắt nghiệp vụ: chỉ còn 4 chip', (tester) async {
     await pump(
       tester,
       automation: false,
       channels: [_item('team', 'Nhóm team')],
     );
-    expect(chipLabels(tester), ['Tất cả', 'Chưa đọc', 'Nhóm']);
+    expect(chipLabels(tester), ['Tất cả', 'Nhóm', 'Cá nhân', 'Chưa đọc']);
   });
 
   testWidgets('tab Nghiệp vụ: mục đặc biệt và kênh bot là dòng hội thoại', (
@@ -163,6 +168,8 @@ void main() {
         _item('renew', 'Gia hạn', automation: true, slug: 'gia-han'),
       ],
     );
+    await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'Nghiệp vụ'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ChoiceChip, 'Nghiệp vụ'));
     await tester.pumpAndSettle();
 
@@ -203,7 +210,7 @@ void main() {
     expect(find.byType(AppBar), findsNothing);
     final compose = find.byKey(const Key('compose_button'));
     final search = find.byType(WebTuiSearchBar);
-    expect(find.text('Tìm tin nhắn, nhóm, kênh...'), findsOneWidget);
+    expect(find.text('Tìm tin nhắn, nhóm...'), findsOneWidget);
     expect(
       tester.getCenter(compose).dx,
       lessThan(tester.getTopLeft(search).dx),
@@ -238,13 +245,15 @@ void main() {
     expect(chips[1].backgroundColor, WebTuiColors.surface);
     expect(chips[1].side!.color, isNot(WebTuiColors.primary));
 
+    await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'Chưa đọc'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ChoiceChip, 'Chưa đọc'));
     await tester.pumpAndSettle();
     final after = tester
         .widgetList<ChoiceChip>(find.byType(ChoiceChip))
         .toList();
     expect(after[0].selected, isFalse);
-    expect(after[1].selected, isTrue);
+    expect(after.last.selected, isTrue);
   });
 
   testWidgets('chip lọc: vùng bấm cao ≥ 48dp, thiếu chỗ thì cuộn ngang', (
@@ -321,7 +330,8 @@ void main() {
     expect(look('Chung').icon, WebTuiIcons.channel);
     expect(look('Bảng tin').icon, WebTuiIcons.announcement);
     expect(look('Đơn hàng').icon, WebTuiIcons.orders);
-    expect(look('Ticket').icon, WebTuiIcons.ticket);
+    // Kênh hệ thống (Ticket) bị ẩn khỏi app.
+    expect(find.text('Ticket'), findsNothing);
     expect(look('Trò chuyện').icon, WebTuiIcons.chitchat);
     expect(look('Kế toán').icon, WebTuiIcons.accounting);
     expect(look('Nhóm kín').icon, WebTuiIcons.channelPrivate);
@@ -429,10 +439,10 @@ void main() {
 
       // An 2 + Nhóm team 3 + Đơn hàng 4; Bình bị chặn, Chi tắt tiếng.
       expect(badge(), 'badge 9');
-      // Nhãn chip có kèm số (vd. "Nhóm 1") nên bấm theo vị trí: Nhóm, Nghiệp
-      // vụ, Chưa đọc rồi về Tất cả.
-      expect(chipLabels(tester).length, 4);
-      for (final index in [3, 2, 1, 0]) {
+      // Nhãn chip có kèm số (vd. "Nhóm 1") nên bấm theo vị trí: Chưa đọc,
+      // Nghiệp vụ, Cá nhân, Nhóm rồi về Tất cả.
+      expect(chipLabels(tester).length, 5);
+      for (final index in [4, 3, 2, 1, 0]) {
         // Hàng chip cuộn ngang: cuộn tới chip trước khi bấm.
         await tester.ensureVisible(find.byType(ChoiceChip).at(index));
         await tester.pumpAndSettle();

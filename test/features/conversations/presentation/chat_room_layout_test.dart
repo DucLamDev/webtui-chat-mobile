@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/design_system/icons/webtui_icons.dart';
+import 'package:webtui_chat/design_system/tokens/webtui_colors.dart';
 import 'package:webtui_chat/features/conversations/domain/entities/call_session.dart';
+import 'package:webtui_chat/features/conversations/presentation/widgets/message_media_widgets.dart';
 
 import 'chat_room_body_harness.dart';
 
@@ -102,10 +104,45 @@ void main() {
   });
 
   group('thẻ cuộc gọi', () {
-    testWidgets('cuộc gọi nhỡ: chữ đỏ có giờ, nút gọi lại gọi đúng kiểu', (
-      tester,
-    ) async {
-      CallMode? called;
+    testWidgets(
+      'cuộc gọi nhỡ video: chữ đỏ, một biểu tượng, gọi lại bằng video',
+      (tester) async {
+        CallMode? called;
+        await pumpChatRoom(
+          tester,
+          messages: [
+            harnessCall(
+              'c1',
+              mine: false,
+              at: harnessTime(13, 46),
+              status: 'missed',
+              mode: 'video',
+            ),
+          ],
+          onCall: (mode) => called = mode,
+        );
+
+        final title = find.text('Cuộc gọi nhỡ');
+        expect(title, findsOneWidget);
+        expect(
+          tester.widget<Text>(title).style?.color,
+          const Color(0xFFE5322D),
+        );
+        expect(find.text('Không trả lời · 13:46'), findsOneWidget);
+        expect(find.byIcon(WebTuiIcons.videoOff), findsOneWidget);
+        expect(find.byIcon(WebTuiIcons.phone), findsNothing);
+        expect(find.text('Gọi lại'), findsOneWidget);
+        final retry = tester.getSize(
+          find.byKey(const Key('chat_call_history_retry')),
+        );
+        expect(retry.height, greaterThanOrEqualTo(44));
+
+        await tester.tap(find.byKey(const Key('chat_call_history_retry')));
+        expect(called, CallMode.video);
+      },
+    );
+
+    testWidgets('cuộc gọi nhỡ thoại: biểu tượng nhỡ đỏ', (tester) async {
       await pumpChatRoom(
         tester,
         messages: [
@@ -114,50 +151,214 @@ void main() {
             mine: false,
             at: harnessTime(13, 46),
             status: 'missed',
-            mode: 'video',
           ),
         ],
-        onCall: (mode) => called = mode,
       );
-
-      final label = find.text('Cuộc gọi nhỡ · 13:46');
-      expect(label, findsOneWidget);
-      expect(tester.widget<Text>(label).style?.color, const Color(0xFFE5322D));
-      expect(find.byIcon(WebTuiIcons.phoneMissed), findsOneWidget);
-
-      await tester.tap(find.byKey(const Key('chat_call_history_retry')));
-      expect(called, CallMode.video);
+      final icon = tester.widget<Icon>(find.byIcon(WebTuiIcons.phoneMissed));
+      expect(icon.color, const Color(0xFFE5322D));
     });
 
-    testWidgets('cuộc gọi đi: "Cuộc gọi thoại đi · 17 giây" + nút gọi lại', (
+    testWidgets(
+      'thoại đi xanh dương, thoại đến xanh lá, mỗi thẻ một biểu tượng',
+      (tester) async {
+        CallMode? called;
+        await pumpChatRoom(
+          tester,
+          messages: [
+            harnessCall(
+              'c2',
+              mine: true,
+              at: harnessTime(13, 41),
+              status: 'ended',
+              seconds: 17,
+            ),
+            harnessCall(
+              'c3',
+              mine: false,
+              at: harnessTime(13, 50),
+              status: 'ended',
+              seconds: 579,
+            ),
+          ],
+          onCall: (mode) => called = mode,
+        );
+
+        expect(find.text('Cuộc gọi thoại đi'), findsOneWidget);
+        expect(find.text('17 giây · 13:41'), findsOneWidget);
+        expect(find.text('Cuộc gọi thoại đến'), findsOneWidget);
+        expect(find.text('9 phút 39 giây · 13:50'), findsOneWidget);
+        expect(
+          tester.widget<Icon>(find.byIcon(WebTuiIcons.phoneOutgoing)).color,
+          WebTuiColors.primary,
+        );
+        expect(
+          tester.widget<Icon>(find.byIcon(WebTuiIcons.phoneIncoming)).color,
+          WebTuiColors.accentGreen,
+        );
+        // Mỗi thẻ đúng một biểu tượng điện thoại (không lặp ở nút gọi lại).
+        expect(find.byIcon(WebTuiIcons.phone), findsNothing);
+        final card = find.byKey(const Key('chat_call_history_card'));
+        expect(
+          find.descendant(of: card.first, matching: find.byType(Icon)),
+          findsOneWidget,
+        );
+        await tester.tap(
+          find.byKey(const Key('chat_call_history_retry')).first,
+        );
+        expect(called, CallMode.audio);
+      },
+    );
+  });
+
+  group('ảnh ôm sát tỉ lệ', () {
+    setUp(MessageMediaAspectCache.clear);
+
+    Future<String> portrait(WidgetTester tester, Directory dir) async {
+      late String path;
+      await tester.runAsync(() async {
+        path = await writeFakePng(
+          dir,
+          'p',
+          width: 200,
+          height: 400,
+          top: Colors.teal,
+          bottom: Colors.indigo,
+        );
+      });
+      return path;
+    }
+
+    testWidgets('tin của mình: ô ảnh dọc sát mép phải, không chừa trống', (
       tester,
     ) async {
-      CallMode? called;
+      final dir = Directory.systemTemp.createTempSync('chat_media');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final path = await portrait(tester, dir);
       await pumpChatRoom(
         tester,
         messages: [
-          harnessCall(
-            'c2',
+          harnessMedia(
+            'img',
             mine: true,
-            at: harnessTime(13, 41),
-            status: 'ended',
-            seconds: 17,
-          ),
-          harnessCall(
-            'c3',
-            mine: false,
-            at: harnessTime(13, 50),
-            status: 'ended',
-            seconds: 125,
+            at: harnessTime(13, 48),
+            mime: 'image/png',
+            name: 'p.png',
+            localPath: path,
           ),
         ],
-        onCall: (mode) => called = mode,
       );
+      await settleImages(tester);
+      final image = tester.getRect(find.byType(Image));
+      // Tỉ lệ 1:2 -> cao tối đa, rộng = cao / 2 (không bị chừa trống hai bên).
+      expect(image.width / image.height, closeTo(0.5, 0.02));
+      expect(image.right, closeTo(390 - 16, 20));
+      final badge = tester.getRect(
+        find.byKey(const Key('message_media_time_badge')),
+      );
+      expect(image.contains(badge.center), isTrue);
+      expect(badge.right, lessThanOrEqualTo(image.right));
+      expect(image.right - badge.right, lessThan(16));
+    });
 
-      expect(find.text('Cuộc gọi thoại đi · 17 giây'), findsOneWidget);
-      expect(find.text('Cuộc gọi thoại đến · 2 phút 5 giây'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('chat_call_history_retry')).first);
-      expect(called, CallMode.audio);
+    testWidgets('tin người khác: ô ảnh sát mép trái cột tin', (tester) async {
+      final dir = Directory.systemTemp.createTempSync('chat_media');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final path = await portrait(tester, dir);
+      await pumpChatRoom(
+        tester,
+        messages: [
+          harnessMedia(
+            'img',
+            mine: false,
+            at: harnessTime(13, 48),
+            mime: 'image/png',
+            name: 'p.png',
+            localPath: path,
+          ),
+        ],
+      );
+      await settleImages(tester);
+      final image = tester.getRect(find.byType(Image));
+      expect(image.left, lessThan(24));
+      expect(image.width / image.height, closeTo(0.5, 0.02));
+    });
+
+    testWidgets('lưu tỉ lệ theo mã tệp sau khi giải mã', (tester) async {
+      final dir = Directory.systemTemp.createTempSync('chat_media');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final path = await portrait(tester, dir);
+      expect(MessageMediaAspectCache.get('file-img'), isNull);
+      await pumpChatRoom(
+        tester,
+        messages: [
+          harnessMedia(
+            'img',
+            mine: true,
+            at: harnessTime(13, 48),
+            mime: 'image/png',
+            name: 'p.png',
+            localPath: path,
+          ),
+        ],
+      );
+      await settleImages(tester);
+      expect(MessageMediaAspectCache.get('file-img'), closeTo(0.5, 0.001));
+    });
+
+    test('hộp ôm tỉ lệ, kẹp [0.5, 2.0], bộ đệm có giới hạn', () {
+      final tall = fitMessageMediaBox(
+        ratio: 0.2,
+        maxWidth: 258,
+        maxHeight: 286,
+      );
+      expect(tall.height, 286);
+      expect(tall.width, closeTo(143, 0.01));
+      final wide = fitMessageMediaBox(ratio: 4, maxWidth: 258, maxHeight: 286);
+      expect(wide.width, 258);
+      expect(wide.height, closeTo(129, 0.01));
+      final unknown = fitMessageMediaBox(
+        ratio: messageMediaUnknownRatio,
+        maxWidth: 258,
+        maxHeight: 286,
+      );
+      expect(unknown.width / unknown.height, closeTo(4 / 3, 0.001));
+      for (var i = 0; i < MessageMediaAspectCache.maxEntries + 50; i++) {
+        MessageMediaAspectCache.put('k$i', 1.5);
+      }
+      expect(
+        MessageMediaAspectCache.length,
+        MessageMediaAspectCache.maxEntries,
+      );
+      expect(MessageMediaAspectCache.get('k0'), isNull);
+      expect(
+        MessageMediaAspectCache.get(
+          'k${MessageMediaAspectCache.maxEntries + 49}',
+        ),
+        1.5,
+      );
+    });
+  });
+
+  group('bình chọn', () {
+    Future<void> openPlus(WidgetTester tester) async {
+      await tester.tap(find.byKey(const Key('chat_composer_attach')));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('nhóm / kênh: bảng + có "Tạo bình chọn"', (tester) async {
+      await pumpChatRoom(tester, messages: const []);
+      await openPlus(tester);
+      expect(find.text('Tạo bình chọn'), findsOneWidget);
+      expect(find.text('Hẹn giờ gửi'), findsOneWidget);
+    });
+
+    testWidgets('chat 1-1 (kể cả bot): bảng + không có "Tạo bình chọn"', (
+      tester,
+    ) async {
+      await pumpChatRoom(tester, messages: const [], allowPolls: false);
+      await openPlus(tester);
+      expect(find.text('Tạo bình chọn'), findsNothing);
+      expect(find.text('Hẹn giờ gửi'), findsOneWidget);
     });
   });
 
