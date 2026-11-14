@@ -76,6 +76,7 @@ dependencies:
   receive_sharing_intent: 1.8.1
   livekit_client: ^2.13.2
   lucide_icons_flutter: ^4.0.3
+  pdfx: ^2.11.0
 
 dev_dependencies:
   flutter_test:

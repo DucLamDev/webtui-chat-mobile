@@ -80,4 +80,13 @@ final class WorkHubRepositoryImpl implements WorkHubRepository {
   }) => guardResult(
     () => _remote.listFiles(workspaceId: workspaceId, limit: limit),
   );
+
+  @override
+  Future<Result<SharedFileStreamLink>> createFileStreamLink({
+    required String workspaceId,
+    required String fileId,
+  }) => guardResult(
+    () =>
+        _remote.createFileStreamLink(workspaceId: workspaceId, fileId: fileId),
+  );
 }

@@ -151,6 +151,24 @@ final class FakeWorkHubRepository implements WorkHubRepository {
     calls.add('listFiles');
     return Success(files);
   }
+
+  Failure? streamLinkFailure;
+
+  @override
+  Future<Result<SharedFileStreamLink>> createFileStreamLink({
+    required String workspaceId,
+    required String fileId,
+  }) async {
+    calls.add('streamLink:$fileId');
+    final failure = streamLinkFailure;
+    if (failure != null) return FailureResult(failure);
+    return Success(
+      SharedFileStreamLink(
+        url: '/api/v1/media/workspaces/$workspaceId/files/$fileId/stream?t=1',
+        expiresAt: DateTime.utc(2099),
+      ),
+    );
+  }
 }
 
 final class FakeTaskRepository implements CollaborationTaskRepository {

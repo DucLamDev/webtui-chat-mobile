@@ -15,6 +15,38 @@ const _shortcut = {
 };
 
 void main() {
+  test('stream-link: POST đúng đường dẫn, đọc dạng bọc và không bọc', () async {
+    final wrapped = _Transport({
+      'data': {
+        'url': '/api/v1/media/workspaces/w1/files/f 1/stream?token=abc',
+        'expires_at': '2026-11-14T10:15:00Z',
+      },
+    });
+    final link = await WorkHubRemoteDataSource(
+      wrapped,
+    ).createFileStreamLink(workspaceId: 'w1', fileId: 'f 1');
+    expect(
+      wrapped.calls.single.line,
+      'POST /api/v1/workspaces/w1/files/f%201/stream-link',
+    );
+    expect(link.url, contains('/stream?token=abc'));
+    expect(link.expiresAt, DateTime.utc(2026, 11, 14, 10, 15));
+
+    final bare = _Transport({'url': '/x/stream?token=1'});
+    final plain = await WorkHubRemoteDataSource(
+      bare,
+    ).createFileStreamLink(workspaceId: 'w1', fileId: 'f');
+    expect(plain.url, '/x/stream?token=1');
+    expect(plain.expiresAt, isNull);
+
+    expect(
+      WorkHubRemoteDataSource(
+        _Transport({'data': {}}),
+      ).createFileStreamLink(workspaceId: 'w1', fileId: 'f'),
+      throwsFormatException,
+    );
+  });
+
   test('danh sách lối tắt: GET đúng đường dẫn, đọc can_manage', () async {
     final transport = _Transport({
       'data': {

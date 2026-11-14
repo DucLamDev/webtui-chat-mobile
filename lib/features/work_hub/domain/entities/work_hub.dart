@@ -110,3 +110,14 @@ final class SharedFile {
 
   SharedFileKind get kind => SharedFileKind.fromMime(mimeType);
 }
+
+/// Đường dẫn phát dần của một tệp (video / ghi âm), có hạn dùng.
+final class SharedFileStreamLink {
+  const SharedFileStreamLink({required this.url, required this.expiresAt});
+
+  /// Đường dẫn máy chủ trả về (thường tương đối, tự mang mã truy cập).
+  final String url;
+
+  /// Hết hạn; null khi máy chủ không báo.
+  final DateTime? expiresAt;
+}

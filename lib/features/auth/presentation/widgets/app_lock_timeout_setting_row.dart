@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
+import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../domain/entities/app_lock_timeout_policy.dart';
 
 /// Dòng "Tự khóa sau" trong Cài đặt (lõi 3.1). Chỉ hiện khi đã bật khóa ứng dụng.
@@ -38,32 +40,35 @@ class AppLockTimeoutSettingRow extends ConsumerWidget {
     int serverMax,
     int current,
   ) async {
-    final selected = await showModalBottomSheet<int>(
+    final selected = await showWebTuiSheet<int>(
       context: context,
-      showDragHandle: true,
       builder: (sheetContext) {
         final choices = AppLockTimeoutPolicy.allowedChoices(serverMax);
-        return SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              const ListTile(
-                title: Text('Tự khóa ứng dụng sau'),
-                subtitle: Text(
+        return ListView(
+          shrinkWrap: true,
+          children: [
+            const WebTuiSheetHeader(
+              title: 'Tự khóa ứng dụng sau',
+              subtitle:
                   'Đang gọi thì ứng dụng không tự khóa để không cắt cuộc gọi.',
-                ),
+            ),
+            for (final minutes in choices)
+              WebTuiSheetActionTile(
+                key: Key('app_lock_timeout_choice_$minutes'),
+                icon: WebTuiIcons.lock,
+                title: AppLockTimeoutPolicy.label(minutes),
+                selected: minutes == current,
+                trailing: minutes == current
+                    ? const Icon(
+                        WebTuiIcons.check,
+                        size: 20,
+                        color: WebTuiColors.primary,
+                      )
+                    : null,
+                onTap: () => Navigator.of(sheetContext).pop(minutes),
               ),
-              for (final minutes in choices)
-                ListTile(
-                  key: Key('app_lock_timeout_choice_$minutes'),
-                  title: Text(AppLockTimeoutPolicy.label(minutes)),
-                  trailing: minutes == current
-                      ? const Icon(Icons.check_rounded)
-                      : null,
-                  onTap: () => Navigator.of(sheetContext).pop(minutes),
-                ),
-            ],
-          ),
+            const SizedBox(height: 8),
+          ],
         );
       },
     );

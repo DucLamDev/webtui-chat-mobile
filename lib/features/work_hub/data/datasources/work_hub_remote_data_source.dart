@@ -111,6 +111,27 @@ final class WorkHubRemoteDataSource {
       'files',
     ).map(_fileFromMap).toList(growable: false);
   }
+
+  /// Xin đường dẫn phát dần (video / ghi âm) cho một tệp; chấp nhận cả dạng
+  /// bọc `{data: {...}}` lẫn không bọc.
+  Future<SharedFileStreamLink> createFileStreamLink({
+    required String workspaceId,
+    required String fileId,
+  }) async {
+    final response = await _api.post<Object>(
+      '${_base(workspaceId)}/files/${Uri.encodeComponent(fileId)}/stream-link',
+    );
+    final map = jsonMap(envelopeData(response.data));
+    final url = stringField(map, const ['url']).trim();
+    if (url.isEmpty) {
+      throw const FormatException('stream-link response has no url');
+    }
+    final expires = nullableStringField(map, const ['expires_at', 'expiresAt']);
+    return SharedFileStreamLink(
+      url: url,
+      expiresAt: expires == null ? null : DateTime.tryParse(expires),
+    );
+  }
 }
 
 Map<String, Object?> _draftBody(AppShortcutDraft draft) => {

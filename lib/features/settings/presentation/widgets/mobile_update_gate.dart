@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/flavor/app_config.dart';
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
+import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../domain/entities/mobile_release_policy.dart';
 
 class MobileUpdateGate extends ConsumerStatefulWidget {
@@ -60,20 +62,21 @@ class _MobileUpdateGateState extends ConsumerState<MobileUpdateGate> {
       context: context,
       barrierDismissible: !policy.requiresUpdate,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(
-            policy.requiresUpdate
-                ? 'Cần cập nhật ứng dụng'
-                : 'Có bản cập nhật mới',
-          ),
-          content: Text(_message(policy)),
+        return WebTuiDialog(
+          title: policy.requiresUpdate
+              ? 'Cần cập nhật ứng dụng'
+              : 'Có bản cập nhật mới',
+          message: _message(policy),
+          icon: WebTuiIcons.download,
           actions: [
             if (!policy.requiresUpdate)
-              TextButton(
+              WebTuiDialogAction(
+                label: 'Để sau',
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Để sau'),
               ),
-            FilledButton.icon(
+            WebTuiDialogAction(
+              label: 'Cập nhật',
+              primary: true,
               onPressed: updateUrl == null
                   ? null
                   : () async {
@@ -93,8 +96,6 @@ class _MobileUpdateGateState extends ConsumerState<MobileUpdateGate> {
                         ),
                       );
                     },
-              icon: const Icon(Icons.system_update_alt_rounded, size: 18),
-              label: const Text('Cập nhật'),
             ),
           ],
         );

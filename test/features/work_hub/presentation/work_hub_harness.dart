@@ -78,6 +78,9 @@ Widget workHubApp({
     overrides: [
       workHubRepositoryProvider.overrideWithValue(repository),
       collaborationTaskRepositoryProvider.overrideWithValue(tasks),
+      activeServerUriProvider.overrideWithValue(
+        Uri.parse('https://h.example.com/'),
+      ),
       workHubEnabledProvider.overrideWithValue(workHub),
       myNotesEnabledProvider.overrideWithValue(myNotes),
       externalUrlLauncherProvider.overrideWithValue(launcher ?? FakeLauncher()),

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../auth/presentation/widgets/app_lock_timeout_setting_row.dart';
@@ -403,42 +405,40 @@ Future<String?> _promptNewPin(BuildContext context) {
     builder: (dialogContext) {
       String? error;
       return StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Bật khóa ứng dụng'),
+        builder: (context, setState) => WebTuiDialog(
+          title: 'Bật khóa ứng dụng',
+          icon: WebTuiIcons.lock,
           content: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextField(
+              WebTuiDialogTextField(
                 controller: pinController,
+                label: 'PIN (4-12 số)',
                 autofocus: true,
                 obscureText: true,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'PIN (4-12 số)'),
+                prefixIcon: WebTuiIcons.key,
               ),
-              TextField(
+              const SizedBox(height: 12),
+              WebTuiDialogTextField(
                 controller: confirmationController,
+                label: 'Nhập lại PIN',
                 obscureText: true,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Nhập lại PIN'),
+                prefixIcon: WebTuiIcons.key,
+                errorText: error,
               ),
-              if (error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Text(
-                    error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                ),
             ],
           ),
           actions: [
-            TextButton(
+            WebTuiDialogAction(
+              label: 'Hủy',
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Hủy'),
             ),
-            FilledButton(
+            WebTuiDialogAction(
+              label: 'Bật khóa',
+              primary: true,
               onPressed: () {
                 final pin = pinController.text.trim();
                 if (!RegExp(r'^\d{4,12}$').hasMatch(pin)) {
@@ -451,7 +451,6 @@ Future<String?> _promptNewPin(BuildContext context) {
                 }
                 Navigator.pop(dialogContext, pin);
               },
-              child: const Text('Bật khóa'),
             ),
           ],
         ),
@@ -467,24 +466,27 @@ Future<String?> _promptCurrentPin(BuildContext context) {
   final controller = TextEditingController();
   return showDialog<String>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: const Text('Xác nhận mã PIN'),
-      content: TextField(
+    builder: (dialogContext) => WebTuiDialog(
+      title: 'Xác nhận mã PIN',
+      icon: WebTuiIcons.lock,
+      content: WebTuiDialogTextField(
         controller: controller,
+        label: 'Mã PIN hiện tại',
         autofocus: true,
         obscureText: true,
         keyboardType: TextInputType.number,
-        decoration: const InputDecoration(labelText: 'Mã PIN hiện tại'),
+        prefixIcon: WebTuiIcons.key,
         onSubmitted: (value) => Navigator.pop(dialogContext, value.trim()),
       ),
       actions: [
-        TextButton(
+        WebTuiDialogAction(
+          label: 'Hủy',
           onPressed: () => Navigator.pop(dialogContext),
-          child: const Text('Hủy'),
         ),
-        FilledButton(
+        WebTuiDialogAction(
+          label: 'Xác nhận',
+          primary: true,
           onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
-          child: const Text('Xác nhận'),
         ),
       ],
     ),

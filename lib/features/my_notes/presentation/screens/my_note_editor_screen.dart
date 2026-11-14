@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
@@ -347,42 +348,38 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
 
   Future<void> _pickFolder(MyNoteEditorState state) async {
     final nodes = _folderNodes(state);
-    final picked = await showModalBottomSheet<_FolderPick>(
+    final picked = await showWebTuiSheet<_FolderPick>(
       context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      backgroundColor: WebTuiColors.surface,
-      builder: (sheetContext) => SafeArea(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.7,
-          ),
-          child: ListView(
-            key: const Key('my_note_folder_picker'),
-            shrinkWrap: true,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.inbox_outlined),
-                title: const Text('Chưa xếp thư mục'),
-                selected: _folderId == null,
-                onTap: () =>
-                    Navigator.of(sheetContext).pop(const _FolderPick(null)),
-              ),
-              for (final node in nodes)
-                ListTile(
-                  contentPadding: EdgeInsets.only(
-                    left: WebTuiSpacing.lg + (node.depth - 1) * 20,
-                    right: WebTuiSpacing.lg,
-                  ),
-                  leading: const Icon(Icons.folder_outlined),
-                  title: Text(node.folder.name),
+      builder: (sheetContext) => ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.7,
+        ),
+        child: ListView(
+          key: const Key('my_note_folder_picker'),
+          shrinkWrap: true,
+          children: [
+            const WebTuiSheetHeader(title: 'Chọn thư mục'),
+            WebTuiSheetActionTile(
+              icon: WebTuiIcons.file,
+              title: 'Chưa xếp thư mục',
+              selected: _folderId == null,
+              onTap: () =>
+                  Navigator.of(sheetContext).pop(const _FolderPick(null)),
+            ),
+            for (final node in nodes)
+              Padding(
+                padding: EdgeInsets.only(left: (node.depth - 1) * 16.0),
+                child: WebTuiSheetActionTile(
+                  icon: WebTuiIcons.folderOpen,
+                  title: node.folder.name,
                   selected: _folderId == node.folder.id,
                   onTap: () => Navigator.of(
                     sheetContext,
                   ).pop(_FolderPick(node.folder.id)),
                 ),
-            ],
-          ),
+              ),
+            const SizedBox(height: WebTuiSpacing.sm),
+          ],
         ),
       ),
     );
