@@ -27,6 +27,7 @@ import '../../../auth/application/session_termination.dart';
 import '../../../auth/presentation/controllers/device_approval_controllers.dart';
 import '../../../auth/presentation/controllers/legal_acceptance_controller.dart';
 import '../../../auth/presentation/screens/device_approval_review_screen.dart';
+import '../../../conversations/domain/entities/business_channel_catalog.dart';
 import '../../../conversations/domain/entities/call_device_routing.dart';
 import '../../../conversations/domain/entities/call_session.dart';
 import '../../../conversations/domain/entities/conversation_realtime_event.dart';
@@ -462,10 +463,8 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       return;
     }
 
-    final selected = await showModalBottomSheet<ConversationSummary>(
+    final selected = await showWebTuiSheet<ConversationSummary>(
       context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
       builder: (context) =>
           _ShareTargetPickerSheet(payload: payload, targets: targets),
     );
@@ -496,7 +495,10 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         byChannelId[channelId] = item;
       }
     }
-    final targets = byChannelId.values.toList(growable: false);
+    final targets = [
+      for (final item in byChannelId.values)
+        if (!isHiddenSystemChannel(item)) item,
+    ];
     targets.sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
     return targets;
   }
@@ -686,29 +688,28 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   }
 
   /// Nút soạn ở hộp thư gộp: nhắn riêng (chọn người ở tab Bạn bè) hoặc tạo
-  /// nhóm / kênh mới.
+  /// nhóm mới.
   Future<void> _showComposeOptions() async {
-    final choice = await showModalBottomSheet<String>(
+    final choice = await showWebTuiSheet<String>(
       context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(WebTuiIcons.newMessage),
-              title: const Text('Tin nhắn mới'),
-              subtitle: const Text('Chọn một người trong workspace'),
-              onTap: () => Navigator.of(sheetContext).pop('direct'),
-            ),
-            ListTile(
-              leading: const Icon(WebTuiIcons.newGroup),
-              title: const Text('Tạo nhóm / kênh'),
-              subtitle: const Text('Trò chuyện cùng nhiều người'),
-              onTap: () => Navigator.of(sheetContext).pop('group'),
-            ),
-          ],
-        ),
+      builder: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const WebTuiSheetHeader(title: 'Soạn mới'),
+          WebTuiSheetActionTile(
+            icon: WebTuiIcons.newMessage,
+            title: 'Tin nhắn mới',
+            subtitle: 'Chọn một người trong workspace',
+            onTap: () => Navigator.of(sheetContext).pop('direct'),
+          ),
+          WebTuiSheetActionTile(
+            icon: WebTuiIcons.newGroup,
+            title: 'Tạo nhóm',
+            subtitle: 'Trò chuyện cùng nhiều người',
+            onTap: () => Navigator.of(sheetContext).pop('group'),
+          ),
+          const SizedBox(height: WebTuiSpacing.md),
+        ],
       ),
     );
     if (!mounted || choice == null) return;
@@ -1603,14 +1604,11 @@ class _ShareTargetPickerSheetState extends State<_ShareTargetPickerSheet> {
                 ),
               ),
               const SizedBox(height: WebTuiSpacing.md),
-              TextField(
+              WebTuiDialogTextField(
                 controller: _searchController,
                 onChanged: (value) => setState(() => _query = value),
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(CupertinoIcons.search),
-                  hintText: 'Tìm cuộc trò chuyện hoặc kênh',
-                  border: OutlineInputBorder(),
-                ),
+                hint: 'Tìm cuộc trò chuyện hoặc nhóm',
+                prefixIcon: WebTuiIcons.search,
               ),
               const SizedBox(height: WebTuiSpacing.md),
               Expanded(
@@ -1648,7 +1646,7 @@ class _ShareTargetPickerSheetState extends State<_ShareTargetPickerSheet> {
                             ),
                             subtitle: Text(
                               target.kind == ConversationKind.channel
-                                  ? 'Kênh'
+                                  ? 'Nhóm'
                                   : 'Tin nhắn',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,

@@ -366,7 +366,7 @@ class _MessagesList extends StatelessWidget {
             const SliverToBoxAdapter(
               child: WebTuiEmptyState(
                 title: 'Chưa có hội thoại',
-                message: 'Hội thoại và kênh bạn tham gia sẽ xuất hiện tại đây.',
+                message: 'Hội thoại và nhóm bạn tham gia sẽ xuất hiện tại đây.',
                 icon: Icons.chat_bubble_outline_rounded,
               ),
             )
@@ -390,7 +390,7 @@ class _MessagesList extends StatelessWidget {
                 child: _ChannelList(
                   channels: joinable,
                   emptyTitle: '',
-                  sectionLabel: 'Kênh có thể tham gia',
+                  sectionLabel: 'Nhóm có thể tham gia',
                   onTap: onJoinableTap,
                 ),
               ),
@@ -624,7 +624,7 @@ class _ChannelList extends StatelessWidget {
     if (channels.isEmpty) {
       return WebTuiEmptyState(
         title: emptyTitle,
-        message: 'Kênh lấy từ workspace sẽ xuất hiện tại đây khi bạn có quyền.',
+        message: 'Nhóm lấy từ workspace sẽ xuất hiện tại đây khi bạn có quyền.',
         icon: Icons.tag_outlined,
       );
     }
@@ -700,7 +700,7 @@ class _MessagesTopBar extends StatelessWidget {
           ],
           Expanded(
             child: WebTuiSearchBar(
-              hintText: 'Tìm tin nhắn, nhóm, kênh...',
+              hintText: 'Tìm tin nhắn, nhóm...',
               onChanged: onChanged,
             ),
           ),
@@ -874,7 +874,7 @@ String _channelTrailing(ConversationSummary channel) {
   }
   return channel.channelVisibility == ChannelVisibility.private
       ? 'Yêu cầu'
-      : 'Mở kênh';
+      : 'Mở nhóm';
 }
 
 IconData _channelIcon(ConversationSummary channel) {

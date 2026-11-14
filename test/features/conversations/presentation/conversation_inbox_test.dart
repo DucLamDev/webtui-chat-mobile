@@ -11,7 +11,14 @@ void main() {
     _item('general', 'Thông báo chung', hour: 10, group: true),
     _item('pinned', 'Dự án A', hour: 7, group: true, favorite: true),
     _item('public', 'Kênh mở', hour: 12, group: true, member: false),
-    _item('orders', 'Bot đơn hàng', hour: 13, group: true, automation: true),
+    _item(
+      'orders',
+      'Bot đơn hàng',
+      hour: 13,
+      group: true,
+      automation: true,
+      slug: 'orders',
+    ),
   ];
   final state = ConversationHomeState(
     workspaceId: 'workspace-1',
@@ -60,9 +67,10 @@ void main() {
     );
     expect(internal.inboxFilterLabels, [
       'Tất cả',
-      'Chưa đọc 1',
-      'Nghiệp vụ',
       'Nhóm',
+      'Cá nhân 1',
+      'Nghiệp vụ',
+      'Chưa đọc 1',
     ]);
     expect(ids(internal.inbox), ['orders']);
     // Ở Tất cả kênh nghiệp vụ không chen vào danh sách; tìm kiếm thì vẫn ra.
@@ -100,17 +108,98 @@ void main() {
       ],
     );
 
-    expect(ids(internal.quickChannels), ['order', 'renew', 'proxy', 'custom']);
-    expect(internal.inboxFilterLabels[2], 'Nghiệp vụ 1');
+    // Chỉ còn 3 kênh nghiệp vụ; kênh hệ thống khác và kênh bot tự tạo bị ẩn.
+    expect(ids(internal.quickChannels), ['order', 'renew']);
+    expect(ids(internal.joinableChannels), isEmpty);
+    expect(internal.inboxFilterLabels[3], 'Nghiệp vụ');
   });
 
   test('tab labels show unread counts', () {
-    expect(state.inboxFilterLabels, ['Tất cả', 'Chưa đọc 1', 'Nhóm']);
+    expect(state.inboxFilterLabels, [
+      'Tất cả',
+      'Nhóm',
+      'Cá nhân 1',
+      'Chưa đọc 1',
+    ]);
   });
 
   test('search covers people and groups', () {
     final searched = state.copyWith(searchQuery: 'dự án');
     expect(ids(searched.inbox), ['pinned']);
+  });
+
+  group('ẩn kênh hệ thống khỏi app', () {
+    final all = ConversationHomeState(
+      workspaceId: 'workspace-1',
+      automationEnabled: true,
+      conversations: [
+        _item('dm', 'Lan', hour: 9, unread: 1),
+        _item('dm-hidden-bot', 'Bot', hour: 9, unread: 1, automation: true),
+      ],
+      channels: [
+        _item(
+          'orders',
+          'Đơn hàng',
+          hour: 1,
+          group: true,
+          automation: true,
+          slug: 'orders',
+          unread: 2,
+        ),
+        _item(
+          'billing',
+          'Doanh thu',
+          hour: 2,
+          group: true,
+          automation: true,
+          slug: 'billing',
+          unread: 5,
+        ),
+        _item('alert', 'Cảnh báo', hour: 3, group: true, unread: 4),
+        _item(
+          'custom',
+          'Bot riêng',
+          hour: 4,
+          group: true,
+          automation: true,
+          unread: 6,
+        ),
+        _item(
+          'hidden-public',
+          'Sự cố',
+          hour: 5,
+          group: true,
+          member: false,
+          slug: 'incidents',
+        ),
+        _item('general', 'Chung', hour: 6, group: true, unread: 3),
+      ],
+    );
+
+    test('hộp thư: chỉ nhóm thường, Cá nhân không có kênh', () {
+      expect(
+        ids(all.copyWith(messageFilter: ConversationListFilter.group).inbox),
+        ['general'],
+      );
+      expect(
+        ids(all.copyWith(messageFilter: ConversationListFilter.direct).inbox),
+        ['dm'],
+      );
+      expect(
+        ids(all.copyWith(messageFilter: ConversationListFilter.unread).inbox),
+        ['dm', 'general', 'orders'],
+      );
+      expect(ids(all.copyWith(searchQuery: 'cảnh').inbox), isEmpty);
+      expect(ids(all.copyWith(searchQuery: 'đơn').inbox), ['orders']);
+    });
+
+    test('tab Nghiệp vụ, gợi ý, danh sách kênh và số đỏ', () {
+      expect(ids(all.quickChannels), ['orders']);
+      expect(ids(all.joinableChannels), isEmpty);
+      expect(ids(all.filteredChannels), ['general']);
+      // Lan 1 + Chung 3 + Đơn hàng 2; kênh ẩn không cộng.
+      expect(all.unreadBadgeCount(), 6);
+    });
   });
 
   group('số đỏ tab Tin nhắn (unreadBadgeCount)', () {
@@ -131,6 +220,7 @@ void main() {
           unread: 4,
           group: true,
           automation: true,
+          slug: 'orders',
         ),
         _item(
           'outside',

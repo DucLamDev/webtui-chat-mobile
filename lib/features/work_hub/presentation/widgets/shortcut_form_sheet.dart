@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
+import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
@@ -14,12 +15,8 @@ Future<bool?> showShortcutFormSheet(
   required String workspaceId,
   AppShortcut? shortcut,
 }) {
-  return showModalBottomSheet<bool>(
+  return showWebTuiSheet<bool>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    useSafeArea: true,
-    backgroundColor: WebTuiColors.surface,
     builder: (_) =>
         ShortcutFormSheet(workspaceId: workspaceId, shortcut: shortcut),
   );
@@ -103,107 +100,102 @@ class _ShortcutFormSheetState extends ConsumerState<ShortcutFormSheet> {
     final colors = webTuiShortcutColors(_color);
     final editing = widget.shortcut != null;
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      padding: EdgeInsets.zero,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        padding: const EdgeInsets.fromLTRB(0, 0, 0, 20),
         child: Column(
           key: const Key('shortcut_form'),
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              editing ? 'Sửa lối tắt' : 'Thêm lối tắt',
-              style: WebTuiTypography.titleLarge.copyWith(
-                fontWeight: FontWeight.w800,
-                color: WebTuiColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              key: const Key('shortcut_title'),
-              controller: _title,
-              enabled: !_saving,
-              maxLength: maxShortcutTitleLength,
-              textInputAction: TextInputAction.next,
-              decoration: InputDecoration(
-                labelText: 'Tên hiển thị',
-                errorText: _titleError,
-                counterText: '',
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              key: const Key('shortcut_url'),
-              controller: _url,
-              enabled: !_saving,
-              keyboardType: TextInputType.url,
-              autocorrect: false,
-              decoration: InputDecoration(
-                labelText: 'Đường dẫn (https://...)',
-                errorText: _urlError,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Biểu tượng',
-              style: WebTuiTypography.bodyMedium.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final key in webTuiShortcutIconKeys)
-                  _IconChoice(
-                    key: Key('shortcut_icon_$key'),
-                    icon: webTuiShortcutIcon(key),
-                    selected: key == _icon,
-                    background: colors.background,
-                    foreground: colors.foreground,
-                    onTap: _saving ? null : () => setState(() => _icon = key),
+            WebTuiSheetHeader(title: editing ? 'Sửa lối tắt' : 'Thêm lối tắt'),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  WebTuiDialogTextField(
+                    key: const Key('shortcut_title'),
+                    controller: _title,
+                    label: 'Tên hiển thị',
+                    maxLength: maxShortcutTitleLength,
+                    errorText: _titleError,
+                    textInputAction: TextInputAction.next,
                   ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Màu',
-              style: WebTuiTypography.bodyMedium.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                for (final key in webTuiShortcutColorKeys)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 10),
-                    child: _ColorChoice(
-                      key: Key('shortcut_color_$key'),
-                      colorKey: key,
-                      selected: key == _color,
-                      onTap: _saving
-                          ? null
-                          : () => setState(() => _color = key),
+                  const SizedBox(height: 10),
+                  WebTuiDialogTextField(
+                    key: const Key('shortcut_url'),
+                    controller: _url,
+                    label: 'Đường dẫn (https://...)',
+                    errorText: _urlError,
+                    keyboardType: TextInputType.url,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Biểu tượng',
+                    style: WebTuiTypography.bodyMedium.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-              ],
-            ),
-            if (_serverError != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                _serverError!,
-                key: const Key('shortcut_server_error'),
-                style: WebTuiTypography.bodySmall.copyWith(
-                  color: WebTuiColors.danger,
-                ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final key in webTuiShortcutIconKeys)
+                        _IconChoice(
+                          key: Key('shortcut_icon_$key'),
+                          icon: webTuiShortcutIcon(key),
+                          selected: key == _icon,
+                          background: colors.background,
+                          foreground: colors.foreground,
+                          onTap: _saving
+                              ? null
+                              : () => setState(() => _icon = key),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Màu',
+                    style: WebTuiTypography.bodyMedium.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      for (final key in webTuiShortcutColorKeys)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: _ColorChoice(
+                            key: Key('shortcut_color_$key'),
+                            colorKey: key,
+                            selected: key == _color,
+                            onTap: _saving
+                                ? null
+                                : () => setState(() => _color = key),
+                          ),
+                        ),
+                    ],
+                  ),
+                  if (_serverError != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      _serverError!,
+                      key: const Key('shortcut_server_error'),
+                      style: WebTuiTypography.bodySmall.copyWith(
+                        color: WebTuiColors.danger,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 18),
+                  FilledButton(
+                    key: const Key('shortcut_save'),
+                    onPressed: _saving ? null : _save,
+                    child: Text(_saving ? 'Đang lưu...' : 'Lưu'),
+                  ),
+                ],
               ),
-            ],
-            const SizedBox(height: 18),
-            FilledButton(
-              key: const Key('shortcut_save'),
-              onPressed: _saving ? null : _save,
-              child: Text(_saving ? 'Đang lưu...' : 'Lưu'),
             ),
           ],
         ),

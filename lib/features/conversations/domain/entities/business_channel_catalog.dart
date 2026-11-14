@@ -174,3 +174,23 @@ List<BusinessChannelSection> groupBusinessChannels(
         ),
   ];
 }
+
+/// Ba kênh nghiệp vụ còn hiện trong app (so theo `slug`).
+const visibleBusinessChannelSlugs = {'orders', 'gia-han', 'ke-toan'};
+
+/// Kênh hệ thống bị ẩn khỏi app (máy chủ / web giữ nguyên): mọi kênh trong
+/// [businessChannelCatalog] ngoài ba kênh [visibleBusinessChannelSlugs], và mọi
+/// kênh bot quản trị tự tạo (`isAutomation`) ngoài ba kênh đó. Không ẩn chat bot
+/// thông báo, chat 1-1 với người, kênh thường / nhóm người dùng tạo. Đây là hàm
+/// duy nhất quyết định việc ẩn: mọi danh sách trong app phải gọi nó.
+bool isHiddenSystemChannel(ConversationSummary channel) {
+  if (channel.noticeBot) return false;
+  if (channel.kind == ConversationKind.direct && !channel.isAutomation) {
+    return false;
+  }
+  final definition = businessChannelDefinitionOf(channel);
+  if (definition != null) {
+    return !visibleBusinessChannelSlugs.contains(definition.slug);
+  }
+  return channel.isAutomation;
+}

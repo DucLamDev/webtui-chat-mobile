@@ -84,7 +84,10 @@ void main() {
     testWidgets('tên quá 40 ký tự bị chặn', (tester) async {
       final repository = await openAddForm(tester);
       final field = tester.widget<TextField>(
-        find.byKey(const Key('shortcut_title')),
+        find.descendant(
+          of: find.byKey(const Key('shortcut_title')),
+          matching: find.byType(TextField),
+        ),
       );
       expect(field.maxLength, 40);
       expect(repository.calls.where((c) => c.startsWith('create')), isEmpty);
