@@ -14,12 +14,22 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   ngay dưới hàng nút. Chat bot chỉ đọc (không gõ được) và có mục "Tắt / Bật thông báo" trong menu ba chấm. Liên kết
   cũ mở màn thông báo nay mở chat bot. Máy chủ chưa cập nhật thì app vẫn giữ nút chuông như cũ.
 
+
+## 1.18.3 · 14/11/2026
+### Sửa lỗi
+- Cài đặt: hiện logo tổ chức và bấm được mục Workspace
+  Ô tròn ở thẻ đầu trang Cài đặt nay hiện logo của tổ chức (cùng logo ở góc trên bên trái) thay cho chữ viết tắt;
+  máy chủ chưa đặt logo thì vẫn hiện chữ viết tắt như cũ. Mục "Workspace" trước đây có mũi tên nhưng bấm không có
+  gì khi tài khoản chỉ thuộc một workspace; nay bấm vào mở danh sách workspace để xem workspace đang dùng, và khi vừa
+  được mời vào workspace khác thì bấm "Tải lại" để thấy và chuyển sang. Cần cài bản app mới để thấy.
+
 ## 1.20.1 · 14/11/2026
 ### Sửa lỗi
 - App kết nối realtime được với mọi máy chủ, gọi điện không còn kẹt "Đang kết nối"
   App nay gửi kèm địa chỉ máy chủ ("Origin") khi mở kết nối realtime. Các máy chủ chưa cập nhật từ chối kết nối thiếu
   thông tin này, làm app không nhận được tín hiệu cuộc gọi: bấm nghe xong vẫn đứng ở "Đang kết nối", không nghe được
   gì, và tin nhắn mới chỉ hiện khi app tự tải lại. Cần cài bản app mới để có thay đổi này.
+
 
 ## 1.20.0 · 14/11/2026
 ### Tính năng
@@ -45,6 +55,7 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   khung chat hiện ảnh bìa, nút phát và thời lượng; chỉ khi bấm phát mới tải video (trước đây phải tải cả video mới
   thấy gì). Ảnh trong khung chat và kho "Ảnh, video, tệp" hiện bản nhỏ cho nhanh, bấm vào mở bản gốc. Cần máy chủ
   bản mới; máy chủ cũ thì hiện như trước.
+
 
 ## 1.18.2 · 14/11/2026
 ### Sửa lỗi

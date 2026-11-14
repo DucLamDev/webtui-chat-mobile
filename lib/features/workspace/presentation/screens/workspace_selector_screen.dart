@@ -113,6 +113,10 @@ class _WorkspaceSelectorScreenState
                         ? 'Tài khoản của bạn thuộc nhiều workspace. Chọn '
                               'workspace để bắt đầu; bạn có thể đổi sau trong '
                               'Cài đặt.'
+                        : state.workspaces.length == 1
+                        ? 'Tài khoản của bạn hiện thuộc một workspace. Khi '
+                              'được mời vào workspace khác, bấm Tải lại để '
+                              'thấy và chuyển sang.'
                         : 'Chọn tổ chức bạn muốn làm việc.',
                   ),
                 ),
