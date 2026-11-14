@@ -291,6 +291,40 @@ void main() {
       },
     );
   });
+
+  test(
+    'chat bot thông báo (máy chủ trả dạng kênh) không thuộc Nhóm hay Cá nhân',
+    () {
+      final withBot = ConversationHomeState(
+        workspaceId: 'workspace-1',
+        conversations: directs,
+        channels: [
+          ...channels,
+          _item('bot', 'Bot', hour: 14, group: true, unread: 1, notice: true),
+        ],
+      );
+      ConversationHomeState filtered(ConversationListFilter filter) =>
+          withBot.copyWith(messageFilter: filter);
+
+      expect(ids(withBot.inbox), contains('bot'));
+      expect(
+        ids(filtered(ConversationListFilter.group).inbox),
+        isNot(contains('bot')),
+      );
+      expect(
+        ids(filtered(ConversationListFilter.direct).inbox),
+        isNot(contains('bot')),
+      );
+      expect(
+        ids(filtered(ConversationListFilter.unread).inbox),
+        contains('bot'),
+      );
+      // Nhãn chip: bot chỉ tính ở "Chưa đọc", không làm tăng số của Nhóm.
+      final labels = withBot.inboxFilterLabels;
+      expect(labels, contains('Nhóm'));
+      expect(labels, contains('Chưa đọc 2'));
+    },
+  );
 }
 
 ConversationSummary _item(
@@ -306,6 +340,7 @@ ConversationSummary _item(
   String? peer,
   bool muted = false,
   bool mutedMember = false,
+  bool notice = false,
 }) {
   return ConversationSummary(
     id: id,
@@ -329,5 +364,6 @@ ConversationSummary _item(
     slug: slug,
     peerUserId: peer,
     muted: muted,
+    noticeBot: notice,
   );
 }

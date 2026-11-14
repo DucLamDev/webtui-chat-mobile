@@ -145,7 +145,7 @@ final class ConversationHomeState {
       bump(ConversationListFilter.unread);
       if (_isPersonalChat(item)) {
         bump(ConversationListFilter.direct);
-      } else if (item.kind == ConversationKind.channel && !item.isAutomation) {
+      } else if (_isGroupChat(item)) {
         bump(ConversationListFilter.group);
       }
     }
@@ -589,13 +589,12 @@ List<ConversationSummary> _buildInbox({
       .where((item) {
         if (item.isAutomation && !automationEnabled) return false;
         if (isHiddenSystemChannel(item)) return false;
-        final isGroup = item.kind == ConversationKind.channel;
         final matchesFilter = switch (filter) {
           ConversationListFilter.all =>
             !item.isAutomation || normalizedQuery.isNotEmpty,
           ConversationListFilter.unread => item.isUnread,
           ConversationListFilter.direct => _isPersonalChat(item),
-          ConversationListFilter.group => isGroup && !item.isAutomation,
+          ConversationListFilter.group => _isGroupChat(item),
           ConversationListFilter.favorite => item.favorite,
           ConversationListFilter.bot => item.isAutomation,
         };
@@ -611,6 +610,14 @@ List<ConversationSummary> _buildInbox({
 }
 
 /// Chat 1-1 với người: không gồm chat bot thông báo, kênh, nhóm.
+/// Nhóm / kênh thường (không phải kênh nghiệp vụ, không phải chat bot thông
+/// báo: máy chủ trả chat bot dưới dạng kênh nhưng nó không phải nhóm).
+bool _isGroupChat(ConversationSummary item) {
+  return item.kind == ConversationKind.channel &&
+      !item.isAutomation &&
+      !item.noticeBot;
+}
+
 bool _isPersonalChat(ConversationSummary item) =>
     item.kind == ConversationKind.direct &&
     !item.noticeBot &&
