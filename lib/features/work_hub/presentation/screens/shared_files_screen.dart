@@ -6,9 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
+import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../conversations/presentation/widgets/message_media_widgets.dart';
 import '../../domain/entities/work_hub.dart';
 import '../controllers/shared_audio_controller.dart';
+import '../controllers/shared_file_display.dart';
 import '../controllers/shared_file_logic.dart';
 import '../controllers/shared_file_providers.dart';
 import '../controllers/work_hub_providers.dart';
@@ -29,11 +31,16 @@ IconData sharedFileIcon(SharedFileKind kind) {
   };
 }
 
-/// Tệp đã chia sẻ trong workspace, lọc theo loại.
+/// Tệp đã chia sẻ trong workspace: lọc theo loại (kèm số tệp), tìm theo tên,
+/// chia nhóm theo thời gian; Ảnh / Video hiện dạng lưới, còn lại là các khối
+/// bo tròn.
 class SharedFilesScreen extends ConsumerStatefulWidget {
-  const SharedFilesScreen({required this.workspaceId, super.key});
+  const SharedFilesScreen({required this.workspaceId, this.now, super.key});
 
   final String workspaceId;
+
+  /// Mốc giờ để chia nhóm Hôm nay / Hôm qua (test truyền cố định).
+  final DateTime? now;
 
   @override
   ConsumerState<SharedFilesScreen> createState() => _SharedFilesScreenState();
@@ -50,6 +57,8 @@ class _SharedFilesScreenState extends ConsumerState<SharedFilesScreen> {
 
   SharedFileKind? _filter;
   late final SharedAudioController _audio;
+  final _search = TextEditingController();
+  bool _searching = false;
 
   @override
   void initState() {
@@ -64,6 +73,7 @@ class _SharedFilesScreenState extends ConsumerState<SharedFilesScreen> {
   @override
   void dispose() {
     _audio.dispose();
+    _search.dispose();
     super.dispose();
   }
 
@@ -142,88 +152,174 @@ class _SharedFilesScreenState extends ConsumerState<SharedFilesScreen> {
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(sharedFilesProvider(widget.workspaceId));
+    final query = _search.text.trim().toLowerCase();
     return Scaffold(
-      appBar: AppBar(title: const Text('Tệp chia sẻ')),
+      backgroundColor: WebTuiColors.background,
+      appBar: AppBar(
+        backgroundColor: WebTuiColors.background,
+        surfaceTintColor: Colors.transparent,
+        titleSpacing: 0,
+        title: _searching
+            ? TextField(
+                key: const Key('files_search'),
+                controller: _search,
+                autofocus: true,
+                onChanged: (_) => setState(() {}),
+                textInputAction: TextInputAction.search,
+                decoration: const InputDecoration(
+                  hintText: 'Tìm tệp theo tên...',
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  filled: false,
+                ),
+              )
+            : Text(
+                'Tệp chia sẻ',
+                style: WebTuiTypography.titleLarge.copyWith(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: WebTuiColors.textPrimary,
+                ),
+              ),
+        actions: [
+          IconButton(
+            key: const Key('files_search_toggle'),
+            tooltip: _searching ? 'Đóng tìm kiếm' : 'Tìm tệp',
+            icon: Icon(_searching ? WebTuiIcons.close : WebTuiIcons.search),
+            onPressed: () => setState(() {
+              _searching = !_searching;
+              _search.clear();
+            }),
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
       body: SafeArea(
-        child: Column(
-          children: [
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: Row(
+        top: false,
+        child: async.when(
+          loading: () => Column(
+            children: [
+              _filterBar(const []),
+              const Expanded(child: SharedFilesSkeleton()),
+            ],
+          ),
+          error: (error, _) => Center(
+            child: WorkErrorBox(
+              message: workHubErrorText(error),
+              onRetry: () => ref.invalidate(sharedFilesProvider),
+            ),
+          ),
+          data: (files) {
+            final matching = query.isEmpty
+                ? files
+                : files
+                      .where(
+                        (file) => '${file.name} ${sharedFileTitle(file)}'
+                            .toLowerCase()
+                            .contains(query),
+                      )
+                      .toList(growable: false);
+            final shown = matching
+                .where((file) => _filter == null || file.kind == _filter)
+                .toList(growable: false);
+            return Column(
+              children: [
+                _filterBar(matching),
+                Expanded(
+                  child: shown.isEmpty
+                      ? WorkEmptyBox(
+                          icon: WebTuiIcons.sharedFiles,
+                          message: files.isEmpty
+                              ? 'Chưa có tệp nào'
+                              : query.isNotEmpty
+                              ? 'Không thấy tệp nào tên "${_search.text.trim()}"'
+                              : 'Không có tệp nào ở mục này',
+                        )
+                      : RefreshIndicator(
+                          onRefresh: () async =>
+                              ref.invalidate(sharedFilesProvider),
+                          child: _content(shown),
+                        ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _filterBar(List<SharedFile> files) {
+    return SharedFilesFilterBar(
+      filters: _filters,
+      selected: _filter,
+      counts: countSharedFilesByKind(files),
+      total: files.length,
+      onSelected: (kind) => setState(() => _filter = kind),
+    );
+  }
+
+  Widget _content(List<SharedFile> shown) {
+    final now = widget.now ?? DateTime.now();
+    final grid =
+        _filter == SharedFileKind.image || _filter == SharedFileKind.video;
+    final sections = groupSharedFiles(shown, now, byMonth: grid);
+    final apiBase = ref.watch(activeServerUriProvider);
+    return CustomScrollView(
+      key: const Key('files_list'),
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        for (final section in sections) ...[
+          SliverToBoxAdapter(
+            child: SharedFilesSectionHeader(
+              title: section.title,
+              count: section.files.length,
+            ),
+          ),
+          if (grid)
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  mainAxisSpacing: 6,
+                  crossAxisSpacing: 6,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => SharedMediaGridTile(
+                    workspaceId: widget.workspaceId,
+                    file: section.files[index],
+                    apiBaseUri: apiBase,
+                    onTap: () => unawaited(_onTap(section.files[index], shown)),
+                  ),
+                  childCount: section.files.length,
+                ),
+              ),
+            )
+          else
+            SliverToBoxAdapter(
+              child: SharedFilesSectionCard(
                 children: [
-                  for (final (kind, label) in _filters)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        key: Key('files_filter_${kind?.name ?? 'all'}'),
-                        label: Text(label),
-                        selected: _filter == kind,
-                        showCheckmark: false,
-                        onSelected: (_) => setState(() => _filter = kind),
+                  for (final file in section.files)
+                    SharedFileRow(
+                      workspaceId: widget.workspaceId,
+                      file: file,
+                      apiBaseUri: apiBase,
+                      audio: _audio,
+                      subtitle: sharedFileSubtitle(
+                        file,
+                        showTime: section.showTime,
+                        now: now,
                       ),
+                      onTap: () => unawaited(_onTap(file, shown)),
                     ),
                 ],
               ),
             ),
-            Expanded(
-              child: async.when(
-                loading: () => const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      WorkSkeleton(height: 60, radius: 14),
-                      SizedBox(height: 10),
-                      WorkSkeleton(height: 60, radius: 14),
-                      SizedBox(height: 10),
-                      WorkSkeleton(height: 60, radius: 14),
-                    ],
-                  ),
-                ),
-                error: (error, _) => Center(
-                  child: WorkErrorBox(
-                    message: workHubErrorText(error),
-                    onRetry: () => ref.invalidate(sharedFilesProvider),
-                  ),
-                ),
-                data: (files) {
-                  final shown = files
-                      .where((file) => _filter == null || file.kind == _filter)
-                      .toList(growable: false);
-                  if (shown.isEmpty) {
-                    return WorkEmptyBox(
-                      icon: WebTuiIcons.sharedFiles,
-                      message: files.isEmpty
-                          ? 'Chưa có tệp nào'
-                          : 'Không có tệp nào ở mục này',
-                    );
-                  }
-                  return RefreshIndicator(
-                    onRefresh: () async => ref.invalidate(sharedFilesProvider),
-                    child: ListView.separated(
-                      key: const Key('files_list'),
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                      itemCount: shown.length,
-                      separatorBuilder: (_, _) => Divider(
-                        height: 1,
-                        indent: 64,
-                        color: WebTuiColors.border.withValues(alpha: 0.7),
-                      ),
-                      itemBuilder: (context, index) => SharedFileRow(
-                        workspaceId: widget.workspaceId,
-                        file: shown[index],
-                        apiBaseUri: ref.watch(activeServerUriProvider),
-                        audio: _audio,
-                        onTap: () => unawaited(_onTap(shown[index], shown)),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
+        ],
+        const SliverToBoxAdapter(child: SizedBox(height: 28)),
+      ],
     );
   }
 }

@@ -100,6 +100,10 @@ final class SharedFile {
     required this.mimeType,
     required this.byteSize,
     required this.createdAt,
+    this.thumbnailUrl,
+    this.width,
+    this.height,
+    this.durationMs,
   });
 
   final String id;
@@ -107,6 +111,15 @@ final class SharedFile {
   final String mimeType;
   final int byteSize;
   final DateTime createdAt;
+
+  /// Đường ảnh nhỏ máy chủ báo có (ảnh / video); null: chưa có ảnh nhỏ (video
+  /// gửi từ bản cũ) — vẽ ô thay thế, không gọi tải.
+  final String? thumbnailUrl;
+
+  /// Cỡ gốc ảnh / video và độ dài video (mili giây) nếu máy chủ có ghi.
+  final int? width;
+  final int? height;
+  final int? durationMs;
 
   SharedFileKind get kind => SharedFileKind.fromMime(mimeType);
 }

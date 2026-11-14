@@ -4,7 +4,7 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
-## 1.25.0 · 14/11/2026
+## 1.26.0 · 14/11/2026
 ### Tính năng
 - Gọi điện không còn kẹt "Đang kết nối", video có ảnh xem trước, hiện tên người gửi, biểu tượng kênh có màu
   Cuộc gọi đi từ một thiết bị không còn đổ chuông nhầm trên thiết bị khác đăng nhập cùng tài khoản (trước đây bấm
@@ -13,6 +13,15 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   Video cũ chưa có ảnh bìa tự lấy khung hình đầu để xem trước; bấm phát là xem ngay trong lúc tải dần, không phải chờ
   tải hết. Tin của người khác hiện tên người gửi ở tin đầu mỗi cụm, cả trong nhắn riêng lẫn nhóm. Biểu tượng kênh
   mỗi loại một màu (Chung xanh dương, Thông báo cam, Trò chuyện xanh ngọc, bot tím...).
+
+## 1.25.0 · 14/11/2026
+### Tính năng
+- Tệp chia sẻ thiết kế lại gọn và hiện đại
+  Tệp chia theo nhóm thời gian (Hôm nay, Hôm qua, Tháng này, từng tháng cũ hơn) trong các khối bo tròn; nút lọc dạng
+  viên kèm số tệp từng loại; có ô tìm tệp theo tên. Lọc Ảnh / Video hiện dạng lưới ảnh thu nhỏ (chia theo tháng), video
+  có thời lượng. Tên do máy tự đặt (voice-…, image_picker_…, chuỗi ký tự dài) hiện gọn thành "Ghi âm", "Video", "Ảnh";
+  dòng phụ chỉ còn đuôi tài liệu, thời lượng, kích thước và giờ / ngày. Ghi âm có nút nghe tròn; video chưa có ảnh bìa
+  (gửi từ bản cũ) hiện ô tối có dấu phát thay vì ô lỗi. Chữ phụ đậm hơn cho dễ đọc.
 
 ## 1.24.0 · 14/11/2026
 ### Tính năng
