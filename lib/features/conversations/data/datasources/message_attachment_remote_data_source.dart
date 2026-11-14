@@ -206,6 +206,35 @@ final class MessageAttachmentRemoteDataSource {
     }
   }
 
+  Future<UploadedMessageFile> uploadThumbnail({
+    required String workspaceId,
+    required String fileId,
+    required String thumbnailPath,
+    int? durationMs,
+    int? width,
+    int? height,
+  }) async {
+    final form = FormData.fromMap({
+      'thumbnail': await MultipartFile.fromFile(
+        thumbnailPath,
+        filename: 'thumbnail.jpg',
+        contentType: DioMediaType.parse('image/jpeg'),
+      ),
+      if (durationMs != null && durationMs > 0) 'duration_ms': '$durationMs',
+      if (width != null && width > 0) 'width': '$width',
+      if (height != null && height > 0) 'height': '$height',
+    });
+    final response = await _api.put<Object>(
+      '/api/v1/workspaces/${_e(workspaceId)}/files/${_e(fileId)}/thumbnail',
+      data: form,
+      options: Options(contentType: Headers.multipartFormDataContentType),
+    );
+    return _uploadedFileFromMap(
+      envelopeItem(response.data, 'file'),
+      fallbackWorkspaceId: workspaceId,
+    );
+  }
+
   Future<MessageAttachment> attachFile({
     required String workspaceId,
     required String channelId,
@@ -341,6 +370,13 @@ UploadedMessageFile _uploadedFileFromMap(
     ], fallback: _downloadPathFallback(workspaceId, id)),
     status: stringField(map, const ['status'], fallback: 'ready'),
     createdAt: dateTimeField(map, const ['created_at', 'createdAt']),
+    thumbnailUrl: nullableStringField(map, const [
+      'thumbnail_url',
+      'thumbnailUrl',
+    ]),
+    width: positiveIntField(map, const ['width']),
+    height: positiveIntField(map, const ['height']),
+    durationMs: positiveIntField(map, const ['duration_ms', 'durationMs']),
   );
 }
 
