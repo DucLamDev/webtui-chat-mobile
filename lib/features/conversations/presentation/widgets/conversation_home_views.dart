@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
+import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
+import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../approvals/presentation/widgets/approval_inbox_entry.dart';
 import '../../../business/presentation/widgets/business_inbox_entry.dart';
 import '../../../customer_tickets/application/customer_ticket_channel_route.dart';
@@ -20,20 +23,23 @@ import '../controllers/notice_bot_identity.dart';
 import '../models/conversation_privacy_projection.dart';
 import '../screens/chat_room_screen.dart';
 import 'business_channel_grid.dart';
-import 'quick_channel_strip.dart';
 
 class MessagesHomeView extends ConsumerWidget {
   const MessagesHomeView({
     required this.workspaceId,
     this.searchActions = const [],
+    this.onCompose,
     super.key,
   });
 
   final String workspaceId;
 
-  /// Nút đặt cạnh ô tìm kiếm (chuông thông báo, soạn tin): tab Tin nhắn không
-  /// còn thanh tiêu đề.
+  /// Nút đặt bên phải ô tìm kiếm (chuông thông báo): tab Tin nhắn không còn
+  /// thanh tiêu đề.
   final List<Widget> searchActions;
+
+  /// Bấm nút soạn tin (ô vuông bên trái ô tìm); `null` thì không hiện nút.
+  final VoidCallback? onCompose;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -77,6 +83,7 @@ class MessagesHomeView extends ConsumerWidget {
           blockedUserIds: blockedUserIds,
           selectedId: wide ? selected?.id : null,
           searchActions: searchActions,
+          onCompose: onCompose,
           onRetry: () {
             // Kéo làm mới cũng lấy lại số ticket khách chưa trả lời.
             ref.invalidate(customerTicketUnansweredCountProvider(workspaceId));
@@ -276,6 +283,7 @@ class _MessagesList extends StatelessWidget {
     required this.onJoinableTap,
     this.selectedId,
     this.searchActions = const [],
+    this.onCompose,
   });
 
   final ConversationHomeState state;
@@ -288,21 +296,20 @@ class _MessagesList extends StatelessWidget {
   final ValueChanged<ConversationSummary> onJoinableTap;
   final String? selectedId;
   final List<Widget> searchActions;
+  final VoidCallback? onCompose;
 
   @override
   Widget build(BuildContext context) {
     final filterIndex = state.inboxFilters.indexOf(state.messageFilter);
     final joinable = state.joinableChannels;
-    // Dải Nghiệp vụ chỉ ở Tất cả khi không tìm kiếm (tìm thì kết quả đã có).
-    final showQuick =
+    final workTab = state.inboxFilters.indexOf(ConversationListFilter.bot);
+    final showWorkEntries = state.messageFilter == ConversationListFilter.bot;
+    // Máy chủ bật phê duyệt nhưng tắt automation thì không có tab Nghiệp vụ:
+    // dòng Phê duyệt (tự ẩn khi không có quyền) hiện ở Tất cả.
+    final showApprovalOnAll =
+        workTab < 0 &&
         state.messageFilter == ConversationListFilter.all &&
         state.searchQuery.trim().isEmpty;
-    final quickChannels = [if (showQuick) ...state.quickChannels];
-    final workTab = state.inboxFilters.indexOf(ConversationListFilter.bot);
-    final showWorkGrid = state.messageFilter == ConversationListFilter.bot;
-    // Máy chủ bật phê duyệt nhưng tắt automation thì không có tab Nghiệp vụ:
-    // ô Phê duyệt (tự ẩn khi không có quyền) hiện ở Tất cả.
-    final showApprovalOnAll = workTab < 0 && showQuick;
     return RefreshIndicator(
       onRefresh: () async => onRetry(),
       child: CustomScrollView(
@@ -310,23 +317,20 @@ class _MessagesList extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverToBoxAdapter(
-            child: _TopSearch(
-              hintText: 'Tìm tin nhắn, nhóm, kênh...',
+            child: _MessagesTopBar(
               onChanged: onSearch,
+              onCompose: onCompose,
               actions: searchActions,
             ),
           ),
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.lg),
-              child: WebTuiSegmentedTabs(
-                tabs: state.inboxFilterLabels,
-                selectedIndex: filterIndex < 0 ? 0 : filterIndex,
-                onChanged: onFilterChanged,
-              ),
+            child: _InboxFilterChips(
+              labels: state.inboxFilterLabels,
+              selectedIndex: filterIndex < 0 ? 0 : filterIndex,
+              onChanged: onFilterChanged,
             ),
           ),
-          if (showWorkGrid)
+          if (showWorkEntries)
             SliverToBoxAdapter(
               child: Column(
                 children: [
@@ -358,9 +362,7 @@ class _MessagesList extends StatelessWidget {
                 onRetry: onRetry,
               ),
             )
-          else if (conversations.isEmpty &&
-              joinable.isEmpty &&
-              quickChannels.isEmpty)
+          else if (conversations.isEmpty && joinable.isEmpty)
             const SliverToBoxAdapter(
               child: WebTuiEmptyState(
                 title: 'Chưa có hội thoại',
@@ -369,32 +371,20 @@ class _MessagesList extends StatelessWidget {
               ),
             )
           else ...[
-            if (quickChannels.isNotEmpty)
-              SliverToBoxAdapter(
-                key: const ValueKey('quick-channel-strip'),
-                child: QuickChannelStrip(
-                  channels: quickChannels,
-                  onTap: onTap,
-                  onShowAll: () => onFilterChanged(workTab),
-                ),
-              ),
             const SliverToBoxAdapter(child: SizedBox(height: WebTuiSpacing.xs)),
-            if (showWorkGrid)
-              BusinessChannelSections(channels: conversations, onTap: onTap)
-            else
-              WebTuiSliverListSurface(
-                itemCount: conversations.length,
-                itemBuilder: (context, index) {
-                  final conversation = conversations[index];
-                  return _ConversationTile(
-                    conversation: conversation,
-                    blockedUserIds: blockedUserIds,
-                    presence: state.presenceForConversation(conversation),
-                    selected: selectedId == conversation.id,
-                    onTap: () => onTap(conversation),
-                  );
-                },
-              ),
+            WebTuiSliverListSurface(
+              itemCount: conversations.length,
+              itemBuilder: (context, index) {
+                final conversation = conversations[index];
+                return _ConversationTile(
+                  conversation: conversation,
+                  blockedUserIds: blockedUserIds,
+                  presence: state.presenceForConversation(conversation),
+                  selected: selectedId == conversation.id,
+                  onTap: () => onTap(conversation),
+                );
+              },
+            ),
             if (joinable.isNotEmpty)
               SliverToBoxAdapter(
                 child: _ChannelList(
@@ -406,6 +396,71 @@ class _MessagesList extends StatelessWidget {
               ),
           ],
           const SliverToBoxAdapter(child: SizedBox(height: WebTuiSpacing.lg)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Bộ lọc hộp thư dạng viên thuốc (Tất cả, Chưa đọc, Nghiệp vụ, Nhóm): chọn =
+/// nền xanh chữ trắng, chưa chọn = viền xám nền trắng.
+class _InboxFilterChips extends StatelessWidget {
+  const _InboxFilterChips({
+    required this.labels,
+    required this.selectedIndex,
+    required this.onChanged,
+  });
+
+  final List<String> labels;
+  final int selectedIndex;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    // Không thu nhỏ chữ: máy hẹp hay cỡ chữ hệ thống lớn thì cả hàng cuộn ngang
+    // (đệm 16 nằm trong vùng cuộn để chip trượt sát mép màn hình). Mọi nút cùng
+    // cỡ chữ, vùng bấm luôn cao ≥ 48dp.
+    return SingleChildScrollView(
+      key: const ValueKey('inbox-filter-chips'),
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.lg),
+      child: Row(
+        children: [
+          for (var index = 0; index < labels.length; index++) ...[
+            if (index > 0) const SizedBox(width: WebTuiSpacing.sm),
+            ChoiceChip(
+              label: Text(labels[index]),
+              selected: index == selectedIndex,
+              showCheckmark: false,
+              // Mật độ dọc chuẩn + `padded`: vùng bấm cao 48dp (mật độ
+              // compact hạ còn 40dp). Đệm dọc giảm 4 để viên chip trông vẫn
+              // gọn như mẫu.
+              visualDensity: const VisualDensity(horizontal: -2, vertical: 0),
+              materialTapTargetSize: MaterialTapTargetSize.padded,
+              shape: const StadiumBorder(),
+              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+              labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+              labelStyle: TextStyle(
+                fontFamily: WebTuiTypography.fontFamily,
+                fontSize: 15,
+                fontWeight: index == selectedIndex
+                    ? FontWeight.w800
+                    : FontWeight.w500,
+                color: index == selectedIndex
+                    ? WebTuiColors.textOnPrimary
+                    : WebTuiColors.textSecondary,
+              ),
+              selectedColor: WebTuiColors.primary,
+              backgroundColor: WebTuiColors.surface,
+              side: BorderSide(
+                color: index == selectedIndex
+                    ? WebTuiColors.primary
+                    : const Color(0xFFC3D0E0),
+                width: 1.2,
+              ),
+              onSelected: (_) => onChanged(index),
+            ),
+          ],
         ],
       ),
     );
@@ -444,13 +499,23 @@ class _ConversationTile extends ConsumerWidget {
           bot?.avatarLabel ?? conversation.avatarLabel ?? conversation.title,
       avatarUrl: bot != null ? bot.logoUrl : conversation.avatarUrl,
       avatarPublicImage: bot != null,
+      // Kênh: ô vuông bo góc + biểu tượng theo loại; người: ảnh tròn. Chat bot
+      // thông báo giữ logo tổ chức nhưng cũng là ô vuông.
+      avatarIcon: bot != null || conversation.kind != ConversationKind.channel
+          ? null
+          : conversationChannelIcon(conversation),
+      squareAvatar: bot != null,
+      pinned: conversation.favorite,
+      badgeLabel: bot != null ? 'BOT' : null,
       unreadCount: privacy.isBlocked ? 0 : conversation.unreadCount,
       muted: conversation.muted,
       status:
           conversation.kind == ConversationKind.direct &&
               !privacy.isBlocked &&
               !conversation.noticeBot
-          ? _presenceStatus(presence)
+          ? (presence == ConversationPresence.online
+                ? WebTuiPresenceStatus.online
+                : null)
           : null,
       selected: selected,
       onTap: onTap,
@@ -587,34 +652,81 @@ class _ChannelList extends StatelessWidget {
   }
 }
 
-class _TopSearch extends StatelessWidget {
-  const _TopSearch({
-    required this.hintText,
+/// Hàng đầu tab Tin nhắn: nút soạn tin (trái), ô tìm bo tròn, nút phụ (phải).
+class _MessagesTopBar extends StatelessWidget {
+  const _MessagesTopBar({
     required this.onChanged,
+    this.onCompose,
     this.actions = const [],
   });
 
-  final String hintText;
   final ValueChanged<String> onChanged;
+  final VoidCallback? onCompose;
   final List<Widget> actions;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(
+      padding: const EdgeInsets.fromLTRB(
         WebTuiSpacing.lg,
         WebTuiSpacing.md,
-        actions.isEmpty ? WebTuiSpacing.lg : WebTuiSpacing.xs,
-        WebTuiSpacing.sm,
+        WebTuiSpacing.lg,
+        WebTuiSpacing.md,
       ),
       child: Row(
         children: [
+          if (onCompose != null) ...[
+            Material(
+              color: WebTuiColors.primarySoft,
+              borderRadius: BorderRadius.circular(WebTuiRadii.md + 2),
+              child: InkWell(
+                key: const Key('compose_button'),
+                borderRadius: BorderRadius.circular(WebTuiRadii.md + 2),
+                onTap: onCompose,
+                child: const SizedBox.square(
+                  dimension: 46,
+                  child: Tooltip(
+                    message: 'Tin nhắn mới hoặc tạo nhóm',
+                    child: Icon(
+                      WebTuiIcons.compose,
+                      size: 24,
+                      color: WebTuiColors.primary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: WebTuiSpacing.md),
+          ],
           Expanded(
-            child: WebTuiSearchBar(hintText: hintText, onChanged: onChanged),
+            child: WebTuiSearchBar(
+              hintText: 'Tìm tin nhắn, nhóm, kênh...',
+              onChanged: onChanged,
+            ),
           ),
           ...actions,
         ],
       ),
+    );
+  }
+}
+
+class _TopSearch extends StatelessWidget {
+  const _TopSearch({required this.hintText, required this.onChanged});
+
+  final String hintText;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        WebTuiSpacing.lg,
+        WebTuiSpacing.md,
+        WebTuiSpacing.lg,
+        WebTuiSpacing.sm,
+      ),
+      child: WebTuiSearchBar(hintText: hintText, onChanged: onChanged),
     );
   }
 }

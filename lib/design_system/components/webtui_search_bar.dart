@@ -1,12 +1,14 @@
 import 'dart:async';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../icons/webtui_icons.dart';
 import '../tokens/webtui_colors.dart';
-import '../tokens/webtui_radii.dart';
 import '../tokens/webtui_spacing.dart';
 import '../tokens/webtui_typography.dart';
+
+/// Ô tìm bo tròn hẳn (nền xanh nhạt, không viền khi chưa focus).
+const _radius = 23.0;
 
 class WebTuiSearchBar extends StatefulWidget {
   const WebTuiSearchBar({
@@ -62,14 +64,14 @@ class _WebTuiSearchBarState extends State<WebTuiSearchBar> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 160),
       curve: Curves.easeOutCubic,
-      height: 42,
+      height: 46,
       decoration: BoxDecoration(
-        color: focused ? WebTuiColors.surface : WebTuiColors.backgroundMuted,
-        borderRadius: BorderRadius.circular(WebTuiRadii.md),
+        color: focused ? WebTuiColors.surface : WebTuiColors.primarySoft,
+        borderRadius: BorderRadius.circular(_radius),
         border: Border.all(
           color: focused
               ? WebTuiColors.primary.withValues(alpha: 0.72)
-              : WebTuiColors.border.withValues(alpha: 0.55),
+              : Colors.transparent,
           width: focused ? 1.2 : 1,
         ),
         boxShadow: focused
@@ -91,19 +93,19 @@ class _WebTuiSearchBarState extends State<WebTuiSearchBar> {
               _focusNode.requestFocus();
             }
           },
-          borderRadius: BorderRadius.circular(WebTuiRadii.md),
+          borderRadius: BorderRadius.circular(_radius),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.md),
             child: Row(
               children: [
                 Icon(
-                  CupertinoIcons.search,
-                  size: 19,
+                  WebTuiIcons.search,
+                  size: 22,
                   color: focused
                       ? WebTuiColors.primary
                       : WebTuiColors.textSecondary,
                 ),
-                const SizedBox(width: WebTuiSpacing.sm),
+                const SizedBox(width: WebTuiSpacing.md),
                 Expanded(
                   child: interactive
                       ? TextField(
@@ -156,7 +158,7 @@ class _WebTuiSearchBarState extends State<WebTuiSearchBar> {
                       minHeight: 32,
                     ),
                     icon: const Icon(
-                      CupertinoIcons.xmark_circle_fill,
+                      WebTuiIcons.close,
                       size: 18,
                       color: WebTuiColors.textMuted,
                     ),

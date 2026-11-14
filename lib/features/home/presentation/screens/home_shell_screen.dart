@@ -16,6 +16,7 @@ import '../../../../core/notifications/scoped_local_notification_service.dart';
 import '../../../../core/platform/chat_share_intent_service.dart';
 import '../../../../core/security/instance_scope.dart';
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
@@ -32,6 +33,7 @@ import '../../../conversations/domain/entities/conversation_realtime_event.dart'
 import '../../../conversations/domain/entities/conversation_summary.dart';
 import '../../../conversations/presentation/controllers/chat_room_controller.dart';
 import '../../../conversations/presentation/controllers/conversation_home_controller.dart';
+import '../../../conversations/presentation/controllers/messages_tab_unread.dart';
 import '../../../conversations/presentation/controllers/pending_chat_share_controller.dart';
 import '../../../conversations/presentation/screens/webrtc_call_screen.dart';
 import '../../../conversations/presentation/screens/workspace_tools_screen.dart';
@@ -291,15 +293,22 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       noticeBot: organization?.capabilities.noticeBot == true,
     );
 
+    // Số tin chưa đọc ở góc biểu tượng tab Tin nhắn: đếm cả hộp thư, không
+    // theo chip lọc / ô tìm đang chọn của màn Tin nhắn.
+    final messagesUnread = ref.watch(
+      messagesTabUnreadCountProvider(activeWorkspace.id),
+    );
+
     return KeyedSubtree(
       key: ValueKey('workspace-shell-${workspaceState.generation}'),
       child: WebTuiMobileScaffold(
         title: organization == null
             ? _titles[_tabIndex]
             : '${organization.name} · ${_titles[_tabIndex]}',
-        // Tab Tin nhắn bỏ thanh tiêu đề cho rộng chỗ: chuông và nút soạn tin
-        // nằm cạnh ô tìm kiếm.
-        showAppBar: _tabIndex != 0,
+        // Tab Tin nhắn và Công việc bỏ thanh tiêu đề cho rộng chỗ (nút soạn
+        // tin nằm cạnh ô tìm kiếm; Công việc có tiêu đề lớn riêng).
+        showAppBar: _tabIndex != 0 && _tabIndex != 2,
+        tabBadges: {if (messagesUnread > 0) 0: messagesUnread},
         selectedTab: _tabIndex,
         onTabSelected: (index) {
           if (index == _tabIndex) return;
@@ -334,14 +343,8 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
                   if (_visitedTabs.contains(0))
                     MessagesHomeView(
                       workspaceId: activeWorkspace.id,
-                      searchActions: [
-                        ...bellActions,
-                        IconButton(
-                          tooltip: 'Tin nhắn mới hoặc tạo nhóm',
-                          onPressed: _showComposeOptions,
-                          icon: const Icon(CupertinoIcons.square_pencil),
-                        ),
-                      ],
+                      searchActions: bellActions,
+                      onCompose: _showComposeOptions,
                     )
                   else
                     const SizedBox.shrink(),
@@ -693,13 +696,13 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(CupertinoIcons.person),
+              leading: const Icon(WebTuiIcons.newMessage),
               title: const Text('Tin nhắn mới'),
               subtitle: const Text('Chọn một người trong workspace'),
               onTap: () => Navigator.of(sheetContext).pop('direct'),
             ),
             ListTile(
-              leading: const Icon(CupertinoIcons.person_3),
+              leading: const Icon(WebTuiIcons.newGroup),
               title: const Text('Tạo nhóm / kênh'),
               subtitle: const Text('Trò chuyện cùng nhiều người'),
               onTap: () => Navigator.of(sheetContext).pop('group'),

@@ -7,13 +7,14 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
-import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../domain/entities/my_note.dart';
+import '../../domain/markdown/my_note_markdown_format.dart';
 import '../controllers/my_note_editor_controller.dart';
 import '../controllers/my_notes_access_provider.dart';
 import '../controllers/my_notes_list_controller.dart';
+import '../widgets/my_note_markdown_view.dart';
 import '../widgets/my_note_widgets.dart';
 import 'my_notes_screen.dart';
 
@@ -252,128 +253,228 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
       }
     }
     final note = state.note;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        WebTuiSpacing.lg,
-        WebTuiSpacing.md,
-        WebTuiSpacing.lg,
-        WebTuiSpacing.xl,
-      ),
+    final banners = <Widget>[
+      if (state.isOffline) const MyNotesOfflineBanner(),
+      if (state.conflict)
+        MyNotesNotice(
+          key: const Key('my_note_conflict'),
+          icon: Icons.sync_problem_rounded,
+          color: WebTuiColors.danger,
+          message: myNoteConflictMessage,
+          action: Wrap(
+            spacing: WebTuiSpacing.xs,
+            children: [
+              TextButton(
+                onPressed: () => unawaited(
+                  Clipboard.setData(ClipboardData(text: _body.text)),
+                ),
+                child: const Text('Sao chép nội dung'),
+              ),
+              FilledButton(
+                key: const Key('my_note_reload_latest'),
+                onPressed: () {
+                  _forceFill = true;
+                  unawaited(controller.reloadLatest());
+                },
+                child: const Text('Tải bản mới nhất'),
+              ),
+            ],
+          ),
+        )
+      else if (state.saveErrorMessage != null)
+        MyNotesNotice(
+          icon: Icons.error_outline_rounded,
+          color: WebTuiColors.danger,
+          message: state.saveErrorMessage!,
+        ),
+    ];
+    return Column(
       children: [
-        if (state.isOffline) ...[
-          const MyNotesOfflineBanner(),
-          const SizedBox(height: WebTuiSpacing.md),
-        ],
-        if (state.conflict) ...[
-          MyNotesNotice(
-            key: const Key('my_note_conflict'),
-            icon: Icons.sync_problem_rounded,
-            color: WebTuiColors.danger,
-            message: myNoteConflictMessage,
-            action: Wrap(
-              spacing: WebTuiSpacing.xs,
-              children: [
-                TextButton(
-                  onPressed: () => unawaited(
-                    Clipboard.setData(ClipboardData(text: _body.text)),
-                  ),
-                  child: const Text('Sao chép nội dung'),
-                ),
-                FilledButton(
-                  key: const Key('my_note_reload_latest'),
-                  onPressed: () {
-                    _forceFill = true;
-                    unawaited(controller.reloadLatest());
-                  },
-                  child: const Text('Tải bản mới nhất'),
-                ),
-              ],
+        Expanded(
+          child: ListView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.fromLTRB(
+              WebTuiSpacing.lg,
+              WebTuiSpacing.sm,
+              WebTuiSpacing.lg,
+              WebTuiSpacing.xl,
             ),
+            children: [
+              for (final banner in banners) ...[
+                banner,
+                const SizedBox(height: WebTuiSpacing.md),
+              ],
+              if (_editing)
+                ..._editFields(state)
+              else if (note != null)
+                ..._viewFields(context, state, note, controller),
+            ],
           ),
-          const SizedBox(height: WebTuiSpacing.md),
-        ] else if (state.saveErrorMessage != null) ...[
-          MyNotesNotice(
-            icon: Icons.error_outline_rounded,
-            color: WebTuiColors.danger,
-            message: state.saveErrorMessage!,
-          ),
-          const SizedBox(height: WebTuiSpacing.md),
-        ],
-        if (_editing)
-          ..._editFields(state)
-        else if (note != null)
-          ..._viewFields(context, state, note, controller),
+        ),
+        if (_editing) _FormatToolbar(onFormat: _format),
       ],
     );
   }
 
-  List<Widget> _editFields(MyNoteEditorState state) {
-    final folders = flattenMyNoteFolderTree(
-      buildMyNoteFolderTree(state.folders),
+  void _format(MyNoteFormat format) {
+    final selection = _body.selection;
+    final result = applyMyNoteFormat(
+      format,
+      _body.text,
+      selection.start,
+      selection.end,
     );
-    final folderIds = {for (final node in folders) node.folder.id};
-    final selectedFolder = folderIds.contains(_folderId) ? _folderId : null;
+    _body.value = TextEditingValue(
+      text: result.text,
+      selection: TextSelection(
+        baseOffset: result.start,
+        extentOffset: result.end,
+      ),
+    );
+    setState(() {});
+  }
+
+  List<MyNoteFolderNode> _folderNodes(MyNoteEditorState state) =>
+      flattenMyNoteFolderTree(buildMyNoteFolderTree(state.folders));
+
+  String? _folderName(MyNoteEditorState state, String? id) {
+    if (id == null) return null;
+    for (final folder in state.folders) {
+      if (folder.id == id) return folder.name;
+    }
+    return null;
+  }
+
+  Future<void> _pickFolder(MyNoteEditorState state) async {
+    final nodes = _folderNodes(state);
+    final picked = await showModalBottomSheet<_FolderPick>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: WebTuiColors.surface,
+      builder: (sheetContext) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.7,
+          ),
+          child: ListView(
+            key: const Key('my_note_folder_picker'),
+            shrinkWrap: true,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.inbox_outlined),
+                title: const Text('Chưa xếp thư mục'),
+                selected: _folderId == null,
+                onTap: () =>
+                    Navigator.of(sheetContext).pop(const _FolderPick(null)),
+              ),
+              for (final node in nodes)
+                ListTile(
+                  contentPadding: EdgeInsets.only(
+                    left: WebTuiSpacing.lg + (node.depth - 1) * 20,
+                    right: WebTuiSpacing.lg,
+                  ),
+                  leading: const Icon(Icons.folder_outlined),
+                  title: Text(node.folder.name),
+                  selected: _folderId == node.folder.id,
+                  onTap: () => Navigator.of(
+                    sheetContext,
+                  ).pop(_FolderPick(node.folder.id)),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (picked != null && mounted) setState(() => _folderId = picked.id);
+  }
+
+  Future<void> _editTags() async {
+    final value = await showMyNoteTextDialog(
+      context,
+      title: 'Tag',
+      label: 'Tag, cách nhau bằng dấu phẩy',
+      confirmLabel: 'Xong',
+      initialValue: _tags.text,
+      maxLength: 300,
+    );
+    if (value != null && mounted) setState(() => _tags.text = value.trim());
+  }
+
+  List<Widget> _editFields(MyNoteEditorState state) {
+    final folderIds = {for (final node in _folderNodes(state)) node.folder.id};
+    final folderName = folderIds.contains(_folderId)
+        ? _folderName(state, _folderId)
+        : null;
+    final tagText = _tags.text.trim();
     return [
       TextField(
         key: const Key('my_note_title_field'),
         controller: _title,
         maxLength: MyNoteLimits.titleMaxLength,
+        maxLines: null,
         textInputAction: TextInputAction.next,
-        decoration: const InputDecoration(labelText: 'Tiêu đề'),
-        onChanged: (_) => setState(() {}),
-      ),
-      TextField(
-        key: const Key('my_note_tags_field'),
-        controller: _tags,
+        style: WebTuiTypography.titleLarge.copyWith(
+          color: WebTuiColors.textPrimary,
+          fontSize: 24,
+        ),
         decoration: const InputDecoration(
-          labelText: 'Tag',
-          hintText: 'việc nhà, ý tưởng (cách nhau bằng dấu phẩy)',
-          prefixIcon: Icon(Icons.sell_outlined),
+          hintText: 'Tiêu đề',
+          border: InputBorder.none,
+          counterText: '',
+          contentPadding: EdgeInsets.zero,
         ),
         onChanged: (_) => setState(() {}),
       ),
-      const SizedBox(height: WebTuiSpacing.sm),
-      DropdownButtonFormField<String?>(
-        key: ValueKey('folder_$selectedFolder'),
-        initialValue: selectedFolder,
-        isExpanded: true,
-        decoration: const InputDecoration(
-          labelText: 'Thư mục',
-          prefixIcon: Icon(Icons.folder_outlined),
-        ),
-        items: [
-          const DropdownMenuItem<String?>(
-            value: null,
-            child: Text('Chưa xếp thư mục'),
-          ),
-          for (final node in folders)
-            DropdownMenuItem<String?>(
-              value: node.folder.id,
-              child: Text(
-                '${'  ' * (node.depth - 1)}${node.folder.name}',
-                overflow: TextOverflow.ellipsis,
-              ),
+      const SizedBox(height: WebTuiSpacing.xs),
+      SingleChildScrollView(
+        key: const Key('my_note_meta_row'),
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            ActionChip(
+              key: const Key('my_note_folder_chip'),
+              avatar: const Icon(Icons.folder_outlined, size: 18),
+              label: Text(folderName ?? 'Chưa xếp thư mục'),
+              onPressed: () => unawaited(_pickFolder(state)),
             ),
-        ],
-        onChanged: (value) => setState(() => _folderId = value),
+            const SizedBox(width: WebTuiSpacing.xs),
+            ActionChip(
+              key: const Key('my_note_tags_chip'),
+              avatar: const Icon(Icons.sell_outlined, size: 18),
+              label: Text(tagText.isEmpty ? 'Thêm tag' : tagText),
+              onPressed: () => unawaited(_editTags()),
+            ),
+            const SizedBox(width: WebTuiSpacing.xs),
+            FilterChip(
+              key: const Key('my_note_pin_chip'),
+              avatar: Icon(
+                _pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+                size: 18,
+              ),
+              label: const Text('Ghim'),
+              selected: _pinned,
+              showCheckmark: false,
+              onSelected: (value) => setState(() => _pinned = value),
+            ),
+          ],
+        ),
       ),
-      SwitchListTile(
-        contentPadding: EdgeInsets.zero,
-        value: _pinned,
-        title: const Text('Ghim lên đầu danh sách'),
-        onChanged: (value) => setState(() => _pinned = value),
-      ),
+      const Divider(height: WebTuiSpacing.lg),
       TextField(
         key: const Key('my_note_body_field'),
         controller: _body,
-        minLines: 10,
+        minLines: 12,
         maxLines: null,
         keyboardType: TextInputType.multiline,
+        style: WebTuiTypography.bodyMedium.copyWith(
+          color: WebTuiColors.textPrimary,
+          height: 1.5,
+        ),
         decoration: const InputDecoration(
-          labelText: 'Nội dung',
-          hintText: 'Viết ghi chú (hỗ trợ cú pháp markdown)',
-          alignLabelWithHint: true,
-          border: OutlineInputBorder(),
+          hintText: 'Viết ghi chú (hỗ trợ markdown)',
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.zero,
         ),
         onChanged: (_) => setState(() {}),
       ),
@@ -386,17 +487,23 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
     MyNote note,
     MyNoteEditorController controller,
   ) {
-    String? folderName;
-    for (final folder in state.folders) {
-      if (folder.id == note.folderId) folderName = folder.name;
-    }
+    final folderName = _folderName(state, note.folderId);
     return [
       Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (note.pinned) ...[
+          Expanded(
+            child: SelectableText(
+              note.displayTitle,
+              style: WebTuiTypography.titleLarge.copyWith(
+                color: WebTuiColors.textPrimary,
+                fontSize: 24,
+              ),
+            ),
+          ),
+          if (note.pinned)
             const Padding(
-              padding: EdgeInsets.only(top: 4),
+              padding: EdgeInsets.only(top: 6, left: WebTuiSpacing.xs),
               child: Icon(
                 Icons.push_pin_rounded,
                 size: 18,
@@ -404,16 +511,6 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
                 semanticLabel: 'Đã ghim',
               ),
             ),
-            const SizedBox(width: WebTuiSpacing.xs),
-          ],
-          Expanded(
-            child: SelectableText(
-              note.displayTitle,
-              style: WebTuiTypography.titleLarge.copyWith(
-                color: WebTuiColors.textPrimary,
-              ),
-            ),
-          ),
         ],
       ),
       const SizedBox(height: WebTuiSpacing.xs),
@@ -457,24 +554,16 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
           ),
         ),
       ],
-      const SizedBox(height: WebTuiSpacing.md),
-      Container(
-        padding: const EdgeInsets.all(WebTuiSpacing.md),
-        decoration: BoxDecoration(
-          color: WebTuiColors.surface,
-          borderRadius: BorderRadius.circular(WebTuiRadii.lg),
-          border: Border.all(color: WebTuiColors.border),
-        ),
-        child: SelectableText(
-          note.body.isEmpty ? 'Ghi chú chưa có nội dung.' : note.body,
+      const Divider(height: WebTuiSpacing.xl),
+      if (note.body.trim().isEmpty)
+        Text(
+          'Ghi chú chưa có nội dung.',
           style: WebTuiTypography.bodyMedium.copyWith(
-            color: note.body.isEmpty
-                ? WebTuiColors.textMuted
-                : WebTuiColors.textPrimary,
-            height: 1.45,
+            color: WebTuiColors.textMuted,
           ),
-        ),
-      ),
+        )
+      else
+        MyNoteMarkdownView(source: note.body),
       if (note.attachments.isNotEmpty) ...[
         const SizedBox(height: WebTuiSpacing.md),
         Text(
@@ -579,4 +668,52 @@ String _formatBytes(int bytes) {
   if (bytes < 1024) return '$bytes B';
   if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
   return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+}
+
+final class _FolderPick {
+  const _FolderPick(this.id);
+
+  final String? id;
+}
+
+class _FormatToolbar extends StatelessWidget {
+  const _FormatToolbar({required this.onFormat});
+
+  final void Function(MyNoteFormat format) onFormat;
+
+  @override
+  Widget build(BuildContext context) {
+    const items = <(MyNoteFormat, IconData, String)>[
+      (MyNoteFormat.bold, Icons.format_bold_rounded, 'In đậm'),
+      (MyNoteFormat.italic, Icons.format_italic_rounded, 'In nghiêng'),
+      (MyNoteFormat.heading, Icons.title_rounded, 'Tiêu đề'),
+      (MyNoteFormat.bullet, Icons.format_list_bulleted_rounded, 'Danh sách'),
+      (MyNoteFormat.checklist, Icons.checklist_rounded, 'Việc cần làm'),
+      (MyNoteFormat.code, Icons.code_rounded, 'Mã'),
+    ];
+    return Material(
+      color: WebTuiColors.surface,
+      elevation: 2,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 44,
+          child: Row(
+            key: const Key('my_note_format_toolbar'),
+            children: [
+              for (final (format, icon, label) in items)
+                Expanded(
+                  child: IconButton(
+                    key: Key('my_note_format_${format.name}'),
+                    tooltip: label,
+                    icon: Icon(icon),
+                    onPressed: () => onFormat(format),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

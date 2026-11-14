@@ -261,6 +261,37 @@ void main() {
     expect(restored.capabilities.noticeBot, isTrue);
   });
 
+  test('work_hub và read_receipts được đọc và giữ trong bản lưu', () {
+    final payload = _payload();
+    final discovery =
+        (payload['data']! as Map<String, Object?>)['discovery']!
+            as Map<String, Object?>;
+    final old = SelfHostedServerDiscovery.fromApiResponse(
+      payload: payload,
+      requestedServer: Uri.parse('https://chat.company.example'),
+      mobileVersion: '1.2.0',
+    );
+    expect(old.capabilities.workHub, isFalse);
+    expect(old.capabilities.readReceipts, isFalse);
+
+    final caps = discovery['capabilities']! as Map<String, Object?>;
+    caps['work_hub'] = true;
+    caps['read_receipts'] = true;
+    final parsed = SelfHostedServerDiscovery.fromApiResponse(
+      payload: payload,
+      requestedServer: Uri.parse('https://chat.company.example'),
+      mobileVersion: '1.2.0',
+    );
+    expect(parsed.capabilities.workHub, isTrue);
+    expect(parsed.capabilities.readReceipts, isTrue);
+    final restored = SelfHostedServerDiscovery.fromStorageSnapshot(
+      encodedSnapshot: parsed.toStorageSnapshot(),
+      mobileVersion: '1.2.0',
+    );
+    expect(restored.capabilities.workHub, isTrue);
+    expect(restored.capabilities.readReceipts, isTrue);
+  });
+
   test('cold-start snapshot keeps account, privacy and session policy', () {
     final payload = _payload();
     final discovery =

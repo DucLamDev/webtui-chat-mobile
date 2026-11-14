@@ -11,9 +11,10 @@ import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
 import '../../domain/entities/my_note.dart';
+import '../../domain/markdown/my_note_markdown.dart';
 import '../controllers/my_notes_access_provider.dart';
 import '../controllers/my_notes_list_controller.dart';
-import '../widgets/my_note_folder_sheet.dart';
+import '../widgets/my_note_filter_sheet.dart';
 import '../widgets/my_note_widgets.dart';
 
 /// Đường dẫn mở một ghi chú (`new` = ghi chú mới).
@@ -47,18 +48,6 @@ class MyNotesScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('My Note'),
         surfaceTintColor: Colors.transparent,
-        actions: [
-          if (ready)
-            IconButton(
-              key: const Key('my_notes_manage_folders'),
-              tooltip: 'Quản lý thư mục',
-              icon: const Icon(Icons.create_new_folder_outlined),
-              onPressed: () => showMyNoteFolderSheet(
-                context,
-                workspaceId: resolvedWorkspaceId,
-              ),
-            ),
-        ],
       ),
       floatingActionButton: ready
           ? _NewNoteButton(workspaceId: resolvedWorkspaceId)
@@ -188,20 +177,30 @@ class _MyNotesBody extends ConsumerWidget {
                   WebTuiSpacing.lg,
                   WebTuiSpacing.md,
                   WebTuiSpacing.lg,
-                  WebTuiSpacing.sm,
+                  0,
                 ),
-                child: WebTuiSearchBar(
-                  hintText: 'Tìm trong tiêu đề, nội dung...',
-                  debounceDuration: const Duration(milliseconds: 350),
-                  onChanged: (value) => unawaited(controller.setQuery(value)),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: WebTuiSearchBar(
+                        hintText: 'Tìm ghi chú',
+                        debounceDuration: const Duration(milliseconds: 350),
+                        onChanged: (value) =>
+                            unawaited(controller.setQuery(value)),
+                      ),
+                    ),
+                    const SizedBox(width: WebTuiSpacing.xs),
+                    _FilterButton(
+                      count: myNoteActiveFilterCount(state.filter),
+                      onPressed: () => unawaited(
+                        showMyNoteFilterSheet(
+                          context,
+                          workspaceId: workspaceId,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: _FilterBar(
-                state: state,
-                controller: controller,
-                workspaceId: workspaceId,
               ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: WebTuiSpacing.sm)),
@@ -348,130 +347,25 @@ class _MyNotesBody extends ConsumerWidget {
   }
 }
 
-class _FilterBar extends StatelessWidget {
-  const _FilterBar({
-    required this.state,
-    required this.controller,
-    required this.workspaceId,
-  });
+class _FilterButton extends StatelessWidget {
+  const _FilterButton({required this.count, required this.onPressed});
 
-  final MyNotesListState state;
-  final MyNotesListController controller;
-  final String workspaceId;
+  final int count;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final filter = state.filter;
-    final folderLabel = switch (filter.folderId) {
-      null => 'Mọi thư mục',
-      myNoteRootFolderFilter => 'Chưa xếp thư mục',
-      final id => state.folderById(id)?.name ?? 'Thư mục',
-    };
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.lg),
-      child: Row(
-        children: [
-          InputChip(
-            key: const Key('my_notes_folder_filter'),
-            avatar: const Icon(Icons.folder_outlined, size: 18),
-            label: Text(folderLabel),
-            selected: filter.folderId != null,
-            onPressed: () => _pickFolder(context),
-            onDeleted: filter.folderId == null
-                ? null
-                : () => unawaited(controller.setFolder(null)),
-          ),
-          const SizedBox(width: WebTuiSpacing.xs),
-          FilterChip(
-            key: const Key('my_notes_pinned_filter'),
-            avatar: const Icon(Icons.push_pin_outlined, size: 18),
-            label: const Text('Đã ghim'),
-            selected: filter.pinnedOnly,
-            onSelected: (value) => unawaited(controller.setPinnedOnly(value)),
-          ),
-          for (final tag in state.tags) ...[
-            const SizedBox(width: WebTuiSpacing.xs),
-            FilterChip(
-              label: Text('#${tag.tag} (${tag.count})'),
-              selected: filter.tag == tag.tag,
-              onSelected: (selected) =>
-                  unawaited(controller.setTag(selected ? tag.tag : null)),
-            ),
-          ],
-        ],
+    return IconButton.filledTonal(
+      key: const Key('my_notes_filter_button'),
+      tooltip: 'Lọc',
+      onPressed: onPressed,
+      icon: Badge(
+        isLabelVisible: count > 0,
+        label: Text('$count'),
+        child: const Icon(Icons.tune_rounded),
       ),
     );
   }
-
-  Future<void> _pickFolder(BuildContext context) async {
-    final nodes = flattenMyNoteFolderTree(state.folderTree);
-    final picked = await showModalBottomSheet<_FolderChoice>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      backgroundColor: WebTuiColors.surface,
-      builder: (sheetContext) => SafeArea(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.7,
-          ),
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.all_inbox_outlined),
-                title: const Text('Mọi thư mục'),
-                selected: state.filter.folderId == null,
-                onTap: () =>
-                    Navigator.of(sheetContext).pop(const _FolderChoice(null)),
-              ),
-              ListTile(
-                leading: const Icon(Icons.inbox_outlined),
-                title: const Text('Chưa xếp thư mục'),
-                selected: state.filter.folderId == myNoteRootFolderFilter,
-                onTap: () => Navigator.of(
-                  sheetContext,
-                ).pop(const _FolderChoice(myNoteRootFolderFilter)),
-              ),
-              for (final node in nodes)
-                ListTile(
-                  contentPadding: EdgeInsets.only(
-                    left: WebTuiSpacing.lg + (node.depth - 1) * 20,
-                    right: WebTuiSpacing.lg,
-                  ),
-                  leading: const Icon(Icons.folder_outlined),
-                  title: Text(node.folder.name),
-                  trailing: Text('${node.folder.noteCount}'),
-                  selected: state.filter.folderId == node.folder.id,
-                  onTap: () => Navigator.of(
-                    sheetContext,
-                  ).pop(_FolderChoice(node.folder.id)),
-                ),
-              if (nodes.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.all(WebTuiSpacing.lg),
-                  child: Text(
-                    'Chưa có thư mục. Dùng nút thư mục trên thanh tiêu đề để '
-                    'tạo.',
-                    style: WebTuiTypography.bodySmall.copyWith(
-                      color: WebTuiColors.textSecondary,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (picked != null) unawaited(controller.setFolder(picked.folderId));
-  }
-}
-
-final class _FolderChoice {
-  const _FolderChoice(this.folderId);
-
-  final String? folderId;
 }
 
 class _NoteTile extends StatelessWidget {
@@ -489,6 +383,7 @@ class _NoteTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final preview = myNoteMarkdownToPlainText(note.excerpt).trim();
     return Material(
       color: WebTuiColors.surface,
       borderRadius: BorderRadius.circular(WebTuiRadii.lg),
@@ -498,7 +393,10 @@ class _NoteTile extends StatelessWidget {
         onTap: onTap,
         onLongPress: onLongPress,
         child: Container(
-          padding: const EdgeInsets.all(WebTuiSpacing.md),
+          padding: const EdgeInsets.symmetric(
+            horizontal: WebTuiSpacing.md,
+            vertical: WebTuiSpacing.sm + 2,
+          ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(WebTuiRadii.lg),
             border: Border.all(color: WebTuiColors.border),
@@ -508,15 +406,6 @@ class _NoteTile extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  if (note.pinned) ...[
-                    const Icon(
-                      Icons.push_pin_rounded,
-                      size: 16,
-                      color: WebTuiColors.primary,
-                      semanticLabel: 'Đã ghim',
-                    ),
-                    const SizedBox(width: WebTuiSpacing.xs),
-                  ],
                   Expanded(
                     child: Text(
                       note.displayTitle,
@@ -528,12 +417,21 @@ class _NoteTile extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (note.pinned) ...[
+                    const SizedBox(width: WebTuiSpacing.xs),
+                    const Icon(
+                      Icons.push_pin_rounded,
+                      size: 16,
+                      color: WebTuiColors.primary,
+                      semanticLabel: 'Đã ghim',
+                    ),
+                  ],
                 ],
               ),
-              if (note.excerpt.isNotEmpty) ...[
-                const SizedBox(height: WebTuiSpacing.xxs),
+              if (preview.isNotEmpty) ...[
+                const SizedBox(height: 2),
                 Text(
-                  note.excerpt,
+                  preview,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: WebTuiTypography.bodySmall.copyWith(
@@ -541,30 +439,30 @@ class _NoteTile extends StatelessWidget {
                   ),
                 ),
               ],
-              if (note.tags.isNotEmpty) ...[
-                const SizedBox(height: WebTuiSpacing.xs),
-                Wrap(
-                  spacing: WebTuiSpacing.xs,
-                  runSpacing: WebTuiSpacing.xs,
-                  children: [
-                    for (final tag in note.tags) MyNoteTagChip(tag: tag),
-                  ],
-                ),
-              ],
               const SizedBox(height: WebTuiSpacing.xs),
-              Text(
-                [
-                  formatMyNoteTime(note.updatedAt),
-                  ?folderName,
-                  if (note.isFromMessage) 'Từ tin nhắn',
-                  if (note.attachmentCount > 0)
-                    '${note.attachmentCount} tệp đính kèm',
-                ].join(' · '),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: WebTuiTypography.labelSmall.copyWith(
-                  color: WebTuiColors.textMuted,
-                ),
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      [
+                        formatMyNoteRelativeTime(note.updatedAt),
+                        ?folderName,
+                        if (note.isFromMessage) 'Từ tin nhắn',
+                        if (note.attachmentCount > 0)
+                          '${note.attachmentCount} tệp',
+                      ].join(' · '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: WebTuiTypography.labelSmall.copyWith(
+                        color: WebTuiColors.textMuted,
+                      ),
+                    ),
+                  ),
+                  for (final tag in note.tags.take(2)) ...[
+                    const SizedBox(width: WebTuiSpacing.xs),
+                    MyNoteTagChip(tag: tag),
+                  ],
+                ],
               ),
             ],
           ),

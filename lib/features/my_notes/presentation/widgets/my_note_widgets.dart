@@ -13,6 +13,24 @@ String formatMyNoteTime(DateTime value) {
       '${two(local.hour)}:${two(local.minute)}';
 }
 
+/// Thời gian tương đối: "Vừa xong", "5 phút trước", "Hôm qua"...; quá 7 ngày
+/// thì ngày đầy đủ `dd/MM/yyyy`.
+String formatMyNoteRelativeTime(DateTime value, {DateTime? now}) {
+  final current = (now ?? DateTime.now()).toLocal();
+  final local = value.toLocal();
+  final diff = current.difference(local);
+  if (diff.isNegative || diff.inMinutes < 1) return 'Vừa xong';
+  if (diff.inMinutes < 60) return '${diff.inMinutes} phút trước';
+  final today = DateTime(current.year, current.month, current.day);
+  final day = DateTime(local.year, local.month, local.day);
+  final days = today.difference(day).inDays;
+  if (days == 0) return '${diff.inHours} giờ trước';
+  if (days == 1) return 'Hôm qua';
+  if (days < 7) return '$days ngày trước';
+  String two(int number) => number.toString().padLeft(2, '0');
+  return '${two(local.day)}/${two(local.month)}/${local.year}';
+}
+
 /// Dải báo đang xem bản lưu trên máy (mất mạng).
 class MyNotesOfflineBanner extends StatelessWidget {
   const MyNotesOfflineBanner({this.cachedAt, super.key});

@@ -1,134 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../../design_system/tokens/webtui_colors.dart';
-import '../../../../design_system/tokens/webtui_radii.dart';
-import '../../../../design_system/tokens/webtui_spacing.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../domain/entities/business_channel_catalog.dart';
 import '../../domain/entities/conversation_summary.dart';
-
-/// Tab Nghiệp vụ: mỗi nhóm (Bán hàng, Hỗ trợ khách...) một tiêu đề và lưới ô
-/// nhỏ thay cho danh sách dài; 15 kênh mặc định gần vừa một màn hình điện thoại.
-/// Dùng làm một sliver trong `CustomScrollView`.
-class BusinessChannelSections extends StatelessWidget {
-  const BusinessChannelSections({
-    required this.channels,
-    required this.onTap,
-    super.key,
-  });
-
-  final List<ConversationSummary> channels;
-  final ValueChanged<ConversationSummary> onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return SliverMainAxisGroup(
-      slivers: [
-        for (final section in groupBusinessChannels(channels)) ...[
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                WebTuiSpacing.lg,
-                WebTuiSpacing.md,
-                WebTuiSpacing.lg,
-                WebTuiSpacing.xs,
-              ),
-              child: Text(
-                section.group.label,
-                key: ValueKey('business_group_${section.group.name}'),
-                style: const TextStyle(
-                  color: WebTuiColors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.md),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 96,
-                mainAxisExtent: 92,
-                crossAxisSpacing: WebTuiSpacing.xs,
-              ),
-              delegate: SliverChildBuilderDelegate((context, index) {
-                final channel = section.channels[index];
-                return BusinessChannelTile(
-                  channel: channel,
-                  width: double.infinity,
-                  onTap: () => onTap(channel),
-                );
-              }, childCount: section.channels.length),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-/// Một ô kênh nghiệp vụ: biểu tượng riêng, tên, huy hiệu tin chưa đọc.
-class BusinessChannelTile extends StatelessWidget {
-  const BusinessChannelTile({
-    required this.channel,
-    required this.onTap,
-    this.width = 76,
-    super.key,
-  });
-
-  final ConversationSummary channel;
-  final VoidCallback onTap;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) {
-    final unread = channel.unreadCount;
-    return Semantics(
-      button: true,
-      excludeSemantics: true,
-      label: unread > 0
-          ? '${channel.title}, $unread tin chưa đọc'
-          : channel.title,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(WebTuiRadii.md),
-        child: SizedBox(
-          width: width,
-          child: Column(
-            children: [
-              const SizedBox(height: WebTuiSpacing.xs),
-              Badge(
-                isLabelVisible: unread > 0,
-                backgroundColor: WebTuiColors.danger,
-                label: Text(unread > 99 ? '99+' : '$unread'),
-                child: CircleAvatar(
-                  radius: 24,
-                  backgroundColor: WebTuiColors.primarySoft,
-                  child: Icon(
-                    businessChannelIcon(channel),
-                    color: WebTuiColors.primary,
-                  ),
-                ),
-              ),
-              const SizedBox(height: WebTuiSpacing.xs),
-              Text(
-                channel.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  height: 1.2,
-                  color: WebTuiColors.textPrimary,
-                  fontWeight: unread > 0 ? FontWeight.w600 : FontWeight.w400,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 /// Biểu tượng riêng cho từng kênh nghiệp vụ để nhận ra nhanh; kênh ngoài danh
 /// mục thì đoán theo tên (gia hạn, order, proxy, VPS...).
@@ -162,4 +36,35 @@ IconData businessChannelIcon(ConversationSummary channel) {
     return Icons.support_agent_rounded;
   }
   return Icons.smart_toy_outlined;
+}
+
+/// Biểu tượng Lucide của một kênh trong danh sách hội thoại: nhận theo mã kênh
+/// (`slug`) trước, rồi theo tên (chung, bảng tin, đơn hàng, ticket, trò chuyện,
+/// kế toán); kênh riêng tư là ổ khoá; còn lại là dấu #.
+IconData conversationChannelIcon(ConversationSummary channel) {
+  if (channel.noticeBot) return WebTuiIcons.bell;
+  final bySlug = switch ((channel.slug ?? '').trim().toLowerCase()) {
+    'general' || 'chung' => WebTuiIcons.channel,
+    'announcements' || 'bang-tin' || 'thong-bao' => WebTuiIcons.announcement,
+    'orders' || 'order' || 'don-hang' => WebTuiIcons.orders,
+    'ticket' || 'tickets' => WebTuiIcons.ticket,
+    'chitchat' || 'tro-chuyen' || 'random' => WebTuiIcons.chitchat,
+    'ke-toan' || 'billing' || 'accounting' => WebTuiIcons.accounting,
+    _ => null,
+  };
+  if (bySlug != null) return bySlug;
+  final text = channel.title.toLowerCase();
+  bool has(List<String> words) => words.any(text.contains);
+  if (has(['bảng tin', 'thông báo', 'announcement'])) {
+    return WebTuiIcons.announcement;
+  }
+  if (has(['đơn hàng', 'order'])) return WebTuiIcons.orders;
+  if (has(['ticket'])) return WebTuiIcons.ticket;
+  if (has(['trò chuyện', 'chitchat', 'random'])) return WebTuiIcons.chitchat;
+  if (has(['kế toán', 'accounting'])) return WebTuiIcons.accounting;
+  if (channel.isAutomation) return businessChannelIcon(channel);
+  if (channel.channelVisibility == ChannelVisibility.private) {
+    return WebTuiIcons.channelPrivate;
+  }
+  return WebTuiIcons.channel;
 }

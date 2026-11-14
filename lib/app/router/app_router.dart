@@ -27,6 +27,10 @@ import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/settings/presentation/screens/app_settings_screen.dart';
 import '../../features/settings/presentation/screens/feedback_screen.dart';
 import '../../features/settings/presentation/screens/privacy_sessions_screen.dart';
+import '../../features/work_hub/presentation/screens/meetings_screen.dart';
+import '../../features/work_hub/presentation/screens/my_tasks_screen.dart';
+import '../../features/work_hub/presentation/screens/shared_files_screen.dart';
+import '../../features/work_hub/presentation/screens/shortcuts_manage_screen.dart';
 import '../../features/workspace/presentation/screens/invite_screen.dart';
 import '../../features/workspace/presentation/screens/workspace_selector_screen.dart';
 
@@ -244,9 +248,57 @@ final appRouterProvider = Provider<GoRouter>((_) {
           initialFolderId: state.uri.queryParameters['folderId'],
         ),
       ),
+      // Tab Công việc: màn con (việc của tôi, lịch họp, tệp, lối tắt).
+      GoRoute(
+        path: '/my-tasks',
+        name: 'my-tasks',
+        builder: (context, state) => _workspaceScoped(
+          state,
+          (workspaceId) => MyTasksScreen(
+            workspaceId: workspaceId,
+            startWithSearch: state.uri.queryParameters['search'] == '1',
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/meetings',
+        name: 'meetings',
+        builder: (context, state) => _workspaceScoped(
+          state,
+          (workspaceId) => MeetingsScreen(workspaceId: workspaceId),
+        ),
+      ),
+      GoRoute(
+        path: '/files',
+        name: 'shared-files',
+        builder: (context, state) => _workspaceScoped(
+          state,
+          (workspaceId) => SharedFilesScreen(workspaceId: workspaceId),
+        ),
+      ),
+      GoRoute(
+        path: '/shortcuts',
+        name: 'shortcuts',
+        builder: (context, state) => _workspaceScoped(
+          state,
+          (workspaceId) => ShortcutsManageScreen(workspaceId: workspaceId),
+        ),
+      ),
     ],
   );
 });
+
+/// Màn con lấy workspace từ `?workspaceId=`, thiếu thì dùng workspace đang chọn.
+Widget _workspaceScoped(
+  GoRouterState state,
+  Widget Function(String workspaceId) build,
+) {
+  return Consumer(
+    builder: (context, ref, _) => build(
+      resolveMyNotesWorkspaceId(ref, state.uri.queryParameters['workspaceId']),
+    ),
+  );
+}
 
 int _homeInitialTabIndex(String? value) {
   switch (value?.trim().toLowerCase()) {
