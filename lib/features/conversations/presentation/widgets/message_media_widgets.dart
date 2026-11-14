@@ -120,6 +120,7 @@ class _MessageImageGalleryScreenState
                 fit: BoxFit.contain,
                 maxHeight: size.height - 140,
                 maxWidth: size.width,
+                preferThumbnail: false,
               ),
             ),
           );
@@ -138,11 +139,16 @@ class MessageImageAttachmentView extends ConsumerStatefulWidget {
     this.maxHeight = 300,
     this.maxWidth = 260,
     this.onPressed,
+    this.preferThumbnail = true,
     super.key,
   });
 
   final MessageAttachment attachment;
   final Uri? apiBaseUri;
+
+  /// Dùng ảnh thu nhỏ (nếu máy chủ có) cho danh sách / bong bóng; màn xem ảnh
+  /// đặt `false` để mở bản gốc.
+  final bool preferThumbnail;
   final BoxFit fit;
   final double? height;
   final double maxHeight;
@@ -159,6 +165,7 @@ class _MessageImageAttachmentViewState
   static const _downloader = RedirectSafeFileDownloader();
 
   Uri? _imageUri;
+  Uri? _thumbnailUri;
   File? _localImageFile;
   int _loadGeneration = 0;
 
@@ -175,6 +182,9 @@ class _MessageImageAttachmentViewState
             widget.attachment.file.downloadPath ||
         oldWidget.attachment.file.localPath !=
             widget.attachment.file.localPath ||
+        oldWidget.attachment.file.thumbnailUrl !=
+            widget.attachment.file.thumbnailUrl ||
+        oldWidget.preferThumbnail != widget.preferThumbnail ||
         oldWidget.attachment.file.byteSize != widget.attachment.file.byteSize ||
         oldWidget.attachment.file.mimeType != widget.attachment.file.mimeType ||
         oldWidget.apiBaseUri != widget.apiBaseUri ||
@@ -192,9 +202,13 @@ class _MessageImageAttachmentViewState
         localPath.isNotEmpty) {
       _localImageFile = File(localPath);
       _imageUri = null;
+      _thumbnailUri = null;
       return;
     }
     _localImageFile = null;
+    _thumbnailUri = widget.preferThumbnail
+        ? attachmentThumbnailUri(widget.attachment, widget.apiBaseUri)
+        : null;
     final uri = attachmentDownloadUri(widget.attachment, widget.apiBaseUri);
     _imageUri =
         uri != null &&
@@ -207,6 +221,16 @@ class _MessageImageAttachmentViewState
   }
 
   Future<Uint8List?> _load(Uri uri, int generation) async {
+    final bytes = await _loadOnce(uri, generation);
+    final original = _imageUri;
+    if (bytes == null && uri == _thumbnailUri && original != null) {
+      // Ảnh thu nhỏ chưa có / lỗi: quay về ảnh gốc như trước.
+      return _loadOnce(original, generation);
+    }
+    return bytes;
+  }
+
+  Future<Uint8List?> _loadOnce(Uri uri, int generation) async {
     final binding = await _captureAttachmentDownloadBinding(
       ref: ref,
       attachmentUri: uri,
@@ -218,7 +242,9 @@ class _MessageImageAttachmentViewState
         () => _downloader.downloadBytes(
           uri: uri,
           maxBytes: maxImagePreviewBytes,
-          accept: widget.attachment.file.mimeType,
+          accept: uri == _thumbnailUri
+              ? 'image/jpeg'
+              : widget.attachment.file.mimeType,
           bearerToken: binding.bearerToken,
           isStillCurrent: () async =>
               mounted &&
@@ -239,7 +265,7 @@ class _MessageImageAttachmentViewState
 
   @override
   Widget build(BuildContext context) {
-    final uri = _imageUri;
+    final uri = _thumbnailUri ?? _imageUri;
     final localImageFile = _localImageFile;
     final generation = _loadGeneration;
     final placeholder = _ImagePlaceholder(
@@ -749,6 +775,9 @@ class _MessageVideoAttachmentViewState
   bool _loading = false;
   bool _failed = false;
 
+  /// Bấm nút phát trên ảnh bìa: tải xong thì phát luôn.
+  bool _playWhenReady = false;
+
   @override
   void initState() {
     super.initState();
@@ -768,6 +797,7 @@ class _MessageVideoAttachmentViewState
       _binding = null;
       _loading = false;
       _failed = false;
+      _playWhenReady = false;
       unawaited(_disposeVideo(previous, previousFile));
     }
   }
@@ -878,6 +908,12 @@ class _MessageVideoAttachmentViewState
       if (previousFile != null && previousFile.path != readyFile.path) {
         await _deleteFile(previousFile);
       }
+      if (_playWhenReady &&
+          mounted &&
+          generation == _initializationGeneration) {
+        _playWhenReady = false;
+        await _togglePlayback();
+      }
     } on Object {
       await next?.dispose();
       if (downloaded != null && downloaded.path != _videoFile?.path) {
@@ -889,6 +925,7 @@ class _MessageVideoAttachmentViewState
 
   void _markVideoFailure(int generation) {
     if (!mounted || generation != _initializationGeneration) return;
+    _playWhenReady = false;
     setState(() {
       _loading = false;
       _failed = true;
@@ -965,6 +1002,83 @@ class _MessageVideoAttachmentViewState
     );
   }
 
+  /// Ảnh bìa + nút phát lớn giữa + thời lượng ở góc. Chỉ bấm mới tải video.
+  Widget _buildThumbnailCover(Uri thumbnailUri, String? durationText) {
+    final label = durationText == null
+        ? 'Phát video'
+        : 'Phát video, $durationText';
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _VideoThumbnailImage(
+          key: ValueKey('video-thumbnail-${widget.attachment.fileId}'),
+          uri: thumbnailUri,
+          apiBaseUri: widget.apiBaseUri,
+        ),
+        Center(
+          child: _loading
+              ? const CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                )
+              : Semantics(
+                  button: true,
+                  enabled: !_failed,
+                  label: _failed ? 'Không phát được video' : label,
+                  excludeSemantics: true,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _failed
+                        ? null
+                        : () {
+                            _playWhenReady = true;
+                            _requestDownload();
+                          },
+                    child: Container(
+                      key: const ValueKey('video-thumbnail-play'),
+                      width: 56,
+                      height: 56,
+                      decoration: const BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        _failed
+                            ? CupertinoIcons.exclamationmark_triangle
+                            : CupertinoIcons.play_fill,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                  ),
+                ),
+        ),
+        if (durationText != null)
+          Positioned(
+            right: 6,
+            bottom: 6,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(WebTuiRadii.sm),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                child: Text(
+                  durationText,
+                  key: const ValueKey('video-thumbnail-duration'),
+                  style: WebTuiTypography.labelSmall.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.isLocalPreview) {
@@ -979,9 +1093,22 @@ class _MessageVideoAttachmentViewState
     final controller = _controller;
     final initialized = controller?.value.isInitialized == true;
     final activeController = initialized ? controller! : null;
+    final file = widget.attachment.file;
+    final thumbnailUri = attachmentThumbnailUri(
+      widget.attachment,
+      widget.apiBaseUri,
+    );
+    final knownWidth = file.width ?? 0;
+    final knownHeight = file.height ?? 0;
     final aspectRatio = initialized
         ? activeController!.value.aspectRatio.clamp(0.65, 1.9)
+        : thumbnailUri != null && knownWidth > 0 && knownHeight > 0
+        ? (knownWidth / knownHeight).clamp(0.65, 1.9)
         : 16 / 9;
+    final durationMs = file.durationMs ?? 0;
+    final durationText = durationMs > 0
+        ? _formatDuration(Duration(milliseconds: durationMs))
+        : null;
     final width = widget.allowFullscreen
         ? (MediaQuery.sizeOf(context).width * 0.72).clamp(230, 320).toDouble()
         : MediaQuery.sizeOf(context).width;
@@ -1003,6 +1130,8 @@ class _MessageVideoAttachmentViewState
                   children: [
                     if (activeController != null)
                       VideoPlayer(activeController)
+                    else if (thumbnailUri != null)
+                      _buildThumbnailCover(thumbnailUri, durationText)
                     else
                       Center(
                         child: _loading
@@ -1100,6 +1229,97 @@ class _MessageVideoAttachmentViewState
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Ảnh bìa video tải kèm xác thực (cùng cách tải ảnh trong bong bóng). Lỗi
+/// hoặc chưa có thì hiện nền tối, không chặn nút phát.
+class _VideoThumbnailImage extends ConsumerStatefulWidget {
+  const _VideoThumbnailImage({
+    required this.uri,
+    required this.apiBaseUri,
+    super.key,
+  });
+
+  final Uri uri;
+  final Uri? apiBaseUri;
+
+  @override
+  ConsumerState<_VideoThumbnailImage> createState() =>
+      _VideoThumbnailImageState();
+}
+
+class _VideoThumbnailImageState extends ConsumerState<_VideoThumbnailImage> {
+  static const _downloader = RedirectSafeFileDownloader();
+  static const int _maxThumbnailBytes = 2 * 1024 * 1024;
+
+  int _generation = 0;
+
+  Future<Uint8List?> _load(int generation) async {
+    final binding = await _captureAttachmentDownloadBinding(
+      ref: ref,
+      attachmentUri: widget.uri,
+      apiBaseUri: widget.apiBaseUri,
+    );
+    if (binding == null) return null;
+    try {
+      return await _imageDownloadGate.run(
+        () => _downloader.downloadBytes(
+          uri: widget.uri,
+          maxBytes: _maxThumbnailBytes,
+          accept: 'image/jpeg',
+          bearerToken: binding.bearerToken,
+          isStillCurrent: () async =>
+              mounted &&
+              generation == _generation &&
+              await binding.isStillCurrent(),
+        ),
+      );
+    } on Object {
+      return null;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _VideoThumbnailImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.uri != widget.uri ||
+        oldWidget.apiBaseUri != widget.apiBaseUri) {
+      _generation += 1;
+    }
+  }
+
+  @override
+  void dispose() {
+    _generation += 1;
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final generation = _generation;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : 320.0;
+        final height = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : width * 9 / 16;
+        return WebTuiOwnedDecodedImage(
+          requestKey: '${widget.uri}|$generation',
+          loadBytes: () => _load(generation),
+          maxEncodedBytes: _maxThumbnailBytes,
+          decodeTargetWidth: (width * 3).ceil().clamp(1, 2048),
+          decodeTargetHeight: (height * 3).ceil().clamp(1, 2048),
+          width: width,
+          height: height,
+          fit: BoxFit.cover,
+          loading: const ColoredBox(color: Color(0xFF1B1F27)),
+          fallback: const ColoredBox(color: Color(0xFF1B1F27)),
+        );
+      },
     );
   }
 }
@@ -1444,7 +1664,18 @@ class _ImagePlaceholder extends StatelessWidget {
 }
 
 Uri? attachmentDownloadUri(MessageAttachment attachment, Uri? apiBaseUri) {
-  final rawPath = attachment.file.downloadPath.trim();
+  return _resolveAttachmentUri(attachment.file.downloadPath, apiBaseUri);
+}
+
+/// Địa chỉ ảnh thu nhỏ (ảnh bìa video); null nếu máy chủ chưa có.
+Uri? attachmentThumbnailUri(MessageAttachment attachment, Uri? apiBaseUri) {
+  final raw = attachment.file.thumbnailUrl;
+  if (raw == null) return null;
+  return _resolveAttachmentUri(raw, apiBaseUri);
+}
+
+Uri? _resolveAttachmentUri(String raw, Uri? apiBaseUri) {
+  final rawPath = raw.trim();
   if (rawPath.isEmpty) return null;
   final uri = Uri.tryParse(rawPath);
   if (uri == null) return null;

@@ -68,9 +68,11 @@ final class DefaultMessageMediaUploader implements MessageMediaUploader {
     required VideoCompressor compressor,
     required Future<String> Function(String clientAttachmentId)
     compressedPathFor,
+    UploadVideoThumbnailUseCase? uploadThumbnail,
   }) : _uploadAttachment = uploadAttachment,
        _compressor = compressor,
-       _compressedPathFor = compressedPathFor;
+       _compressedPathFor = compressedPathFor,
+       _uploadThumbnail = uploadThumbnail;
 
   /// Video nhỏ hơn mức này gửi luôn bản gốc.
   static const int minCompressBytes = 4 * 1024 * 1024;
@@ -81,6 +83,9 @@ final class DefaultMessageMediaUploader implements MessageMediaUploader {
   final UploadMessageAttachmentUseCase _uploadAttachment;
   final VideoCompressor _compressor;
   final Future<String> Function(String clientAttachmentId) _compressedPathFor;
+
+  /// Gửi ảnh bìa sau khi tải video; null thì không gửi ảnh bìa.
+  final UploadVideoThumbnailUseCase? _uploadThumbnail;
 
   final Map<String, _Job> _running = {};
   final Map<String, UploadedMessageFile> _done = {};
@@ -203,9 +208,15 @@ final class DefaultMessageMediaUploader implements MessageMediaUploader {
       );
       switch (result) {
         case Success<UploadedMessageFile>(:final value):
-          _done[key] = value;
+          var finalFile = value;
+          if (attachment.kind == MessageAttachmentKind.video) {
+            // Ảnh bìa lấy từ tệp gốc trên máy; lỗi thì bỏ qua.
+            finalFile = await _attachPoster(workspaceId, id, attachment, value);
+          }
+          _done[key] = finalFile;
           if (compressedPath != null) await _deleteQuietly(compressedPath);
           _emit(job, id, MessageMediaUploadStage.done, 1);
+          return Success(finalFile);
         case FailureResult<UploadedMessageFile>():
           _emit(
             job,
@@ -235,6 +246,55 @@ final class DefaultMessageMediaUploader implements MessageMediaUploader {
   }
 
   static const double _compressShare = 0.3;
+
+  /// Lấy ảnh bìa từ video gốc và gửi lên; mọi lỗi đều bỏ qua và trả [file].
+  Future<UploadedMessageFile> _attachPoster(
+    String workspaceId,
+    String id,
+    PickedMessageAttachment original,
+    UploadedMessageFile file,
+  ) async {
+    final upload = _uploadThumbnail;
+    if (upload == null || file.thumbnailUrl != null) return file;
+    String? posterPath;
+    String? resultPath;
+    try {
+      final base = await _compressedPathFor(id);
+      posterPath = '$base.poster.jpg';
+      final poster = await _compressor.poster(
+        inputPath: original.path,
+        outputPath: posterPath,
+      );
+      if (poster == null) return file;
+      resultPath = poster.path;
+      final result = await upload.execute(
+        workspaceId: workspaceId,
+        fileId: file.id,
+        thumbnailPath: poster.path,
+        durationMs: poster.durationMs > 0 ? poster.durationMs : null,
+        width: poster.width > 0 ? poster.width : null,
+        height: poster.height > 0 ? poster.height : null,
+      );
+      if (result is Success<UploadedMessageFile>) {
+        final updated = result.value;
+        return updated.copyWith(
+          width: updated.width ?? (poster.width > 0 ? poster.width : null),
+          height: updated.height ?? (poster.height > 0 ? poster.height : null),
+          durationMs:
+              updated.durationMs ??
+              (poster.durationMs > 0 ? poster.durationMs : null),
+        );
+      }
+      return file;
+    } catch (_) {
+      return file;
+    } finally {
+      if (posterPath != null) await _deleteQuietly(posterPath);
+      if (resultPath != null && resultPath != posterPath) {
+        await _deleteQuietly(resultPath);
+      }
+    }
+  }
 
   Future<CompressedVideo?> _compress(
     _Job job,

@@ -1496,6 +1496,9 @@ final messageMediaUploaderProvider = Provider<MessageMediaUploader>((ref) {
     uploadAttachment: ref.watch(uploadMessageAttachmentUseCaseProvider),
     compressor: ref.watch(videoCompressorProvider),
     compressedPathFor: fileStore.pathFor,
+    uploadThumbnail: UploadVideoThumbnailUseCase(
+      ref.watch(messageAttachmentRepositoryProvider),
+    ),
   );
   ref.onDispose(uploader.dispose);
   return uploader;

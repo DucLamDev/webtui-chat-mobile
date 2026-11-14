@@ -195,14 +195,83 @@ void main() {
 
     await controller.beginSession(workspaceId: 'workspace-1');
     expect(controller.state.status, LegalAcceptanceStatus.error);
+    // Lỗi mạng lúc kiểm tra ngầm: không che màn hình bằng hộp thoại.
+    expect(controller.state.gateVisible, isFalse);
     expect(policy.canCreateUserContent, isFalse);
 
-    await controller.retry();
+    await controller.retry(showGate: false);
     expect(controller.state.status, LegalAcceptanceStatus.required);
+    expect(controller.state.gateVisible, isTrue);
     expect(attempts, 2);
     controller.dispose();
     policy.dispose();
   });
+
+  test(
+    'opening a session checks silently and stays hidden when accepted',
+    () async {
+      final pending = Completer<Result<LegalAcceptance>>();
+      final policy = LegalAcceptanceAccessPolicy();
+      final controller = _controller(
+        policy: policy,
+        load: ({required workspaceId}) => pending.future,
+      );
+
+      final session = controller.beginSession(workspaceId: 'workspace-1');
+      expect(controller.state.status, LegalAcceptanceStatus.loading);
+      expect(controller.state.gateVisible, isFalse);
+      expect(policy.canCreateUserContent, isFalse);
+
+      // Bị chặn khi đang kiểm tra: không bật hộp thoại "đang kiểm tra".
+      policy.requireAcceptance();
+      expect(controller.state.gateVisible, isFalse);
+
+      pending.complete(Success(_acceptance(complete: true)));
+      await session;
+      expect(controller.state.status, LegalAcceptanceStatus.complete);
+      expect(controller.state.gateVisible, isFalse);
+      expect(policy.canCreateUserContent, isTrue);
+      controller.dispose();
+      policy.dispose();
+    },
+  );
+
+  test(
+    'required event while dismissed to read-only checks silently first',
+    () async {
+      var attempts = 0;
+      final secondLoad = Completer<Result<LegalAcceptance>>();
+      final policy = LegalAcceptanceAccessPolicy();
+      final controller = _controller(
+        policy: policy,
+        load: ({required workspaceId}) {
+          attempts++;
+          if (attempts == 1) {
+            return Future.value(
+              Success(_acceptance(complete: false, workspaceId: workspaceId)),
+            );
+          }
+          return secondLoad.future;
+        },
+      );
+
+      await controller.beginSession(workspaceId: 'workspace-1');
+      controller.dismissToReadOnly();
+      expect(controller.state.gateVisible, isFalse);
+
+      policy.requireAcceptance();
+      expect(attempts, 2);
+      expect(controller.state.status, LegalAcceptanceStatus.loading);
+      expect(controller.state.gateVisible, isFalse);
+
+      secondLoad.complete(Success(_acceptance(complete: false)));
+      await Future<void>.delayed(Duration.zero);
+      expect(controller.state.status, LegalAcceptanceStatus.required);
+      expect(controller.state.gateVisible, isTrue);
+      controller.dispose();
+      policy.dispose();
+    },
+  );
 
   test(
     'LEGAL_ACCEPTANCE_REQUIRED event invalidates complete state and reloads',

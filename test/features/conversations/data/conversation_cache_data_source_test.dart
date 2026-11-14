@@ -67,6 +67,10 @@ void main() {
                   byteSize: 2048,
                   downloadPath: '/files/file-1',
                   createdAt: createdAt,
+                  thumbnailUrl: '/files/file-1/thumbnail',
+                  width: 640,
+                  height: 480,
+                  durationMs: 2500,
                 ),
                 createdAt: createdAt,
               ),
@@ -95,6 +99,11 @@ void main() {
     expect(page.messages.single.body, 'Xin chao');
     expect(page.messages.single.reactions.single.reactedByMe, isTrue);
     expect(page.messages.single.attachments.single.file.name, 'photo.jpg');
+    final cachedFile = page.messages.single.attachments.single.file;
+    expect(cachedFile.thumbnailUrl, '/files/file-1/thumbnail');
+    expect(cachedFile.width, 640);
+    expect(cachedFile.height, 480);
+    expect(cachedFile.durationMs, 2500);
     expect(page.messages.single.isPinned, isTrue);
 
     await cache.updateLatestMessagePin(
