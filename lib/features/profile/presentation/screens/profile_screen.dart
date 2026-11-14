@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
@@ -221,32 +222,31 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 }
 
 void _showAvatarSheet(BuildContext context, ProfileController controller) {
-  showModalBottomSheet<void>(
+  showWebTuiSheet<void>(
     context: context,
-    showDragHandle: true,
     builder: (context) {
-      return SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            WebTuiSettingRow(
-              title: 'Chụp ảnh mới',
-              icon: Icons.photo_camera_outlined,
-              onTap: () {
-                Navigator.of(context).pop();
-                controller.changeAvatar(AvatarPickerSource.camera);
-              },
-            ),
-            WebTuiSettingRow(
-              title: 'Chọn từ thư viện',
-              icon: Icons.photo_library_outlined,
-              onTap: () {
-                Navigator.of(context).pop();
-                controller.changeAvatar(AvatarPickerSource.gallery);
-              },
-            ),
-          ],
-        ),
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const WebTuiSheetHeader(title: 'Ảnh đại diện'),
+          WebTuiSheetActionTile(
+            title: 'Chụp ảnh mới',
+            icon: WebTuiIcons.image,
+            onTap: () {
+              Navigator.of(context).pop();
+              controller.changeAvatar(AvatarPickerSource.camera);
+            },
+          ),
+          WebTuiSheetActionTile(
+            title: 'Chọn từ thư viện',
+            icon: WebTuiIcons.imageFile,
+            onTap: () {
+              Navigator.of(context).pop();
+              controller.changeAvatar(AvatarPickerSource.gallery);
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
       );
     },
   );

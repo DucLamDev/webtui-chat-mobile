@@ -3,7 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/flavor/app_config.dart';
 import '../../../../app/providers/foundation_providers.dart';
-import '../../../../design_system/components/webtui_avatar.dart';
+import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
@@ -363,17 +364,18 @@ Future<void> _showPasswordRecoveryGuidance(
 ) {
   return showDialog<void>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: const Text('Khôi phục mật khẩu'),
-      content: Text(
-        'Tài khoản được quản lý bởi máy chủ ${state.serverName ?? state.domain}. '
-        'Hãy liên hệ quản trị viên của tổ chức để đặt lại mật khẩu. Nếu tổ chức '
-        'dùng SSO/OIDC, bạn có thể quay lại và chọn nhà cung cấp đăng nhập tương ứng.',
-      ),
+    builder: (dialogContext) => WebTuiDialog(
+      title: 'Khôi phục mật khẩu',
+      icon: WebTuiIcons.key,
+      message:
+          'Tài khoản được quản lý bởi máy chủ ${state.serverName ?? state.domain}. '
+          'Hãy liên hệ quản trị viên của tổ chức để đặt lại mật khẩu. Nếu tổ chức '
+          'dùng SSO/OIDC, bạn có thể quay lại và chọn nhà cung cấp đăng nhập tương ứng.',
       actions: [
-        FilledButton(
+        WebTuiDialogAction(
+          label: 'Đã hiểu',
+          primary: true,
           onPressed: () => Navigator.pop(dialogContext),
-          child: const Text('Đã hiểu'),
         ),
       ],
     ),

@@ -197,6 +197,23 @@ final class ListSharedFilesUseCase {
   }
 }
 
+/// Xin đường dẫn phát dần cho một tệp chia sẻ.
+final class CreateSharedFileStreamLinkUseCase {
+  const CreateSharedFileStreamLinkUseCase(this._repository);
+
+  final WorkHubRepository _repository;
+
+  Future<Result<SharedFileStreamLink>> execute({
+    required String workspaceId,
+    required String fileId,
+  }) {
+    return _repository.createFileStreamLink(
+      workspaceId: workspaceId,
+      fileId: fileId,
+    );
+  }
+}
+
 /// Số đếm + tối đa 3 việc chưa xong gần hạn nhất cho thẻ "Việc của tôi".
 final class MyTasksOverview {
   const MyTasksOverview({required this.summary, required this.upcoming});

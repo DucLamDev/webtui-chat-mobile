@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
@@ -78,28 +79,18 @@ class DeviceApprovalReviewScreen extends ConsumerWidget {
     BuildContext context,
     DeviceApprovalReviewController controller,
   ) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Từ chối thiết bị này?'),
-        content: const Text(
+    final confirmed = await showWebTuiConfirmDialog(
+      context,
+      title: 'Từ chối thiết bị này?',
+      message:
           'Thiết bị sẽ bị đăng xuất ngay. Nếu không phải bạn đăng nhập, hãy đổi '
           'mật khẩu sau khi từ chối.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Hủy'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            style: FilledButton.styleFrom(backgroundColor: WebTuiColors.danger),
-            child: const Text('Từ chối'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Từ chối',
+      cancelLabel: 'Hủy',
+      destructive: true,
+      icon: WebTuiIcons.close,
     );
-    if (confirmed == true) {
+    if (confirmed) {
       await controller.decide(approve: false);
     }
   }

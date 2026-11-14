@@ -1447,6 +1447,13 @@ final listUpcomingMeetingsUseCaseProvider =
       return ListUpcomingMeetingsUseCase(ref.watch(workHubRepositoryProvider));
     });
 
+final createSharedFileStreamLinkUseCaseProvider =
+    Provider<CreateSharedFileStreamLinkUseCase>((ref) {
+      return CreateSharedFileStreamLinkUseCase(
+        ref.watch(workHubRepositoryProvider),
+      );
+    });
+
 final listSharedFilesUseCaseProvider = Provider<ListSharedFilesUseCase>((ref) {
   return ListSharedFilesUseCase(ref.watch(workHubRepositoryProvider));
 });

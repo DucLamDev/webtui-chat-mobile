@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
@@ -296,32 +297,28 @@ class _MyNotesBody extends ConsumerWidget {
     MyNoteSummary note,
     MyNotesListController controller,
   ) async {
-    final action = await showModalBottomSheet<String>(
+    final action = await showWebTuiSheet<String>(
       context: context,
-      showDragHandle: true,
-      backgroundColor: WebTuiColors.surface,
       builder: (sheetContext) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: Icon(
-                note.pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
-              ),
-              title: Text(note.pinned ? 'Bỏ ghim' : 'Ghim lên đầu'),
+            WebTuiSheetHeader(
+              title: note.displayTitle,
+              subtitle: 'Ghi chú của tôi',
+            ),
+            WebTuiSheetActionTile(
+              icon: WebTuiIcons.pin,
+              title: note.pinned ? 'Bỏ ghim' : 'Ghim lên đầu',
               onTap: () => Navigator.of(sheetContext).pop('pin'),
             ),
-            ListTile(
-              leading: const Icon(
-                Icons.delete_outline_rounded,
-                color: WebTuiColors.danger,
-              ),
-              title: const Text(
-                'Xoá ghi chú',
-                style: TextStyle(color: WebTuiColors.danger),
-              ),
+            WebTuiSheetActionTile(
+              icon: WebTuiIcons.delete,
+              title: 'Xoá ghi chú',
+              tone: WebTuiDialogTone.danger,
               onTap: () => Navigator.of(sheetContext).pop('delete'),
             ),
+            const SizedBox(height: WebTuiSpacing.sm),
           ],
         ),
       ),
