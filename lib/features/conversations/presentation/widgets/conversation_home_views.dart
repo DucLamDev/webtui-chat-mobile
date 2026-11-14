@@ -324,13 +324,10 @@ class _MessagesList extends StatelessWidget {
             ),
           ),
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.lg),
-              child: _InboxFilterChips(
-                labels: state.inboxFilterLabels,
-                selectedIndex: filterIndex < 0 ? 0 : filterIndex,
-                onChanged: onFilterChanged,
-              ),
+            child: _InboxFilterChips(
+              labels: state.inboxFilterLabels,
+              selectedIndex: filterIndex < 0 ? 0 : filterIndex,
+              onChanged: onFilterChanged,
             ),
           ),
           if (showWorkEntries)
@@ -420,50 +417,51 @@ class _InboxFilterChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Cả hàng thu nhỏ theo CÙNG một tỉ lệ khi thiếu chỗ (không thu từng nút),
-    // nên chữ mọi nút bằng nhau và luôn thấy đủ các nút như ảnh mẫu.
-    return SizedBox(
+    // Không thu nhỏ chữ: máy hẹp hay cỡ chữ hệ thống lớn thì cả hàng cuộn ngang
+    // (đệm 16 nằm trong vùng cuộn để chip trượt sát mép màn hình). Mọi nút cùng
+    // cỡ chữ, vùng bấm luôn cao ≥ 48dp.
+    return SingleChildScrollView(
       key: const ValueKey('inbox-filter-chips'),
-      width: double.infinity,
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        alignment: Alignment.centerLeft,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (var index = 0; index < labels.length; index++) ...[
-              if (index > 0) const SizedBox(width: WebTuiSpacing.sm),
-              ChoiceChip(
-                label: Text(labels[index]),
-                selected: index == selectedIndex,
-                showCheckmark: false,
-                visualDensity: VisualDensity.compact,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                shape: const StadiumBorder(),
-                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
-                labelStyle: TextStyle(
-                  fontFamily: WebTuiTypography.fontFamily,
-                  fontSize: 15,
-                  fontWeight: index == selectedIndex
-                      ? FontWeight.w800
-                      : FontWeight.w500,
-                  color: index == selectedIndex
-                      ? WebTuiColors.textOnPrimary
-                      : WebTuiColors.textSecondary,
-                ),
-                selectedColor: WebTuiColors.primary,
-                backgroundColor: WebTuiColors.surface,
-                side: BorderSide(
-                  color: index == selectedIndex
-                      ? WebTuiColors.primary
-                      : const Color(0xFFC3D0E0),
-                  width: 1.2,
-                ),
-                onSelected: (_) => onChanged(index),
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.lg),
+      child: Row(
+        children: [
+          for (var index = 0; index < labels.length; index++) ...[
+            if (index > 0) const SizedBox(width: WebTuiSpacing.sm),
+            ChoiceChip(
+              label: Text(labels[index]),
+              selected: index == selectedIndex,
+              showCheckmark: false,
+              // Mật độ dọc chuẩn + `padded`: vùng bấm cao 48dp (mật độ
+              // compact hạ còn 40dp). Đệm dọc giảm 4 để viên chip trông vẫn
+              // gọn như mẫu.
+              visualDensity: const VisualDensity(horizontal: -2, vertical: 0),
+              materialTapTargetSize: MaterialTapTargetSize.padded,
+              shape: const StadiumBorder(),
+              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+              labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+              labelStyle: TextStyle(
+                fontFamily: WebTuiTypography.fontFamily,
+                fontSize: 15,
+                fontWeight: index == selectedIndex
+                    ? FontWeight.w800
+                    : FontWeight.w500,
+                color: index == selectedIndex
+                    ? WebTuiColors.textOnPrimary
+                    : WebTuiColors.textSecondary,
               ),
-            ],
+              selectedColor: WebTuiColors.primary,
+              backgroundColor: WebTuiColors.surface,
+              side: BorderSide(
+                color: index == selectedIndex
+                    ? WebTuiColors.primary
+                    : const Color(0xFFC3D0E0),
+                width: 1.2,
+              ),
+              onSelected: (_) => onChanged(index),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }

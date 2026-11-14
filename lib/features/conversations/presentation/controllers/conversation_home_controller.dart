@@ -9,6 +9,7 @@ import '../../application/use_cases/load_conversation_home_use_case.dart';
 import '../../application/use_cases/open_direct_conversation_use_case.dart';
 import '../../domain/entities/business_channel_catalog.dart';
 import '../../domain/entities/conversation_summary.dart';
+import '../models/conversation_privacy_projection.dart';
 
 final conversationHomeControllerProvider = StateNotifierProvider.autoDispose
     .family<ConversationHomeController, ConversationHomeState, String>((
@@ -155,6 +156,31 @@ final class ConversationHomeState {
           final count => '${_inboxFilterLabels[filter]} $count',
         },
     ];
+  }
+
+  /// Số tin chưa đọc cho số đỏ trên tab Tin nhắn ở thanh dưới.
+  ///
+  /// Đếm trên mọi hội thoại của hộp thư, KHÔNG theo chip lọc hay ô tìm của màn
+  /// Tin nhắn (đổi chip / gõ tìm không làm số nhảy); gồm kênh nghiệp vụ khi
+  /// bật. Bỏ hội thoại tắt tiếng và chat 1-1 với người đã chặn: dòng chat của
+  /// họ cũng không hiện số chưa đọc.
+  int unreadBadgeCount({Set<String> blockedUserIds = const {}}) {
+    final unread = _buildInbox(
+      directs: conversations,
+      channels: channels,
+      filter: ConversationListFilter.unread,
+      query: '',
+      automationEnabled: automationEnabled,
+    );
+    var total = 0;
+    for (final item in unread) {
+      if (item.muted || item.membershipStatus == MembershipStatus.muted) {
+        continue;
+      }
+      if (blockedDirectPeerUserId(item, blockedUserIds) != null) continue;
+      total += item.unreadCount;
+    }
+    return total;
   }
 
   /// Kênh nghiệp vụ (bot đơn hàng, gia hạn...) cho tab Nghiệp vụ, theo thứ tự cố định của

@@ -89,6 +89,38 @@ void main() {
         const MarkdownText('snake_case_name'),
       ]);
     });
+
+    test('liên kết / địa chỉ giữa đoạn được nhận đúng vị trí', () {
+      expect(parseMyNoteInline('a **b** [c](https://d.vn) e\nhttps://f.vn'), [
+        const MarkdownText('a '),
+        const MarkdownText('b', bold: true),
+        const MarkdownText(' '),
+        const MarkdownLink('c', 'https://d.vn'),
+        const MarkdownText(' e\n'),
+        const MarkdownLink('https://f.vn', 'https://f.vn'),
+      ]);
+      // Chữ "http" dính liền chữ trước thì không phải địa chỉ.
+      expect(parseMyNoteInline('xhttps://g.vn'), [
+        const MarkdownText('xhttps://g.vn'),
+      ]);
+    });
+
+    test('đoạn dài 50.000 ký tự không dòng trống vẫn giữ đủ nội dung', () {
+      // Trước đây cắt chuỗi con ở mỗi ký tự (O(n²)); nay quét một lượt.
+      final long = List.filled(1700, 'chữ **đậm** [a](https://x.vn) ').join();
+      expect(long.length, greaterThan(50000));
+      final inlines = parseMyNoteInline(long);
+      expect(inlines.whereType<MarkdownLink>(), hasLength(1700));
+      expect(
+        inlines.whereType<MarkdownText>().where((text) => text.bold),
+        hasLength(1700),
+      );
+      final pathological = '[' * 20000 + 'ahttp://b' * 2000;
+      expect(
+        parseMyNoteInline(pathological).whereType<MarkdownText>().single.text,
+        pathological,
+      );
+    });
   });
 
   test('myNoteMarkdownToPlainText bỏ cú pháp', () {

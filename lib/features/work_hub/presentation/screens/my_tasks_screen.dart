@@ -4,20 +4,28 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../conversations/domain/entities/collaboration_room.dart';
+import '../../application/use_cases/work_hub_use_cases.dart';
 import '../controllers/work_hub_providers.dart';
 import '../widgets/my_tasks_card.dart';
 import '../widgets/work_common.dart';
 
 /// Danh sách việc giao cho tôi, lọc theo trạng thái; có ô tìm theo tên.
+///
+/// "Hoàn thành" chỉ liệt kê việc xong trong 7 ngày qua, khớp ô đếm ở thẻ Việc
+/// của tôi; việc cũ hơn vẫn tìm được bằng ô tìm (tìm trên mọi việc).
 class MyTasksScreen extends ConsumerStatefulWidget {
   const MyTasksScreen({
     required this.workspaceId,
     this.startWithSearch = false,
+    this.now,
     super.key,
   });
 
   final String workspaceId;
   final bool startWithSearch;
+
+  /// Mốc giờ để tính "7 ngày qua" (test truyền cố định; mặc định giờ máy).
+  final DateTime? now;
 
   @override
   ConsumerState<MyTasksScreen> createState() => _MyTasksScreenState();
@@ -99,6 +107,20 @@ class _MyTasksScreenState extends ConsumerState<MyTasksScreen> {
                   ],
                 ),
               ),
+            if (query.isEmpty && _filter == CollaborationTaskStatus.done)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Việc xong trong 7 ngày qua. Tìm theo tên để xem việc cũ hơn.',
+                    key: const Key('my_tasks_done_hint'),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: WebTuiColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
             Expanded(
               child: async.when(
                 loading: () => const Padding(
@@ -120,11 +142,14 @@ class _MyTasksScreenState extends ConsumerState<MyTasksScreen> {
                   ),
                 ),
                 data: (tasks) {
+                  final now = widget.now ?? DateTime.now();
                   final shown = tasks
                       .where(
-                        (task) => query.isEmpty
-                            ? task.taskStatus == _filter
-                            : task.title.toLowerCase().contains(query),
+                        (task) => query.isNotEmpty
+                            ? task.title.toLowerCase().contains(query)
+                            : _filter == CollaborationTaskStatus.done
+                            ? isRecentlyDone(task, now)
+                            : task.taskStatus == _filter,
                       )
                       .toList(growable: false);
                   if (shown.isEmpty) {
@@ -132,7 +157,9 @@ class _MyTasksScreenState extends ConsumerState<MyTasksScreen> {
                       message: tasks.isEmpty
                           ? 'Chưa có việc nào được giao cho bạn'
                           : query.isEmpty
-                          ? 'Không có việc nào ở mục này'
+                          ? _filter == CollaborationTaskStatus.done
+                                ? 'Không có việc nào xong trong 7 ngày qua'
+                                : 'Không có việc nào ở mục này'
                           : 'Không thấy việc nào tên "${_search.text.trim()}"',
                     );
                   }

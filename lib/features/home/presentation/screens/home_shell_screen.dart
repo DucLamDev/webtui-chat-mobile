@@ -33,6 +33,7 @@ import '../../../conversations/domain/entities/conversation_realtime_event.dart'
 import '../../../conversations/domain/entities/conversation_summary.dart';
 import '../../../conversations/presentation/controllers/chat_room_controller.dart';
 import '../../../conversations/presentation/controllers/conversation_home_controller.dart';
+import '../../../conversations/presentation/controllers/messages_tab_unread.dart';
 import '../../../conversations/presentation/controllers/pending_chat_share_controller.dart';
 import '../../../conversations/presentation/screens/webrtc_call_screen.dart';
 import '../../../conversations/presentation/screens/workspace_tools_screen.dart';
@@ -292,14 +293,10 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       noticeBot: organization?.capabilities.noticeBot == true,
     );
 
-    // Số tin chưa đọc ở góc biểu tượng tab Tin nhắn.
+    // Số tin chưa đọc ở góc biểu tượng tab Tin nhắn: đếm cả hộp thư, không
+    // theo chip lọc / ô tìm đang chọn của màn Tin nhắn.
     final messagesUnread = ref.watch(
-      conversationHomeControllerProvider(activeWorkspace.id).select(
-        (state) => state.inbox.fold<int>(
-          0,
-          (sum, item) => sum + (item.muted ? 0 : item.unreadCount),
-        ),
-      ),
+      messagesTabUnreadCountProvider(activeWorkspace.id),
     );
 
     return KeyedSubtree(
