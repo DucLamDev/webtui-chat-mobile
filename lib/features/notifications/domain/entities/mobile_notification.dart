@@ -81,6 +81,45 @@ final class NotificationPreference {
   final bool badgeEnabled;
 }
 
+/// Cài đặt báo của MỘT kênh (vd. chat bot thông báo): tắt / bật cả kênh.
+final class ChannelNotificationPreference {
+  const ChannelNotificationPreference({
+    required this.workspaceId,
+    required this.channelId,
+    this.mode = NotificationMode.all,
+    this.mutedUntil,
+    this.sensitive = false,
+    this.important = false,
+    this.compact = false,
+    this.tags = const [],
+  });
+
+  final String workspaceId;
+  final String channelId;
+  final NotificationMode mode;
+  final DateTime? mutedUntil;
+  final bool sensitive;
+  final bool important;
+  final bool compact;
+  final List<String> tags;
+
+  bool get isMuted => mode == NotificationMode.muted;
+
+  /// Đổi chế độ, giữ nguyên các trường còn lại; bật lại thì bỏ hạn tắt.
+  ChannelNotificationPreference withMuted(bool muted) {
+    return ChannelNotificationPreference(
+      workspaceId: workspaceId,
+      channelId: channelId,
+      mode: muted ? NotificationMode.muted : NotificationMode.all,
+      mutedUntil: muted ? mutedUntil : null,
+      sensitive: sensitive,
+      important: important,
+      compact: compact,
+      tags: tags,
+    );
+  }
+}
+
 final class PushDeviceRegistration {
   const PushDeviceRegistration({
     required this.id,

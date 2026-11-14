@@ -768,6 +768,8 @@ ConversationRealtimeEventType _eventType(String value) {
       ConversationRealtimeEventType.contactRequestUpdated,
     'ContactRequestCancelled' =>
       ConversationRealtimeEventType.contactRequestCancelled,
+    'NoticeChannelCreated' =>
+      ConversationRealtimeEventType.noticeChannelCreated,
     'OrderTicketUpdated' => ConversationRealtimeEventType.orderTicketUpdated,
     'SessionRevoked' => ConversationRealtimeEventType.sessionRevoked,
     'DeviceApprovalRequested' =>

@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../../app/providers/foundation_providers.dart';
+import '../../../../../app/router/notification_locations.dart';
 import '../../../../../design_system/components/webtui_badges.dart';
 import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
@@ -83,12 +85,9 @@ class _MessageCardViewState extends ConsumerState<MessageCardView> {
         : const MessageCardState();
     if (usesController) {
       ref.listen(messageCardControllerProvider(_scope), (previous, next) {
-        final message = next.errorMessage ?? next.noticeMessage;
-        if (message == null ||
-            (message == previous?.errorMessage ||
-                message == previous?.noticeMessage)) {
-          return;
-        }
+        // Lỗi hiện thành dòng đỏ dưới hàng nút; SnackBar chỉ cho thông báo.
+        final message = next.noticeMessage;
+        if (message == null || message == previous?.noticeMessage) return;
         ScaffoldMessenger.maybeOf(context)
           ?..hideCurrentSnackBar()
           ..showSnackBar(SnackBar(content: Text(message)));
@@ -181,6 +180,21 @@ class _MessageCardViewState extends ConsumerState<MessageCardView> {
                           ),
                       ],
                     ),
+                    if (cardState.errorMessage case final error?)
+                      Padding(
+                        padding: const EdgeInsets.only(top: WebTuiSpacing.xs),
+                        child: Semantics(
+                          liveRegion: true,
+                          child: Text(
+                            error,
+                            key: const Key('message_card_action_error'),
+                            style: WebTuiTypography.labelSmall.copyWith(
+                              color: WebTuiColors.danger,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                   const SizedBox(height: WebTuiSpacing.xs),
                   Align(
@@ -205,7 +219,7 @@ class _MessageCardViewState extends ConsumerState<MessageCardView> {
   bool _isActionVisible(MessageCardAction action, bool interactive) {
     return switch (action) {
       MessageCardReplyAction() => widget.onReply != null,
-      MessageCardCopyAction() => true,
+      MessageCardCopyAction() || MessageCardOpenAction() => true,
       MessageCardCallbackAction() || MessageCardApprovalAction() => interactive,
     };
   }
@@ -269,6 +283,13 @@ class _MessageCardViewState extends ConsumerState<MessageCardView> {
         await ref
             .read(messageCardControllerProvider(_scope).notifier)
             .decideApproval(action);
+      case MessageCardOpenAction(:final target):
+        final location = locationForCardOpenTarget(
+          target,
+          fallbackWorkspaceId: widget.message.workspaceId,
+        );
+        if (location == null) return;
+        await GoRouter.of(context).push<Object?>(location);
     }
   }
 
@@ -406,6 +427,7 @@ class _ActionButton extends StatelessWidget {
               Icons.thumb_up_alt_outlined,
             MessageCardApprovalAction() => Icons.thumb_down_alt_outlined,
             MessageCardCallbackAction() => Icons.touch_app_outlined,
+            MessageCardOpenAction() => Icons.open_in_new_rounded,
           }, size: 16);
     final label = Text(
       action.label,

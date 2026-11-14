@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/router/notification_locations.dart';
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
@@ -126,7 +127,9 @@ class NotificationsScreen extends ConsumerWidget {
                         if (!context.mounted) {
                           return;
                         }
-                        final location = _locationFor(notification.target);
+                        final location = locationForNotificationTarget(
+                          notification.target,
+                        );
                         if (location != null) {
                           context.push(location);
                         }
@@ -350,35 +353,6 @@ class _NotificationTile extends StatelessWidget {
       ),
     );
   }
-}
-
-String? _locationFor(NotificationTarget target) {
-  if (target.canOpenContacts) {
-    return Uri(
-      path: '/',
-      queryParameters: <String, String>{
-        'tab': 'contacts',
-        'workspaceId': target.workspaceId,
-      },
-    ).toString();
-  }
-  final channelId = target.channelId?.trim();
-  if (channelId == null || channelId.isEmpty) {
-    return null;
-  }
-  final params = <String, String>{
-    'workspaceId': target.workspaceId,
-    'title': 'Hội thoại',
-    if (target.messageId?.trim().isNotEmpty == true)
-      'messageId': target.messageId!.trim(),
-    if (target.opensTasks) 'tool': 'tasks',
-    if (target.opensTasks && target.taskId?.trim().isNotEmpty == true)
-      'taskId': target.taskId!.trim(),
-  };
-  return Uri(
-    path: '/conversations/$channelId',
-    queryParameters: params,
-  ).toString();
 }
 
 IconData _iconFor(String type) {

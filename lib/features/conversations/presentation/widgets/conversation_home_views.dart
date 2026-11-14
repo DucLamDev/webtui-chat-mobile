@@ -16,6 +16,7 @@ import '../../../moderation/presentation/widgets/moderation_actions.dart';
 import '../../../profile/presentation/controllers/profile_controller.dart';
 import '../../domain/entities/conversation_summary.dart';
 import '../controllers/conversation_home_controller.dart';
+import '../controllers/notice_bot_identity.dart';
 import '../models/conversation_privacy_projection.dart';
 import '../screens/chat_room_screen.dart';
 import 'business_channel_grid.dart';
@@ -411,7 +412,7 @@ class _MessagesList extends StatelessWidget {
   }
 }
 
-class _ConversationTile extends StatelessWidget {
+class _ConversationTile extends ConsumerWidget {
   const _ConversationTile({
     required this.conversation,
     required this.blockedUserIds,
@@ -427,20 +428,28 @@ class _ConversationTile extends StatelessWidget {
   final bool selected;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final privacy = ConversationPrivacyProjection.from(
       conversation,
       blockedUserIds,
     );
+    final bot = conversation.noticeBot
+        ? ref.watch(noticeBotIdentityProvider)
+        : null;
     return WebTuiConversationListItem(
-      title: conversation.title,
+      title: bot?.title ?? conversation.title,
       preview: privacy.preview,
       timeLabel: _timeLabel(conversation.updatedAt),
-      avatarLabel: conversation.avatarLabel ?? conversation.title,
-      avatarUrl: conversation.avatarUrl,
+      avatarLabel:
+          bot?.avatarLabel ?? conversation.avatarLabel ?? conversation.title,
+      avatarUrl: bot != null ? bot.logoUrl : conversation.avatarUrl,
+      avatarPublicImage: bot != null,
       unreadCount: privacy.isBlocked ? 0 : conversation.unreadCount,
       muted: conversation.muted,
-      status: conversation.kind == ConversationKind.direct && !privacy.isBlocked
+      status:
+          conversation.kind == ConversationKind.direct &&
+              !privacy.isBlocked &&
+              !conversation.noticeBot
           ? _presenceStatus(presence)
           : null,
       selected: selected,

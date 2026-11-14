@@ -228,6 +228,19 @@ void main() {
     expect(revoked?.type, ConversationRealtimeEventType.sessionRevoked);
     expect(revoked?.payload['session_id'], 's1');
 
+    // Chat bot thông báo vừa tạo (room cá nhân): màn chính dựa vào loại này để
+    // tải lại danh sách hội thoại.
+    final noticeChannel = map('NoticeChannelCreated', {
+      'workspace_id': 'w1',
+      'channel_id': 'c9',
+      'notice_bot': true,
+    });
+    expect(
+      noticeChannel?.type,
+      ConversationRealtimeEventType.noticeChannelCreated,
+    );
+    expect(noticeChannel?.workspaceId, 'w1');
+
     final typing = map('TypingStarted', {'user_id': 'u2'});
     expect(typing?.payload, isEmpty);
     expect(typing?.delta, isNull);

@@ -4,6 +4,15 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
+## 1.21.0 · 14/11/2026
+### Tính năng
+- Thông báo chuyển sang chat với bot, bỏ nút chuông
+  Trên máy chủ đã cập nhật, app không còn nút chuông và danh sách thông báo. Các thông báo (cuộc gọi nhỡ, được giao
+  việc, nhắc hẹn, lời mời kết bạn, duyệt yêu cầu, hộp thư khách, đăng nhập thiết bị mới) đến dưới dạng tin của
+  "<Tên tổ chức> Bot" trong một cuộc chat riêng, như bot trên Telegram. Mỗi tin là một thẻ có nút: "Mở việc", "Mở
+  hội thoại", "Gọi lại", "Chấp nhận / Từ chối" lời mời... bấm là tới đúng màn hoặc xử lý ngay. Lỗi khi bấm nút hiện
+  ngay dưới hàng nút. Chat bot chỉ đọc (không gõ được) và có mục "Tắt / Bật thông báo" trong menu ba chấm. Liên kết
+  cũ mở màn thông báo nay mở chat bot. Máy chủ chưa cập nhật thì app vẫn giữ nút chuông như cũ.
 
 
 ## 1.18.3 · 14/11/2026

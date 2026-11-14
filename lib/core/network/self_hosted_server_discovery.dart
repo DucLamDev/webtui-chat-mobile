@@ -191,6 +191,8 @@ final class SelfHostedServerDiscovery {
         qrLogin: capabilities['qr_login'] == true,
         deviceApproval: capabilities['device_approval'] == true,
         emailVerification: capabilities['email_verification'] == true,
+        // Bot thông báo thay nút chuông; máy chủ cũ không trả → giữ chuông.
+        noticeBot: capabilities['notice_bot'] == true,
       ),
       logoUrl: logoUrl,
       zoneKind: _text(zone['kind']).toLowerCase(),
@@ -373,6 +375,7 @@ final class SelfHostedCapabilities {
     this.qrLogin = false,
     this.deviceApproval = false,
     this.emailVerification = false,
+    this.noticeBot = false,
   });
 
   final bool chat;
@@ -429,6 +432,9 @@ final class SelfHostedCapabilities {
   /// Zone bắt xác minh email và máy chủ đã cấu hình SMTP (Lõi 2.6).
   final bool emailVerification;
 
+  /// Thông báo đi qua chat bot của tổ chức thay cho nút chuông.
+  final bool noticeBot;
+
   Map<String, bool> toJson() {
     return {
       'self_hosted': true,
@@ -458,6 +464,7 @@ final class SelfHostedCapabilities {
       'qr_login': qrLogin,
       'device_approval': deviceApproval,
       'email_verification': emailVerification,
+      'notice_bot': noticeBot,
     };
   }
 }

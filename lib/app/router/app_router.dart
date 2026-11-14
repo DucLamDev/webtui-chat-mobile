@@ -22,7 +22,7 @@ import '../../features/inbox/presentation/screens/inbox_conversation_screen.dart
 import '../../features/inbox/presentation/screens/inbox_list_screen.dart';
 import '../../features/my_notes/presentation/screens/my_note_editor_screen.dart';
 import '../../features/my_notes/presentation/screens/my_notes_screen.dart';
-import '../../features/notifications/presentation/screens/notifications_screen.dart';
+import '../../features/notifications/presentation/screens/notifications_route_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/settings/presentation/screens/app_settings_screen.dart';
 import '../../features/settings/presentation/screens/feedback_screen.dart';
@@ -123,6 +123,7 @@ final appRouterProvider = Provider<GoRouter>((_) {
             participantIds: participantIds ?? const [],
             initialTool: state.uri.queryParameters['tool'],
             initialTaskId: state.uri.queryParameters['taskId'],
+            initialCallMode: state.uri.queryParameters['startCall'],
           );
         },
       ),
@@ -130,7 +131,7 @@ final appRouterProvider = Provider<GoRouter>((_) {
         path: '/notifications',
         name: 'notifications',
         builder: (context, state) {
-          return NotificationsScreen(
+          return NotificationsRouteScreen(
             workspaceId: state.uri.queryParameters['workspaceId'],
           );
         },

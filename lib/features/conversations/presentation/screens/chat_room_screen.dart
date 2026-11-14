@@ -32,12 +32,15 @@ import '../controllers/chat_room_controller.dart';
 import '../controllers/collaboration_task_controller.dart';
 import '../controllers/conversation_home_controller.dart';
 import '../controllers/message_sender_directory.dart';
+import '../controllers/notice_bot_identity.dart';
 import '../controllers/pending_chat_share_controller.dart';
 import '../widgets/collaboration_room_sheet.dart';
 import '../widgets/message_cards/message_card_view.dart';
 import '../widgets/message_cards/streaming_message_bubble.dart';
 import '../widgets/message_media_widgets.dart';
 import '../widgets/message_parts/secret_message_widgets.dart';
+import '../widgets/notice_bot_mute_action.dart';
+import '../widgets/notice_bot_read_only_bar.dart';
 import '../widgets/task_editor_sheet.dart';
 import '../widgets/voice_transcript_view.dart';
 import 'qr_scanner_screen.dart';
@@ -195,6 +198,7 @@ class ChatRoomScreen extends ConsumerStatefulWidget {
     this.embedded = false,
     this.initialTool,
     this.initialTaskId,
+    this.initialCallMode,
     super.key,
   });
 
@@ -212,6 +216,10 @@ class ChatRoomScreen extends ConsumerStatefulWidget {
   final String? initialTool;
   final String? initialTaskId;
 
+  /// `audio` / `video`: bắt đầu cuộc gọi 1-1 ngay khi phòng sẵn sàng (nút
+  /// "Gọi lại" của thẻ bot), một lần cho mỗi lần mở.
+  final String? initialCallMode;
+
   @override
   ConsumerState<ChatRoomScreen> createState() => _ChatRoomScreenState();
 }
@@ -220,6 +228,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
     with WidgetsBindingObserver {
   final _draftController = TextEditingController();
   bool _initialToolHandled = false;
+  bool _initialCallHandled = false;
   final _draftFocusNode = FocusNode();
   ChatRoomController? _chatController;
   String? _appliedInitialMessageId;
@@ -254,6 +263,20 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
       if (item.channelId == widget.channelId) return item;
     }
     return null;
+  }
+
+  /// Kênh chat riêng của bot thông báo: lấy từ hội thoại truyền vào, hoặc tìm
+  /// trong hộp thư đã tải khi mở bằng đường dẫn.
+  bool _isNoticeBotChannel(String workspaceId) {
+    final given = widget.conversation;
+    if (given != null) return given.noticeBot;
+    final home = conversationHomeControllerProvider(workspaceId);
+    if (!ref.exists(home)) return false;
+    final state = ref.read(home);
+    for (final item in [...state.conversations, ...state.channels]) {
+      if (item.channelId == widget.channelId) return item.noticeBot;
+    }
+    return false;
   }
 
   void _redirectToCustomerTickets(String location) {
@@ -421,10 +444,13 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
     }
     _openInitialToolOnce(context, workspaceId);
 
+    final noticeBot = _isNoticeBotChannel(workspaceId);
+    final botIdentity = noticeBot ? ref.watch(noticeBotIdentityProvider) : null;
+    final roomTitle = botIdentity?.title ?? widget.title;
     final scope = ChatRoomScope(
       workspaceId: workspaceId,
       channelId: widget.channelId,
-      title: widget.title,
+      title: roomTitle,
     );
     final provider = chatRoomControllerProvider(scope);
     final state = ref.watch(provider);
@@ -447,6 +473,12 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         safetyTargetUserId != null &&
         moderationState.isBlocked(safetyTargetUserId);
     _chatController = controller;
+    _startInitialCallOnce(
+      context: context,
+      controller: controller,
+      state: state,
+      canCall: callsEnabled && !interactionBlocked,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
@@ -494,7 +526,10 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         state: state,
         senderDirectory: senderDirectory,
         showSenderNames: showSenderNames,
-        directAvatarUrl: widget.conversation?.avatarUrl,
+        directAvatarUrl: botIdentity != null
+            ? botIdentity.logoUrl
+            : widget.conversation?.avatarUrl,
+        noticeBot: noticeBot,
         draftController: _draftController,
         draftFocusNode: _draftFocusNode,
         onDraftChanged: controller.updateDraft,
@@ -629,7 +664,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         child: Column(
           children: [
             _EmbeddedChatHeader(
-              title: widget.title,
+              title: roomTitle,
               avatarUrl: widget.avatarUrl,
               onDetails: () => _openDetails(context),
               onSafety: safetyTargetUserId == null
@@ -659,7 +694,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         elevation: 0,
         titleSpacing: 0,
         title: Text(
-          widget.title,
+          roomTitle,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: WebTuiTypography.titleMedium.copyWith(
@@ -674,73 +709,80 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
                 _openSearch(context, controller, state.searchQuery),
             icon: const Icon(CupertinoIcons.search, size: 21),
           ),
-          if (callsEnabled) ...[
-            IconButton(
-              tooltip: 'Gọi thoại',
-              onPressed: interactionBlocked
-                  ? () => _showCapabilityUnavailable(
-                      context,
-                      'Hãy bỏ chặn người dùng trước khi gọi.',
-                    )
-                  : () => unawaited(
-                      _startCallFromCurrentConversation(
+          if (noticeBot)
+            NoticeBotMuteAction(
+              workspaceId: workspaceId,
+              channelId: widget.channelId,
+            )
+          else ...[
+            if (callsEnabled) ...[
+              IconButton(
+                tooltip: 'Gọi thoại',
+                onPressed: interactionBlocked
+                    ? () => _showCapabilityUnavailable(
                         context,
-                        controller,
-                        state,
-                        CallMode.audio,
+                        'Hãy bỏ chặn người dùng trước khi gọi.',
+                      )
+                    : () => unawaited(
+                        _startCallFromCurrentConversation(
+                          context,
+                          controller,
+                          state,
+                          CallMode.audio,
+                        ),
                       ),
+                icon: const Icon(CupertinoIcons.phone, size: 21),
+              ),
+              IconButton(
+                tooltip: 'Gọi video',
+                onPressed: interactionBlocked
+                    ? () => _showCapabilityUnavailable(
+                        context,
+                        'Hãy bỏ chặn người dùng trước khi gọi.',
+                      )
+                    : () => unawaited(
+                        _startCallFromCurrentConversation(
+                          context,
+                          controller,
+                          state,
+                          CallMode.video,
+                        ),
+                      ),
+                icon: const Icon(CupertinoIcons.video_camera, size: 22),
+              ),
+            ],
+            if (safetyTargetUserId != null)
+              IconButton(
+                tooltip: 'Báo cáo hoặc chặn người dùng',
+                onPressed: () => showUserSafetyActions(
+                  context,
+                  ref,
+                  workspaceId: workspaceId,
+                  userId: safetyTargetUserId,
+                  userLabel: widget.title,
+                ),
+                icon: const Icon(Icons.shield_outlined, size: 22),
+              ),
+            IconButton(
+              key: const Key('chat_collaboration_tools_action'),
+              tooltip: 'Công cụ làm việc',
+              onPressed: interactionBlocked
+                  ? () => _showBlockedSharedContentGuidance(context)
+                  : () => showCollaborationRoomSheet(
+                      context,
+                      workspaceId: workspaceId,
+                      channelId: widget.channelId,
+                      title: widget.title,
+                      conversation: widget.conversation,
                     ),
-              icon: const Icon(CupertinoIcons.phone, size: 21),
+              icon: const Icon(CupertinoIcons.square_grid_2x2, size: 21),
             ),
             IconButton(
-              tooltip: 'Gọi video',
-              onPressed: interactionBlocked
-                  ? () => _showCapabilityUnavailable(
-                      context,
-                      'Hãy bỏ chặn người dùng trước khi gọi.',
-                    )
-                  : () => unawaited(
-                      _startCallFromCurrentConversation(
-                        context,
-                        controller,
-                        state,
-                        CallMode.video,
-                      ),
-                    ),
-              icon: const Icon(CupertinoIcons.video_camera, size: 22),
+              tooltip: 'Chi tiết kênh',
+              onPressed: () => _openDetails(context),
+              icon: const Icon(CupertinoIcons.line_horizontal_3, size: 23),
             ),
           ],
-          if (safetyTargetUserId != null)
-            IconButton(
-              tooltip: 'Báo cáo hoặc chặn người dùng',
-              onPressed: () => showUserSafetyActions(
-                context,
-                ref,
-                workspaceId: workspaceId,
-                userId: safetyTargetUserId,
-                userLabel: widget.title,
-              ),
-              icon: const Icon(Icons.shield_outlined, size: 22),
-            ),
-          IconButton(
-            key: const Key('chat_collaboration_tools_action'),
-            tooltip: 'Công cụ làm việc',
-            onPressed: interactionBlocked
-                ? () => _showBlockedSharedContentGuidance(context)
-                : () => showCollaborationRoomSheet(
-                    context,
-                    workspaceId: workspaceId,
-                    channelId: widget.channelId,
-                    title: widget.title,
-                    conversation: widget.conversation,
-                  ),
-            icon: const Icon(CupertinoIcons.square_grid_2x2, size: 21),
-          ),
-          IconButton(
-            tooltip: 'Chi tiết kênh',
-            onPressed: () => _openDetails(context),
-            icon: const Icon(CupertinoIcons.line_horizontal_3, size: 23),
-          ),
         ],
       ),
       body: SafeArea(top: false, child: body),
@@ -875,6 +917,40 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         context,
       ).showSnackBar(SnackBar(content: Text(result)));
     }
+  }
+
+  /// Mở từ nút "Gọi lại": đợi biết người dùng hiện tại rồi gọi đúng chế độ.
+  void _startInitialCallOnce({
+    required BuildContext context,
+    required ChatRoomController controller,
+    required ChatRoomState state,
+    required bool canCall,
+  }) {
+    final raw = widget.initialCallMode;
+    if (_initialCallHandled || raw == null) return;
+    final mode = switch (raw) {
+      'audio' => CallMode.audio,
+      'video' => CallMode.video,
+      _ => null,
+    };
+    if (mode == null || !canCall) {
+      // Máy chủ tắt gọi, đang chặn hoặc giá trị lạ: chỉ mở chat.
+      _initialCallHandled = true;
+      return;
+    }
+    if (state.isLoading || state.currentUserId == null) return;
+    _initialCallHandled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        _startCallFromCurrentConversation(
+          this.context,
+          controller,
+          state,
+          mode,
+        ),
+      );
+    });
   }
 
   void _openInitialToolOnce(BuildContext context, String workspaceId) {
@@ -1247,6 +1323,7 @@ class _ChatRoomBody extends StatefulWidget {
     required this.onReplyPrivately,
     required this.blockedUserIds,
     required this.interactionBlocked,
+    required this.noticeBot,
     required this.onManageBlockedConversation,
     required this.onReportMessage,
     required this.onReportUser,
@@ -1296,6 +1373,9 @@ class _ChatRoomBody extends StatefulWidget {
   final ValueChanged<ChatMessage> onReplyPrivately;
   final Set<String> blockedUserIds;
   final bool interactionBlocked;
+
+  /// Chat bot thông báo: chỉ đọc, không có ô nhập.
+  final bool noticeBot;
   final VoidCallback? onManageBlockedConversation;
   final ValueChanged<ChatMessage> onReportMessage;
   final ValueChanged<ChatMessage> onReportUser;
@@ -1546,6 +1626,7 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
                                                     .senderId]
                                                 ?.avatarUrl
                                           : widget.directAvatarUrl,
+                                      avatarPublicImage: widget.noticeBot,
                                       senderName:
                                           widget.showSenderNames &&
                                               !message.isMine &&
@@ -1583,14 +1664,18 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
           (item) => item.isFailed || !item.hasPendingUploads,
         ))
           _OutboxStatusBar(state: widget.state, onRetry: widget.onRetryOutbox),
-        if (!widget.interactionBlocked && widget.state.canSend)
+        if (!widget.noticeBot &&
+            !widget.interactionBlocked &&
+            widget.state.canSend)
           SecretMessageComposer(
             key: ValueKey(widget.state.scope.channelId),
             workspaceId: widget.workspaceId,
             channelId: widget.state.scope.channelId,
             onSent: widget.onRetry,
           ),
-        if (widget.interactionBlocked)
+        if (widget.noticeBot)
+          const NoticeBotReadOnlyBar()
+        else if (widget.interactionBlocked)
           _BlockedConversationComposer(
             onManage: widget.onManageBlockedConversation,
           )
@@ -3649,11 +3734,15 @@ class _MessageRow extends StatelessWidget {
     required this.onReact,
     required this.onRetryCall,
     this.onCardReply,
+    this.avatarPublicImage = false,
   });
 
   final ChatMessage message;
   final String avatarLabel;
   final String? avatarUrl;
+
+  /// Logo tổ chức của chat bot: ảnh công khai.
+  final bool avatarPublicImage;
 
   /// Tên người gửi in phía trên tin đầu của chuỗi tin cùng người (chỉ nhóm).
   final String? senderName;
@@ -3716,6 +3805,7 @@ class _MessageRow extends StatelessWidget {
                 ? WebTuiAvatar(
                     label: avatarLabel,
                     imageUrl: avatarUrl,
+                    allowPublicRequest: avatarPublicImage,
                     size: 30,
                   )
                 : const SizedBox.shrink(),
@@ -3750,6 +3840,7 @@ class _MessageRow extends StatelessWidget {
                 ? WebTuiAvatar(
                     label: avatarLabel,
                     imageUrl: avatarUrl,
+                    allowPublicRequest: avatarPublicImage,
                     size: 30,
                   )
                 : const SizedBox.shrink(),
@@ -3812,7 +3903,12 @@ class _MessageRow extends StatelessWidget {
         SizedBox.square(
           dimension: 30,
           child: showAvatar
-              ? WebTuiAvatar(label: avatarLabel, imageUrl: avatarUrl, size: 30)
+              ? WebTuiAvatar(
+                  label: avatarLabel,
+                  imageUrl: avatarUrl,
+                  allowPublicRequest: avatarPublicImage,
+                  size: 30,
+                )
               : const SizedBox.shrink(),
         ),
         const SizedBox(width: WebTuiSpacing.sm),

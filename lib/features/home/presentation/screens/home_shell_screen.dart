@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
+import '../../../../app/router/notification_locations.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/notifications/call_tone_player.dart';
 import '../../../../core/notifications/native_incoming_call_service.dart';
@@ -35,8 +36,6 @@ import '../../../conversations/presentation/controllers/pending_chat_share_contr
 import '../../../conversations/presentation/screens/webrtc_call_screen.dart';
 import '../../../conversations/presentation/screens/workspace_tools_screen.dart';
 import '../../../conversations/presentation/widgets/conversation_home_views.dart';
-import '../../../inbox/presentation/screens/inbox_list_screen.dart'
-    show inboxConversationLocation;
 import '../../../meetings/application/group_call_coordinator.dart';
 import '../../../meetings/application/meeting_providers.dart';
 import '../../../meetings/domain/meeting_models.dart';
@@ -44,6 +43,7 @@ import '../../../meetings/presentation/group_call_presenter.dart';
 import '../../../notifications/domain/entities/mobile_notification.dart';
 import '../../../notifications/presentation/controllers/notification_center_controller.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
+import '../widgets/notification_bell.dart';
 
 bool nativeRejectActionIsStaleAfterAcceptance({
   required String reason,
@@ -285,13 +285,10 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         _ensureApprovalActionListener(activeWorkspace.id);
       }
     });
-    final notificationState = ref.watch(
-      notificationCenterControllerProvider(activeWorkspace.id),
-    );
-    final notificationBell = _NotificationBellButton(
-      unreadCount: notificationState.unreadCount,
-      onPressed: () =>
-          context.push('/notifications?workspaceId=${activeWorkspace.id}'),
+    // Máy chủ có bot thông báo: không còn chuông, thông báo nằm trong chat bot.
+    final bellActions = notificationBellActions(
+      workspaceId: activeWorkspace.id,
+      noticeBot: organization?.capabilities.noticeBot == true,
     );
 
     return KeyedSubtree(
@@ -319,7 +316,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
             name: organization?.name ?? activeWorkspace.name,
           ),
         ),
-        actions: [notificationBell],
+        actions: bellActions,
         body: Column(
           children: [
             if (_networkDegraded)
@@ -338,7 +335,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
                     MessagesHomeView(
                       workspaceId: activeWorkspace.id,
                       searchActions: [
-                        notificationBell,
+                        ...bellActions,
                         IconButton(
                           tooltip: 'Tin nhắn mới hoặc tạo nhóm',
                           onPressed: _showComposeOptions,
@@ -869,7 +866,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         unawaited(_showIncomingCall(target));
         return;
       }
-      final location = _locationForNotificationTarget(target);
+      final location = locationForNotificationTarget(target);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Có thông báo mới'),
@@ -885,7 +882,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   }
 
   void _openNotificationTarget(NotificationTarget target) {
-    final location = _locationForNotificationTarget(target);
+    final location = locationForNotificationTarget(target);
     if (location != null) {
       context.push(location);
     }
@@ -1263,6 +1260,12 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           if (event.isContactEvent) {
             ref.invalidate(conversationHomeControllerProvider(workspaceId));
             ref.invalidate(notificationCenterControllerProvider(workspaceId));
+            return;
+          }
+          // Chat bot thông báo vừa được tạo: tải lại danh sách để nó hiện ngay.
+          if (event.type ==
+              ConversationRealtimeEventType.noticeChannelCreated) {
+            ref.invalidate(conversationHomeControllerProvider(workspaceId));
             return;
           }
           if (_handleGroupCallEvent(event)) {
@@ -1931,93 +1934,6 @@ class _IncomingCallAction extends StatelessWidget {
             fontWeight: FontWeight.w700,
           ),
         ),
-      ],
-    );
-  }
-}
-
-String? _locationForNotificationTarget(NotificationTarget target) {
-  if (target.isInboxConversation) {
-    return inboxConversationLocation(
-      conversationId: target.inboxConversationId!,
-      workspaceId: target.workspaceId,
-    );
-  }
-  if (target.isApproval) {
-    return Uri(
-      path: '/approvals/${Uri.encodeComponent(target.approvalId!.trim())}',
-      queryParameters: <String, String>{'workspaceId': target.workspaceId},
-    ).toString();
-  }
-  if (target.canOpenContacts) {
-    return Uri(
-      path: '/',
-      queryParameters: <String, String>{
-        'tab': 'contacts',
-        'workspaceId': target.workspaceId,
-      },
-    ).toString();
-  }
-  final channelId = target.channelId?.trim();
-  if (channelId == null || channelId.isEmpty) {
-    return null;
-  }
-  final params = <String, String>{
-    'workspaceId': target.workspaceId,
-    'title': 'Hội thoại',
-    if (target.messageId?.trim().isNotEmpty == true)
-      'messageId': target.messageId!.trim(),
-    if (target.opensTasks) 'tool': 'tasks',
-    if (target.opensTasks && target.taskId?.trim().isNotEmpty == true)
-      'taskId': target.taskId!.trim(),
-  };
-  return Uri(
-    path: '/conversations/$channelId',
-    queryParameters: params,
-  ).toString();
-}
-
-class _NotificationBellButton extends StatelessWidget {
-  const _NotificationBellButton({
-    required this.unreadCount,
-    required this.onPressed,
-  });
-
-  final int unreadCount;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        IconButton(
-          tooltip: 'Thông báo',
-          onPressed: onPressed,
-          icon: const Icon(CupertinoIcons.bell),
-        ),
-        if (unreadCount > 0)
-          Positioned(
-            right: 6,
-            top: 6,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: WebTuiColors.danger,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                child: Text(
-                  unreadCount > 99 ? '99+' : unreadCount.toString(),
-                  style: WebTuiTypography.labelSmall.copyWith(
-                    color: WebTuiColors.textOnPrimary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
-          ),
       ],
     );
   }
