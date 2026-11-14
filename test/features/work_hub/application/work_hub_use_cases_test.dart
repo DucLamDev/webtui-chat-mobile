@@ -120,6 +120,28 @@ void main() {
     expect(summary.doneLast7Days, 1);
   });
 
+  test('isRecentlyDone: chỉ việc đã xong, trong 7 ngày, có giờ hoàn thành', () {
+    final now = DateTime.utc(2026, 11, 14, 12);
+    CollaborationTask done(DateTime? at) =>
+        fakeTask('x', 'x', CollaborationTaskStatus.done, completedAt: at);
+    expect(isRecentlyDone(done(DateTime.utc(2026, 11, 14, 11)), now), isTrue);
+    expect(isRecentlyDone(done(DateTime.utc(2026, 11, 7, 13)), now), isTrue);
+    expect(isRecentlyDone(done(DateTime.utc(2026, 11, 7, 11)), now), isFalse);
+    expect(isRecentlyDone(done(null), now), isFalse);
+    expect(
+      isRecentlyDone(
+        fakeTask(
+          'y',
+          'y',
+          CollaborationTaskStatus.inProgress,
+          completedAt: DateTime.utc(2026, 11, 14),
+        ),
+        now,
+      ),
+      isFalse,
+    );
+  });
+
   test('tối đa 3 việc chưa xong, hạn gần nhất trước, không hạn xếp cuối', () {
     final tasks = [
       fakeTask(

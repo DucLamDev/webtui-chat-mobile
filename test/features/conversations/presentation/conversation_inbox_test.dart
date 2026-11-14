@@ -112,6 +112,95 @@ void main() {
     final searched = state.copyWith(searchQuery: 'dự án');
     expect(ids(searched.inbox), ['pinned']);
   });
+
+  group('số đỏ tab Tin nhắn (unreadBadgeCount)', () {
+    final badgeState = ConversationHomeState(
+      workspaceId: 'workspace-1',
+      automationEnabled: true,
+      conversations: [
+        _item('dm-a', 'An', hour: 9, unread: 2, peer: 'user-an'),
+        _item('dm-b', 'Bình', hour: 10, unread: 5, peer: 'user-binh'),
+        _item('dm-muted', 'Chi', hour: 11, unread: 7, muted: true),
+      ],
+      channels: [
+        _item('team', 'Nhóm team', hour: 8, unread: 3, group: true),
+        _item(
+          'orders',
+          'Bot đơn hàng',
+          hour: 12,
+          unread: 4,
+          group: true,
+          automation: true,
+        ),
+        _item(
+          'outside',
+          'Kênh chưa vào',
+          hour: 7,
+          unread: 9,
+          group: true,
+          member: false,
+        ),
+        _item(
+          'team-muted',
+          'Nhóm tắt tiếng',
+          hour: 6,
+          unread: 6,
+          group: true,
+          mutedMember: true,
+        ),
+      ],
+    );
+
+    test('đếm cả hộp thư (cả kênh nghiệp vụ), bỏ chat tắt tiếng', () {
+      // An 2 + Bình 5 + Nhóm team 3 + Bot đơn hàng 4; không tính chat tắt
+      // tiếng (cờ muted hoặc thành viên muted) và kênh chưa tham gia.
+      expect(badgeState.unreadBadgeCount(), 14);
+    });
+
+    test('không đổi khi đổi chip lọc hay gõ tìm', () {
+      for (final filter in ConversationListFilter.values) {
+        expect(
+          badgeState.copyWith(messageFilter: filter).unreadBadgeCount(),
+          14,
+          reason: '$filter',
+        );
+      }
+      expect(badgeState.copyWith(searchQuery: 'An').unreadBadgeCount(), 14);
+      expect(
+        badgeState
+            .copyWith(
+              messageFilter: ConversationListFilter.group,
+              searchQuery: 'không khớp gì',
+            )
+            .unreadBadgeCount(),
+        14,
+      );
+    });
+
+    test('bỏ chat 1-1 với người đã chặn', () {
+      expect(badgeState.unreadBadgeCount(blockedUserIds: {'user-binh'}), 9);
+      expect(badgeState.unreadBadgeCount(blockedUserIds: {'người-khác'}), 14);
+    });
+
+    test(
+      'tắt nghiệp vụ thì không cộng kênh bot; kênh trùng chỉ cộng 1 lần',
+      () {
+        final withoutAutomation = ConversationHomeState(
+          workspaceId: 'workspace-1',
+          conversations: badgeState.conversations,
+          channels: badgeState.channels,
+        );
+        expect(withoutAutomation.unreadBadgeCount(), 10);
+        final duplicated = badgeState.copyWith(
+          conversations: [
+            ...badgeState.conversations,
+            _item('team', 'Nhóm team', hour: 8, unread: 3, group: true),
+          ],
+        );
+        expect(duplicated.unreadBadgeCount(), 14);
+      },
+    );
+  });
 }
 
 ConversationSummary _item(
@@ -124,6 +213,9 @@ ConversationSummary _item(
   bool member = true,
   bool automation = false,
   String? slug,
+  String? peer,
+  bool muted = false,
+  bool mutedMember = false,
 }) {
   return ConversationSummary(
     id: id,
@@ -138,8 +230,14 @@ ConversationSummary _item(
     channelVisibility: group
         ? ChannelVisibility.public
         : ChannelVisibility.direct,
-    membershipStatus: member ? MembershipStatus.active : MembershipStatus.none,
+    membershipStatus: !member
+        ? MembershipStatus.none
+        : mutedMember
+        ? MembershipStatus.muted
+        : MembershipStatus.active,
     isAutomation: automation,
     slug: slug,
+    peerUserId: peer,
+    muted: muted,
   );
 }

@@ -22,6 +22,13 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   các việc sắp tới hạn, bấm ô vuông để nhận hoặc hoàn thành việc), My Note, và khối "Ứng dụng" gồm Lịch họp chung, Tệp
   chia sẻ và các lối tắt do quản trị thêm (quản trị thấy ô "Thêm" và "Quản lý"). Máy chủ chưa cập nhật thì ẩn Lịch họp và
   lối tắt.
+  Số đỏ trên tab Tin nhắn đếm mọi tin chưa đọc (không đổi theo nút lọc hay ô tìm đang chọn), không tính chat đã tắt
+  tiếng và người đã chặn. Nút lọc không thu nhỏ chữ: máy màn hẹp thì vuốt ngang để xem hết. "Hoàn thành" ở màn Việc
+  của tôi chỉ liệt kê việc xong trong 7 ngày qua cho khớp ô đếm; việc cũ hơn tìm theo tên.
+  Thay đổi khác cần biết: bỏ hai nút lọc "Cá nhân" và "Ghim" (chat ghim vẫn nằm đầu danh sách); bỏ dải kênh nghiệp vụ
+  trên đầu danh sách (xem ở nút lọc "Nghiệp vụ"); tab Công việc bỏ thẻ "chọn phòng + công cụ cộng tác" (công cụ cộng tác
+  vẫn mở được trong phòng chat). My Note làm lại: soạn có định dạng (đậm, nghiêng, tiêu đề, danh sách, ô tick, mã), liên
+  kết bấm được; bảng Lọc theo thư mục / thẻ / ghim, quản lý thư mục chuyển vào bảng Lọc.
 
 ## 1.21.0 · 14/11/2026
 ### Tính năng

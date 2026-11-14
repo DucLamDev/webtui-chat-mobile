@@ -436,7 +436,20 @@ void main() {
           'Kiểm tra cụm lưu trữ',
           CollaborationTaskStatus.inProgress,
         ),
-        fakeTask('c', 'Gửi báo cáo tuần', CollaborationTaskStatus.done),
+        fakeTask(
+          'c',
+          'Gửi báo cáo tuần',
+          CollaborationTaskStatus.done,
+          completedAt: DateTime.utc(2026, 11, 12),
+        ),
+        // Xong quá 7 ngày: không nằm ở "Hoàn thành" (khớp ô đếm ở thẻ), vẫn
+        // tìm được theo tên.
+        fakeTask(
+          'd',
+          'Chốt báo cáo tháng 9',
+          CollaborationTaskStatus.done,
+          completedAt: DateTime.utc(2026, 10, 1),
+        ),
       ]);
       await tester.pumpWidget(
         workHubApp(
@@ -459,6 +472,8 @@ void main() {
       await tester.tap(find.byKey(const Key('my_tasks_filter_done')));
       await tester.pumpAndSettle();
       expect(find.text('Gửi báo cáo tuần'), findsOneWidget);
+      expect(find.text('Chốt báo cáo tháng 9'), findsNothing);
+      expect(find.byKey(const Key('my_tasks_done_hint')), findsOneWidget);
       expect(tasks.listStatuses.last, 'all');
 
       await tester.tap(find.byKey(const Key('my_tasks_search_toggle')));
@@ -467,6 +482,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Kiểm tra cụm lưu trữ'), findsOneWidget);
       expect(find.text('Gửi báo cáo tuần'), findsNothing);
+
+      await tester.enterText(
+        find.byKey(const Key('my_tasks_search')),
+        'tháng 9',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Chốt báo cáo tháng 9'), findsOneWidget);
     });
   });
 }
@@ -483,5 +505,6 @@ class _MyTasksOnly extends StatelessWidget {
   const _MyTasksOnly();
 
   @override
-  Widget build(BuildContext context) => const MyTasksScreen(workspaceId: 'ws');
+  Widget build(BuildContext context) =>
+      MyTasksScreen(workspaceId: 'ws', now: DateTime.utc(2026, 11, 14, 12));
 }

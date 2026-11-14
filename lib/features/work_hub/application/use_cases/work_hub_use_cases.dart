@@ -249,12 +249,23 @@ final class LoadMyTasksOverviewUseCase {
   }
 }
 
+/// Ô "Hoàn thành" chỉ tính việc xong trong 7 ngày qua (máy chủ đếm `done_7d`
+/// cùng cách); màn "Việc của tôi" lọc cùng khoảng để hai nơi khớp số.
+const recentlyDoneWindow = Duration(days: 7);
+
+/// Việc đã xong trong [recentlyDoneWindow] tính tới [now].
+bool isRecentlyDone(CollaborationTask task, DateTime now) {
+  if (task.taskStatus != CollaborationTaskStatus.done) return false;
+  final completedAt = task.completedAt;
+  return completedAt != null &&
+      completedAt.toUtc().isAfter(now.toUtc().subtract(recentlyDoneWindow));
+}
+
 /// Tự đếm khi máy chủ chưa có API đếm.
 AssignedTaskSummary countAssignedTasks(
   List<CollaborationTask> tasks,
   DateTime now,
 ) {
-  final since = now.toUtc().subtract(const Duration(days: 7));
   var open = 0;
   var inProgress = 0;
   var done = 0;
@@ -265,8 +276,7 @@ AssignedTaskSummary countAssignedTasks(
       case CollaborationTaskStatus.inProgress:
         inProgress++;
       case CollaborationTaskStatus.done:
-        final completedAt = task.completedAt;
-        if (completedAt != null && completedAt.toUtc().isAfter(since)) done++;
+        if (isRecentlyDone(task, now)) done++;
       case CollaborationTaskStatus.cancelled:
         break;
     }

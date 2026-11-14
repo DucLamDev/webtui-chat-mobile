@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
+import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../moderation/presentation/controllers/moderation_controller.dart';
 import '../../../work_hub/presentation/widgets/my_tasks_card.dart';
@@ -54,10 +55,16 @@ class WorkspaceToolsScreen extends ConsumerWidget {
         .toList(growable: false);
     return ListView(
       key: const Key('workspace_tools_list'),
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      padding: const EdgeInsets.fromLTRB(
+        WebTuiSpacing.lg,
+        WebTuiSpacing.sm,
+        WebTuiSpacing.lg,
+        WebTuiSpacing.xxl,
+      ),
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(4, 0, 0, 14),
+          // 14: khoảng tiêu đề → thẻ đầu theo ảnh mẫu (giữa md 12 và lg 16).
+          padding: const EdgeInsets.fromLTRB(WebTuiSpacing.xs, 0, 0, 14),
           child: Row(
             children: [
               Expanded(
@@ -99,7 +106,7 @@ class WorkspaceToolsScreen extends ConsumerWidget {
           const SizedBox(height: 14),
           _ModuleCard(module: module, workspaceId: id),
         ],
-        const SizedBox(height: 24),
+        const SizedBox(height: WebTuiSpacing.xxl),
         WorkAppsSection(workspaceId: id),
       ],
     );
@@ -134,7 +141,7 @@ class _ModuleCard extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: WebTuiSpacing.xxs),
                 Text(
                   module.description,
                   style: WebTuiTypography.bodySmall.copyWith(

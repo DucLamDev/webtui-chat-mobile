@@ -203,8 +203,13 @@ List<MarkdownBlock> parseMyNoteMarkdown(String source) {
   return blocks;
 }
 
-final _linkRe = RegExp(r'^\[([^\]\n]+)\]\((https?://[^\s)]+)\)');
-final _bareUrlRe = RegExp(r'^https?://[^\s<>()]+');
+// Không neo `^`: dùng `matchAsPrefix(text, i)` để khớp ngay tại vị trí i mà
+// không cắt chuỗi con (cắt `substring(i)` ở mỗi ký tự làm đoạn dài chạy O(n²)).
+// Giới hạn độ dài nhãn / địa chỉ để chuỗi nhiều `[` không khớp lại cả đoạn.
+final _linkRe = RegExp(r'\[([^\]\n]{1,500})\]\((https?://[^\s)]{1,2048})\)');
+final _bareUrlRe = RegExp(r'https?://[^\s<>()]+');
+final _trailingPunctuationRe = RegExp(r'[.,;:!?]+$');
+final _wordCharRe = RegExp(r'[\p{L}\p{N}]', unicode: true);
 
 /// Phân tích đậm `**x**`, nghiêng `*x*` / `_x_`, mã `` `x` `` và liên kết.
 List<MarkdownInline> parseMyNoteInline(String text) {
@@ -219,7 +224,6 @@ List<MarkdownInline> parseMyNoteInline(String text) {
 
   var i = 0;
   while (i < text.length) {
-    final rest = text.substring(i);
     final ch = text[i];
     if (ch == '\\' && i + 1 < text.length && '*_`[]\\'.contains(text[i + 1])) {
       buffer.write(text[i + 1]);
@@ -236,26 +240,27 @@ List<MarkdownInline> parseMyNoteInline(String text) {
       }
     }
     if (ch == '[') {
-      final match = _linkRe.firstMatch(rest);
+      final match = _linkRe.matchAsPrefix(text, i);
       if (match != null) {
         flush();
         out.add(MarkdownLink(match.group(1)!, match.group(2)!));
-        i += match.end;
+        i = match.end;
         continue;
       }
     }
-    if (ch == 'h') {
-      final match = _bareUrlRe.firstMatch(rest);
-      if (match != null &&
-          (i == 0 || text[i - 1] == ' ' || text[i - 1] == '\n')) {
+    // Kiểm ký tự đứng trước TRƯỚC khi chạy regex: chữ "h" giữa từ không phải
+    // đầu địa chỉ, khỏi quét tới cuối đoạn ở mỗi chữ "h".
+    if (ch == 'h' && (i == 0 || text[i - 1] == ' ' || text[i - 1] == '\n')) {
+      final match = _bareUrlRe.matchAsPrefix(text, i);
+      if (match != null) {
         flush();
-        final url = match.group(0)!.replaceFirst(RegExp(r'[.,;:!?]+$'), '');
+        final url = match.group(0)!.replaceFirst(_trailingPunctuationRe, '');
         out.add(MarkdownLink(url, url));
         i += url.length;
         continue;
       }
     }
-    if (rest.startsWith('**')) {
+    if (text.startsWith('**', i)) {
       final end = text.indexOf('**', i + 2);
       if (end > i + 2) {
         flush();
@@ -285,8 +290,7 @@ List<MarkdownInline> parseMyNoteInline(String text) {
   return out;
 }
 
-bool _isWordChar(String ch) =>
-    RegExp(r'[\p{L}\p{N}]', unicode: true).hasMatch(ch);
+bool _isWordChar(String ch) => _wordCharRe.hasMatch(ch);
 
 Iterable<MarkdownInline> _styled(
   List<MarkdownInline> inlines, {

@@ -15,6 +15,7 @@ import 'package:webtui_chat/features/conversations/application/use_cases/open_di
 import 'package:webtui_chat/features/conversations/domain/entities/conversation_summary.dart';
 import 'package:webtui_chat/features/conversations/domain/repositories/conversation_repository.dart';
 import 'package:webtui_chat/features/conversations/presentation/controllers/conversation_home_controller.dart';
+import 'package:webtui_chat/features/conversations/presentation/controllers/messages_tab_unread.dart';
 import 'package:webtui_chat/features/conversations/presentation/controllers/notice_bot_identity.dart';
 import 'package:webtui_chat/features/conversations/presentation/widgets/conversation_home_views.dart';
 import 'package:webtui_chat/features/customer_tickets/application/customer_ticket_access_policy.dart';
@@ -32,6 +33,8 @@ void main() {
     List<ConversationSummary> channels = const [],
     List<ConversationSummary> directs = const [],
     VoidCallback? onCompose,
+    List<BlockedUser> blocked = const [],
+    bool showTabBadge = false,
   }) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -43,7 +46,7 @@ void main() {
           noticeBotIdentityProvider.overrideWithValue(
             NoticeBotIdentity.fromOrganization(name: 'Công ty A'),
           ),
-          moderationRepositoryProvider.overrideWithValue(_Moderation()),
+          moderationRepositoryProvider.overrideWithValue(_Moderation(blocked)),
           approvalAccessProvider.overrideWith(
             (ref, id) => const ApprovalAccess(
               serverSupported: true,
@@ -88,7 +91,25 @@ void main() {
         child: MaterialApp(
           theme: WebTuiTheme.light(),
           home: Scaffold(
-            body: MessagesHomeView(workspaceId: 'ws', onCompose: onCompose),
+            body: showTabBadge
+                ? Column(
+                    children: [
+                      // Cùng nguồn với số đỏ tab Tin nhắn ở thanh dưới.
+                      Consumer(
+                        builder: (context, ref, _) => Text(
+                          'badge ${ref.watch(messagesTabUnreadCountProvider('ws'))}',
+                          key: const ValueKey('tab-badge'),
+                        ),
+                      ),
+                      Expanded(
+                        child: MessagesHomeView(
+                          workspaceId: 'ws',
+                          onCompose: onCompose,
+                        ),
+                      ),
+                    ],
+                  )
+                : MessagesHomeView(workspaceId: 'ws', onCompose: onCompose),
           ),
         ),
       ),
@@ -226,6 +247,49 @@ void main() {
     expect(after[1].selected, isTrue);
   });
 
+  testWidgets('chip lọc: vùng bấm cao ≥ 48dp, thiếu chỗ thì cuộn ngang', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      automation: true,
+      directs: [_item('dm', 'Lan', channel: false, unread: 12)],
+      channels: [
+        _item('t', 'Nhóm', unread: 3),
+        _item('o', 'Đơn hàng', automation: true, slug: 'orders', unread: 1),
+      ],
+    );
+    // Màn hẹp: không thu nhỏ cả hàng (chữ, vùng bấm giữ nguyên) mà cuộn ngang.
+    tester.view.physicalSize = const Size(320, 844);
+    await tester.pumpAndSettle();
+    final row = find.byKey(const ValueKey('inbox-filter-chips'));
+    expect(
+      find.descendant(of: row, matching: find.byType(FittedBox)),
+      findsNothing,
+    );
+    for (final chip in find.byType(ChoiceChip).evaluate()) {
+      expect(
+        tester.getSize(find.byWidget(chip.widget)).height,
+        greaterThanOrEqualTo(48),
+      );
+    }
+    final scrollable = tester.state<ScrollableState>(
+      find.descendant(of: row, matching: find.byType(Scrollable)),
+    );
+    expect(scrollable.position.maxScrollExtent, greaterThan(0));
+
+    // Chip cuối nằm ngoài màn vẫn cuộn tới và bấm được.
+    final last = find.byType(ChoiceChip).last;
+    await tester.ensureVisible(last);
+    await tester.pumpAndSettle();
+    await tester.tap(last);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<ChoiceChip>(find.byType(ChoiceChip).last).selected,
+      isTrue,
+    );
+  });
+
   testWidgets('dòng chat: kênh = ô vuông + biểu tượng, người = ảnh tròn', (
     tester,
   ) async {
@@ -330,6 +394,62 @@ void main() {
     );
     expect(find.text('BOT'), findsOneWidget, reason: 'chỉ chat bot có nhãn');
   });
+
+  testWidgets(
+    'số đỏ tab Tin nhắn không nhảy khi đổi chip / gõ tìm, bỏ người đã chặn',
+    (tester) async {
+      await pump(
+        tester,
+        automation: true,
+        showTabBadge: true,
+        blocked: [
+          BlockedUser(
+            blockedUserId: 'user-binh',
+            createdAt: DateTime.utc(2026, 11, 1),
+          ),
+        ],
+        directs: [
+          _item('dm-a', 'An', channel: false, unread: 2, peer: 'user-an'),
+          _item('dm-b', 'Bình', channel: false, unread: 5, peer: 'user-binh'),
+          _item('dm-c', 'Chi', channel: false, unread: 7, muted: true),
+        ],
+        channels: [
+          _item('team', 'Nhóm team', unread: 3),
+          _item(
+            'orders',
+            'Đơn hàng',
+            automation: true,
+            slug: 'orders',
+            unread: 4,
+          ),
+        ],
+      );
+      String badge() =>
+          tester.widget<Text>(find.byKey(const ValueKey('tab-badge'))).data!;
+
+      // An 2 + Nhóm team 3 + Đơn hàng 4; Bình bị chặn, Chi tắt tiếng.
+      expect(badge(), 'badge 9');
+      // Nhãn chip có kèm số (vd. "Nhóm 1") nên bấm theo vị trí: Nhóm, Nghiệp
+      // vụ, Chưa đọc rồi về Tất cả.
+      expect(chipLabels(tester).length, 4);
+      for (final index in [3, 2, 1, 0]) {
+        // Hàng chip cuộn ngang: cuộn tới chip trước khi bấm.
+        await tester.ensureVisible(find.byType(ChoiceChip).at(index));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byType(ChoiceChip).at(index));
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<ChoiceChip>(find.byType(ChoiceChip).at(index)).selected,
+          isTrue,
+          reason: 'đã chọn ${chipLabels(tester)[index]}',
+        );
+        expect(badge(), 'badge 9', reason: chipLabels(tester)[index]);
+      }
+      await tester.enterText(find.byType(TextField).first, 'An');
+      await tester.pumpAndSettle();
+      expect(badge(), 'badge 9');
+    },
+  );
 }
 
 ConversationSummary _item(
@@ -342,6 +462,8 @@ ConversationSummary _item(
   int unread = 0,
   bool notice = false,
   bool private = false,
+  String? peer,
+  bool muted = false,
 }) {
   return ConversationSummary(
     id: id,
@@ -362,6 +484,8 @@ ConversationSummary _item(
     membershipStatus: MembershipStatus.active,
     isAutomation: automation,
     slug: slug,
+    peerUserId: peer,
+    muted: muted,
   );
 }
 
@@ -380,10 +504,14 @@ final class _Session implements WorkspaceSessionRepository {
 }
 
 final class _Moderation implements ModerationRepository {
+  _Moderation([this.blocked = const []]);
+
+  final List<BlockedUser> blocked;
+
   @override
   Future<Result<List<BlockedUser>>> listBlockedUsers({
     required String workspaceId,
-  }) async => const Success([]);
+  }) async => Success(blocked);
 
   @override
   dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
