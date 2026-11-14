@@ -4,6 +4,15 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
+## 1.19.1 · 14/11/2026
+### Sửa lỗi
+- Hộp "Điều khoản và quyền riêng tư" không còn bật lên mỗi lần mở app
+  Trước đây mỗi lần mở app hoặc đổi workspace, hộp này che cả màn hình với dòng "Đang kiểm tra trạng thái chính
+  sách..." dù người dùng đã đồng ý từ trước. Nay app kiểm tra ngầm: ai đã đồng ý thì không thấy gì nữa; hộp chỉ hiện
+  khi máy chủ báo tài khoản thật sự chưa đồng ý (đồng ý một lần là xong, tới khi chính sách có phiên bản mới). Mất
+  mạng lúc kiểm tra thì chỉ hiện một dải nhỏ phía trên có nút "Thử lại", không che màn hình. Gửi tin vẫn bị khoá cho
+  tới khi kiểm tra xong như trước.
+
 ## 1.19.0 · 14/11/2026
 ### Tính năng
 - Ảnh bìa cho video và ảnh thu nhỏ trong chat
