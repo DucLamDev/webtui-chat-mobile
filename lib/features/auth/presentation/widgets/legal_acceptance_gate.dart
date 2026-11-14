@@ -102,6 +102,12 @@ class _LegalAcceptanceGateState extends ConsumerState<LegalAcceptanceGate> {
     // không che màn hình bằng hộp thoại "đang kiểm tra". Quyền tạo nội dung
     // vẫn đóng (policy chưa complete, máy chủ trả 409 nếu chưa đồng ý).
     if (state.status == LegalAcceptanceStatus.idle) return widget.child;
+    // Đang kiểm tra ngầm (mở app, đổi workspace): người đã đồng ý không thấy
+    // gì; hộp thoại chỉ hiện khi máy chủ báo thật sự cần đồng ý.
+    if (state.status == LegalAcceptanceStatus.loading && !state.gateVisible) {
+      return widget.child;
+    }
+    final checkFailed = state.status == LegalAcceptanceStatus.error;
 
     return Stack(
       fit: StackFit.expand,
@@ -121,20 +127,40 @@ class _LegalAcceptanceGateState extends ConsumerState<LegalAcceptanceGate> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.visibility_outlined, size: 20),
+                      Icon(
+                        checkFailed
+                            ? Icons.cloud_off_outlined
+                            : Icons.visibility_outlined,
+                        size: 20,
+                      ),
                       const SizedBox(width: WebTuiSpacing.sm),
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'Chế độ chỉ đọc: cần đồng ý chính sách trước khi tạo nội dung.',
+                          checkFailed
+                              ? 'Chưa kiểm tra được Điều khoản, tạm thời chỉ xem được tin.'
+                              : 'Chế độ chỉ đọc: cần đồng ý chính sách trước khi tạo nội dung.',
                         ),
                       ),
-                      TextButton(
-                        key: const Key('legal_gate_open'),
-                        onPressed: () => ref
-                            .read(legalAcceptanceControllerProvider.notifier)
-                            .openGate(),
-                        child: const Text('Xem lại'),
-                      ),
+                      if (checkFailed)
+                        TextButton(
+                          key: const Key('legal_gate_banner_retry'),
+                          onPressed: () => unawaited(
+                            ref
+                                .read(
+                                  legalAcceptanceControllerProvider.notifier,
+                                )
+                                .retry(showGate: false),
+                          ),
+                          child: const Text('Thử lại'),
+                        )
+                      else
+                        TextButton(
+                          key: const Key('legal_gate_open'),
+                          onPressed: () => ref
+                              .read(legalAcceptanceControllerProvider.notifier)
+                              .openGate(),
+                          child: const Text('Xem lại'),
+                        ),
                     ],
                   ),
                 ),

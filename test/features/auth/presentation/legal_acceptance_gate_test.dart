@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:webtui_chat/app/flavor/app_config.dart';
 import 'package:webtui_chat/app/flavor/app_flavor.dart';
 import 'package:webtui_chat/app/router/app_router.dart';
+import 'package:webtui_chat/core/error/failure.dart';
 import 'package:webtui_chat/core/result/result.dart';
 import 'package:webtui_chat/features/auth/application/legal_acceptance_access_policy.dart';
 import 'package:webtui_chat/features/auth/domain/entities/legal_acceptance.dart';
@@ -178,6 +181,92 @@ void main() {
     await tester.pumpAndSettle();
     expect(loadedWorkspaces, ['workspace-1']);
     expect(controller.state.status, LegalAcceptanceStatus.required);
+  });
+
+  testWidgets('accepted user never sees the policy dialog while checking', (
+    tester,
+  ) async {
+    final policy = LegalAcceptanceAccessPolicy();
+    final pending = Completer<Result<LegalAcceptance>>();
+    final controller = _controller(
+      policy: policy,
+      load: ({required workspaceId}) => pending.future,
+    );
+    final router = _router();
+    addTearDown(router.dispose);
+    addTearDown(policy.dispose);
+
+    await tester.pumpWidget(
+      _scope(
+        controller: controller,
+        router: router,
+        child: _GateHarness(router: router),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(controller.state.status, LegalAcceptanceStatus.loading);
+    expect(find.byKey(const Key('legal_gate_loading')), findsNothing);
+    expect(find.byKey(const Key('legal_gate_settings')), findsNothing);
+    expect(find.byKey(const Key('legal_gate_open')), findsNothing);
+    expect(find.byKey(const Key('home_page')), findsOneWidget);
+
+    pending.complete(
+      Success(_acceptance(complete: true, workspaceId: 'workspace-1')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(controller.state.status, LegalAcceptanceStatus.complete);
+    expect(find.byKey(const Key('legal_gate_checkbox')), findsNothing);
+    expect(find.byKey(const Key('legal_gate_settings')), findsNothing);
+    expect(policy.canCreateUserContent, isTrue);
+  });
+
+  testWidgets('network error shows a small retry banner instead of a dialog', (
+    tester,
+  ) async {
+    var attempts = 0;
+    final policy = LegalAcceptanceAccessPolicy();
+    final controller = _controller(
+      policy: policy,
+      load: ({required workspaceId}) async {
+        attempts++;
+        if (attempts == 1) {
+          return const FailureResult(
+            Failure(kind: FailureKind.network, message: 'Mất mạng.'),
+          );
+        }
+        return Success(_acceptance(complete: true, workspaceId: workspaceId));
+      },
+    );
+    final router = _router();
+    addTearDown(router.dispose);
+    addTearDown(policy.dispose);
+
+    await tester.pumpWidget(
+      _scope(
+        controller: controller,
+        router: router,
+        child: _GateHarness(router: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(controller.state.status, LegalAcceptanceStatus.error);
+    expect(find.byKey(const Key('legal_gate_settings')), findsNothing);
+    expect(find.byKey(const Key('legal_gate_retry')), findsNothing);
+    expect(find.byKey(const Key('legal_gate_banner_retry')), findsOneWidget);
+    expect(policy.canCreateUserContent, isFalse);
+
+    await tester.tap(find.byKey(const Key('legal_gate_banner_retry')));
+    await tester.pumpAndSettle();
+
+    expect(attempts, 2);
+    expect(controller.state.status, LegalAcceptanceStatus.complete);
+    expect(find.byKey(const Key('legal_gate_banner_retry')), findsNothing);
+    expect(find.byKey(const Key('legal_gate_settings')), findsNothing);
+    expect(policy.canCreateUserContent, isTrue);
   });
 }
 

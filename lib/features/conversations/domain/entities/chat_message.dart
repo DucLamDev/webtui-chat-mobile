@@ -203,6 +203,10 @@ final class UploadedMessageFile {
     required this.createdAt,
     this.status = 'ready',
     this.localPath,
+    this.thumbnailUrl,
+    this.width,
+    this.height,
+    this.durationMs,
   });
 
   final String id;
@@ -213,6 +217,36 @@ final class UploadedMessageFile {
   final DateTime createdAt;
   final String status;
   final String? localPath;
+
+  /// Đường tương đối tới ảnh thu nhỏ (ảnh bìa video); máy chủ cũ không có.
+  final String? thumbnailUrl;
+
+  /// Kích thước gốc (điểm ảnh) và thời lượng video (ms); không rõ thì null.
+  final int? width;
+  final int? height;
+  final int? durationMs;
+
+  UploadedMessageFile copyWith({
+    String? thumbnailUrl,
+    int? width,
+    int? height,
+    int? durationMs,
+  }) {
+    return UploadedMessageFile(
+      id: id,
+      name: name,
+      mimeType: mimeType,
+      byteSize: byteSize,
+      downloadPath: downloadPath,
+      createdAt: createdAt,
+      status: status,
+      localPath: localPath,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      width: width ?? this.width,
+      height: height ?? this.height,
+      durationMs: durationMs ?? this.durationMs,
+    );
+  }
 }
 
 final class MessageAttachment {

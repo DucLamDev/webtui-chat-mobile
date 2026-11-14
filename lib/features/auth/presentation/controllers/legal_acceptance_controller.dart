@@ -137,7 +137,10 @@ final class LegalAcceptanceController
     _sessionActive = true;
     _workspaceId = normalizedWorkspaceId;
     _accessPolicy.reset();
-    await _refresh(showGate: true, clearAcceptance: true);
+    // Kiểm tra ngầm: người đã đồng ý (đa số) không thấy hộp thoại "đang kiểm
+    // tra" mỗi lần mở app / đổi workspace. Hộp thoại chỉ hiện khi máy chủ báo
+    // thật sự chưa đồng ý; quyền tạo nội dung vẫn đóng cho tới khi complete.
+    await _refresh(showGate: false, clearAcceptance: true);
   }
 
   void endSession() {
@@ -148,8 +151,10 @@ final class LegalAcceptanceController
     state = const LegalAcceptanceState();
   }
 
-  Future<void> retry() {
-    return _refresh(showGate: true, clearAcceptance: true);
+  /// [showGate] = false khi thử lại từ dải báo lỗi nhỏ: kiểm tra ngầm, chỉ bật
+  /// hộp thoại nếu máy chủ báo cần đồng ý.
+  Future<void> retry({bool showGate = true}) {
+    return _refresh(showGate: showGate, clearAcceptance: true);
   }
 
   void setAcceptedBoth(bool value) {
@@ -248,9 +253,11 @@ final class LegalAcceptanceController
       case Success<LegalAcceptance>(value: final acceptance):
         _applyAcceptance(acceptance);
       case FailureResult<LegalAcceptance>(failure: final failure):
+        // Lỗi mạng lúc kiểm tra ngầm: không che màn hình, cổng hiện dải nhỏ
+        // có nút Thử lại. Quyền tạo nội dung vẫn đóng.
         state = state.copyWith(
           status: LegalAcceptanceStatus.error,
-          gateVisible: true,
+          gateVisible: showGate,
           errorMessage: failure.message,
         );
     }
@@ -307,12 +314,21 @@ final class LegalAcceptanceController
 
   void _handleAcceptanceRequired() {
     if (!_sessionActive) return;
+    // Đang hỏi / đang gửi: kết quả sắp về sẽ quyết định có cần hộp thoại hay
+    // không, không bật hộp thoại "đang kiểm tra" chen vào.
     if (state.status == LegalAcceptanceStatus.loading ||
         state.status == LegalAcceptanceStatus.submitting) {
-      state = state.copyWith(gateVisible: true);
       return;
     }
-    unawaited(_refresh(showGate: true, clearAcceptance: true));
+    // Hộp thoại đang mở thì giữ mở; còn lại kiểm tra ngầm, máy chủ báo cần
+    // đồng ý thì _applyAcceptance mới bật hộp thoại.
+    unawaited(
+      _refresh(
+        showGate:
+            state.gateVisible && state.status != LegalAcceptanceStatus.complete,
+        clearAcceptance: true,
+      ),
+    );
   }
 
   bool get _configurationIsSafe =>

@@ -1580,6 +1580,13 @@ UploadedMessageFile _uploadedMessageFileFromMap(
     ], fallback: _downloadPathFallback(workspaceId, id)),
     status: stringField(map, const ['status'], fallback: 'ready'),
     createdAt: dateTimeField(map, const ['created_at', 'createdAt']),
+    thumbnailUrl: nullableStringField(map, const [
+      'thumbnail_url',
+      'thumbnailUrl',
+    ]),
+    width: positiveIntField(map, const ['width']),
+    height: positiveIntField(map, const ['height']),
+    durationMs: positiveIntField(map, const ['duration_ms', 'durationMs']),
   );
 }
 

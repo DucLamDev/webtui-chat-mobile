@@ -601,6 +601,8 @@ final class VideoCompressBridge {
       switch call.method {
       case "compress":
         self.compress(arguments, result: result)
+      case "poster":
+        self.poster(arguments, result: result)
       case "cancel":
         if let id = arguments?["id"] as? String, let session = self.sessions[id] {
           self.cancelled.insert(id)
@@ -610,6 +612,91 @@ final class VideoCompressBridge {
       default:
         result(FlutterMethodNotImplemented)
       }
+    }
+  }
+
+  /// Lấy một khung hình làm ảnh bìa (JPEG) + kích thước / thời lượng video,
+  /// chạy trên hàng đợi nền.
+  private func poster(_ arguments: [String: Any]?, result: @escaping FlutterResult) {
+    guard
+      let input = arguments?["input"] as? String,
+      let output = arguments?["output"] as? String,
+      !input.isEmpty, !output.isEmpty
+    else {
+      result(FlutterError(code: "INVALID_ARGUMENTS", message: "Thiếu tham số lấy ảnh bìa.", details: nil))
+      return
+    }
+    let maxSide = (arguments?["maxSide"] as? NSNumber)?.doubleValue ?? 480
+    let timeMs = (arguments?["timeMs"] as? NSNumber)?.doubleValue ?? 1000
+    guard FileManager.default.fileExists(atPath: input), maxSide > 0 else {
+      result(FlutterError(code: "INPUT_MISSING", message: "Không thấy tệp video nguồn.", details: nil))
+      return
+    }
+    DispatchQueue.global(qos: .userInitiated).async {
+      let fileManager = FileManager.default
+      let outputURL = URL(fileURLWithPath: output)
+      let partURL = URL(fileURLWithPath: output + ".part")
+      func fail(_ message: String) {
+        try? fileManager.removeItem(at: partURL)
+        DispatchQueue.main.async {
+          result(FlutterError(code: "POSTER_FAILED", message: message, details: nil))
+        }
+      }
+      let asset = AVURLAsset(url: URL(fileURLWithPath: input))
+      guard let track = asset.tracks(withMediaType: .video).first else {
+        fail("Tệp không có hình ảnh.")
+        return
+      }
+      let durationSeconds = CMTimeGetSeconds(asset.duration)
+      let durationMs = durationSeconds.isFinite && durationSeconds > 0
+        ? Int((durationSeconds * 1000).rounded()) : 0
+      // Kích thước theo chiều hiển thị: áp preferredTransform.
+      let displaySize = track.naturalSize.applying(track.preferredTransform)
+      let width = Int(abs(displaySize.width).rounded())
+      let height = Int(abs(displaySize.height).rounded())
+
+      let generator = AVAssetImageGenerator(asset: asset)
+      generator.appliesPreferredTrackTransform = true
+      generator.maximumSize = CGSize(width: maxSide, height: maxSide)
+      // Video ngắn hơn mốc yêu cầu thì lấy giữa video.
+      var seconds = timeMs / 1000
+      if durationSeconds.isFinite, durationSeconds > 0, durationSeconds <= seconds {
+        seconds = durationSeconds / 2
+      }
+      let time = CMTime(seconds: seconds, preferredTimescale: 600)
+      var actualTime = CMTime.zero
+      let cgImage: CGImage
+      do {
+        cgImage = try generator.copyCGImage(at: time, actualTime: &actualTime)
+      } catch {
+        fail(error.localizedDescription)
+        return
+      }
+      guard let data = UIImage(cgImage: cgImage).jpegData(compressionQuality: 0.8), !data.isEmpty else {
+        fail("Không mã hoá được ảnh bìa.")
+        return
+      }
+      do {
+        try fileManager.createDirectory(
+          at: outputURL.deletingLastPathComponent(),
+          withIntermediateDirectories: true
+        )
+        try? fileManager.removeItem(at: partURL)
+        try data.write(to: partURL, options: .atomic)
+        try? fileManager.removeItem(at: outputURL)
+        try fileManager.moveItem(at: partURL, to: outputURL)
+      } catch {
+        fail(error.localizedDescription)
+        return
+      }
+      let payload: [String: Any] = [
+        "path": output,
+        "byteSize": data.count,
+        "width": width > 0 ? width : cgImage.width,
+        "height": height > 0 ? height : cgImage.height,
+        "durationMs": durationMs,
+      ]
+      DispatchQueue.main.async { result(payload) }
     }
   }
 

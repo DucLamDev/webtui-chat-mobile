@@ -59,6 +59,108 @@ void main() {
     expect(api.queryParameters?['limit'], 500);
   });
 
+  test(
+    'đọc ảnh thu nhỏ, kích thước và thời lượng; thiếu trường thì null',
+    () async {
+      final api = _FakeApiTransport({
+        'success': true,
+        'data': {
+          'attachments': [
+            {
+              'workspace_id': 'workspace-1',
+              'message_id': 'message-1',
+              'file_id': 'file-1',
+              'file': {
+                'id': 'file-1',
+                'original_name': 'clip.mp4',
+                'mime_type': 'video/mp4',
+                'byte_size': 1024,
+                'thumbnail_url':
+                    '/api/v1/workspaces/workspace-1/files/file-1/thumbnail',
+                'width': 1080,
+                'height': 1920,
+                'duration_ms': 35000,
+              },
+            },
+            {
+              'workspace_id': 'workspace-1',
+              'message_id': 'message-2',
+              'file_id': 'file-2',
+              'file': {
+                'id': 'file-2',
+                'original_name': 'cu.mp4',
+                'mime_type': 'video/mp4',
+                'byte_size': 10,
+              },
+            },
+          ],
+        },
+      });
+      final remote = MessageAttachmentRemoteDataSource(api);
+
+      final items = await remote.listChannelMedia(
+        workspaceId: 'workspace-1',
+        channelId: 'channel-1',
+      );
+
+      final file = items.first.file;
+      expect(
+        file.thumbnailUrl,
+        '/api/v1/workspaces/workspace-1/files/file-1/thumbnail',
+      );
+      expect(file.width, 1080);
+      expect(file.height, 1920);
+      expect(file.durationMs, 35000);
+      final old = items.last.file;
+      expect(old.thumbnailUrl, isNull);
+      expect(old.width, isNull);
+      expect(old.height, isNull);
+      expect(old.durationMs, isNull);
+    },
+  );
+
+  test('gửi ảnh bìa bằng PUT multipart rồi đọc tệp trả về', () async {
+    final dir = await Directory.systemTemp.createTemp('webtui-thumb-test');
+    addTearDown(() => dir.delete(recursive: true));
+    final jpg = File('${dir.path}/p.jpg')..writeAsBytesSync([1, 2, 3]);
+    final api = _FakeApiTransport({
+      'success': true,
+      'data': {
+        'file': {
+          'id': 'file-1',
+          'original_name': 'clip.mp4',
+          'mime_type': 'video/mp4',
+          'byte_size': 5,
+          'thumbnail_url': '/t',
+          'duration_ms': 1500,
+        },
+      },
+    });
+    final remote = MessageAttachmentRemoteDataSource(api);
+
+    final file = await remote.uploadThumbnail(
+      workspaceId: 'workspace-1',
+      fileId: 'file-1',
+      thumbnailPath: jpg.path,
+      durationMs: 1500,
+      width: 640,
+      height: 360,
+    );
+
+    expect(
+      api.putPath,
+      '/api/v1/workspaces/workspace-1/files/file-1/thumbnail',
+    );
+    final form = api.putData as FormData;
+    expect(form.files.single.key, 'thumbnail');
+    expect(
+      {for (final f in form.fields) f.key: f.value},
+      {'duration_ms': '1500', 'width': '640', 'height': '360'},
+    );
+    expect(file.thumbnailUrl, '/t');
+    expect(file.durationMs, 1500);
+  });
+
   group('tải lên theo từng phần', () {
     const chunk = MessageAttachmentRemoteDataSource.uploadChunkSize;
     late Directory dir;
@@ -213,6 +315,8 @@ final class _FakeApiTransport implements ApiTransport {
   String? path;
   Options? options;
   Map<String, dynamic>? queryParameters;
+  String? putPath;
+  Object? putData;
 
   @override
   Future<Response<T>> get<T>(
@@ -265,8 +369,13 @@ final class _FakeApiTransport implements ApiTransport {
     Object? data,
     Map<String, dynamic>? queryParameters,
     Options? options,
-  }) {
-    throw UnimplementedError();
+  }) async {
+    putPath = path;
+    putData = data;
+    return Response<T>(
+      data: payload as T,
+      requestOptions: RequestOptions(path: path),
+    );
   }
 }
 

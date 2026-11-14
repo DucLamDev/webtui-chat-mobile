@@ -24,6 +24,16 @@ abstract interface class MessageAttachmentRepository {
     void Function(double progress)? onProgress,
   });
 
+  /// Gửi ảnh bìa JPEG của video đã tải lên; trả về tệp đã cập nhật.
+  Future<Result<UploadedMessageFile>> uploadThumbnail({
+    required String workspaceId,
+    required String fileId,
+    required String thumbnailPath,
+    int? durationMs,
+    int? width,
+    int? height,
+  });
+
   Future<Result<MessageAttachment>> attachFile({
     required String workspaceId,
     required String channelId,
