@@ -38,6 +38,10 @@ enum ConversationRealtimeEventType {
   contactRequestUpdated,
   contactRequestCancelled,
 
+  /// Máy chủ vừa tạo chat bot thông báo cho người dùng (room cá nhân): làm mới
+  /// danh sách hội thoại để chat bot hiện ngay, không chờ tải lại.
+  noticeChannelCreated,
+
   /// Gọi nhóm có đổ chuông (Lõi 7), gửi vào room cá nhân: bắt đầu đổ chuông
   /// (`payload` là `GroupCall`), ngừng đổ chuông máy này
   /// (`payload.group_call_id`, `payload.reason`), cuộc gọi nhóm kết thúc.

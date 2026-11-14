@@ -1260,6 +1260,12 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
             ref.invalidate(notificationCenterControllerProvider(workspaceId));
             return;
           }
+          // Chat bot thông báo vừa được tạo: tải lại danh sách để nó hiện ngay.
+          if (event.type ==
+              ConversationRealtimeEventType.noticeChannelCreated) {
+            ref.invalidate(conversationHomeControllerProvider(workspaceId));
+            return;
+          }
           if (_handleGroupCallEvent(event)) {
             return;
           }
