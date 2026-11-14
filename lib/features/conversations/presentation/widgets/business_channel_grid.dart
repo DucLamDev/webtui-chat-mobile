@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../domain/entities/business_channel_catalog.dart';
 import '../../domain/entities/conversation_summary.dart';
 
@@ -35,4 +36,35 @@ IconData businessChannelIcon(ConversationSummary channel) {
     return Icons.support_agent_rounded;
   }
   return Icons.smart_toy_outlined;
+}
+
+/// Biểu tượng Lucide của một kênh trong danh sách hội thoại: nhận theo mã kênh
+/// (`slug`) trước, rồi theo tên (chung, bảng tin, đơn hàng, ticket, trò chuyện,
+/// kế toán); kênh riêng tư là ổ khoá; còn lại là dấu #.
+IconData conversationChannelIcon(ConversationSummary channel) {
+  if (channel.noticeBot) return WebTuiIcons.bell;
+  final bySlug = switch ((channel.slug ?? '').trim().toLowerCase()) {
+    'general' || 'chung' => WebTuiIcons.channel,
+    'announcements' || 'bang-tin' || 'thong-bao' => WebTuiIcons.announcement,
+    'orders' || 'order' || 'don-hang' => WebTuiIcons.orders,
+    'ticket' || 'tickets' => WebTuiIcons.ticket,
+    'chitchat' || 'tro-chuyen' || 'random' => WebTuiIcons.chitchat,
+    'ke-toan' || 'billing' || 'accounting' => WebTuiIcons.accounting,
+    _ => null,
+  };
+  if (bySlug != null) return bySlug;
+  final text = channel.title.toLowerCase();
+  bool has(List<String> words) => words.any(text.contains);
+  if (has(['bảng tin', 'thông báo', 'announcement'])) {
+    return WebTuiIcons.announcement;
+  }
+  if (has(['đơn hàng', 'order'])) return WebTuiIcons.orders;
+  if (has(['ticket'])) return WebTuiIcons.ticket;
+  if (has(['trò chuyện', 'chitchat', 'random'])) return WebTuiIcons.chitchat;
+  if (has(['kế toán', 'accounting'])) return WebTuiIcons.accounting;
+  if (channel.isAutomation) return businessChannelIcon(channel);
+  if (channel.channelVisibility == ChannelVisibility.private) {
+    return WebTuiIcons.channelPrivate;
+  }
+  return WebTuiIcons.channel;
 }

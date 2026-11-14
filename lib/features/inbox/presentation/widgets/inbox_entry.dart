@@ -1,9 +1,9 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../controllers/inbox_access_provider.dart';
 
@@ -25,7 +25,7 @@ class InboxEntry extends ConsumerWidget {
       preview: 'Tin khách từ email, Messenger, Zalo...',
       timeLabel: '',
       avatarLabel: 'Hộp thư khách',
-      avatarIcon: Icons.forum_outlined,
+      avatarIcon: WebTuiIcons.messages,
       trailing: const Icon(
         CupertinoIcons.chevron_right,
         size: 18,

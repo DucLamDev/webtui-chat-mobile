@@ -169,6 +169,10 @@ import '../../features/sync/data/datasources/local_workspace_sync_cursor_data_so
 import '../../features/sync/data/datasources/workspace_sync_remote_data_source.dart';
 import '../../features/sync/data/repositories/workspace_sync_repository_impl.dart';
 import '../../features/sync/domain/repositories/workspace_sync_repository.dart';
+import '../../features/work_hub/application/use_cases/work_hub_use_cases.dart';
+import '../../features/work_hub/data/datasources/work_hub_remote_data_source.dart';
+import '../../features/work_hub/data/repositories/work_hub_repository_impl.dart';
+import '../../features/work_hub/domain/repositories/work_hub_repository.dart';
 import '../../features/workspace/application/use_cases/invite_use_cases.dart';
 import '../../features/workspace/application/use_cases/load_workspace_session_use_case.dart';
 import '../../features/workspace/application/use_cases/select_workspace_use_case.dart';
@@ -1409,6 +1413,52 @@ final listAssignedTasksUseCaseProvider = Provider<ListAssignedTasksUseCase>((
     ref.watch(collaborationTaskRepositoryProvider),
   );
 });
+
+final workHubRepositoryProvider = Provider<WorkHubRepository>((ref) {
+  return WorkHubRepositoryImpl(
+    WorkHubRemoteDataSource(ref.watch(apiTransportProvider)),
+  );
+});
+
+final listAppShortcutsUseCaseProvider = Provider<ListAppShortcutsUseCase>((
+  ref,
+) {
+  return ListAppShortcutsUseCase(ref.watch(workHubRepositoryProvider));
+});
+
+final saveAppShortcutUseCaseProvider = Provider<SaveAppShortcutUseCase>((ref) {
+  return SaveAppShortcutUseCase(ref.watch(workHubRepositoryProvider));
+});
+
+final deleteAppShortcutUseCaseProvider = Provider<DeleteAppShortcutUseCase>((
+  ref,
+) {
+  return DeleteAppShortcutUseCase(ref.watch(workHubRepositoryProvider));
+});
+
+final reorderAppShortcutsUseCaseProvider = Provider<ReorderAppShortcutsUseCase>(
+  (ref) {
+    return ReorderAppShortcutsUseCase(ref.watch(workHubRepositoryProvider));
+  },
+);
+
+final listUpcomingMeetingsUseCaseProvider =
+    Provider<ListUpcomingMeetingsUseCase>((ref) {
+      return ListUpcomingMeetingsUseCase(ref.watch(workHubRepositoryProvider));
+    });
+
+final listSharedFilesUseCaseProvider = Provider<ListSharedFilesUseCase>((ref) {
+  return ListSharedFilesUseCase(ref.watch(workHubRepositoryProvider));
+});
+
+final loadMyTasksOverviewUseCaseProvider = Provider<LoadMyTasksOverviewUseCase>(
+  (ref) {
+    return LoadMyTasksOverviewUseCase(
+      ref.watch(workHubRepositoryProvider),
+      ref.watch(collaborationTaskRepositoryProvider),
+    );
+  },
+);
 
 final inviteChannelMemberUseCaseProvider = Provider<InviteChannelMemberUseCase>(
   (ref) {

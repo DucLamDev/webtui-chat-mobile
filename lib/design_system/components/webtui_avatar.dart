@@ -66,8 +66,12 @@ class WebTuiAvatar extends StatelessWidget {
     this.foregroundColor = WebTuiColors.primary,
     this.size = WebTuiListDensity.avatarSize,
     this.allowPublicRequest = false,
+    this.square = false,
     super.key,
   });
+
+  /// Ô vuông bo góc (kênh) thay vì ảnh tròn (người).
+  final bool square;
 
   /// Ảnh công khai (logo tổ chức), không cần đăng nhập để tải.
   final bool allowPublicRequest;
@@ -87,8 +91,8 @@ class WebTuiAvatar extends StatelessWidget {
         clipBehavior: Clip.none,
         children: [
           Positioned.fill(
-            child: ClipOval(
-              child: DecoratedBox(
+            child: _clip(
+              DecoratedBox(
                 decoration: BoxDecoration(color: color),
                 child: WebTuiBoundedNetworkImage(
                   imageUrl: imageUrl,
@@ -118,6 +122,14 @@ class WebTuiAvatar extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+
+  Widget _clip(Widget child) {
+    if (!square) return ClipOval(child: child);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(size * 0.3),
+      child: child,
     );
   }
 

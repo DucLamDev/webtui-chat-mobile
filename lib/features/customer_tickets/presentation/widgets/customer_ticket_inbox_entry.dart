@@ -1,9 +1,9 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../controllers/customer_ticket_access_provider.dart';
@@ -44,7 +44,7 @@ class CustomerTicketInboxEntry extends ConsumerWidget {
         preview: subtitle,
         timeLabel: '',
         avatarLabel: 'Ticket khách',
-        avatarIcon: Icons.confirmation_number_outlined,
+        avatarIcon: WebTuiIcons.ticket,
         unreadCount: pending,
         trailing: Row(
           mainAxisSize: MainAxisSize.min,

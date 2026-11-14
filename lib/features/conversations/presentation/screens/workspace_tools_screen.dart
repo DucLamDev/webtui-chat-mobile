@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
-import '../../../../design_system/tokens/webtui_radii.dart';
-import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../moderation/presentation/controllers/moderation_controller.dart';
+import '../../../work_hub/presentation/widgets/my_tasks_card.dart';
+import '../../../work_hub/presentation/widgets/work_apps_grid.dart';
+import '../../../work_hub/presentation/widgets/work_common.dart';
 import '../../domain/entities/conversation_summary.dart';
 import '../widgets/workspace_modules.dart';
 
@@ -27,8 +29,9 @@ bool workspaceToolsSharedContentBlocked(
   return moderationState.isBlocked(peerUserId);
 }
 
-/// Tab Công việc: danh sách tiện ích đã bật (hiện chỉ My Note). Công cụ cộng
-/// tác (họp, chia sẻ, bảng trắng...) mở từ bên trong từng phòng chat.
+/// Tab Công việc: Việc của tôi, My Note và lưới Ứng dụng (Lịch họp, Tệp chia
+/// sẻ, lối tắt do quản trị thêm). Công cụ cộng tác (họp, bảng trắng...) vẫn mở
+/// từ bên trong từng phòng chat.
 class WorkspaceToolsScreen extends ConsumerWidget {
   const WorkspaceToolsScreen({required this.workspaceId, super.key});
 
@@ -36,26 +39,68 @@ class WorkspaceToolsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final id = workspaceId.trim();
+    if (id.isEmpty) {
+      return const WebTuiEmptyState(
+        key: Key('workspace_tools_empty'),
+        title: 'Chưa có workspace',
+        message: 'Chọn một workspace để xem công việc của bạn.',
+        icon: WebTuiIcons.work,
+      );
+    }
     final modules = ref
         .watch(workspaceModulesProvider)
         .where((module) => module.enabled)
         .toList(growable: false);
-    if (modules.isEmpty || workspaceId.trim().isEmpty) {
-      return const WebTuiEmptyState(
-        key: Key('workspace_tools_empty'),
-        title: 'Chưa có tiện ích nào được bật',
-        message:
-            'Chưa có tiện ích nào được bật cho tổ chức này. Khi quản trị viên '
-            'bật thêm, chúng sẽ hiện ở đây.',
-        icon: Icons.widgets_outlined,
-      );
-    }
     return ListView(
       key: const Key('workspace_tools_list'),
-      padding: const EdgeInsets.all(WebTuiSpacing.lg),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
-        for (final module in modules)
-          _ModuleCard(module: module, workspaceId: workspaceId.trim()),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 0, 0, 14),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Công việc',
+                  style: WebTuiTypography.titleLarge.copyWith(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    color: WebTuiColors.textPrimary,
+                  ),
+                ),
+              ),
+              Material(
+                color: WebTuiColors.primarySoft,
+                shape: const CircleBorder(),
+                child: IconButton(
+                  key: const Key('work_search'),
+                  tooltip: 'Tìm việc của tôi',
+                  iconSize: 24,
+                  color: WebTuiColors.textSecondary,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 48,
+                    height: 48,
+                  ),
+                  icon: const Icon(WebTuiIcons.search),
+                  onPressed: () => context.push(
+                    Uri(
+                      path: '/my-tasks',
+                      queryParameters: {'workspaceId': id, 'search': '1'},
+                    ).toString(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        MyTasksCard(workspaceId: id),
+        for (final module in modules) ...[
+          const SizedBox(height: 14),
+          _ModuleCard(module: module, workspaceId: id),
+        ],
+        const SizedBox(height: 24),
+        WorkAppsSection(workspaceId: id),
       ],
     );
   }
@@ -69,62 +114,38 @@ class _ModuleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: WebTuiSpacing.md),
-      child: Material(
-        color: WebTuiColors.surface,
-        borderRadius: BorderRadius.circular(WebTuiRadii.lg),
-        child: InkWell(
-          key: Key('workspace_module_${module.id}'),
-          borderRadius: BorderRadius.circular(WebTuiRadii.lg),
-          onTap: () => context.push(module.routeFor(workspaceId)),
-          child: Container(
-            padding: const EdgeInsets.all(WebTuiSpacing.md),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(WebTuiRadii.lg),
-              border: Border.all(color: WebTuiColors.border),
-            ),
-            child: Row(
+    return WorkCard(
+      key: Key('workspace_module_${module.id}'),
+      radius: 20,
+      onTap: () => context.push(module.routeFor(workspaceId)),
+      child: Row(
+        children: [
+          WorkIconBox(icon: module.icon, size: 56, radius: 18),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: WebTuiColors.primarySoft,
-                    borderRadius: BorderRadius.circular(WebTuiRadii.md),
-                  ),
-                  child: Icon(module.icon, color: WebTuiColors.primary),
-                ),
-                const SizedBox(width: WebTuiSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        module.title,
-                        style: WebTuiTypography.titleMedium.copyWith(
-                          color: WebTuiColors.textPrimary,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        module.description,
-                        style: WebTuiTypography.bodySmall.copyWith(
-                          color: WebTuiColors.textSecondary,
-                        ),
-                      ),
-                    ],
+                Text(
+                  module.title,
+                  style: WebTuiTypography.titleMedium.copyWith(
+                    fontSize: 18,
+                    color: WebTuiColors.textPrimary,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: WebTuiColors.textMuted,
+                const SizedBox(height: 2),
+                Text(
+                  module.description,
+                  style: WebTuiTypography.bodySmall.copyWith(
+                    color: WebTuiColors.textSecondary,
+                  ),
                 ),
               ],
             ),
           ),
-        ),
+          const Icon(WebTuiIcons.forward, color: WebTuiColors.textSecondary),
+        ],
       ),
     );
   }

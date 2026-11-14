@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../my_notes/presentation/controllers/my_notes_access_provider.dart';
 
 /// Mô tả một tiện ích hiện trong tab Công việc. Thêm tiện ích mới = thêm một
@@ -32,8 +33,8 @@ final workspaceModulesProvider = Provider<List<WorkspaceModule>>((ref) {
     WorkspaceModule(
       id: 'my_notes',
       title: 'My Note',
-      description: 'Sổ ghi chú riêng của bạn, chỉ mình bạn xem được.',
-      icon: Icons.sticky_note_2_outlined,
+      description: 'Ghi chú riêng, chỉ mình bạn xem',
+      icon: WebTuiIcons.note,
       routeFor: (workspaceId) => Uri(
         path: '/my-notes',
         queryParameters: {'workspaceId': workspaceId},

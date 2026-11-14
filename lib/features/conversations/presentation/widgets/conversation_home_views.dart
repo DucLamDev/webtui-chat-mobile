@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
+import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
+import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../approvals/presentation/widgets/approval_inbox_entry.dart';
 import '../../../business/presentation/widgets/business_inbox_entry.dart';
 import '../../../customer_tickets/application/customer_ticket_channel_route.dart';
@@ -25,14 +28,18 @@ class MessagesHomeView extends ConsumerWidget {
   const MessagesHomeView({
     required this.workspaceId,
     this.searchActions = const [],
+    this.onCompose,
     super.key,
   });
 
   final String workspaceId;
 
-  /// Nút đặt cạnh ô tìm kiếm (chuông thông báo, soạn tin): tab Tin nhắn không
-  /// còn thanh tiêu đề.
+  /// Nút đặt bên phải ô tìm kiếm (chuông thông báo): tab Tin nhắn không còn
+  /// thanh tiêu đề.
   final List<Widget> searchActions;
+
+  /// Bấm nút soạn tin (ô vuông bên trái ô tìm); `null` thì không hiện nút.
+  final VoidCallback? onCompose;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -76,6 +83,7 @@ class MessagesHomeView extends ConsumerWidget {
           blockedUserIds: blockedUserIds,
           selectedId: wide ? selected?.id : null,
           searchActions: searchActions,
+          onCompose: onCompose,
           onRetry: () {
             // Kéo làm mới cũng lấy lại số ticket khách chưa trả lời.
             ref.invalidate(customerTicketUnansweredCountProvider(workspaceId));
@@ -275,6 +283,7 @@ class _MessagesList extends StatelessWidget {
     required this.onJoinableTap,
     this.selectedId,
     this.searchActions = const [],
+    this.onCompose,
   });
 
   final ConversationHomeState state;
@@ -287,6 +296,7 @@ class _MessagesList extends StatelessWidget {
   final ValueChanged<ConversationSummary> onJoinableTap;
   final String? selectedId;
   final List<Widget> searchActions;
+  final VoidCallback? onCompose;
 
   @override
   Widget build(BuildContext context) {
@@ -307,9 +317,9 @@ class _MessagesList extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverToBoxAdapter(
-            child: _TopSearch(
-              hintText: 'Tìm tin nhắn, nhóm, kênh...',
+            child: _MessagesTopBar(
               onChanged: onSearch,
+              onCompose: onCompose,
               actions: searchActions,
             ),
           ),
@@ -374,9 +384,6 @@ class _MessagesList extends StatelessWidget {
                   blockedUserIds: blockedUserIds,
                   presence: state.presenceForConversation(conversation),
                   selected: selectedId == conversation.id,
-                  icon: showWorkEntries
-                      ? businessChannelIcon(conversation)
-                      : null,
                   onTap: () => onTap(conversation),
                 );
               },
@@ -398,7 +405,8 @@ class _MessagesList extends StatelessWidget {
   }
 }
 
-/// Bộ lọc hộp thư dạng chip nhỏ gọn (Tất cả, Chưa đọc, Nghiệp vụ, Nhóm).
+/// Bộ lọc hộp thư dạng viên thuốc (Tất cả, Chưa đọc, Nghiệp vụ, Nhóm): chọn =
+/// nền xanh chữ trắng, chưa chọn = viền xám nền trắng.
 class _InboxFilterChips extends StatelessWidget {
   const _InboxFilterChips({
     required this.labels,
@@ -412,40 +420,50 @@ class _InboxFilterChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
+    // Cả hàng thu nhỏ theo CÙNG một tỉ lệ khi thiếu chỗ (không thu từng nút),
+    // nên chữ mọi nút bằng nhau và luôn thấy đủ các nút như ảnh mẫu.
+    return SizedBox(
       key: const ValueKey('inbox-filter-chips'),
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          for (var index = 0; index < labels.length; index++) ...[
-            if (index > 0) const SizedBox(width: WebTuiSpacing.sm),
-            ChoiceChip(
-              label: Text(labels[index]),
-              selected: index == selectedIndex,
-              showCheckmark: false,
-              visualDensity: VisualDensity.compact,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              shape: const StadiumBorder(),
-              labelStyle: TextStyle(
-                fontSize: 13,
-                fontWeight: index == selectedIndex
-                    ? FontWeight.w800
-                    : FontWeight.w600,
-                color: index == selectedIndex
-                    ? WebTuiColors.textOnPrimary
-                    : WebTuiColors.textSecondary,
+      width: double.infinity,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var index = 0; index < labels.length; index++) ...[
+              if (index > 0) const SizedBox(width: WebTuiSpacing.sm),
+              ChoiceChip(
+                label: Text(labels[index]),
+                selected: index == selectedIndex,
+                showCheckmark: false,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: const StadiumBorder(),
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
+                labelStyle: TextStyle(
+                  fontFamily: WebTuiTypography.fontFamily,
+                  fontSize: 15,
+                  fontWeight: index == selectedIndex
+                      ? FontWeight.w800
+                      : FontWeight.w500,
+                  color: index == selectedIndex
+                      ? WebTuiColors.textOnPrimary
+                      : WebTuiColors.textSecondary,
+                ),
+                selectedColor: WebTuiColors.primary,
+                backgroundColor: WebTuiColors.surface,
+                side: BorderSide(
+                  color: index == selectedIndex
+                      ? WebTuiColors.primary
+                      : const Color(0xFFC3D0E0),
+                  width: 1.2,
+                ),
+                onSelected: (_) => onChanged(index),
               ),
-              selectedColor: WebTuiColors.primary,
-              backgroundColor: WebTuiColors.backgroundMuted,
-              side: BorderSide(
-                color: index == selectedIndex
-                    ? WebTuiColors.primary
-                    : WebTuiColors.border.withValues(alpha: 0.6),
-              ),
-              onSelected: (_) => onChanged(index),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -458,10 +476,8 @@ class _ConversationTile extends ConsumerWidget {
     required this.onTap,
     this.presence,
     this.selected = false,
-    this.icon,
   });
 
-  final IconData? icon;
   final ConversationSummary conversation;
   final Set<String> blockedUserIds;
   final VoidCallback onTap;
@@ -485,14 +501,23 @@ class _ConversationTile extends ConsumerWidget {
           bot?.avatarLabel ?? conversation.avatarLabel ?? conversation.title,
       avatarUrl: bot != null ? bot.logoUrl : conversation.avatarUrl,
       avatarPublicImage: bot != null,
-      avatarIcon: bot != null ? null : icon,
+      // Kênh: ô vuông bo góc + biểu tượng theo loại; người: ảnh tròn. Chat bot
+      // thông báo giữ logo tổ chức nhưng cũng là ô vuông.
+      avatarIcon: bot != null || conversation.kind != ConversationKind.channel
+          ? null
+          : conversationChannelIcon(conversation),
+      squareAvatar: bot != null,
+      pinned: conversation.favorite,
+      badgeLabel: bot != null ? 'BOT' : null,
       unreadCount: privacy.isBlocked ? 0 : conversation.unreadCount,
       muted: conversation.muted,
       status:
           conversation.kind == ConversationKind.direct &&
               !privacy.isBlocked &&
               !conversation.noticeBot
-          ? _presenceStatus(presence)
+          ? (presence == ConversationPresence.online
+                ? WebTuiPresenceStatus.online
+                : null)
           : null,
       selected: selected,
       onTap: onTap,
@@ -629,34 +654,81 @@ class _ChannelList extends StatelessWidget {
   }
 }
 
-class _TopSearch extends StatelessWidget {
-  const _TopSearch({
-    required this.hintText,
+/// Hàng đầu tab Tin nhắn: nút soạn tin (trái), ô tìm bo tròn, nút phụ (phải).
+class _MessagesTopBar extends StatelessWidget {
+  const _MessagesTopBar({
     required this.onChanged,
+    this.onCompose,
     this.actions = const [],
   });
 
-  final String hintText;
   final ValueChanged<String> onChanged;
+  final VoidCallback? onCompose;
   final List<Widget> actions;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(
+      padding: const EdgeInsets.fromLTRB(
         WebTuiSpacing.lg,
         WebTuiSpacing.md,
-        actions.isEmpty ? WebTuiSpacing.lg : WebTuiSpacing.xs,
-        WebTuiSpacing.sm,
+        WebTuiSpacing.lg,
+        WebTuiSpacing.md,
       ),
       child: Row(
         children: [
+          if (onCompose != null) ...[
+            Material(
+              color: WebTuiColors.primarySoft,
+              borderRadius: BorderRadius.circular(WebTuiRadii.md + 2),
+              child: InkWell(
+                key: const Key('compose_button'),
+                borderRadius: BorderRadius.circular(WebTuiRadii.md + 2),
+                onTap: onCompose,
+                child: const SizedBox.square(
+                  dimension: 46,
+                  child: Tooltip(
+                    message: 'Tin nhắn mới hoặc tạo nhóm',
+                    child: Icon(
+                      WebTuiIcons.compose,
+                      size: 24,
+                      color: WebTuiColors.primary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: WebTuiSpacing.md),
+          ],
           Expanded(
-            child: WebTuiSearchBar(hintText: hintText, onChanged: onChanged),
+            child: WebTuiSearchBar(
+              hintText: 'Tìm tin nhắn, nhóm, kênh...',
+              onChanged: onChanged,
+            ),
           ),
           ...actions,
         ],
       ),
+    );
+  }
+}
+
+class _TopSearch extends StatelessWidget {
+  const _TopSearch({required this.hintText, required this.onChanged});
+
+  final String hintText;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        WebTuiSpacing.lg,
+        WebTuiSpacing.md,
+        WebTuiSpacing.lg,
+        WebTuiSpacing.sm,
+      ),
+      child: WebTuiSearchBar(hintText: hintText, onChanged: onChanged),
     );
   }
 }

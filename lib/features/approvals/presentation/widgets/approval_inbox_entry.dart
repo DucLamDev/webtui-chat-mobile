@@ -1,9 +1,9 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../controllers/approval_access_provider.dart';
 
@@ -25,7 +25,7 @@ class ApprovalInboxEntry extends ConsumerWidget {
       preview: 'Duyệt hoặc từ chối yêu cầu đang chờ',
       timeLabel: '',
       avatarLabel: 'Phê duyệt',
-      avatarIcon: Icons.fact_check_outlined,
+      avatarIcon: WebTuiIcons.tasks,
       trailing: const Icon(
         CupertinoIcons.chevron_right,
         size: 18,

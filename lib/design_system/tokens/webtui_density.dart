@@ -4,6 +4,9 @@ final class WebTuiListDensity {
   static const double conversationItemHeight = 68;
   static const double compactItemHeight = 54;
   static const double avatarSize = 42;
+
+  /// Ảnh / ô vuông đầu dòng trong danh sách hội thoại.
+  static const double listAvatarSize = 48;
   static const double compactAvatarSize = 36;
   static const double unreadBadgeMinSize = 18;
 }
