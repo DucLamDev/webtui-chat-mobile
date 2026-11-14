@@ -158,6 +158,31 @@ final class ListChannelMediaUseCase {
   }
 }
 
+/// Gửi ảnh bìa (JPEG) của một video đã tải lên.
+final class UploadVideoThumbnailUseCase {
+  const UploadVideoThumbnailUseCase(this._repository);
+
+  final MessageAttachmentRepository _repository;
+
+  Future<Result<UploadedMessageFile>> execute({
+    required String workspaceId,
+    required String fileId,
+    required String thumbnailPath,
+    int? durationMs,
+    int? width,
+    int? height,
+  }) {
+    return _repository.uploadThumbnail(
+      workspaceId: workspaceId,
+      fileId: fileId,
+      thumbnailPath: thumbnailPath,
+      durationMs: durationMs,
+      width: width,
+      height: height,
+    );
+  }
+}
+
 final class DownloadMessageAttachmentBytesUseCase {
   const DownloadMessageAttachmentBytesUseCase(this._repository);
 

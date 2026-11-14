@@ -123,4 +123,68 @@ void main() {
     expect(await compressor.compress(inputPath: 'a', outputPath: 'b'), isNull);
     expect(called, isFalse);
   });
+
+  test('poster thành công trả về VideoPoster và gửi đúng tham số', () async {
+    final out = File('${dir.path}/poster.jpg');
+    String? method;
+    Map<Object?, Object?>? seen;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      method = call.method;
+      seen = call.arguments as Map<Object?, Object?>;
+      await out.writeAsBytes([1, 2, 3, 4]);
+      return {
+        'path': out.path,
+        'byteSize': 4,
+        'width': 1080,
+        'height': 1920,
+        'durationMs': 35000,
+      };
+    });
+    final result = await compressor.poster(
+      inputPath: '${dir.path}/in.mp4',
+      outputPath: out.path,
+    );
+    expect(method, 'poster');
+    expect(seen?['maxSide'], 480);
+    expect(seen?['timeMs'], 1000);
+    expect(seen?['input'], '${dir.path}/in.mp4');
+    expect(result?.path, out.path);
+    expect(result?.byteSize, 4);
+    expect(result?.width, 1080);
+    expect(result?.height, 1920);
+    expect(result?.durationMs, 35000);
+  });
+
+  test(
+    'poster: native lỗi, thiếu tệp hoặc nền tảng khác thì trả null',
+    () async {
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        throw PlatformException(code: 'POSTER_FAILED');
+      });
+      expect(
+        await compressor.poster(inputPath: 'a', outputPath: '${dir.path}/p'),
+        isNull,
+      );
+      messenger.setMockMethodCallHandler(
+        channel,
+        (call) async => {'path': '${dir.path}/none.jpg', 'byteSize': 10},
+      );
+      expect(
+        await compressor.poster(inputPath: 'a', outputPath: '${dir.path}/p'),
+        isNull,
+      );
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      expect(
+        await compressor.poster(inputPath: 'a', outputPath: '${dir.path}/p'),
+        isNull,
+      );
+      expect(
+        await const NoopVideoCompressor().poster(
+          inputPath: 'a',
+          outputPath: 'b',
+        ),
+        isNull,
+      );
+    },
+  );
 }

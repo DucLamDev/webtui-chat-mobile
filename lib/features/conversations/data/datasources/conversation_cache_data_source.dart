@@ -517,6 +517,10 @@ Map<String, Object?> _uploadedFileToJson(UploadedMessageFile file) {
     'downloadPath': file.downloadPath,
     'createdAt': file.createdAt.toUtc().toIso8601String(),
     'status': file.status,
+    'thumbnailUrl': file.thumbnailUrl,
+    'width': file.width,
+    'height': file.height,
+    'durationMs': file.durationMs,
   };
 }
 
@@ -531,7 +535,16 @@ UploadedMessageFile _uploadedFileFromJson(Map<String, Object?> json) {
         _dateTime(json['createdAt']) ??
         DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
     status: _string(json['status'], fallback: 'ready'),
+    thumbnailUrl: _nullableString(json['thumbnailUrl']),
+    width: _positiveInt(json['width']),
+    height: _positiveInt(json['height']),
+    durationMs: _positiveInt(json['durationMs']),
   );
+}
+
+int? _positiveInt(Object? value) {
+  final number = _int(value);
+  return number > 0 ? number : null;
 }
 
 UploadedMessageFile _emptyUploadedFile(String id) {

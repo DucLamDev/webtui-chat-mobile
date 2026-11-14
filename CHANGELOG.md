@@ -4,6 +4,14 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
+## 1.19.0 · 14/11/2026
+### Tính năng
+- Ảnh bìa cho video và ảnh thu nhỏ trong chat
+  Gửi video thì app tự lấy một khung hình làm ảnh bìa gửi kèm, nên người nhận thấy ngay video là gì. Video trong
+  khung chat hiện ảnh bìa, nút phát và thời lượng; chỉ khi bấm phát mới tải video (trước đây phải tải cả video mới
+  thấy gì). Ảnh trong khung chat và kho "Ảnh, video, tệp" hiện bản nhỏ cho nhanh, bấm vào mở bản gốc. Cần máy chủ
+  bản mới; máy chủ cũ thì hiện như trước.
+
 ## 1.18.2 · 14/11/2026
 ### Sửa lỗi
 - Bấm kênh Ticket luôn mở màn trả lời ticket khách
