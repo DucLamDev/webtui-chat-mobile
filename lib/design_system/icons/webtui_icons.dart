@@ -108,6 +108,9 @@ abstract final class WebTuiIcons {
   static const IconData fingerprint = LucideIcons.fingerprint;
   static const IconData key = LucideIcons.keyRound;
   static const IconData shieldCheck = LucideIcons.shieldCheck;
+  static const IconData report = LucideIcons.flag;
+  static const IconData block = LucideIcons.ban;
+  static const IconData unblock = LucideIcons.userRoundCheck;
 }
 
 /// Khoá biểu tượng lối tắt ứng dụng do máy chủ trả về (danh sách cố định, cùng

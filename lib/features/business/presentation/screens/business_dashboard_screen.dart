@@ -515,6 +515,8 @@ Future<void> _showCreateTicketDialog(
                       controller: descriptionController,
                       label: 'Mô tả',
                       hint: 'Bổ sung ngữ cảnh nếu có',
+                      minLines: 2,
+                      maxLines: 5,
                     ),
                     const SizedBox(height: WebTuiSpacing.md),
                     DropdownButtonFormField<String>(

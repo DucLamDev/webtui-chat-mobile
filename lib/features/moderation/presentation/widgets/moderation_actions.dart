@@ -31,13 +31,13 @@ Future<void> showUserSafetyActions(
       children: [
         WebTuiSheetHeader(title: userLabel, subtitle: 'An toàn'),
         WebTuiSheetActionTile(
-          icon: WebTuiIcons.shieldCheck,
+          icon: WebTuiIcons.report,
           title: 'Báo cáo người dùng',
           subtitle: 'Gửi báo cáo về $userLabel cho đội ngũ kiểm duyệt.',
           onTap: () => Navigator.pop(sheetContext, UserSafetyAction.report),
         ),
         WebTuiSheetActionTile(
-          icon: blocked ? WebTuiIcons.addFriend : WebTuiIcons.lock,
+          icon: blocked ? WebTuiIcons.unblock : WebTuiIcons.block,
           tone: blocked ? WebTuiDialogTone.normal : WebTuiDialogTone.danger,
           title: blocked ? 'Bỏ chặn người dùng' : 'Chặn người dùng',
           subtitle: blocked
@@ -140,7 +140,7 @@ Future<bool> toggleUserBlock(
       message: blocked
           ? 'Nội dung mới từ người dùng này sẽ hiển thị lại.'
           : 'Tin nhắn của người dùng này sẽ bị ẩn. Bạn có thể bỏ chặn trong mục Quyền riêng tư.',
-      icon: blocked ? WebTuiIcons.addFriend : WebTuiIcons.lock,
+      icon: blocked ? WebTuiIcons.unblock : WebTuiIcons.block,
       tone: blocked ? WebTuiDialogTone.normal : WebTuiDialogTone.danger,
       actions: [
         WebTuiDialogAction(
@@ -250,7 +250,7 @@ class _ModerationReportDialogState extends State<_ModerationReportDialog> {
     return WebTuiDialog(
       title: widget.title,
       message: widget.description,
-      icon: WebTuiIcons.shieldCheck,
+      icon: WebTuiIcons.report,
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -143,7 +143,8 @@ class _GroupCreateViewState extends ConsumerState<GroupCreateView> {
               controller: _descriptionController,
               label: 'Mô tả (tuỳ chọn)',
               hint: 'Nhóm này dùng để làm gì?',
-              textInputAction: TextInputAction.done,
+              minLines: 2,
+              maxLines: 4,
             ),
             const SizedBox(height: WebTuiSpacing.xl),
             Row(

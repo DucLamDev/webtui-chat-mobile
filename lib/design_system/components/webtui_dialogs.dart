@@ -414,6 +414,8 @@ class WebTuiDialogTextField extends StatelessWidget {
     this.prefixIcon,
     this.suffix,
     this.showCounter = true,
+    this.minLines,
+    this.maxLines = 1,
     super.key,
   });
 
@@ -433,6 +435,11 @@ class WebTuiDialogTextField extends StatelessWidget {
 
   /// Hiện bộ đếm ký tự dưới ô khi có [maxLength] (tắt cho ô ngắn lặp lại).
   final bool showCounter;
+
+  /// Ô nhiều dòng (mô tả...): đặt [minLines] / [maxLines] > 1; bàn phím có
+  /// phím xuống dòng.
+  final int? minLines;
+  final int? maxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -459,8 +466,13 @@ class WebTuiDialogTextField extends StatelessWidget {
           controller: controller,
           autofocus: autofocus,
           obscureText: obscureText,
-          keyboardType: keyboardType,
-          textInputAction: textInputAction,
+          minLines: minLines,
+          maxLines: obscureText ? 1 : maxLines,
+          keyboardType:
+              keyboardType ?? (maxLines != 1 ? TextInputType.multiline : null),
+          textInputAction: maxLines != 1
+              ? TextInputAction.newline
+              : textInputAction,
           maxLength: maxLength,
           onChanged: onChanged,
           onSubmitted: onSubmitted,

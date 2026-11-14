@@ -382,14 +382,14 @@ class _CustomerTicketDetailViewState
         children: [
           const WebTuiSheetHeader(title: 'Thêm ảnh'),
           WebTuiSheetActionTile(
-            icon: WebTuiIcons.image,
+            icon: WebTuiIcons.gallery,
             title: 'Chọn từ thư viện ảnh',
             onTap: () => Navigator.of(
               sheetContext,
             ).pop(CustomerTicketImageSource.gallery),
           ),
           WebTuiSheetActionTile(
-            icon: WebTuiIcons.imageFile,
+            icon: WebTuiIcons.camera,
             title: 'Chụp ảnh',
             onTap: () => Navigator.of(
               sheetContext,
