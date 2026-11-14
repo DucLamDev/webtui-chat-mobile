@@ -4,6 +4,15 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
+## 1.25.0 · 14/11/2026
+### Tính năng
+- Tệp chia sẻ thiết kế lại gọn và hiện đại
+  Tệp chia theo nhóm thời gian (Hôm nay, Hôm qua, Tháng này, từng tháng cũ hơn) trong các khối bo tròn; nút lọc dạng
+  viên kèm số tệp từng loại; có ô tìm tệp theo tên. Lọc Ảnh / Video hiện dạng lưới ảnh thu nhỏ (chia theo tháng), video
+  có thời lượng. Tên do máy tự đặt (voice-…, image_picker_…, chuỗi ký tự dài) hiện gọn thành "Ghi âm", "Video", "Ảnh";
+  dòng phụ chỉ còn đuôi tài liệu, thời lượng, kích thước và giờ / ngày. Ghi âm có nút nghe tròn; video chưa có ảnh bìa
+  (gửi từ bản cũ) hiện ô tối có dấu phát thay vì ô lỗi. Chữ phụ đậm hơn cho dễ đọc.
+
 ## 1.24.0 · 14/11/2026
 ### Tính năng
 - App gọn hơn, xem tệp ngay, hộp thoại làm mới theo góp ý đợt 2

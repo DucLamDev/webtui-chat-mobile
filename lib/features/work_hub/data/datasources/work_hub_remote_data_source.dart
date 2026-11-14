@@ -178,5 +178,24 @@ SharedFile _fileFromMap(JsonMap map) {
     ], fallback: 'application/octet-stream'),
     byteSize: intField(map, const ['byte_size', 'size_bytes', 'size']),
     createdAt: dateTimeField(map, const ['created_at', 'createdAt']),
+    thumbnailUrl: _optionalText(map['thumbnail_url']),
+    width: _positiveInt(map['width']),
+    height: _positiveInt(map['height']),
+    durationMs: _positiveInt(map['duration_ms']),
   );
+}
+
+String? _optionalText(Object? value) {
+  final text = value is String ? value.trim() : '';
+  return text.isEmpty ? null : text;
+}
+
+int? _positiveInt(Object? value) {
+  final number = switch (value) {
+    final int whole => whole,
+    final double real when real.isFinite => real.round(),
+    final String text => int.tryParse(text.trim()),
+    _ => null,
+  };
+  return number != null && number > 0 ? number : null;
 }

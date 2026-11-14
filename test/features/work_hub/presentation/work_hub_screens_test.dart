@@ -8,6 +8,7 @@ import 'package:webtui_chat/features/work_hub/presentation/screens/meetings_scre
 import 'package:webtui_chat/features/work_hub/presentation/screens/my_tasks_screen.dart';
 import 'package:webtui_chat/features/work_hub/presentation/screens/shared_files_screen.dart';
 import 'package:webtui_chat/features/work_hub/presentation/screens/shortcuts_manage_screen.dart';
+import 'package:webtui_chat/features/work_hub/presentation/widgets/shared_file_widgets.dart';
 
 import '../work_hub_fakes.dart';
 import 'work_hub_harness.dart';
@@ -372,7 +373,10 @@ void main() {
         workHubApp(
           repository: FakeWorkHubRepository(files: data),
           tasks: FakeTaskRepository([]),
-          home: const SharedFilesScreen(workspaceId: 'ws'),
+          home: SharedFilesScreen(
+            workspaceId: 'ws',
+            now: DateTime(2026, 11, 14, 9),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -386,7 +390,11 @@ void main() {
       for (final id in ['f1', 'f2', 'f3', 'f4']) {
         expect(find.byKey(Key('file_$id')), findsOneWidget);
       }
-      expect(find.text('2,0 MB · 10/11/2026'), findsOneWidget);
+      // Nhóm theo thời gian; dòng phụ gọn: kích thước · ngày (cùng năm bỏ năm).
+      expect(find.text('Hôm qua'), findsOneWidget);
+      expect(find.text('Tháng này'), findsOneWidget);
+      expect(find.text('2,0 MB · 10/11'), findsOneWidget);
+      expect(find.text('PDF · 800 B · 12/11'), findsOneWidget);
 
       Future<void> choose(String key, Set<String> expected) async {
         await tester.ensureVisible(find.byKey(Key(key)));
@@ -417,6 +425,50 @@ void main() {
       await tester.tap(find.byKey(const Key('files_filter_audio')));
       await tester.pumpAndSettle();
       expect(find.text('Không có tệp nào ở mục này'), findsOneWidget);
+    });
+
+    testWidgets(
+      'bộ lọc kèm số tệp; Ảnh / Video hiện lưới, Tất cả hiện khối dòng',
+      (tester) async {
+        await openFiles(tester, files);
+        expect(find.byType(SharedFileRow), findsNWidgets(4));
+        expect(find.byType(SharedMediaGridTile), findsNothing);
+        expect(
+          tester.getSemantics(find.byKey(const Key('files_filter_all'))).label,
+          'Tất cả 4',
+        );
+        expect(
+          tester
+              .getSemantics(find.byKey(const Key('files_filter_video')))
+              .label,
+          'Video 1',
+        );
+
+        await tester.tap(find.byKey(const Key('files_filter_video')));
+        await tester.pumpAndSettle();
+        expect(find.byType(SharedMediaGridTile), findsOneWidget);
+        expect(find.byType(SharedFileRow), findsNothing);
+        // Video chưa có ảnh bìa (máy chủ không trả thumbnail_url): ô thay thế,
+        // không gọi tải ảnh lỗi.
+        expect(find.byKey(const Key('file_video_fallback')), findsOneWidget);
+      },
+    );
+
+    testWidgets('tìm theo tên lọc danh sách và số đếm', (tester) async {
+      await openFiles(tester, files);
+      await tester.tap(find.byKey(const Key('files_search_toggle')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('files_search')), 'bao');
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('file_f3')), findsOneWidget);
+      expect(find.byKey(const Key('file_f1')), findsNothing);
+      expect(
+        tester.getSemantics(find.byKey(const Key('files_filter_all'))).label,
+        'Tất cả 1',
+      );
+      await tester.enterText(find.byKey(const Key('files_search')), 'không có');
+      await tester.pumpAndSettle();
+      expect(find.text('Không thấy tệp nào tên "không có"'), findsOneWidget);
     });
 
     test('nhãn kích thước tệp', () {

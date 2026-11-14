@@ -212,7 +212,53 @@ void main() {
     ]);
     expect(files.first.name, 'anh.png');
     expect(files.first.byteSize, 2048);
+    // Thiếu trường ảnh nhỏ / cỡ / thời lượng: null (máy chủ cũ, video gửi từ bản cũ).
+    expect(files[1].thumbnailUrl, isNull);
+    expect(files[1].durationMs, isNull);
   });
+
+  test(
+    'tệp chia sẻ: đọc ảnh nhỏ, cỡ, thời lượng video khi máy chủ có',
+    () async {
+      final transport = _Transport({
+        'data': {
+          'files': [
+            {
+              'id': 'v1',
+              'original_name': 'clip.mp4',
+              'mime_type': 'video/mp4',
+              'byte_size': 4096,
+              'thumbnail_url': '/api/v1/workspaces/w1/files/v1/thumbnail',
+              'width': 1280,
+              'height': 720,
+              'duration_ms': 42000,
+            },
+            {
+              'id': 'v2',
+              'original_name': 'cu.mp4',
+              'mime_type': 'video/mp4',
+              'thumbnail_url': '  ',
+              'width': 0,
+              'duration_ms': 'không phải số',
+            },
+          ],
+        },
+      });
+      final files = await WorkHubRemoteDataSource(
+        transport,
+      ).listFiles(workspaceId: 'w1');
+      expect(
+        files.first.thumbnailUrl,
+        '/api/v1/workspaces/w1/files/v1/thumbnail',
+      );
+      expect(files.first.width, 1280);
+      expect(files.first.height, 720);
+      expect(files.first.durationMs, 42000);
+      expect(files.last.thumbnailUrl, isNull);
+      expect(files.last.width, isNull);
+      expect(files.last.durationMs, isNull);
+    },
+  );
 }
 
 final class _Call {
