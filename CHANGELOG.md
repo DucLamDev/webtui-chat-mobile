@@ -4,7 +4,7 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
-## 1.18.3 · 14/11/2026
+## 1.19.1 · 14/11/2026
 ### Sửa lỗi
 - Hộp "Điều khoản và quyền riêng tư" không còn bật lên mỗi lần mở app
   Trước đây mỗi lần mở app hoặc đổi workspace, hộp này che cả màn hình với dòng "Đang kiểm tra trạng thái chính
@@ -12,6 +12,14 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   khi máy chủ báo tài khoản thật sự chưa đồng ý (đồng ý một lần là xong, tới khi chính sách có phiên bản mới). Mất
   mạng lúc kiểm tra thì chỉ hiện một dải nhỏ phía trên có nút "Thử lại", không che màn hình. Gửi tin vẫn bị khoá cho
   tới khi kiểm tra xong như trước.
+
+## 1.19.0 · 14/11/2026
+### Tính năng
+- Ảnh bìa cho video và ảnh thu nhỏ trong chat
+  Gửi video thì app tự lấy một khung hình làm ảnh bìa gửi kèm, nên người nhận thấy ngay video là gì. Video trong
+  khung chat hiện ảnh bìa, nút phát và thời lượng; chỉ khi bấm phát mới tải video (trước đây phải tải cả video mới
+  thấy gì). Ảnh trong khung chat và kho "Ảnh, video, tệp" hiện bản nhỏ cho nhanh, bấm vào mở bản gốc. Cần máy chủ
+  bản mới; máy chủ cũ thì hiện như trước.
 
 ## 1.18.2 · 14/11/2026
 ### Sửa lỗi

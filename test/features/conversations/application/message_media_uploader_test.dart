@@ -26,6 +26,7 @@ void main() {
       uploadAttachment: UploadMessageAttachmentUseCase(repo),
       compressor: compressor,
       compressedPathFor: (id) async => '${dir.path}/$id.mp4',
+      uploadThumbnail: UploadVideoThumbnailUseCase(repo),
     );
   });
   tearDown(() async {
@@ -174,6 +175,82 @@ void main() {
     expect(repo.uploads.last.path, '${dir.path}/c1.mp4');
   });
 
+  test(
+    'video tải xong thì gửi ảnh bìa lấy từ tệp gốc rồi xoá tệp tạm',
+    () async {
+      final a = video(compress: false);
+      final result = await run(a);
+
+      expect(compressor.posterInputs, [a.path]);
+      final thumb = repo.thumbnails.single;
+      expect(thumb.fileId, 'file-1');
+      expect(thumb.durationMs, 35000);
+      expect(thumb.width, 1080);
+      expect(thumb.height, 1920);
+      expect(File(thumb.path).existsSync(), isFalse);
+      final file = result.valueOrNull!;
+      expect(file.thumbnailUrl, '/api/v1/workspaces/w/files/file-1/thumbnail');
+      expect(file.durationMs, 35000);
+
+      // Gọi lại cùng id: dùng kết quả nhớ, không lấy / gửi ảnh bìa lần nữa.
+      final again = await run(a);
+      expect(again.valueOrNull?.thumbnailUrl, file.thumbnailUrl);
+      expect(repo.thumbnails, hasLength(1));
+    },
+  );
+
+  test('video nén: ảnh bìa vẫn lấy từ tệp gốc, không phải bản nén', () async {
+    final a = video();
+    await run(a);
+    expect(compressor.posterInputs, [a.path]);
+    expect(repo.thumbnails, hasLength(1));
+  });
+
+  test('lỗi lấy hoặc gửi ảnh bìa thì vẫn thành công và bỏ qua', () async {
+    compressor.posterMode = _PosterMode.nullResult;
+    final first = await run(video(compress: false));
+    expect(first.isSuccess, isTrue);
+    expect(first.valueOrNull?.thumbnailUrl, isNull);
+    expect(repo.thumbnails, isEmpty);
+
+    compressor.posterMode = _PosterMode.throws;
+    final second = await uploader.upload(
+      workspaceId: 'w',
+      clientAttachmentId: 'c2',
+      attachment: video(compress: false),
+    );
+    expect(second.isSuccess, isTrue);
+
+    compressor.posterMode = _PosterMode.ok;
+    repo.failThumbnail = true;
+    final third = await uploader.upload(
+      workspaceId: 'w',
+      clientAttachmentId: 'c3',
+      attachment: video(compress: false),
+    );
+    expect(third.isSuccess, isTrue);
+    expect(third.valueOrNull?.thumbnailUrl, isNull);
+    expect(
+      Directory(dir.path).listSync().where((e) => e.path.endsWith('.jpg')),
+      isEmpty,
+    );
+  });
+
+  test('ảnh và tệp thường không lấy ảnh bìa', () async {
+    await uploader.upload(
+      workspaceId: 'w',
+      clientAttachmentId: 'a',
+      attachment: video(kind: MessageAttachmentKind.image),
+    );
+    await uploader.upload(
+      workspaceId: 'w',
+      clientAttachmentId: 'b',
+      attachment: video(kind: MessageAttachmentKind.file),
+    );
+    expect(compressor.posterInputs, isEmpty);
+    expect(repo.thumbnails, isEmpty);
+  });
+
   test('tệp mất thì báo ATTACHMENT_FILE_MISSING', () async {
     final result = await run(video(path: '${dir.path}/khong-co.mov'));
     final failure = result.failureOrNull;
@@ -185,9 +262,46 @@ void main() {
 
 enum _Mode { ok, nullResult, throws, barelySmaller }
 
+enum _PosterMode { ok, nullResult, throws }
+
+final class _ThumbCall {
+  const _ThumbCall(
+    this.fileId,
+    this.path,
+    this.durationMs,
+    this.width,
+    this.height,
+  );
+  final String fileId;
+  final String path;
+  final int? durationMs;
+  final int? width;
+  final int? height;
+}
+
 final class _FakeCompressor implements VideoCompressor {
   int calls = 0;
   _Mode mode = _Mode.ok;
+  _PosterMode posterMode = _PosterMode.ok;
+  final List<String> posterInputs = [];
+
+  @override
+  Future<VideoPoster?> poster({
+    required String inputPath,
+    required String outputPath,
+  }) async {
+    posterInputs.add(inputPath);
+    if (posterMode == _PosterMode.throws) throw StateError('poster lỗi');
+    if (posterMode == _PosterMode.nullResult) return null;
+    await File(outputPath).writeAsBytes([7, 7]);
+    return VideoPoster(
+      path: outputPath,
+      byteSize: 2,
+      width: 1080,
+      height: 1920,
+      durationMs: 35000,
+    );
+  }
 
   @override
   Future<CompressedVideo?> compress({
@@ -214,6 +328,39 @@ final class _FakeCompressor implements VideoCompressor {
 final class _FakeRepository implements MessageAttachmentRepository {
   final List<PickedMessageAttachment> uploads = [];
   bool failNext = false;
+  bool failThumbnail = false;
+  final List<_ThumbCall> thumbnails = [];
+
+  @override
+  Future<Result<UploadedMessageFile>> uploadThumbnail({
+    required String workspaceId,
+    required String fileId,
+    required String thumbnailPath,
+    int? durationMs,
+    int? width,
+    int? height,
+  }) async {
+    if (failThumbnail) {
+      return const FailureResult(
+        Failure(kind: FailureKind.network, message: 'mất mạng'),
+      );
+    }
+    expect(File(thumbnailPath).existsSync(), isTrue);
+    thumbnails.add(
+      _ThumbCall(fileId, thumbnailPath, durationMs, width, height),
+    );
+    return Success(
+      UploadedMessageFile(
+        id: fileId,
+        name: 'goc.mov',
+        mimeType: 'video/quicktime',
+        byteSize: 1,
+        downloadPath: '/x',
+        createdAt: DateTime(2026),
+        thumbnailUrl: '/api/v1/workspaces/$workspaceId/files/$fileId/thumbnail',
+      ),
+    );
+  }
 
   @override
   Future<Result<UploadedMessageFile>> uploadFile({
