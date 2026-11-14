@@ -9,7 +9,8 @@ abstract final class WebTuiIcons {
   // Thanh dưới.
   static const IconData messages = LucideIcons.messageCircle;
   static const IconData friends = LucideIcons.users;
-  static const IconData work = LucideIcons.briefcase;
+  // Cặp da có khoá (briefcase-business); `briefcase` thường trông như vali.
+  static const IconData work = LucideIcons.briefcaseBusiness;
   static const IconData settings = LucideIcons.settings;
 
   // Đầu màn và nút chung.

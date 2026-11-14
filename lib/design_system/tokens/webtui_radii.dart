@@ -7,4 +7,10 @@ final class WebTuiRadii {
   static const double lg = 16;
   static const double segmented = 10;
   static const double avatar = 14;
+
+  /// Hộp thoại (WebTuiDialog, AlertDialog qua chủ đề).
+  static const double dialog = 24;
+
+  /// Mép trên bảng trượt từ dưới lên.
+  static const double sheet = 24;
 }
