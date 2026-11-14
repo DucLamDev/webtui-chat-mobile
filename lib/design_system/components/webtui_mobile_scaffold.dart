@@ -14,9 +14,12 @@ class WebTuiMobileScaffold extends StatelessWidget {
     this.leading,
     this.actions = const [],
     this.floatingActionButton,
+    this.showAppBar = true,
     super.key,
   });
 
+  /// `false`: bỏ thanh tiêu đề để màn có thêm chỗ (tab tự đặt nút của nó).
+  final bool showAppBar;
   final String title;
   final Widget body;
   final int selectedTab;
@@ -28,27 +31,31 @@ class WebTuiMobileScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 54,
-        centerTitle: false,
-        leading: leading,
-        leadingWidth: leading == null ? 0 : 46,
-        surfaceTintColor: Colors.transparent,
-        shape: Border(
-          bottom: BorderSide(color: WebTuiColors.border.withValues(alpha: 0.7)),
-        ),
-        titleSpacing: leading == null ? 16 : 0,
-        title: Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: WebTuiTypography.titleLarge.copyWith(
-            color: WebTuiColors.textPrimary,
-          ),
-        ),
-        actions: actions,
-      ),
-      body: SafeArea(top: false, child: body),
+      appBar: !showAppBar
+          ? null
+          : AppBar(
+              toolbarHeight: 54,
+              centerTitle: false,
+              leading: leading,
+              leadingWidth: leading == null ? 0 : 46,
+              surfaceTintColor: Colors.transparent,
+              shape: Border(
+                bottom: BorderSide(
+                  color: WebTuiColors.border.withValues(alpha: 0.7),
+                ),
+              ),
+              titleSpacing: leading == null ? 16 : 0,
+              title: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: WebTuiTypography.titleLarge.copyWith(
+                  color: WebTuiColors.textPrimary,
+                ),
+              ),
+              actions: actions,
+            ),
+      body: SafeArea(top: !showAppBar, child: body),
       floatingActionButton: floatingActionButton,
       bottomNavigationBar: NavigationBar(
         height: WebTuiBottomTabTokens.height,
