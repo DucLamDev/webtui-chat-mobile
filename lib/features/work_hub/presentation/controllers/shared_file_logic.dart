@@ -184,6 +184,9 @@ final class SharedFileStreamLinkCache {
     return fresh;
   }
 
+  /// Bỏ link đã nhớ của tệp (link bị từ chối / hết hạn) để lần sau xin mới.
+  void invalidate(String fileId) => _links.remove(fileId);
+
   bool _valid(SharedFileStreamLink link) {
     final expires = link.expiresAt;
     return expires != null && expires.isAfter(_now().add(margin));

@@ -17,6 +17,7 @@ import '../../application/use_cases/call_use_cases.dart';
 import '../../domain/entities/call_device_routing.dart';
 import '../../domain/entities/call_session.dart';
 import '../../domain/entities/conversation_realtime_event.dart';
+import '../../domain/entities/incoming_call_policy.dart';
 
 class WebRtcCallScreen extends ConsumerStatefulWidget {
   const WebRtcCallScreen({
@@ -56,6 +57,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   StreamSubscription<ConversationRealtimeEvent>? _signals;
   Timer? _stateTimer;
   Timer? _disconnectTimer;
+  Timer? _connectTimer;
   String? _currentUserId;
   String? _error;
   DateTime? _startedAt;
@@ -74,6 +76,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   bool _speakerEnabled = false;
   bool _usingFrontCamera = true;
   bool _reconnecting = false;
+  bool _connected = false;
   bool _iceRestartAttempted = false;
 
   /// Máy này đã nhận cuộc gọi đến (accept thành công): chỉ khi đó mới trả lời
@@ -107,6 +110,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     unawaited(_ringback.stop());
     _stateTimer?.cancel();
     _disconnectTimer?.cancel();
+    _connectTimer?.cancel();
     unawaited(_signals?.cancel());
     unawaited(_peer?.close());
     for (final track in _localStream?.getTracks() ?? <MediaStreamTrack>[]) {
@@ -148,12 +152,13 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
           .listen(_handleSignal);
       if (widget.incoming) {
         if (!await _acceptIncomingCall()) {
-          // Đã nhận ở máy khác (hoặc vừa kết thúc): đóng màn gọi đến, không
-          // gác máy và không báo lỗi.
-          await _leaveAnsweredElsewhere();
+          // Đã nhận ở máy khác (hoặc vừa kết thúc): báo rõ rồi đóng màn gọi
+          // đến, không gác máy hộ máy kia.
+          await _leaveWithMessage(callGoneMessage);
           return;
         }
         _acceptedHere = true;
+        _startConnectTimer();
       }
 
       final peer = await createPeerConnection({
@@ -224,6 +229,8 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
         if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
           unawaited(_ringback.stop());
           _disconnectTimer?.cancel();
+          _connectTimer?.cancel();
+          _connected = true;
           setState(() {
             _status = CallStatus.accepted;
             _startedAt ??= DateTime.now().toUtc();
@@ -267,6 +274,12 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       }
       await _syncCall();
     } on Object catch (error) {
+      if (widget.incoming && !_acceptedHere) {
+        // Lỗi trước khi nhận được cuộc gọi (mạng, máy chủ): báo rõ rồi đóng,
+        // không gửi từ chối thay người được gọi.
+        await _leaveWithMessage(_friendlyError(error));
+        return;
+      }
       await _abortCall(error, reason: 'media_setup_failed');
     }
   }
@@ -546,6 +559,8 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     if (call.status != CallStatus.ringing) {
       unawaited(_ringback.stop());
     }
+    // Chiều gọi đi: bên kia đã nhận thì bắt đầu đếm thời hạn có media.
+    if (call.status == CallStatus.accepted) _startConnectTimer();
     setState(() {
       _status = call.status;
       _startedAt = startedAt;
@@ -572,6 +587,36 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     _stateTimer?.cancel();
     _disconnectTimer?.cancel();
     await NativeIncomingCallService.endCall(widget.callId, remoteEnded: true);
+    await _notifyLeave();
+    await _closeScreen();
+  }
+
+  /// Bắt đầu đếm thời hạn kết nối (chỉ một lần). Quá hạn mà WebRTC chưa
+  /// "connected" thì báo lỗi và kết thúc gọn thay vì kẹt "Đang kết nối".
+  void _startConnectTimer() {
+    if (_connected || _connectTimer != null || _leaving) return;
+    _connectTimer = Timer(callConnectTimeout, () {
+      if (_connected || _leaving || _fatalErrorHandled) return;
+      unawaited(
+        _abortCall(
+          StateError(callConnectTimeoutMessage),
+          reason: 'connect_timeout',
+        ),
+      );
+    });
+  }
+
+  /// Hiện thông báo lỗi ~2 giây rồi đóng màn, không báo gì lên máy chủ.
+  Future<void> _leaveWithMessage(String message) async {
+    if (_leaving) return;
+    _leaving = true;
+    unawaited(_ringback.stop());
+    _stateTimer?.cancel();
+    _disconnectTimer?.cancel();
+    _connectTimer?.cancel();
+    if (mounted) setState(() => _error = message);
+    await NativeIncomingCallService.endCall(widget.callId, remoteEnded: true);
+    await Future<void>.delayed(callErrorDisplayDuration);
     await _notifyLeave();
     await _closeScreen();
   }
@@ -636,8 +681,9 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     if (mounted) {
       setState(() => _error = _friendlyError(error));
     }
+    _connectTimer?.cancel();
     await _terminateServerCall(reason: reason);
-    await Future<void>.delayed(const Duration(milliseconds: 900));
+    await Future<void>.delayed(callErrorDisplayDuration);
     await _leaveFromRemote();
   }
 
@@ -1115,7 +1161,10 @@ String _duration(Duration value) {
 }
 
 String _friendlyError(Object error) {
-  final message = error.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+  final message = error.toString().replaceFirst(
+    RegExp(r'^(Exception|Bad state):\s*'),
+    '',
+  );
   if (message.contains('NotAllowed') || message.contains('Permission')) {
     return 'Cần cấp quyền camera và microphone để thực hiện cuộc gọi.';
   }

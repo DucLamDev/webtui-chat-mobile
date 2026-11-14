@@ -24,6 +24,7 @@ import '../../application/use_cases/message_attachment_use_cases.dart';
 import '../../data/files/scoped_attachment_file_store.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/message_voice.dart';
+import '../controllers/message_video_stream.dart';
 import '../controllers/voice_playback_link.dart';
 
 Future<void> openMessageImageGallery(
@@ -988,12 +989,45 @@ class _MessageVideoAttachmentViewState
   bool _loading = false;
   bool _failed = false;
 
-  /// Bấm nút phát trên ảnh bìa: tải xong thì phát luôn.
+  /// Bấm nút phát trên ảnh bìa: sẵn sàng thì phát luôn.
   bool _playWhenReady = false;
+
+  /// Số khung xem trước (video cũ chưa có ảnh bìa) đang giữ bộ giải mã; giới
+  /// hạn để cuộn qua nhiều video không làm cạn bộ giải mã của máy.
+  static int _activePreviews = 0;
+  static const int _maxActivePreviews = 3;
+  bool _previewCounted = false;
+  bool _previewTried = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startPreview());
+  }
+
+  /// Video cũ không có ảnh bìa: mở đường phát dần rồi dừng ở khung đầu, để
+  /// bong bóng có hình xem trước và bấm phát chạy ngay.
+  void _startPreview() {
+    if (!mounted ||
+        _previewTried ||
+        widget.isLocalPreview ||
+        _controller != null ||
+        _loading ||
+        attachmentThumbnailUri(widget.attachment, widget.apiBaseUri) != null ||
+        !widget.allowFullscreen) {
+      return;
+    }
+    _previewTried = true;
+    if (_activePreviews >= _maxActivePreviews) return;
+    _activePreviews += 1;
+    _previewCounted = true;
+    unawaited(_initialize(previewOnly: true));
+  }
+
+  void _releasePreviewSlot() {
+    if (!_previewCounted) return;
+    _previewCounted = false;
+    _activePreviews -= 1;
   }
 
   @override
@@ -1011,23 +1045,50 @@ class _MessageVideoAttachmentViewState
       _loading = false;
       _failed = false;
       _playWhenReady = false;
+      _previewTried = false;
+      _releasePreviewSlot();
       unawaited(_disposeVideo(previous, previousFile));
+      WidgetsBinding.instance.addPostFrameCallback((_) => _startPreview());
     }
   }
 
   void _requestDownload() {
     if (_loading || _controller != null) return;
-    if (!attachmentPreviewWithinLimit(
-      widget.attachment.file.byteSize,
-      maxBytes: maxVideoPlaybackBytes,
-    )) {
-      setState(() => _failed = true);
-      return;
-    }
     unawaited(_initialize());
   }
 
-  Future<void> _initialize() async {
+  /// Mở đường phát dần của video (xin link mới một lần nếu link cũ bị từ chối).
+  /// Trả null khi không phát dần được, lúc đó caller chuyển sang tải về.
+  Future<VideoPlayerController?> _openStream(int generation) async {
+    final workspaceId = workspaceIdFromFilePath(
+      widget.attachment.file.downloadPath,
+    );
+    final fileId = widget.attachment.fileId;
+    if (workspaceId == null || fileId.isEmpty) return null;
+    for (final fresh in const [false, true]) {
+      final stream = await resolveMessageVideoStream(
+        ref,
+        workspaceId: workspaceId,
+        fileId: fileId,
+        fresh: fresh,
+      );
+      if (stream == null ||
+          !mounted ||
+          generation != _initializationGeneration) {
+        return null;
+      }
+      final controller = messageVideoStreamController(stream);
+      try {
+        await controller.initialize();
+        return controller;
+      } on Object {
+        await controller.dispose();
+      }
+    }
+    return null;
+  }
+
+  Future<void> _initialize({bool previewOnly = false}) async {
     final generation = ++_initializationGeneration;
     if (mounted) {
       setState(() {
@@ -1037,7 +1098,7 @@ class _MessageVideoAttachmentViewState
     }
     final uri = attachmentDownloadUri(widget.attachment, widget.apiBaseUri);
     if (uri == null) {
-      _markVideoFailure(generation);
+      _markVideoFailure(generation, previewOnly: previewOnly);
       return;
     }
 
@@ -1049,7 +1110,7 @@ class _MessageVideoAttachmentViewState
     if (binding == null ||
         generation != _initializationGeneration ||
         !mounted) {
-      _markVideoFailure(generation);
+      _markVideoFailure(generation, previewOnly: previewOnly);
       return;
     }
 
@@ -1060,6 +1121,44 @@ class _MessageVideoAttachmentViewState
         return mounted &&
             generation == _initializationGeneration &&
             await binding.isStillCurrent();
+      }
+
+      // Ưu tiên phát dần: không phải tải hết tệp mới xem được.
+      final streamed = await _openStream(generation);
+      if (streamed != null) {
+        if (!await operationIsCurrent()) {
+          await streamed.dispose();
+          throw const RedirectSafeDownloadException('instance binding changed');
+        }
+        await streamed.setLooping(false);
+        final previous = _controller;
+        final previousFile = _videoFile;
+        setState(() {
+          _controller = streamed;
+          _videoFile = null;
+          _binding = binding;
+          _loading = false;
+          _failed = false;
+        });
+        if (previous != null) await previous.dispose();
+        if (previousFile != null) await _deleteFile(previousFile);
+        if (_playWhenReady &&
+            mounted &&
+            generation == _initializationGeneration) {
+          _playWhenReady = false;
+          await _togglePlayback();
+        }
+        return;
+      }
+      if (previewOnly) {
+        // Chỉ xem trước: không tải cả tệp về chỉ để lấy khung hình.
+        throw const RedirectSafeDownloadException('preview unavailable');
+      }
+      if (!attachmentPreviewWithinLimit(
+        widget.attachment.file.byteSize,
+        maxBytes: maxVideoPlaybackBytes,
+      )) {
+        throw const RedirectSafeDownloadException('video too large');
       }
 
       final target = await _fileStore.fileFor(
@@ -1132,21 +1231,24 @@ class _MessageVideoAttachmentViewState
       if (downloaded != null && downloaded.path != _videoFile?.path) {
         await _deleteFile(downloaded);
       }
-      _markVideoFailure(generation);
+      _markVideoFailure(generation, previewOnly: previewOnly);
     }
   }
 
-  void _markVideoFailure(int generation) {
+  void _markVideoFailure(int generation, {bool previewOnly = false}) {
     if (!mounted || generation != _initializationGeneration) return;
     _playWhenReady = false;
+    if (previewOnly) _releasePreviewSlot();
     setState(() {
       _loading = false;
-      _failed = true;
+      // Xem trước hỏng thì giữ ô tối có nút phát, chưa báo lỗi.
+      if (!previewOnly) _failed = true;
     });
   }
 
   @override
   void dispose() {
+    _releasePreviewSlot();
     _initializationGeneration += 1;
     unawaited(_disposeVideo(_controller, _videoFile));
     super.dispose();
@@ -1293,6 +1395,106 @@ class _MessageVideoAttachmentViewState
     );
   }
 
+  Widget _durationBadge(String text) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(WebTuiRadii.sm),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        child: Text(
+          text,
+          style: WebTuiTypography.labelSmall.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Video chưa có ảnh bìa và chưa có khung hình xem trước: ô tối có biểu
+  /// tượng phim, tên tệp, thời lượng và nút phát (không bao giờ là ô đen trống).
+  Widget _buildPlaceholderCover(String? durationText) {
+    final name = widget.attachment.file.name;
+    return Stack(
+      key: const ValueKey('video-placeholder'),
+      fit: StackFit.expand,
+      children: [
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF2A3140), Color(0xFF151921)],
+            ),
+          ),
+        ),
+        const Align(
+          alignment: Alignment(0, -0.55),
+          child: Icon(CupertinoIcons.film, color: Colors.white38, size: 30),
+        ),
+        Center(
+          child: _loading
+              ? const CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                )
+              : Semantics(
+                  button: true,
+                  enabled: !_failed,
+                  label: _failed ? 'Không phát được video' : 'Phát video',
+                  excludeSemantics: true,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _failed
+                        ? null
+                        : () {
+                            _playWhenReady = true;
+                            _requestDownload();
+                          },
+                    child: Container(
+                      key: const ValueKey('video-placeholder-play'),
+                      width: 56,
+                      height: 56,
+                      decoration: const BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        _failed
+                            ? CupertinoIcons.exclamationmark_triangle
+                            : CupertinoIcons.play_fill,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                  ),
+                ),
+        ),
+        // Có dòng tên tệp riêng phía dưới (không có nhãn giờ) thì khỏi lặp.
+        if (widget.timeLabel != null)
+          Positioned(
+            left: 10,
+            right: durationText == null ? 10 : 64,
+            bottom: 8,
+            child: Text(
+              _failed ? 'Không phát được video' : name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: WebTuiTypography.labelSmall.copyWith(
+                color: Colors.white70,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        if (durationText != null)
+          Positioned(right: 6, bottom: 6, child: _durationBadge(durationText)),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.isLocalPreview) {
@@ -1366,24 +1568,7 @@ class _MessageVideoAttachmentViewState
                     else if (thumbnailUri != null)
                       _buildThumbnailCover(thumbnailUri, durationText)
                     else
-                      Center(
-                        child: _loading
-                            ? const CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              )
-                            : IconButton.filled(
-                                tooltip: _failed
-                                    ? 'Video quá lớn hoặc không khả dụng'
-                                    : 'Tải video để phát',
-                                onPressed: _failed ? null : _requestDownload,
-                                icon: Icon(
-                                  _failed
-                                      ? CupertinoIcons.exclamationmark_triangle
-                                      : CupertinoIcons.arrow_down_circle_fill,
-                                ),
-                              ),
-                      ),
+                      _buildPlaceholderCover(durationText),
                     if (activeController != null)
                       Center(
                         child: IconButton.filled(
@@ -1401,6 +1586,14 @@ class _MessageVideoAttachmentViewState
                                 : CupertinoIcons.play_fill,
                           ),
                         ),
+                      ),
+                    if (activeController != null &&
+                        durationText != null &&
+                        !activeController.value.isPlaying)
+                      Positioned(
+                        right: 6,
+                        bottom: 6,
+                        child: _durationBadge(durationText),
                       ),
                     if (widget.allowFullscreen && activeController != null)
                       Positioned(

@@ -32,6 +32,7 @@ import '../../../conversations/domain/entities/call_device_routing.dart';
 import '../../../conversations/domain/entities/call_session.dart';
 import '../../../conversations/domain/entities/conversation_realtime_event.dart';
 import '../../../conversations/domain/entities/conversation_summary.dart';
+import '../../../conversations/domain/entities/incoming_call_policy.dart';
 import '../../../conversations/presentation/controllers/chat_room_controller.dart';
 import '../../../conversations/presentation/controllers/conversation_home_controller.dart';
 import '../../../conversations/presentation/controllers/messages_tab_unread.dart';
@@ -892,12 +893,17 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     }
   }
 
+  /// Cuộc gọi không dành cho người dùng này (gọi đi từ máy khác): bỏ qua các
+  /// lần báo sau (polling 8 giây một lần).
+  final Set<String> _notRingingCallIds = <String>{};
+
   Future<void> _showIncomingCall(NotificationTarget target) async {
     final callId = target.callId?.trim();
     if (!mounted || callId == null || callId.isEmpty) {
       return;
     }
-    if (_activeIncomingCallId == callId) {
+    if (_activeIncomingCallId == callId ||
+        _notRingingCallIds.contains(callId)) {
       return;
     }
     _activeIncomingCallId = callId;
@@ -910,6 +916,26 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           initialCall == null ||
           initialCall.status != CallStatus.ringing) {
         await NativeIncomingCallService.endCall(callId, remoteEnded: true);
+        return;
+      }
+      // Cuộc gọi đi từ thiết bị khác của chính mình (hoặc gọi người khác):
+      // không đổ chuông, không báo gì lên máy chủ.
+      final currentUserId =
+          (await ref.read(loadProfileUseCaseProvider).execute())
+              .valueOrNull
+              ?.id;
+      if (!mounted) return;
+      if (!shouldRingForIncomingCall(
+        currentUserId: currentUserId,
+        initiatorUserId: initialCall.initiatorUserId,
+        targetUserId: initialCall.targetUserId,
+      )) {
+        _notRingingCallIds.add(callId);
+        await NativeIncomingCallService.endCallIfActive(
+          callId,
+          remoteEnded: true,
+          incomingOnly: true,
+        );
         return;
       }
       final dismiss = ValueNotifier<bool>(false);

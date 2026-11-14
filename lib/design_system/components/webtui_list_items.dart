@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../icons/webtui_icons.dart';
+import '../tokens/webtui_channel_colors.dart';
 import '../tokens/webtui_colors.dart';
 import '../tokens/webtui_density.dart';
 import '../tokens/webtui_radii.dart';
@@ -61,6 +62,12 @@ class WebTuiConversationListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final square = squareAvatar || avatarIcon != null;
+    final channelTone = avatarIcon == null
+        ? null
+        : webTuiChannelTone(
+            avatarIcon!,
+            dark: Theme.of(context).brightness == Brightness.dark,
+          );
     final highlighted = pinned && !selected;
     final row = Material(
       color: selected
@@ -102,6 +109,10 @@ class WebTuiConversationListItem extends StatelessWidget {
                     WebTuiAvatar(
                       label: avatarLabel,
                       icon: avatarIcon,
+                      color:
+                          channelTone?.background ?? WebTuiColors.primarySoft,
+                      foregroundColor:
+                          channelTone?.icon ?? WebTuiColors.primary,
                       imageUrl: avatarUrl,
                       allowPublicRequest: avatarPublicImage,
                       status: status,
