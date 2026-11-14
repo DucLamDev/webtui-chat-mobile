@@ -10,6 +10,8 @@ import '../../../../core/error/error_mapper.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
 import '../../../../core/result/result_guard.dart';
+import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
@@ -470,28 +472,17 @@ class _CollaborationWhiteboardState
   }
 
   Future<void> _confirmClear() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Xoá toàn bộ bảng trắng?'),
-        content: const Text(
+    final confirmed = await showWebTuiConfirmDialog(
+      context,
+      title: 'Xoá toàn bộ bảng trắng?',
+      message:
           'Mọi nét vẽ, hình, chữ và biểu tượng sẽ bị xoá với cả phòng. '
           'Có thể bấm Hoàn tác ngay sau đó.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Huỷ'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: WebTuiColors.danger),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Xoá tất cả'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Xoá tất cả',
+      destructive: true,
+      icon: WebTuiIcons.delete,
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
     final current = _document;
     _commit(
       _Command(
@@ -1073,7 +1064,7 @@ class _CollaborationWhiteboardState
     return _group([
       TextButton.icon(
         onPressed: selected ? _deleteSelected : null,
-        icon: const Icon(Icons.delete_outline_rounded),
+        icon: const Icon(WebTuiIcons.delete),
         label: Text(selected ? 'Xoá phần tử đã chọn' : 'Chưa chọn phần tử'),
       ),
     ]);
@@ -1268,8 +1259,9 @@ class _TextInputDialogState extends State<_TextInputDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Thêm chữ'),
+    return WebTuiDialog(
+      title: 'Thêm chữ',
+      icon: WebTuiIcons.edit,
       content: TextField(
         controller: _controller,
         autofocus: true,
@@ -1280,11 +1272,11 @@ class _TextInputDialogState extends State<_TextInputDialog> {
         decoration: const InputDecoration(hintText: 'Nội dung ghi chú'),
       ),
       actions: [
-        TextButton(
+        WebTuiDialogAction(
+          label: 'Huỷ',
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Huỷ'),
         ),
-        FilledButton(onPressed: _submit, child: const Text('Thêm')),
+        WebTuiDialogAction(label: 'Thêm', primary: true, onPressed: _submit),
       ],
     );
   }

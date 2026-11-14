@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart' show LucideIcons;
 
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
@@ -172,7 +171,7 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
               const PopupMenuItem(
                 value: 'safety',
                 child: _ChatMenuRow(
-                  icon: LucideIcons.shield,
+                  icon: WebTuiIcons.shieldCheck,
                   label: 'Báo cáo hoặc chặn người dùng',
                 ),
               ),

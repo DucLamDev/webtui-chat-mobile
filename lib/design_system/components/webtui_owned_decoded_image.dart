@@ -24,6 +24,7 @@ class WebTuiOwnedDecodedImage extends StatefulWidget {
     this.height,
     this.fit = BoxFit.contain,
     this.semanticLabel,
+    this.onImageSize,
     @visibleForTesting this.onImageCreated,
     @visibleForTesting this.onImageDisposed,
     @visibleForTesting this.onDecodeError,
@@ -41,6 +42,10 @@ class WebTuiOwnedDecodedImage extends StatefulWidget {
   final double? height;
   final BoxFit fit;
   final String? semanticLabel;
+
+  /// Báo kích thước ảnh gốc (điểm ảnh) sau khi giải mã xong, để bố cục lấy tỉ
+  /// lệ thật khi tin nhắn chưa có sẵn chiều rộng / cao.
+  final ValueChanged<Size>? onImageSize;
   final VoidCallback? onImageCreated;
   final VoidCallback? onImageDisposed;
   final ValueChanged<Object>? onDecodeError;
@@ -125,8 +130,10 @@ class _WebTuiOwnedDecodedImageState extends State<WebTuiOwnedDecodedImage> {
         decoded = null;
         return;
       }
+      final reported = Size(sourceWidth.toDouble(), sourceHeight.toDouble());
       _finish(generation, decoded);
       decoded = null;
+      if (_isCurrent(generation)) widget.onImageSize?.call(reported);
     } on Object catch (error) {
       widget.onDecodeError?.call(error);
       _disposeImage(decoded);

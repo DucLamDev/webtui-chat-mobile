@@ -107,6 +107,8 @@ ChatMessage harnessMedia(
   required String name,
   String body = '',
   String? localPath,
+  int? width,
+  int? height,
   Map<String, Object?> metadata = const {},
 }) {
   return ChatMessage(
@@ -134,6 +136,8 @@ ChatMessage harnessMedia(
           downloadPath: '/files/$id',
           createdAt: at,
           localPath: localPath,
+          width: width,
+          height: height,
         ),
       ),
     ],
@@ -154,6 +158,7 @@ Future<void> pumpChatRoom(
     online: true,
   ),
   bool noticeBot = false,
+  bool allowPolls = true,
   void Function(CallMode mode)? onCall,
   GlobalKey? boundaryKey,
   Size size = const Size(390, 844),
@@ -219,6 +224,7 @@ Future<void> pumpChatRoom(
     blockedUserIds: const {},
     interactionBlocked: false,
     noticeBot: noticeBot,
+    allowPolls: allowPolls,
     onManageBlockedConversation: null,
     onReportMessage: noop1,
     onReportUser: noop1,

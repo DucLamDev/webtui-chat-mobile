@@ -7,7 +7,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../../app/providers/foundation_providers.dart';
 import '../../../../../app/router/notification_locations.dart';
-import '../../../../../design_system/components/webtui_badges.dart';
+import '../../../../../design_system/components/webtui_components.dart';
+import '../../../../../design_system/icons/webtui_icons.dart';
 import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
@@ -293,24 +294,14 @@ class _MessageCardViewState extends ConsumerState<MessageCardView> {
     }
   }
 
-  Future<bool> _confirm(String question, String label) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        content: Text(question),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Huỷ'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(label),
-          ),
-        ],
-      ),
+  Future<bool> _confirm(String question, String label) {
+    return showWebTuiConfirmDialog(
+      context,
+      title: 'Xác nhận thao tác',
+      message: question,
+      confirmLabel: label,
+      icon: WebTuiIcons.shieldCheck,
     );
-    return confirmed == true;
   }
 }
 
@@ -418,16 +409,16 @@ class _ActionButton extends StatelessWidget {
             child: CircularProgressIndicator(strokeWidth: 2),
           )
         : Icon(switch (action) {
-            _ when done => Icons.check_rounded,
-            MessageCardCopyAction() => Icons.copy_rounded,
-            MessageCardReplyAction() => Icons.reply_rounded,
+            _ when done => WebTuiIcons.check,
+            MessageCardCopyAction() => WebTuiIcons.file,
+            MessageCardReplyAction() => WebTuiIcons.newMessage,
             MessageCardApprovalAction(
               decision: MessageCardApprovalDecision.approve,
             ) =>
-              Icons.thumb_up_alt_outlined,
-            MessageCardApprovalAction() => Icons.thumb_down_alt_outlined,
-            MessageCardCallbackAction() => Icons.touch_app_outlined,
-            MessageCardOpenAction() => Icons.open_in_new_rounded,
+              WebTuiIcons.check,
+            MessageCardApprovalAction() => WebTuiIcons.close,
+            MessageCardCallbackAction() => WebTuiIcons.forward,
+            MessageCardOpenAction() => WebTuiIcons.externalLink,
           }, size: 16);
     final label = Text(
       action.label,

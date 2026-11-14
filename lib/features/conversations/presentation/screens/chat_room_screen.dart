@@ -597,6 +597,11 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         ),
         onCreatePoll: () =>
             unawaited(_openPollComposer(context, workspaceId, controller)),
+        allowPolls:
+            showSenderNames &&
+            !noticeBot &&
+            !(conversation?.isAutomation ?? false) &&
+            !(conversation?.privateSessionMode ?? false),
         onOpenLink: (url) => unawaited(_openMessageLink(url)),
         onSendThread: interactionBlocked
             ? () => _showBlockedSharedContentGuidance(context)
@@ -1311,6 +1316,7 @@ class ChatRoomBody extends StatefulWidget {
     required this.onSend,
     required this.onSchedule,
     required this.onCreatePoll,
+    this.allowPolls = true,
     required this.onOpenLink,
     required this.onSendThread,
     required this.onReply,
@@ -1364,6 +1370,9 @@ class ChatRoomBody extends StatefulWidget {
   final ValueChanged<bool> onSend;
   final VoidCallback onSchedule;
   final VoidCallback onCreatePoll;
+
+  /// Chỉ nhóm / kênh mới có lối tạo bình chọn; chat 1-1 và chat bot thì ẩn.
+  final bool allowPolls;
   final ValueChanged<String> onOpenLink;
   final VoidCallback onSendThread;
   final ValueChanged<ChatMessage> onReply;
@@ -1573,12 +1582,16 @@ class _ChatRoomBodyState extends State<ChatRoomBody> {
                               if (message.isSystem)
                                 _isCallHistoryMessage(message)
                                     ? ChatCallHistoryCard(
-                                        label: _callHistoryLabel(message),
                                         missed: _isMissedCallMessage(message),
                                         video:
                                             _callMessageMode(message) ==
                                             CallMode.video,
-                                        outgoing: false,
+                                        outgoing: message.isMine,
+                                        durationSeconds:
+                                            message.callDurationSeconds,
+                                        timeLabel: _timeLabel(
+                                          message.createdAt,
+                                        ),
                                         onRetry: () => widget.onRetryCall(
                                           _callMessageMode(message),
                                         ),
@@ -1751,6 +1764,7 @@ class _ChatRoomBodyState extends State<ChatRoomBody> {
             onSend: widget.onSend,
             onSchedule: widget.onSchedule,
             onCreatePoll: widget.onCreatePoll,
+            allowPolls: widget.allowPolls,
             onCancelContext: widget.onCancelComposerContext,
           ),
       ],
@@ -2268,6 +2282,7 @@ class _Composer extends StatefulWidget {
     required this.onSchedule,
     required this.onCreatePoll,
     required this.onCancelContext,
+    this.allowPolls = true,
     this.replyToMessage,
     this.editingMessage,
   });
@@ -2293,6 +2308,9 @@ class _Composer extends StatefulWidget {
   final VoidCallback onSchedule;
   final VoidCallback onCreatePoll;
   final VoidCallback onCancelContext;
+
+  /// Chỉ nhóm / kênh mới tạo được bình chọn.
+  final bool allowPolls;
 
   @override
   State<_Composer> createState() => _ComposerState();
@@ -2525,139 +2543,114 @@ class _ComposerState extends State<_Composer> {
 
   Future<void> _showAttachmentSheet() async {
     setState(() => _showEmojiTray = false);
-    await showModalBottomSheet<void>(
+    await showWebTuiSheet<void>(
       context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      backgroundColor: WebTuiColors.surface,
       builder: (context) {
         final media = MediaQuery.of(context);
-        return SafeArea(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: media.size.height * 0.78),
-            child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                WebTuiSpacing.lg,
-                WebTuiSpacing.xs,
-                WebTuiSpacing.lg,
-                WebTuiSpacing.lg + media.viewInsets.bottom,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const _PermissionRationaleTile(),
-                  _AttachmentSourceTile(
-                    icon: CupertinoIcons.camera,
-                    title: 'Chụp ảnh',
-                    subtitle: 'Mở camera và gửi ảnh vào cuộc trò chuyện',
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      widget.onPickAttachment(
-                        MessageAttachmentPickSource.camera,
-                      );
-                    },
+        void close(VoidCallback action) {
+          Navigator.of(context).pop();
+          action();
+        }
+
+        return ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: media.size.height * 0.78),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(bottom: WebTuiSpacing.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const WebTuiSheetHeader(title: 'Thêm vào tin nhắn'),
+                const _PermissionRationaleTile(),
+                WebTuiSheetActionTile(
+                  icon: WebTuiIcons.image,
+                  title: 'Chụp ảnh',
+                  subtitle: 'Mở camera và gửi ảnh vào cuộc trò chuyện',
+                  onTap: () => close(
+                    () => widget.onPickAttachment(
+                      MessageAttachmentPickSource.camera,
+                    ),
                   ),
-                  _AttachmentSourceTile(
-                    icon: Icons.document_scanner_outlined,
-                    title: 'Quét tài liệu',
-                    subtitle: 'Chụp tài liệu bằng camera với chất lượng cao',
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      widget.onPickAttachment(
-                        MessageAttachmentPickSource.documentScan,
-                      );
-                    },
+                ),
+                WebTuiSheetActionTile(
+                  icon: WebTuiIcons.file,
+                  title: 'Quét tài liệu',
+                  subtitle: 'Chụp tài liệu bằng camera với chất lượng cao',
+                  onTap: () => close(
+                    () => widget.onPickAttachment(
+                      MessageAttachmentPickSource.documentScan,
+                    ),
                   ),
-                  _AttachmentSourceTile(
-                    icon: Icons.qr_code_scanner_rounded,
-                    title: 'Quét QR',
-                    subtitle: 'Chèn nội dung mã QR vào tin nhắn',
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      widget.onScanQrCode();
-                    },
+                ),
+                WebTuiSheetActionTile(
+                  icon: WebTuiIcons.view,
+                  title: 'Quét QR',
+                  subtitle: 'Chèn nội dung mã QR vào tin nhắn',
+                  onTap: () => close(widget.onScanQrCode),
+                ),
+                WebTuiSheetActionTile(
+                  icon: WebTuiIcons.imageFile,
+                  title: 'Thư viện ảnh',
+                  subtitle: 'Chọn ảnh sẵn có trong máy',
+                  onTap: () => close(
+                    () => widget.onPickAttachment(
+                      MessageAttachmentPickSource.gallery,
+                    ),
                   ),
-                  _AttachmentSourceTile(
-                    icon: CupertinoIcons.photo,
-                    title: 'Thư viện ảnh',
-                    subtitle: 'Chọn ảnh sẵn có trong máy',
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      widget.onPickAttachment(
-                        MessageAttachmentPickSource.gallery,
-                      );
-                    },
+                ),
+                WebTuiSheetActionTile(
+                  icon: WebTuiIcons.video,
+                  title: 'Video',
+                  subtitle: 'Video lớn sẽ được tải tiếp tục theo từng phần',
+                  onTap: () => close(
+                    () => widget.onPickAttachment(
+                      MessageAttachmentPickSource.video,
+                    ),
                   ),
-                  _AttachmentSourceTile(
-                    icon: CupertinoIcons.video_camera_solid,
-                    title: 'Video',
-                    subtitle: 'Video lớn sẽ được tải tiếp tục theo từng phần',
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      widget.onPickAttachment(
-                        MessageAttachmentPickSource.video,
-                      );
-                    },
+                ),
+                WebTuiSheetActionTile(
+                  icon: WebTuiIcons.mic,
+                  title: 'Ghi âm voice',
+                  subtitle: 'Thu âm một đoạn thoại rồi gửi vào cuộc trò chuyện',
+                  onTap: () => close(_startVoiceRecording),
+                ),
+                WebTuiSheetActionTile(
+                  icon: WebTuiIcons.emoji,
+                  title: 'Biểu tượng cảm xúc',
+                  subtitle: 'Mở bảng emoji để chèn vào tin nhắn',
+                  onTap: () => close(_toggleEmojiTray),
+                ),
+                WebTuiSheetActionTile(
+                  icon: WebTuiIcons.sharedFiles,
+                  title: 'Tệp',
+                  subtitle: 'Gửi PDF, Office, ZIP, âm thanh hoặc video',
+                  onTap: () => close(
+                    () => widget.onPickAttachment(
+                      MessageAttachmentPickSource.file,
+                    ),
                   ),
-                  _AttachmentSourceTile(
-                    icon: CupertinoIcons.mic,
-                    title: 'Ghi âm voice',
-                    subtitle:
-                        'Thu âm một đoạn thoại rồi gửi vào cuộc trò chuyện',
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      _startVoiceRecording();
-                    },
-                  ),
-                  _AttachmentSourceTile(
-                    icon: CupertinoIcons.smiley,
-                    title: 'Biểu tượng cảm xúc',
-                    subtitle: 'Mở bảng emoji để chèn vào tin nhắn',
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      _toggleEmojiTray();
-                    },
-                  ),
-                  _AttachmentSourceTile(
-                    icon: CupertinoIcons.doc,
-                    title: 'Tệp',
-                    subtitle: 'Gửi PDF, Office, ZIP, âm thanh hoặc video',
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      widget.onPickAttachment(MessageAttachmentPickSource.file);
-                    },
-                  ),
-                  _AttachmentSourceTile(
-                    icon: Icons.notifications_off_outlined,
-                    title: _silent
-                        ? 'Bật lại thông báo'
-                        : 'Gửi không thông báo',
-                    subtitle: 'Người nhận không bị báo khi có tin này',
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      setState(() => _silent = !_silent);
-                    },
-                  ),
-                  _AttachmentSourceTile(
-                    icon: Icons.schedule_send_outlined,
-                    title: 'Hẹn giờ gửi',
-                    subtitle: 'Chọn thời điểm gửi tin đang soạn',
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      widget.onSchedule();
-                    },
-                  ),
-                  _AttachmentSourceTile(
-                    icon: CupertinoIcons.chart_bar_alt_fill,
+                ),
+                WebTuiSheetActionTile(
+                  icon: WebTuiIcons.bellOff,
+                  title: _silent ? 'Bật lại thông báo' : 'Gửi không thông báo',
+                  subtitle: 'Người nhận không bị báo khi có tin này',
+                  onTap: () => close(() => setState(() => _silent = !_silent)),
+                ),
+                WebTuiSheetActionTile(
+                  icon: WebTuiIcons.meetings,
+                  title: 'Hẹn giờ gửi',
+                  subtitle: 'Chọn thời điểm gửi tin đang soạn',
+                  onTap: () => close(widget.onSchedule),
+                ),
+                // Bình chọn chỉ có ở nhóm / kênh, không có ở chat 1-1 (kể cả chat bot).
+                if (widget.allowPolls)
+                  WebTuiSheetActionTile(
+                    key: const Key('chat_composer_create_poll'),
+                    icon: WebTuiIcons.poll,
                     title: 'Tạo bình chọn',
                     subtitle: 'Lấy ý kiến của các thành viên trong phòng',
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      widget.onCreatePoll();
-                    },
+                    onTap: () => close(widget.onCreatePoll),
                   ),
-                ],
-              ),
+              ],
             ),
           ),
         );
@@ -2767,7 +2760,7 @@ class _PermissionRationaleTile extends StatelessWidget {
           child: Row(
             children: [
               const Icon(
-                CupertinoIcons.lock_shield,
+                WebTuiIcons.lock,
                 size: 20,
                 color: WebTuiColors.primary,
               ),
@@ -2783,51 +2776,6 @@ class _PermissionRationaleTile extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AttachmentSourceTile extends StatelessWidget {
-  const _AttachmentSourceTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final enabled = onTap != null;
-    return ListTile(
-      enabled: enabled,
-      onTap: onTap,
-      leading: CircleAvatar(
-        backgroundColor: enabled
-            ? WebTuiColors.primarySoft
-            : WebTuiColors.backgroundMuted,
-        child: Icon(
-          icon,
-          color: enabled ? WebTuiColors.primary : WebTuiColors.textMuted,
-        ),
-      ),
-      title: Text(
-        title,
-        style: WebTuiTypography.bodyMedium.copyWith(
-          color: enabled ? WebTuiColors.textPrimary : WebTuiColors.textMuted,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: WebTuiTypography.bodySmall.copyWith(
-          color: WebTuiColors.textSecondary,
         ),
       ),
     );
@@ -3860,10 +3808,11 @@ class _MessageRow extends StatelessWidget {
     final voice = message.voice;
     if (_isCallHistoryMessage(message)) {
       return ChatCallHistoryCard(
-        label: _callHistoryLabel(message),
         missed: _isMissedCallMessage(message),
         video: _callMessageMode(message) == CallMode.video,
         outgoing: outgoing,
+        durationSeconds: message.callDurationSeconds,
+        timeLabel: _timeLabel(message.createdAt),
         onRetry: () => onRetryCall(_callMessageMode(message)),
       );
     }
@@ -4585,7 +4534,7 @@ class _MessageAttachmentList extends StatelessWidget {
               child: MessageImageAttachmentView(
                 attachment: images.first,
                 apiBaseUri: networkScope?.apiBaseUri,
-                fit: BoxFit.contain,
+                adaptive: true,
                 timeLabel: timeOnImage ? timeLabel : null,
                 maxHeight: singleImageMaxHeight.toDouble(),
                 maxWidth: singleImageMaxWidth.toDouble(),
@@ -4607,6 +4556,7 @@ class _MessageAttachmentList extends StatelessWidget {
                 child: Wrap(
                   spacing: 3,
                   runSpacing: 3,
+                  alignment: outgoing ? WrapAlignment.end : WrapAlignment.start,
                   children: [
                     for (var index = 0; index < images.length; index++)
                       MessageImageAttachmentView(
@@ -5074,30 +5024,8 @@ bool _isCallHistoryMessage(ChatMessage message) {
   return message.isCallEvent || _isMissedCallMessage(message);
 }
 
-/// Chữ một dòng của thẻ cuộc gọi: "Cuộc gọi thoại đi · 17 giây" hoặc
-/// "Cuộc gọi nhỡ · 13:46".
-String _callHistoryLabel(ChatMessage message) {
-  if (_isMissedCallMessage(message)) {
-    return 'Cuộc gọi nhỡ · ${_timeLabel(message.createdAt)}';
-  }
-  final modeLabel = _callMessageMode(message) == CallMode.video
-      ? 'video'
-      : 'thoại';
-  final directionLabel = message.isMine ? 'đi' : 'đến';
-  return 'Cuộc gọi $modeLabel $directionLabel · '
-      '${_formatCallDurationLabel(message.callDurationSeconds)}';
-}
-
 CallMode _callMessageMode(ChatMessage message) {
   return message.callMode == 'video' ? CallMode.video : CallMode.audio;
-}
-
-String _formatCallDurationLabel(int durationSeconds) {
-  final safeSeconds = durationSeconds < 0 ? 0 : durationSeconds;
-  final minutes = safeSeconds ~/ 60;
-  final seconds = safeSeconds % 60;
-  if (minutes == 0) return '$seconds giây';
-  return '$minutes phút $seconds giây';
 }
 
 bool _isGeneratedAttachmentBody(
