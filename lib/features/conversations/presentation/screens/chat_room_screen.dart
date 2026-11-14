@@ -561,6 +561,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         state: state,
         senderDirectory: senderDirectory,
         showSenderNames: showSenderNames,
+        directChat: isDirectChat,
         seenMessageId: seenMessageId,
         directAvatarUrl: botIdentity != null
             ? botIdentity.logoUrl
@@ -1298,6 +1299,7 @@ class ChatRoomBody extends StatefulWidget {
     required this.senderDirectory,
     required this.showSenderNames,
     required this.directAvatarUrl,
+    this.directChat = false,
     required this.draftController,
     required this.draftFocusNode,
     required this.onDraftChanged,
@@ -1352,6 +1354,10 @@ class ChatRoomBody extends StatefulWidget {
   final MessageSenderDirectory senderDirectory;
   final bool showSenderNames;
   final String? directAvatarUrl;
+
+  /// Chat 1-1 với người thật: hiện avatar người kia cạnh tin (giống Zalo),
+  /// không hiện tên người gửi.
+  final bool directChat;
   final TextEditingController draftController;
   final FocusNode draftFocusNode;
   final ValueChanged<String> onDraftChanged;
@@ -1661,6 +1667,7 @@ class _ChatRoomBodyState extends State<ChatRoomBody> {
                                         message: message,
                                         previous: previous,
                                         directory: widget.senderDirectory,
+                                        isGroupChat: widget.showSenderNames,
                                       ),
                                       showAvatar:
                                           !message.isMine && !sameSender,
@@ -1677,6 +1684,7 @@ class _ChatRoomBodyState extends State<ChatRoomBody> {
                                       onCardReply: widget.onCardReply,
                                       hasAvatarColumn:
                                           widget.showSenderNames ||
+                                          widget.directChat ||
                                           widget.noticeBot,
                                       mediaTimeLabel:
                                           message.attachments.any(
@@ -3809,16 +3817,18 @@ class _MessageRow extends StatelessWidget {
         timeLabel: _timeLabel(message.createdAt),
         onRetry: () => onRetryCall(_callMessageMode(message)),
       );
-      if (outgoing || senderName == null) return callCard;
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: EdgeInsets.only(left: hasAvatarColumn ? 38 : 0),
-            child: _SenderName(name: senderName!),
-          ),
-          callCard,
-        ],
+      if (outgoing) return callCard;
+      final incoming = senderName == null
+          ? callCard
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [_SenderName(name: senderName!), callCard],
+            );
+      if (!hasAvatarColumn) return incoming;
+      // Thẻ cuộc gọi đến có avatar như các tin khác của người đó, thẳng cột.
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [...leading, Expanded(child: incoming)],
       );
     }
     final poll = _pollDefinition(message);

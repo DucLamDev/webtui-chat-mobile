@@ -37,6 +37,7 @@ void main() {
         message: _msg('1', 'a', t0),
         previous: null,
         directory: directory,
+        isGroupChat: true,
       ),
       'An',
     );
@@ -48,6 +49,7 @@ void main() {
         message: _msg('1', 'a', t0, mine: true),
         previous: null,
         directory: directory,
+        isGroupChat: true,
       ),
       isNull,
     );
@@ -62,6 +64,7 @@ void main() {
           message: _msg('2', 'a', t0.add(const Duration(minutes: 5))),
           previous: first,
           directory: directory,
+          isGroupChat: true,
         ),
         isNull,
       );
@@ -70,6 +73,7 @@ void main() {
           message: _msg('3', 'a', t0.add(const Duration(minutes: 6))),
           previous: first,
           directory: directory,
+          isGroupChat: true,
         ),
         'An',
       );
@@ -83,6 +87,7 @@ void main() {
         message: _msg('2', 'b', t0.add(const Duration(minutes: 1))),
         previous: first,
         directory: directory,
+        isGroupChat: true,
       ),
       'Bình',
     );
@@ -101,6 +106,7 @@ void main() {
         message: _msg('1', 'zzz-id', t0),
         previous: null,
         directory: directory,
+        isGroupChat: true,
       ),
       isNull,
     );
@@ -109,6 +115,28 @@ void main() {
         message: _msg('1', null, t0),
         previous: null,
         directory: directory,
+        isGroupChat: true,
+      ),
+      isNull,
+    );
+  });
+
+  test('chat 1-1 không hiện tên người gửi, kể cả tin đầu cụm', () {
+    expect(
+      senderNameToShow(
+        message: _msg('1', 'a', t0),
+        previous: null,
+        directory: directory,
+        isGroupChat: false,
+      ),
+      isNull,
+    );
+    expect(
+      senderNameToShow(
+        message: _msg('2', 'b', t0.add(const Duration(minutes: 1))),
+        previous: _msg('1', 'a', t0),
+        directory: directory,
+        isGroupChat: false,
       ),
       isNull,
     );

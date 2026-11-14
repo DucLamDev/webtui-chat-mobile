@@ -153,6 +153,7 @@ Future<void> pumpChatRoom(
   bool withAppBar = false,
   bool callsEnabled = true,
   bool directChat = true,
+  bool showSenderNames = false,
   PeerPresenceLabel? presence = const PeerPresenceLabel(
     text: 'Đang hoạt động',
     online: true,
@@ -197,7 +198,8 @@ Future<void> pumpChatRoom(
     workspaceId: 'ws',
     state: state,
     senderDirectory: senderDirectory,
-    showSenderNames: false,
+    showSenderNames: showSenderNames,
+    directChat: directChat && !showSenderNames && !noticeBot,
     directAvatarUrl: null,
     seenMessageId: seenMessageId,
     draftController: controller,
