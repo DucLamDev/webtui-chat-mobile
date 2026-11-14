@@ -216,8 +216,6 @@ final appRouterProvider = Provider<GoRouter>((_) {
         name: 'customer-tickets',
         builder: (context, state) => CustomerTicketListScreen(
           workspaceId: state.uri.queryParameters['workspaceId'],
-          channelId: state.uri.queryParameters['channelId'],
-          channelTitle: state.uri.queryParameters['channelTitle'],
         ),
       ),
       GoRoute(

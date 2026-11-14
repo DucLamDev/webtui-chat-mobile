@@ -16,6 +16,8 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../customer_tickets/application/customer_ticket_channel_route.dart';
+import '../../../customer_tickets/presentation/controllers/customer_ticket_access_provider.dart';
 import '../../../moderation/presentation/controllers/moderation_controller.dart';
 import '../../../moderation/presentation/widgets/moderation_actions.dart';
 import '../../../my_notes/presentation/widgets/save_message_to_my_note.dart';
@@ -28,6 +30,7 @@ import '../../domain/entities/message_voice.dart';
 import '../../domain/repositories/collaboration_task_repository.dart';
 import '../controllers/chat_room_controller.dart';
 import '../controllers/collaboration_task_controller.dart';
+import '../controllers/conversation_home_controller.dart';
 import '../controllers/message_sender_directory.dart';
 import '../controllers/pending_chat_share_controller.dart';
 import '../widgets/collaboration_room_sheet.dart';
@@ -220,6 +223,47 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
   final _draftFocusNode = FocusNode();
   ChatRoomController? _chatController;
   String? _appliedInitialMessageId;
+  bool _ticketRedirected = false;
+
+  /// Kênh "Ticket" mở từ thông báo, liên kết, công cụ workspace...: người xem
+  /// được ticket khách chuyển sang hộp thư ticket thay vì phòng chat bot.
+  /// Bản nhúng (màn rộng) đã chặn ngay lúc bấm trong danh sách.
+  String? _customerTicketRedirect(String workspaceId) {
+    if (widget.embedded) return null;
+    final conversation =
+        widget.conversation ?? _knownTicketConversation(workspaceId);
+    // Phòng chat khác: không đọc quyền ticket.
+    if (conversation == null || !isCustomerTicketChannel(conversation)) {
+      return null;
+    }
+    return customerTicketLocationForConversation(
+      conversation,
+      ref.watch(customerTicketAccessProvider),
+    );
+  }
+
+  /// Mở bằng đường dẫn (không kèm hội thoại): tìm kênh trong hộp thư đã tải.
+  ConversationSummary? _knownTicketConversation(String workspaceId) {
+    if (widget.title.trim().toLowerCase() != customerTicketChannelSlug) {
+      return null;
+    }
+    final home = conversationHomeControllerProvider(workspaceId);
+    if (!ref.exists(home)) return null;
+    final state = ref.read(home);
+    for (final item in [...state.conversations, ...state.channels]) {
+      if (item.channelId == widget.channelId) return item;
+    }
+    return null;
+  }
+
+  void _redirectToCustomerTickets(String location) {
+    if (_ticketRedirected) return;
+    _ticketRedirected = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      GoRouter.maybeOf(context)?.replace<void>(location);
+    });
+  }
 
   @override
   void initState() {
@@ -334,6 +378,15 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
             message: 'Bạn cần chọn workspace trước khi mở hội thoại.',
             icon: Icons.business_rounded,
           ),
+        ),
+      );
+    }
+
+    if (_customerTicketRedirect(workspaceId) case final location?) {
+      _redirectToCustomerTickets(location);
+      return const Scaffold(
+        body: SafeArea(
+          child: WebTuiLoadingState(message: 'Đang mở hộp thư ticket...'),
         ),
       );
     }

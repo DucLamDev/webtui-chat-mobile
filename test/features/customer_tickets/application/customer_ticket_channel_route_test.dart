@@ -15,38 +15,36 @@ void main() {
     String title = 'Ticket',
     String? slug = 'ticket',
     bool automation = true,
+    ConversationKind kind = ConversationKind.channel,
+    bool privateSession = false,
+    String? peerUserId,
   }) {
     return ConversationSummary(
       id: 'c1',
       workspaceId: 'ws-1',
       channelId: 'kenh-ticket',
-      kind: ConversationKind.channel,
+      kind: kind,
       title: title,
       preview: '',
       updatedAt: DateTime(2026, 11, 12),
       isAutomation: automation,
+      privateSessionMode: privateSession,
+      peerUserId: peerUserId,
       slug: slug,
     );
   }
 
   group('customerTicketLocationForConversation', () {
-    test(
-      'kênh bot Ticket + xem được ticket: mở hộp thư ticket, kèm kênh để quay lại',
-      () {
-        final location = customerTicketLocationForConversation(
-          channel(),
-          canView,
-        );
+    test('kênh bot Ticket + xem được ticket: mở hộp thư ticket khách', () {
+      final location = customerTicketLocationForConversation(
+        channel(),
+        canView,
+      );
 
-        final uri = Uri.parse(location!);
-        expect(uri.path, '/customer-tickets');
-        expect(uri.queryParameters, {
-          'workspaceId': 'ws-1',
-          'channelId': 'kenh-ticket',
-          'channelTitle': 'Ticket',
-        });
-      },
-    );
+      final uri = Uri.parse(location!);
+      expect(uri.path, '/customer-tickets');
+      expect(uri.queryParameters, {'workspaceId': 'ws-1'});
+    });
 
     test('máy chủ cũ không trả slug: nhận ra kênh bot theo tên "Ticket"', () {
       expect(
@@ -54,6 +52,40 @@ void main() {
         isNotNull,
       );
     });
+
+    test('có slug ticket thì không cần cờ bot', () {
+      expect(
+        customerTicketLocationForConversation(
+          channel(automation: false),
+          canView,
+        ),
+        isNotNull,
+      );
+    });
+
+    test(
+      'phiên riêng của kênh Ticket (phòng 1-1 không slug, không người nhận): mở hộp thư ticket',
+      () {
+        expect(
+          customerTicketLocationForConversation(
+            channel(
+              slug: null,
+              automation: false,
+              kind: ConversationKind.direct,
+            ),
+            canView,
+          ),
+          isNotNull,
+        );
+        expect(
+          customerTicketLocationForConversation(
+            channel(slug: null, automation: false, privateSession: true),
+            canView,
+          ),
+          isNotNull,
+        );
+      },
+    );
 
     test(
       'không xem được ticket (thiếu quyền / máy chủ không hỗ trợ / quyền chưa tải): mở phòng chat',
@@ -80,50 +112,44 @@ void main() {
       },
     );
 
-    test('kênh khác (Hỗ trợ, nhóm thường tên "Ticket") vẫn mở phòng chat', () {
-      expect(
-        customerTicketLocationForConversation(
-          channel(title: 'Hỗ trợ', slug: 'support'),
-          canView,
-        ),
-        isNull,
-      );
-      expect(
-        customerTicketLocationForConversation(
-          channel(slug: null, automation: false),
-          canView,
-        ),
-        isNull,
-      );
-    });
+    test(
+      'kênh khác (Hỗ trợ, nhóm thường / người dùng tên "Ticket") vẫn mở phòng chat',
+      () {
+        expect(
+          customerTicketLocationForConversation(
+            channel(title: 'Hỗ trợ', slug: 'support'),
+            canView,
+          ),
+          isNull,
+        );
+        expect(
+          customerTicketLocationForConversation(
+            channel(slug: null, automation: false),
+            canView,
+          ),
+          isNull,
+        );
+        expect(
+          customerTicketLocationForConversation(
+            channel(
+              slug: null,
+              automation: false,
+              kind: ConversationKind.direct,
+              peerUserId: 'user-2',
+            ),
+            canView,
+          ),
+          isNull,
+        );
+      },
+    );
   });
 
-  group('customerTicketChannelChatLocation', () {
-    test('dựng đường phòng chat của kênh Ticket', () {
-      final uri = Uri.parse(
-        customerTicketChannelChatLocation(
-          channelId: 'kenh-ticket',
-          channelTitle: 'Ticket',
-          workspaceId: 'ws-1',
-        )!,
-      );
-      expect(uri.path, '/conversations/kenh-ticket');
-      expect(uri.queryParameters, {
-        'workspaceId': 'ws-1',
-        'title': 'Ticket',
-        'kind': 'channel',
-      });
-    });
-
-    test('không biết kênh thì không có nút', () {
-      expect(
-        customerTicketChannelChatLocation(
-          channelId: ' ',
-          channelTitle: 'Ticket',
-          workspaceId: 'ws-1',
-        ),
-        isNull,
-      );
-    });
+  test('customerTicketInboxLocation bỏ workspace rỗng', () {
+    expect(customerTicketInboxLocation(' '), '/customer-tickets');
+    expect(
+      customerTicketInboxLocation('ws-1'),
+      '/customer-tickets?workspaceId=ws-1',
+    );
   });
 }
