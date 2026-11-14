@@ -55,6 +55,7 @@ void main() {
           id: 'bot-session',
           channelId: 'bot-session',
           isAutomation: true,
+          slug: 'orders',
         ),
       ],
     );
@@ -87,6 +88,7 @@ void main() {
           channelId: 'orders',
           kind: ConversationKind.channel,
           isAutomation: true,
+          slug: 'orders',
         ),
       ],
     );
@@ -118,6 +120,7 @@ void main() {
             channelId: 'orders',
             kind: ConversationKind.channel,
             isAutomation: true,
+            slug: 'orders',
           ),
         ],
       );
@@ -164,6 +167,7 @@ ConversationSummary _summary({
   ConversationKind kind = ConversationKind.direct,
   int unread = 0,
   bool isAutomation = false,
+  String? slug,
 }) {
   return ConversationSummary(
     id: id,
@@ -179,6 +183,7 @@ ConversationSummary _summary({
         : ChannelVisibility.public,
     membershipStatus: MembershipStatus.active,
     isAutomation: isAutomation,
+    slug: slug,
   );
 }
 

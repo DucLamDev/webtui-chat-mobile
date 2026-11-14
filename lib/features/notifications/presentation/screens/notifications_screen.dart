@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/notification_locations.dart';
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
@@ -165,22 +166,21 @@ Future<void> _showActions(
   NotificationCenterController controller,
   MobileNotification notification,
 ) async {
-  final delete = await showModalBottomSheet<bool>(
+  final delete = await showWebTuiSheet<bool>(
     context: context,
-    showDragHandle: true,
-    builder: (sheetContext) => SafeArea(
-      child: ListTile(
-        key: const Key('notification_action_delete'),
-        leading: const Icon(
-          Icons.delete_outline_rounded,
-          color: WebTuiColors.danger,
+    builder: (sheetContext) => Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const WebTuiSheetHeader(title: 'Thông báo'),
+        WebTuiSheetActionTile(
+          key: const Key('notification_action_delete'),
+          icon: WebTuiIcons.delete,
+          title: 'Xoá thông báo này',
+          tone: WebTuiDialogTone.danger,
+          onTap: () => Navigator.of(sheetContext).pop(true),
         ),
-        title: const Text(
-          'Xoá thông báo này',
-          style: TextStyle(color: WebTuiColors.danger),
-        ),
-        onTap: () => Navigator.of(sheetContext).pop(true),
-      ),
+        const SizedBox(height: WebTuiSpacing.md),
+      ],
     ),
   );
   if (delete == true && context.mounted) {
@@ -194,21 +194,23 @@ Future<void> _confirmDeleteAll(
 ) async {
   final confirmed = await showDialog<bool>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: const Text('Xoá tất cả thông báo?'),
-      content: const Text(
-        'Mọi thông báo của workspace này sẽ bị xoá và không khôi phục được.',
-      ),
+    builder: (dialogContext) => WebTuiDialog(
+      title: 'Xoá tất cả thông báo?',
+      message:
+          'Mọi thông báo của workspace này sẽ bị xoá và không khôi phục được.',
+      icon: WebTuiIcons.delete,
+      tone: WebTuiDialogTone.danger,
       actions: [
-        TextButton(
+        WebTuiDialogAction(
+          label: 'Huỷ',
           onPressed: () => Navigator.of(dialogContext).pop(false),
-          child: const Text('Huỷ'),
         ),
-        FilledButton(
+        WebTuiDialogAction(
           key: const Key('notifications_delete_all_confirm'),
-          style: FilledButton.styleFrom(backgroundColor: WebTuiColors.danger),
+          label: 'Xoá tất cả',
+          primary: true,
+          destructive: true,
           onPressed: () => Navigator.of(dialogContext).pop(true),
-          child: const Text('Xoá tất cả'),
         ),
       ],
     ),

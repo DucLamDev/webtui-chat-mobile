@@ -74,6 +74,74 @@ void main() {
   test('không có kênh thì không có nhóm nào', () {
     expect(groupBusinessChannels(const []), isEmpty);
   });
+
+  group('isHiddenSystemChannel', () {
+    ConversationSummary make(
+      String title, {
+      String? slug,
+      bool automation = false,
+      bool noticeBot = false,
+      ConversationKind kind = ConversationKind.channel,
+    }) {
+      return ConversationSummary(
+        id: title,
+        workspaceId: 'ws-1',
+        channelId: title,
+        kind: kind,
+        title: title,
+        preview: '',
+        updatedAt: DateTime.utc(2026, 11, 2),
+        isAutomation: automation,
+        noticeBot: noticeBot,
+        slug: slug,
+      );
+    }
+
+    test('giữ đúng 3 kênh nghiệp vụ (theo slug, kể cả đổi tên)', () {
+      for (final slug in ['orders', 'gia-han', 'ke-toan']) {
+        expect(
+          isHiddenSystemChannel(make('Tên khác', slug: slug, automation: true)),
+          isFalse,
+          reason: slug,
+        );
+      }
+      // Máy chủ cũ chưa trả slug: theo tên mặc định.
+      expect(isHiddenSystemChannel(make('Gia hạn', automation: true)), isFalse);
+    });
+
+    test('ẩn mọi kênh danh mục còn lại và kênh bot tự tạo', () {
+      for (final definition in businessChannelCatalog) {
+        if (visibleBusinessChannelSlugs.contains(definition.slug)) continue;
+        expect(
+          isHiddenSystemChannel(
+            make(definition.defaultTitle, slug: definition.slug),
+          ),
+          isTrue,
+          reason: definition.slug,
+        );
+      }
+      expect(isHiddenSystemChannel(make('Giám sát VPS')), isTrue);
+      expect(
+        isHiddenSystemChannel(
+          make('Bot riêng', slug: 'zalo', automation: true),
+        ),
+        isTrue,
+      );
+    });
+
+    test('không ẩn bot thông báo, chat 1-1, nhóm thường', () {
+      expect(
+        isHiddenSystemChannel(make('Thông báo', noticeBot: true)),
+        isFalse,
+      );
+      expect(
+        isHiddenSystemChannel(make('Ticket', kind: ConversationKind.direct)),
+        isFalse,
+      );
+      expect(isHiddenSystemChannel(make('Chung', slug: 'general')), isFalse);
+      expect(isHiddenSystemChannel(make('Dự án X')), isFalse);
+    });
+  });
 }
 
 List<String> _titles(List<ConversationSummary> channels) {

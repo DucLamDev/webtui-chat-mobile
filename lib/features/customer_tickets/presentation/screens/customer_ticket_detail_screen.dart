@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
@@ -374,29 +375,28 @@ class _CustomerTicketDetailViewState
   }
 
   Future<void> _pickImages() async {
-    final source = await showModalBottomSheet<CustomerTicketImageSource>(
+    final source = await showWebTuiSheet<CustomerTicketImageSource>(
       context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Chọn từ thư viện ảnh'),
-              onTap: () => Navigator.of(
-                sheetContext,
-              ).pop(CustomerTicketImageSource.gallery),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('Chụp ảnh'),
-              onTap: () => Navigator.of(
-                sheetContext,
-              ).pop(CustomerTicketImageSource.camera),
-            ),
-          ],
-        ),
+      builder: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const WebTuiSheetHeader(title: 'Thêm ảnh'),
+          WebTuiSheetActionTile(
+            icon: WebTuiIcons.image,
+            title: 'Chọn từ thư viện ảnh',
+            onTap: () => Navigator.of(
+              sheetContext,
+            ).pop(CustomerTicketImageSource.gallery),
+          ),
+          WebTuiSheetActionTile(
+            icon: WebTuiIcons.imageFile,
+            title: 'Chụp ảnh',
+            onTap: () => Navigator.of(
+              sheetContext,
+            ).pop(CustomerTicketImageSource.camera),
+          ),
+          const SizedBox(height: WebTuiSpacing.md),
+        ],
       ),
     );
     if (source == null || !mounted) return;
@@ -431,24 +431,15 @@ class _CustomerTicketDetailViewState
     required String message,
     required String confirmLabel,
   }) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Huỷ'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(confirmLabel),
-          ),
-        ],
-      ),
+    final confirmed = await showWebTuiConfirmDialog(
+      context,
+      title: title,
+      message: message,
+      confirmLabel: confirmLabel,
+      cancelLabel: 'Huỷ',
+      icon: WebTuiIcons.ticket,
     );
-    return confirmed ?? false;
+    return confirmed;
   }
 
   void _toast(String? message) {
@@ -1109,10 +1100,8 @@ class _ReadOnlyNote extends StatelessWidget {
 
 /// Hỏi gợi ý cho AI (không bắt buộc); `null` khi người dùng huỷ.
 Future<String?> _askInstruction(BuildContext context) {
-  return showModalBottomSheet<String>(
+  return showWebTuiSheet<String>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
     builder: (sheetContext) => const _InstructionSheet(),
   );
 }
@@ -1136,41 +1125,32 @@ class _InstructionSheetState extends State<_InstructionSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        WebTuiSpacing.lg,
-        0,
-        WebTuiSpacing.lg,
-        MediaQuery.viewInsetsOf(context).bottom + WebTuiSpacing.lg,
-      ),
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, WebTuiSpacing.lg),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'AI soạn câu trả lời',
-            style: WebTuiTypography.titleMedium.copyWith(
-              color: WebTuiColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: WebTuiSpacing.sm),
-          TextField(
-            key: const Key('customer_ticket_ai_instruction'),
-            controller: _controller,
-            autofocus: true,
-            minLines: 2,
-            maxLines: 4,
-            maxLength: customerTicketMaxInstructionLength,
-            decoration: const InputDecoration(
-              hintText:
+          const WebTuiSheetHeader(title: 'AI soạn câu trả lời'),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.lg),
+            child: WebTuiDialogTextField(
+              key: const Key('customer_ticket_ai_instruction'),
+              controller: _controller,
+              autofocus: true,
+              maxLength: customerTicketMaxInstructionLength,
+              hint:
                   'Gợi ý cho AI (không bắt buộc), vd. xin lỗi khách, hẹn 30 phút',
-              border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: WebTuiSpacing.sm),
-          FilledButton.icon(
-            onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
-            icon: const Icon(Icons.auto_awesome_outlined),
-            label: const Text('Soạn nháp'),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.lg),
+            child: FilledButton.icon(
+              onPressed: () =>
+                  Navigator.of(context).pop(_controller.text.trim()),
+              icon: const Icon(Icons.auto_awesome_outlined),
+              label: const Text('Soạn nháp'),
+            ),
           ),
         ],
       ),
@@ -1182,10 +1162,8 @@ Future<void> _showCustomerInfo(
   BuildContext context,
   CustomerTicketCustomer customer,
 ) {
-  return showModalBottomSheet<void>(
+  return showWebTuiSheet<void>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
     builder: (sheetContext) => DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.6,
@@ -1199,13 +1177,7 @@ Future<void> _showCustomerInfo(
           WebTuiSpacing.xl,
         ),
         children: [
-          Text(
-            'Thông tin khách',
-            style: WebTuiTypography.titleMedium.copyWith(
-              color: WebTuiColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: WebTuiSpacing.md),
+          const WebTuiSheetHeader(title: 'Thông tin khách'),
           _InfoRow(label: 'Tên', value: customer.name),
           _InfoRow(label: 'Email', value: customer.email),
           _InfoRow(

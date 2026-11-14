@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
+import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
@@ -80,18 +81,22 @@ class _ShortcutsManageScreenState extends ConsumerState<ShortcutsManageScreen> {
   Future<void> _delete(AppShortcut shortcut) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Xoá lối tắt?'),
-        content: Text('Lối tắt "${shortcut.title}" sẽ biến mất với mọi người.'),
+      builder: (dialogContext) => WebTuiDialog(
+        title: 'Xoá lối tắt?',
+        message: 'Lối tắt "${shortcut.title}" sẽ biến mất với mọi người.',
+        icon: WebTuiIcons.delete,
+        tone: WebTuiDialogTone.danger,
         actions: [
-          TextButton(
+          WebTuiDialogAction(
+            label: 'Huỷ',
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Huỷ'),
           ),
-          TextButton(
+          WebTuiDialogAction(
             key: const Key('shortcut_delete_confirm'),
+            label: 'Xoá',
+            primary: true,
+            destructive: true,
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Xoá'),
           ),
         ],
       ),
