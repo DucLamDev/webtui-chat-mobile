@@ -65,9 +65,12 @@ class WebTuiAvatar extends StatelessWidget {
     this.color = WebTuiColors.primarySoft,
     this.foregroundColor = WebTuiColors.primary,
     this.size = WebTuiListDensity.avatarSize,
+    this.allowPublicRequest = false,
     super.key,
   });
 
+  /// Ảnh công khai (logo tổ chức), không cần đăng nhập để tải.
+  final bool allowPublicRequest;
   final String label;
   final IconData? icon;
   final String? imageUrl;
@@ -92,6 +95,7 @@ class WebTuiAvatar extends StatelessWidget {
                   width: size,
                   height: size,
                   maxBytes: webTuiMaxAvatarImageBytes,
+                  allowPublicRequest: allowPublicRequest,
                   fit: BoxFit.cover,
                   fallback: _fallback,
                 ),

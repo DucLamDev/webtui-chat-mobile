@@ -6,6 +6,7 @@ import 'package:webtui_chat/features/conversations/domain/entities/chat_message.
 import 'package:webtui_chat/features/conversations/domain/entities/conversation_summary.dart';
 
 void main() {
+  _noticeBotCacheTest();
   test('restores cached conversations and latest message page', () async {
     final database = AppDatabase(createInMemoryDriftConnection());
     addTearDown(database.close);
@@ -275,6 +276,43 @@ void main() {
       ),
       isNull,
     );
+  });
+}
+
+void _noticeBotCacheTest() {
+  test('cache giữ cờ kênh bot thông báo', () async {
+    final database = AppDatabase(createInMemoryDriftConnection());
+    addTearDown(database.close);
+    final cache = ConversationCacheDataSource(database, _instanceA);
+    await cache.saveDirectConversations(
+      workspaceId: 'workspace-1',
+      items: [
+        ConversationSummary(
+          id: 'bot',
+          workspaceId: 'workspace-1',
+          channelId: 'bot',
+          kind: ConversationKind.direct,
+          title: 'Bot',
+          preview: '',
+          updatedAt: DateTime.utc(2026, 11),
+          noticeBot: true,
+        ),
+        ConversationSummary(
+          id: 'dm',
+          workspaceId: 'workspace-1',
+          channelId: 'dm',
+          kind: ConversationKind.direct,
+          title: 'Chi Kha',
+          preview: '',
+          updatedAt: DateTime.utc(2026, 11),
+        ),
+      ],
+    );
+    final items = await cache.readDirectConversations(
+      workspaceId: 'workspace-1',
+    );
+    expect(items!.firstWhere((item) => item.id == 'bot').noticeBot, isTrue);
+    expect(items.firstWhere((item) => item.id == 'dm').noticeBot, isFalse);
   });
 }
 

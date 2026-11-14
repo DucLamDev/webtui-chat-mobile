@@ -142,9 +142,12 @@ import '../../features/my_notes/data/datasources/my_notes_cache_data_source.dart
 import '../../features/my_notes/data/datasources/my_notes_remote_data_source.dart';
 import '../../features/my_notes/data/repositories/my_notes_repository_impl.dart';
 import '../../features/my_notes/domain/repositories/my_notes_repository.dart';
+import '../../features/notifications/application/use_cases/channel_notification_preference_use_cases.dart';
 import '../../features/notifications/application/use_cases/notification_use_cases.dart';
 import '../../features/notifications/data/datasources/notification_remote_data_source.dart';
+import '../../features/notifications/data/repositories/channel_notification_preference_repository_impl.dart';
 import '../../features/notifications/data/repositories/notification_repository_impl.dart';
+import '../../features/notifications/domain/repositories/channel_notification_preference_repository.dart';
 import '../../features/notifications/domain/repositories/notification_repository.dart';
 import '../../features/profile/application/use_cases/profile_use_cases.dart';
 import '../../features/profile/data/datasources/avatar_remote_data_source.dart';
@@ -1039,6 +1042,27 @@ final callRepositoryProvider = Provider<CallRepository>((ref) {
 final notificationRemoteDataSourceProvider =
     Provider<NotificationRemoteDataSource>((ref) {
       return NotificationRemoteDataSource(ref.watch(apiTransportProvider));
+    });
+
+final channelNotificationPreferenceRepositoryProvider =
+    Provider<ChannelNotificationPreferenceRepository>((ref) {
+      return ChannelNotificationPreferenceRepositoryImpl(
+        ref.watch(notificationRemoteDataSourceProvider),
+      );
+    });
+
+final loadChannelNotificationPreferenceUseCaseProvider =
+    Provider<LoadChannelNotificationPreferenceUseCase>((ref) {
+      return LoadChannelNotificationPreferenceUseCase(
+        ref.watch(channelNotificationPreferenceRepositoryProvider),
+      );
+    });
+
+final setChannelNotificationMutedUseCaseProvider =
+    Provider<SetChannelNotificationMutedUseCase>((ref) {
+      return SetChannelNotificationMutedUseCase(
+        ref.watch(channelNotificationPreferenceRepositoryProvider),
+      );
     });
 
 final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {

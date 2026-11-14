@@ -235,6 +235,32 @@ void main() {
     expect(restored.capabilities.legalAcceptance, isTrue);
   });
 
+  test('notice_bot capability is read and survives the snapshot', () {
+    final payload = _payload();
+    final discovery =
+        (payload['data']! as Map<String, Object?>)['discovery']!
+            as Map<String, Object?>;
+    final parsedOld = SelfHostedServerDiscovery.fromApiResponse(
+      payload: payload,
+      requestedServer: Uri.parse('https://chat.company.example'),
+      mobileVersion: '1.2.0',
+    );
+    expect(parsedOld.capabilities.noticeBot, isFalse);
+
+    (discovery['capabilities']! as Map<String, Object?>)['notice_bot'] = true;
+    final parsed = SelfHostedServerDiscovery.fromApiResponse(
+      payload: payload,
+      requestedServer: Uri.parse('https://chat.company.example'),
+      mobileVersion: '1.2.0',
+    );
+    expect(parsed.capabilities.noticeBot, isTrue);
+    final restored = SelfHostedServerDiscovery.fromStorageSnapshot(
+      encodedSnapshot: parsed.toStorageSnapshot(),
+      mobileVersion: '1.2.0',
+    );
+    expect(restored.capabilities.noticeBot, isTrue);
+  });
+
   test('cold-start snapshot keeps account, privacy and session policy', () {
     final payload = _payload();
     final discovery =

@@ -17,6 +17,7 @@ final class ChannelDto {
     required this.memberCount,
     required this.privateSessionMode,
     this.isAutomation = false,
+    this.noticeBot = false,
     this.slug,
     this.description,
   });
@@ -34,6 +35,7 @@ final class ChannelDto {
   final int memberCount;
   final bool privateSessionMode;
   final bool isAutomation;
+  final bool noticeBot;
   final String? slug;
   final String? description;
 
@@ -52,6 +54,7 @@ final class ChannelDto {
       memberCount: _int(json['member_count']),
       privateSessionMode: json['private_session_mode'] == true,
       isAutomation: json['is_automation'] == true,
+      noticeBot: json['notice_bot'] == true,
       slug: _nullableString(json['slug']),
       description: _nullableString(json['description']),
     );
@@ -75,6 +78,7 @@ final class ChannelDto {
       canManage: canManage,
       privateSessionMode: privateSessionMode,
       isAutomation: isAutomation,
+      noticeBot: noticeBot,
       slug: slug,
     );
   }

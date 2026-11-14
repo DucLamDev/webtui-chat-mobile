@@ -16,6 +16,7 @@ class WebTuiConversationListItem extends StatelessWidget {
     required this.timeLabel,
     required this.avatarLabel,
     this.avatarUrl,
+    this.avatarPublicImage = false,
     this.unreadCount = 0,
     this.status,
     this.muted = false,
@@ -31,6 +32,7 @@ class WebTuiConversationListItem extends StatelessWidget {
   final String timeLabel;
   final String avatarLabel;
   final String? avatarUrl;
+  final bool avatarPublicImage;
   final int unreadCount;
   final WebTuiPresenceStatus? status;
   final bool muted;
@@ -77,6 +79,7 @@ class WebTuiConversationListItem extends StatelessWidget {
                     WebTuiAvatar(
                       label: avatarLabel,
                       imageUrl: avatarUrl,
+                      allowPublicRequest: avatarPublicImage,
                       status: status,
                     ),
                     const SizedBox(width: WebTuiSpacing.md),

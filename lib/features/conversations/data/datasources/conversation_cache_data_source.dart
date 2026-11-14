@@ -329,6 +329,7 @@ Map<String, Object?> _conversationToJson(ConversationSummary item) {
     'canManage': item.canManage,
     'privateSessionMode': item.privateSessionMode,
     'isAutomation': item.isAutomation,
+    'noticeBot': item.noticeBot,
     'slug': item.slug,
   };
 }
@@ -369,6 +370,7 @@ ConversationSummary _conversationFromJson(Map<String, Object?> json) {
     canManage: _bool(json['canManage']),
     privateSessionMode: _bool(json['privateSessionMode']),
     isAutomation: _bool(json['isAutomation']),
+    noticeBot: _bool(json['noticeBot']),
     slug: _nullableString(json['slug']),
   );
 }

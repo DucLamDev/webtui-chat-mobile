@@ -413,6 +413,62 @@ final class MessageCardCallbackAction extends MessageCardAction {
 
 enum MessageCardApprovalDecision { approve, reject }
 
+/// Đích của nút `open` (`target.target_type`).
+enum MessageCardOpenTargetType {
+  conversation,
+  task,
+  contacts,
+  approval,
+  inboxConversation,
+  deviceApproval,
+  callBack,
+}
+
+/// Chế độ gọi của đích `call_back`.
+enum MessageCardCallMode { audio, video }
+
+/// Đích đã kiểm của nút `open`: id là UUID, mỗi loại đủ trường bắt buộc.
+final class MessageCardOpenTarget {
+  const MessageCardOpenTarget({
+    required this.type,
+    this.workspaceId,
+    this.channelId,
+    this.messageId,
+    this.taskId,
+    this.approvalId,
+    this.conversationId,
+    this.sessionId,
+    this.userId,
+    this.callMode,
+    this.deepLink,
+  });
+
+  final MessageCardOpenTargetType type;
+  final String? workspaceId;
+  final String? channelId;
+  final String? messageId;
+  final String? taskId;
+  final String? approvalId;
+  final String? conversationId;
+  final String? sessionId;
+  final String? userId;
+  final MessageCardCallMode? callMode;
+
+  /// Chỉ để dự phòng; app ưu tiên [type] và các id.
+  final String? deepLink;
+}
+
+/// Bấm thì app tự điều hướng tới [target], không gọi máy chủ.
+final class MessageCardOpenAction extends MessageCardAction {
+  const MessageCardOpenAction({
+    required super.label,
+    required this.target,
+    super.tone,
+  });
+
+  final MessageCardOpenTarget target;
+}
+
 final class MessageCardApprovalAction extends MessageCardAction {
   const MessageCardApprovalAction({
     required super.label,
@@ -593,6 +649,78 @@ MessageCardSection? _v2Section(
     default:
       return null;
   }
+}
+
+MessageCardOpenTarget? _openTarget(Object? raw) {
+  if (raw is! Map) return null;
+  final map = _map(raw);
+  final type = switch (_text(map['target_type'], 32)) {
+    'conversation' => MessageCardOpenTargetType.conversation,
+    'task' => MessageCardOpenTargetType.task,
+    'contacts' => MessageCardOpenTargetType.contacts,
+    'approval' => MessageCardOpenTargetType.approval,
+    'inbox_conversation' => MessageCardOpenTargetType.inboxConversation,
+    'device_approval' => MessageCardOpenTargetType.deviceApproval,
+    'call_back' => MessageCardOpenTargetType.callBack,
+    _ => null,
+  };
+  if (type == null) return null;
+
+  // Id vắng mặt = null; có mặt mà không phải UUID = đích hỏng.
+  var invalid = false;
+  String? id(String key) {
+    final value = _text(map[key], 64);
+    if (value.isEmpty) return null;
+    if (!_uuidPattern.hasMatch(value)) {
+      invalid = true;
+      return null;
+    }
+    return value;
+  }
+
+  final workspaceId = id('workspace_id');
+  final channelId = id('channel_id');
+  final messageId = id('message_id');
+  final taskId = id('task_id');
+  final approvalId = id('approval_id');
+  final conversationId = id('conversation_id');
+  final sessionId = id('session_id');
+  final userId = id('user_id');
+  final callMode = switch (_text(map['call_mode'], 16)) {
+    'audio' => MessageCardCallMode.audio,
+    'video' => MessageCardCallMode.video,
+    _ => null,
+  };
+  final deepLinkText = _text(map['deep_link'], 2048);
+  if (deepLinkText.isNotEmpty && !deepLinkText.startsWith('webtui://')) {
+    return null;
+  }
+  if (invalid) return null;
+
+  final complete = switch (type) {
+    MessageCardOpenTargetType.conversation => channelId != null,
+    MessageCardOpenTargetType.task => channelId != null && taskId != null,
+    MessageCardOpenTargetType.contacts => true,
+    MessageCardOpenTargetType.approval => approvalId != null,
+    MessageCardOpenTargetType.inboxConversation => conversationId != null,
+    MessageCardOpenTargetType.deviceApproval => sessionId != null,
+    MessageCardOpenTargetType.callBack =>
+      channelId != null && userId != null && callMode != null,
+  };
+  if (!complete) return null;
+  return MessageCardOpenTarget(
+    type: type,
+    workspaceId: workspaceId,
+    channelId: channelId,
+    messageId: messageId,
+    taskId: taskId,
+    approvalId: approvalId,
+    conversationId: conversationId,
+    sessionId: sessionId,
+    userId: userId,
+    callMode: callMode,
+    deepLink: deepLinkText.isEmpty ? null : deepLinkText,
+  );
 }
 
 MessageCardChart? _chart(Object? raw) {
@@ -904,6 +1032,10 @@ MessageCardAction? _action(Map<String, Object?> map) {
         decision: decision,
         tone: tone,
       );
+    case 'open':
+      final target = _openTarget(map['target']);
+      if (target == null) return null;
+      return MessageCardOpenAction(label: label, target: target, tone: tone);
     default:
       return null;
   }

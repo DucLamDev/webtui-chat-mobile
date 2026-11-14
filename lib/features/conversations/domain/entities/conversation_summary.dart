@@ -28,6 +28,7 @@ final class ConversationSummary {
     this.canManage = false,
     this.privateSessionMode = false,
     this.isAutomation = false,
+    this.noticeBot = false,
     this.slug,
   });
 
@@ -51,6 +52,9 @@ final class ConversationSummary {
   final bool canManage;
   final bool privateSessionMode;
   final bool isAutomation;
+
+  /// Kênh chat riêng của bot thông báo (chỉ đọc).
+  final bool noticeBot;
 
   /// Mã cố định của kênh do máy chủ đặt (ví dụ `orders`, `gia-han`); không đổi
   /// khi quản trị đổi tên kênh. Tin nhắn riêng và kênh người dùng tạo thường không có.
@@ -109,6 +113,7 @@ final class ConversationSummary {
       canManage: canManage,
       privateSessionMode: privateSessionMode,
       isAutomation: isAutomation,
+      noticeBot: noticeBot,
       slug: slug,
     );
   }

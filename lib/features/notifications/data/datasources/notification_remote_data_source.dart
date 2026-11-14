@@ -81,6 +81,43 @@ final class NotificationRemoteDataSource {
     );
   }
 
+  Future<ChannelNotificationPreference> getChannelPreference({
+    required String workspaceId,
+    required String channelId,
+  }) async {
+    final response = await _api.get<Object>(
+      '/api/v1/notifications/preferences/channels/${_e(channelId)}',
+      queryParameters: {'workspace_id': workspaceId},
+    );
+    return _channelPreferenceFromMap(
+      envelopeItem(response.data, 'preference'),
+      workspaceId: workspaceId,
+      channelId: channelId,
+    );
+  }
+
+  Future<ChannelNotificationPreference> saveChannelPreference(
+    ChannelNotificationPreference preference,
+  ) async {
+    final response = await _api.put<Object>(
+      '/api/v1/notifications/preferences/channels/${_e(preference.channelId)}',
+      data: {
+        'workspace_id': preference.workspaceId,
+        'mode': _modeToApi(preference.mode),
+        'muted_until': preference.mutedUntil?.toUtc().toIso8601String(),
+        'sensitive': preference.sensitive,
+        'important': preference.important,
+        'compact': preference.compact,
+        'tags': preference.tags,
+      },
+    );
+    return _channelPreferenceFromMap(
+      envelopeItem(response.data, 'preference'),
+      workspaceId: preference.workspaceId,
+      channelId: preference.channelId,
+    );
+  }
+
   Future<List<PushDeviceRegistration>> listPushDevices() async {
     final response = await _api.get<Object>('/api/v1/mobile/devices');
     return envelopeList(
@@ -144,6 +181,33 @@ NotificationPreference _preferenceFromMap(
       'badge_enabled',
       'badgeEnabled',
     ], fallback: true),
+  );
+}
+
+ChannelNotificationPreference _channelPreferenceFromMap(
+  JsonMap map, {
+  required String workspaceId,
+  required String channelId,
+}) {
+  final tags = field(map, const ['tags']);
+  return ChannelNotificationPreference(
+    workspaceId: stringField(map, const [
+      'workspace_id',
+      'workspaceId',
+    ], fallback: workspaceId),
+    // Luôn dùng kênh đã yêu cầu để đường dẫn lưu không đổi theo phản hồi.
+    channelId: channelId,
+    mode: _modeFromApi(stringField(map, const ['mode'], fallback: 'all')),
+    mutedUntil: nullableDateTimeField(map, const ['muted_until', 'mutedUntil']),
+    sensitive: boolField(map, const ['sensitive']),
+    important: boolField(map, const ['important']),
+    compact: boolField(map, const ['compact']),
+    tags: tags is List
+        ? [
+            for (final tag in tags)
+              if (tag is String) tag,
+          ]
+        : const [],
   );
 }
 
