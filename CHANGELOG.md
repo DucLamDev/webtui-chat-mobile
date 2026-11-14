@@ -15,7 +15,8 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   hướng gọi (đến / đi / nhỡ) và nút "Gọi lại"; "Tạo bình chọn" chỉ có trong nhóm, không có ở chat 1-1.
   Công việc: bỏ tiêu đề lớn, nút tìm nhỏ cạnh "Xem tất cả"; biểu tượng tab Công việc là chiếc cặp.
   Tệp chia sẻ: ảnh và video có ảnh thu nhỏ, tài liệu có logo PDF / Word / Excel / PowerPoint; bấm ghi âm là nghe ngay
-  tại dòng; video phát ngay không cần tải hết tệp; PDF xem ngay trong app; tệp đã mở được lưu tạm để lần sau mở tức thì.
+  tại dòng; video phát ngay không cần tải hết tệp; PDF xem ngay trong app; tệp đã mở được lưu tạm (xoá khi đăng
+  xuất) để lần sau mở tức thì; lưu / chia sẻ tệp qua "Mở bằng ứng dụng khác".
   Mọi hộp thoại và bảng chọn đổi sang kiểu mới đồng bộ (nền trắng, bo tròn, nút lớn, thao tác xoá / chặn nút đỏ);
   My Note gom việc chọn, tạo, đổi tên, xoá thư mục vào một bảng Lọc; hộp "Xác thực lại" chọn cách xác thực bằng nút.
 

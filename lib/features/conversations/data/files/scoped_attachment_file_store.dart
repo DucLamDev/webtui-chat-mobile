@@ -34,6 +34,28 @@ final class ScopedAttachmentFileStore {
     );
   }
 
+  /// Thư mục riêng cho một loại bộ nhớ đệm ([purpose]) trong phiên đăng nhập
+  /// hiện tại. Nằm dưới thư mục của máy chủ nên [clearScope] (gọi ở mọi đường
+  /// đăng xuất / đổi máy chủ / thu hồi phiên) xoá luôn; phiên mới dùng thư mục
+  /// khác nên không đọc lại tệp của phiên cũ.
+  Future<Directory> directoryFor({
+    required InstanceScope instanceScope,
+    required String sessionGeneration,
+    required String purpose,
+  }) async {
+    final root = await getTemporaryDirectory();
+    return Directory(
+      path.join(
+        root.path,
+        scopedAttachmentDirectoryRelativePath(
+          instanceScope: instanceScope,
+          sessionGeneration: sessionGeneration,
+          purpose: purpose,
+        ),
+      ),
+    );
+  }
+
   Future<void> clearScope(InstanceScope? instanceScope) async {
     if (instanceScope == null) return;
     final root = await getTemporaryDirectory();
@@ -58,6 +80,28 @@ String scopedAttachmentRelativePath({
   required String originalName,
   required String purpose,
 }) {
+  final directory = scopedAttachmentDirectoryRelativePath(
+    instanceScope: instanceScope,
+    sessionGeneration: sessionGeneration,
+    purpose: purpose,
+  );
+  final digest = sha256
+      .convert(
+        utf8.encode(
+          '${instanceScope.storageId}\u0000$fileId\u0000$originalName',
+        ),
+      )
+      .toString();
+  final extension = _safeExtension(originalName);
+  return path.join(directory, '$digest$extension');
+}
+
+/// `webtui-attachments-v2/<máy chủ>/<phiên>/<purpose>` (tên băm, không lộ mã).
+String scopedAttachmentDirectoryRelativePath({
+  required InstanceScope instanceScope,
+  required String sessionGeneration,
+  required String purpose,
+}) {
   final normalizedPurpose = purpose.trim().toLowerCase();
   if (!RegExp(r'^[a-z][a-z0-9_-]{0,31}$').hasMatch(normalizedPurpose)) {
     throw ArgumentError.value(purpose, 'purpose', 'must be a safe cache kind');
@@ -70,20 +114,11 @@ String scopedAttachmentRelativePath({
       'must be a bounded active generation',
     );
   }
-  final digest = sha256
-      .convert(
-        utf8.encode(
-          '${instanceScope.storageId}\u0000$fileId\u0000$originalName',
-        ),
-      )
-      .toString();
-  final extension = _safeExtension(originalName);
   return path.join(
     _cacheRootName,
     _scopeDirectory(instanceScope),
     sha256.convert(utf8.encode(normalizedGeneration)).toString(),
     normalizedPurpose,
-    '$digest$extension',
   );
 }
 

@@ -155,7 +155,15 @@ void main() {
           slug: 'billing',
           unread: 5,
         ),
-        _item('alert', 'Cảnh báo', hour: 3, group: true, unread: 4),
+        // Máy chủ cũ chưa trả slug: kênh bot hệ thống nhận theo tên.
+        _item(
+          'alert',
+          'Cảnh báo',
+          hour: 3,
+          group: true,
+          automation: true,
+          unread: 4,
+        ),
         _item(
           'custom',
           'Bot riêng',

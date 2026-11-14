@@ -37,6 +37,10 @@ final class WebTuiDialogAction {
 /// hàng nút cao 48 chia đều bề ngang.
 ///
 /// Dùng thay `AlertDialog` cho mọi hộp thoại mới để giao diện đồng bộ.
+///
+/// Cả hộp nằm trong một `SingleChildScrollView` (tránh tràn khi bàn phím mở),
+/// nên [content] không được chứa widget cần chiều cao giới hạn (`ListView`,
+/// `Expanded`...); danh sách dài thì dùng bảng trượt `showWebTuiSheet`.
 class WebTuiDialog extends StatelessWidget {
   const WebTuiDialog({
     required this.title,
@@ -416,6 +420,10 @@ class WebTuiDialogTextField extends StatelessWidget {
     this.showCounter = true,
     this.minLines,
     this.maxLines = 1,
+    this.focusNode,
+    this.enabled = true,
+    this.autocorrect = true,
+    this.enableSuggestions = true,
     super.key,
   });
 
@@ -441,6 +449,15 @@ class WebTuiDialogTextField extends StatelessWidget {
   final int? minLines;
   final int? maxLines;
 
+  final FocusNode? focusNode;
+
+  /// `false` khi đang xử lý: không gõ thêm được.
+  final bool enabled;
+
+  /// Tắt cho mã OTP, mã khôi phục, mật khẩu (không gợi ý / tự sửa).
+  final bool autocorrect;
+  final bool enableSuggestions;
+
   @override
   Widget build(BuildContext context) {
     OutlineInputBorder border(Color color, [double width = 1]) =>
@@ -464,6 +481,10 @@ class WebTuiDialogTextField extends StatelessWidget {
         ],
         TextField(
           controller: controller,
+          focusNode: focusNode,
+          enabled: enabled,
+          autocorrect: autocorrect,
+          enableSuggestions: enableSuggestions,
           autofocus: autofocus,
           obscureText: obscureText,
           minLines: minLines,

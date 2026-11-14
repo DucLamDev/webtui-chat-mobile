@@ -1,23 +1,46 @@
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/network/redirect_safe_file_downloader.dart';
 import '../../../../core/security/instance_scope.dart';
+import '../../../auth/domain/repositories/auth_token_repository.dart';
+import '../../../conversations/data/files/scoped_attachment_file_store.dart';
 import '../../domain/entities/work_hub.dart';
 import 'shared_file_logic.dart';
 
-/// Bộ nhớ đệm tệp chia sẻ: thư mục tạm của app, tối đa 300 MB.
+/// Bộ nhớ đệm tệp chia sẻ, tối đa 300 MB, nằm trong kho tệp theo máy chủ +
+/// phiên đăng nhập (`ScopedAttachmentFileStore`): đăng xuất, đổi máy chủ hay
+/// phiên bị thu hồi thì bị xoá cùng tệp đính kèm chat; phiên mới không đọc lại
+/// tệp của phiên cũ.
 final sharedFileCacheProvider = Provider<SharedFileCache>((ref) {
   return SharedFileCache(
-    directory: () async {
-      final base = await getTemporaryDirectory();
-      return Directory('${base.path}/shared-files');
-    },
+    directory: () async => scopedSharedFileDirectory(
+      scope: ref.read(activeServerDiscoveryProvider)?.instanceScope,
+      guard: await ref.read(authTokenRepositoryProvider).captureMutationGuard(),
+    ),
   );
 });
+
+/// Thư mục bộ nhớ đệm tệp chia sẻ của phiên hiện tại; không có phiên (hoặc
+/// phiên thuộc máy chủ khác) thì báo lỗi, không ghi tệp ra ngoài kho có phạm vi.
+Future<Directory> scopedSharedFileDirectory({
+  required InstanceScope? scope,
+  required AuthTokenMutationGuard? guard,
+  ScopedAttachmentFileStore store = const ScopedAttachmentFileStore(),
+}) async {
+  if (scope == null ||
+      guard == null ||
+      guard.instanceScopeId != scope.storageId) {
+    throw const RedirectSafeDownloadException('instance binding changed');
+  }
+  return store.directoryFor(
+    instanceScope: scope,
+    sessionGeneration: guard.generation,
+    purpose: 'shared-files',
+  );
+}
 
 /// Tìm nguồn phát / tệp cục bộ cho tệp chia sẻ của một workspace.
 final sharedFileMediaResolverProvider =

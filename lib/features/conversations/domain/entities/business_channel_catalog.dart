@@ -188,9 +188,23 @@ bool isHiddenSystemChannel(ConversationSummary channel) {
   if (channel.kind == ConversationKind.direct && !channel.isAutomation) {
     return false;
   }
-  final definition = businessChannelDefinitionOf(channel);
+  // Máy chủ cũ không trả `slug` thì chỉ nhận theo tên với kênh bot / kênh phiên
+  // riêng; nhóm người dùng tự đặt tên "Hỗ trợ", "Sự cố"... không bị ẩn nhầm.
+  final botLike = channel.isAutomation || channel.privateSessionMode;
+  final definition = botLike
+      ? businessChannelDefinitionOf(channel)
+      : _definitionBySlug(channel);
   if (definition != null) {
     return !visibleBusinessChannelSlugs.contains(definition.slug);
   }
   return channel.isAutomation;
+}
+
+BusinessChannelDefinition? _definitionBySlug(ConversationSummary channel) {
+  final slug = channel.slug?.trim().toLowerCase() ?? '';
+  if (slug.isEmpty) return null;
+  for (final definition in businessChannelCatalog) {
+    if (definition.slug == slug) return definition;
+  }
+  return null;
 }

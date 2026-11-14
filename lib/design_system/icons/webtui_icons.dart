@@ -66,6 +66,7 @@ abstract final class WebTuiIcons {
   static const IconData attach = LucideIcons.paperclip;
   static const IconData scheduleSend = LucideIcons.calendarClock;
   static const IconData copy = LucideIcons.copy;
+  static const IconData like = LucideIcons.thumbsUp;
   static const IconData reply = LucideIcons.reply;
   static const IconData tapAction = LucideIcons.mousePointerClick;
 

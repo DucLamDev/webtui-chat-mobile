@@ -125,16 +125,10 @@ class _SharedFilesScreenState extends ConsumerState<SharedFilesScreen> {
         );
       case SharedFileSheetChoice.open:
       case SharedFileSheetChoice.openExternally:
-      case SharedFileSheetChoice.download:
-        final download = choice == SharedFileSheetChoice.download;
         _message('Đang tải ${shortenFileName(file.name, maxLength: 24)}…');
         try {
           final local = await resolver.localFile(file);
-          if (download) {
-            _message(
-              'Đã tải xong ${shortenFileName(file.name, maxLength: 24)}.',
-            );
-          } else if (!await openSharedFileExternally(local)) {
+          if (!await openSharedFileExternally(local)) {
             _message('Không có ứng dụng nào mở được tệp này.');
           } else if (mounted) {
             ScaffoldMessenger.of(context).hideCurrentSnackBar();

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/app/providers/foundation_providers.dart';
@@ -119,4 +120,44 @@ void main() {
     await tester.pumpAndSettle();
     expect(opened.result(), isNull);
   });
+
+  testWidgets(
+    'ô nhập giữ thuộc tính cũ: không gợi ý / tự sửa, khoá khi đang kiểm, vân tay đưa con trỏ vào ô',
+    (tester) async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('webtui/biometric'),
+            (call) async => true,
+          );
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(
+              const MethodChannel('webtui/biometric'),
+              null,
+            ),
+      );
+      final opened = await open(tester);
+      TextField field() => tester.widget<TextField>(find.byType(TextField));
+      expect(field().autocorrect, isFalse);
+      expect(field().enableSuggestions, isFalse);
+      expect(field().focusNode, isNotNull);
+
+      // Bỏ con trỏ khỏi ô rồi bấm vân tay: ô được focus lại.
+      field().focusNode!.unfocus();
+      await tester.pump();
+      expect(field().focusNode!.hasFocus, isFalse);
+      await tester.tap(find.byKey(const Key('reauth_biometric')));
+      await tester.pumpAndSettle();
+      expect(field().focusNode!.hasFocus, isTrue);
+
+      // Đang kiểm tra với máy chủ: ô bị khoá.
+      opened.mfa.pending = Completer<Result<String>>();
+      await tester.enterText(find.byType(TextField), 'mat-khau');
+      await tester.tap(find.text('Xác nhận'));
+      await tester.pump();
+      expect(field().enabled, isFalse);
+      opened.mfa.pending!.complete(const Success('proof'));
+      await tester.pumpAndSettle();
+    },
+  );
 }

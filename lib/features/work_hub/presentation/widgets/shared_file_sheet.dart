@@ -8,7 +8,7 @@ import '../controllers/shared_file_logic.dart';
 import 'shared_file_widgets.dart';
 
 /// Lựa chọn trong bảng thao tác của một tệp.
-enum SharedFileSheetChoice { view, open, download, openExternally }
+enum SharedFileSheetChoice { view, open, openExternally }
 
 String sharedFileTypeLabel(SharedFile file) {
   return switch (sharedFileFormat(file)) {
@@ -105,20 +105,15 @@ Future<SharedFileSheetChoice?> showSharedFileActionSheet(
                 key: const Key('file_action_open'),
                 icon: WebTuiIcons.externalLink,
                 title: 'Mở',
-                subtitle: 'Tải rồi mở bằng ứng dụng có sẵn',
+                subtitle: 'Mở bằng ứng dụng có sẵn; từ đó lưu hoặc chia sẻ',
                 onTap: () => pick(SharedFileSheetChoice.open),
               ),
-            WebTuiSheetActionTile(
-              key: const Key('file_action_download'),
-              icon: WebTuiIcons.download,
-              title: 'Tải về',
-              onTap: () => pick(SharedFileSheetChoice.download),
-            ),
             if (video || action == SharedFileTapAction.pdfSheet)
               WebTuiSheetActionTile(
                 key: const Key('file_action_external'),
                 icon: WebTuiIcons.externalLink,
                 title: 'Mở bằng ứng dụng khác',
+                subtitle: 'Lưu vào máy, chia sẻ hoặc mở bằng ứng dụng khác',
                 onTap: () => pick(SharedFileSheetChoice.openExternally),
               ),
             const SizedBox(height: 8),

@@ -114,8 +114,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('file_sheet_cover')), findsOneWidget);
     expect(find.byKey(const Key('file_action_view')), findsOneWidget);
-    expect(find.byKey(const Key('file_action_download')), findsOneWidget);
+    // Không còn mục "Tải về" (chỉ ghi vào bộ nhớ tạm mà báo đã tải xong);
+    // lưu / chia sẻ đi qua "Mở bằng ứng dụng khác".
+    expect(find.byKey(const Key('file_action_download')), findsNothing);
     expect(find.byKey(const Key('file_action_external')), findsOneWidget);
+    expect(
+      find.text('Lưu vào máy, chia sẻ hoặc mở bằng ứng dụng khác'),
+      findsOneWidget,
+    );
     await tester.tapAt(const Offset(10, 10));
     await tester.pumpAndSettle();
 
@@ -131,7 +137,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('file_action_open')), findsOneWidget);
     expect(find.byKey(const Key('file_action_view')), findsNothing);
-    expect(find.byKey(const Key('file_action_download')), findsOneWidget);
+    expect(find.byKey(const Key('file_action_download')), findsNothing);
+    expect(
+      find.text('Mở bằng ứng dụng có sẵn; từ đó lưu hoặc chia sẻ'),
+      findsOneWidget,
+    );
     expect(find.byType(SharedFilesScreen), findsOneWidget);
   });
 

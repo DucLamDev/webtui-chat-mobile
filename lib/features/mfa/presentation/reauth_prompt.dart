@@ -119,6 +119,10 @@ class _ReauthDialogState extends ConsumerState<_ReauthDialog> {
           WebTuiDialogTextField(
             key: const Key('reauth_input'),
             controller: _value,
+            focusNode: _focus,
+            enabled: !_busy,
+            autocorrect: false,
+            enableSuggestions: false,
             label: password ? 'Mật khẩu' : 'Mã xác thực',
             autofocus: true,
             obscureText: password && !_showPassword,

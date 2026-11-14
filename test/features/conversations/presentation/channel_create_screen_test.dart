@@ -21,11 +21,12 @@ void main() {
   Future<_Repo> pump(
     WidgetTester tester, {
     Set<String> failFor = const {},
+    bool failLists = false,
   }) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final repo = _Repo(failFor: failFor);
+    final repo = _Repo(failFor: failFor)..failLists = failLists;
     final router = GoRouter(
       initialLocation: '/channels/new',
       routes: [
@@ -96,6 +97,20 @@ void main() {
     await tester.enterText(find.byKey(const Key('group-name-field')), 'Nhóm A');
     await tester.pump();
     expect(buttonEnabled(tester), isTrue);
+  });
+
+  testWidgets('tải danh sách lỗi: báo lỗi + Thử lại, không báo "Chưa có ai"', (
+    tester,
+  ) async {
+    final repo = await pump(tester, failLists: true);
+    expect(find.byKey(const Key('group-members-error')), findsOneWidget);
+    expect(find.text('Chưa có ai để thêm'), findsNothing);
+
+    repo.failLists = false;
+    await tester.tap(find.text('Thử lại'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('group-members-error')), findsNothing);
+    expect(find.text('Bình Trần'), findsOneWidget);
   });
 
   testWidgets('chọn, bỏ chọn, tìm; tạo nhóm riêng tư thêm đúng người', (
@@ -177,6 +192,12 @@ final class _Repo implements ConversationRepository {
   _Repo({this.failFor = const {}});
 
   final Set<String> failFor;
+
+  /// Giả lỗi mạng khi tải danh bạ và thành viên workspace.
+  bool failLists = false;
+  static const _listFailure = FailureResult<List<ContactSummary>>(
+    Failure(kind: FailureKind.network, message: 'Mất kết nối'),
+  );
   ChannelVisibility? createdVisibility;
   String? createdName;
   final added = <String>[];
@@ -192,7 +213,10 @@ final class _Repo implements ConversationRepository {
   }) async => const Success([]);
 
   @override
-  Future<Result<List<ContactSummary>>> listContacts() async => Success([
+  Future<Result<List<ContactSummary>>> listContacts() async =>
+      failLists ? _listFailure : _contacts();
+
+  Future<Result<List<ContactSummary>>> _contacts() async => Success([
     _person('u1', 'An Nguyễn', status: 'accepted'),
     _person('me', 'Tôi'),
     _person('pending', 'Chờ kết bạn', status: 'pending'),
@@ -206,7 +230,9 @@ final class _Repo implements ConversationRepository {
   @override
   Future<Result<List<ContactSummary>>> listWorkspaceMembers({
     required String workspaceId,
-  }) async => Success([
+  }) async => failLists ? _listFailure : _members();
+
+  Future<Result<List<ContactSummary>>> _members() async => Success([
     _person('u1', 'An Nguyễn'),
     _person('u2', 'Bình Trần'),
     _person('me', 'Tôi'),

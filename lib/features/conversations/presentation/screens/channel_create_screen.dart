@@ -197,6 +197,22 @@ class _GroupCreateViewState extends ConsumerState<GroupCreateView> {
                 padding: EdgeInsets.all(WebTuiSpacing.xl),
                 child: WebTuiLoadingState(message: 'Đang tải danh sách...'),
               )
+            else if (candidates.isEmpty &&
+                (home.contactsErrorMessage != null ||
+                    home.membersErrorMessage != null))
+              // Tải danh bạ / thành viên lỗi: báo lỗi + Thử lại, không báo nhầm
+              // "Chưa có ai để thêm".
+              WebTuiErrorState(
+                key: const Key('group-members-error'),
+                title: 'Không tải được danh sách',
+                message:
+                    home.contactsErrorMessage ?? home.membersErrorMessage ?? '',
+                onRetry: () => ref
+                    .read(
+                      conversationHomeControllerProvider(workspaceId).notifier,
+                    )
+                    .refresh(),
+              )
             else if (visible.isEmpty)
               WebTuiEmptyState(
                 title: candidates.isEmpty

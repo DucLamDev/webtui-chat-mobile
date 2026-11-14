@@ -158,7 +158,7 @@ class _ReactionChip extends StatelessWidget {
           children: [
             if (isLike)
               const Icon(
-                WebTuiIcons.check,
+                WebTuiIcons.like,
                 size: 13,
                 color: WebTuiColors.primary,
               )

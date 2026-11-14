@@ -120,7 +120,11 @@ void main() {
           reason: definition.slug,
         );
       }
-      expect(isHiddenSystemChannel(make('Giám sát VPS')), isTrue);
+      // Máy chủ cũ chưa trả slug: kênh bot nhận theo tên mặc định.
+      expect(
+        isHiddenSystemChannel(make('Giám sát VPS', automation: true)),
+        isTrue,
+      );
       expect(
         isHiddenSystemChannel(
           make('Bot riêng', slug: 'zalo', automation: true),
@@ -128,6 +132,19 @@ void main() {
         isTrue,
       );
     });
+
+    test(
+      'nhóm người dùng trùng tên kênh hệ thống (không slug) không bị ẩn',
+      () {
+        // Máy chủ cũ không trả slug: chỉ kênh bot mới so theo tên, nhóm thường
+        // tên "Hỗ trợ" / "Sự cố" vẫn hiện.
+        expect(isHiddenSystemChannel(make('Hỗ trợ')), isFalse);
+        expect(isHiddenSystemChannel(make('Sự cố')), isFalse);
+        expect(isHiddenSystemChannel(make('Hỗ trợ', automation: true)), isTrue);
+        // Có slug của kênh hệ thống thì vẫn ẩn dù máy chủ không gắn cờ bot.
+        expect(isHiddenSystemChannel(make('Hỗ trợ', slug: 'support')), isTrue);
+      },
+    );
 
     test('không ẩn bot thông báo, chat 1-1, nhóm thường', () {
       expect(
