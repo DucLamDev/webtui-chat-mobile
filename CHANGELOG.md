@@ -4,6 +4,14 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
+## 1.20.0 · 14/11/2026
+### Tính năng
+- Màn Tin nhắn rộng chỗ hơn: bỏ thanh tiêu đề, dải Nghiệp vụ thu gọn
+  Màn Tin nhắn không còn thanh tiêu đề "Tên tổ chức · Tin nhắn" ở trên cùng; chuông thông báo và nút soạn tin mới nằm
+  ngay cạnh ô tìm kiếm. Dải kênh Nghiệp vụ (Đơn hàng, Gia hạn, Kế toán...) mặc định thu thành một dòng "Nghiệp vụ",
+  kèm tổng số tin chưa đọc của các kênh; bấm vào dòng đó để mở ra / thu lại, app nhớ lựa chọn trong lúc đang dùng.
+  Danh sách hội thoại vì thế hiện được nhiều hơn trên một màn hình. Các tab Bạn bè, Công việc, Cài đặt giữ nguyên.
+
 ## 1.19.1 · 14/11/2026
 ### Sửa lỗi
 - Hộp "Điều khoản và quyền riêng tư" không còn bật lên mỗi lần mở app

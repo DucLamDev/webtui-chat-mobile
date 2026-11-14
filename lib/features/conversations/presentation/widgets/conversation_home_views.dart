@@ -19,11 +19,20 @@ import '../controllers/conversation_home_controller.dart';
 import '../models/conversation_privacy_projection.dart';
 import '../screens/chat_room_screen.dart';
 import 'business_channel_grid.dart';
+import 'quick_channel_strip.dart';
 
 class MessagesHomeView extends ConsumerWidget {
-  const MessagesHomeView({required this.workspaceId, super.key});
+  const MessagesHomeView({
+    required this.workspaceId,
+    this.searchActions = const [],
+    super.key,
+  });
 
   final String workspaceId;
+
+  /// Nút đặt cạnh ô tìm kiếm (chuông thông báo, soạn tin): tab Tin nhắn không
+  /// còn thanh tiêu đề.
+  final List<Widget> searchActions;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -66,6 +75,7 @@ class MessagesHomeView extends ConsumerWidget {
           conversations: conversations,
           blockedUserIds: blockedUserIds,
           selectedId: wide ? selected?.id : null,
+          searchActions: searchActions,
           onRetry: () {
             // Kéo làm mới cũng lấy lại số ticket khách chưa trả lời.
             ref.invalidate(customerTicketUnansweredCountProvider(workspaceId));
@@ -264,6 +274,7 @@ class _MessagesList extends StatelessWidget {
     required this.onTap,
     required this.onJoinableTap,
     this.selectedId,
+    this.searchActions = const [],
   });
 
   final ConversationHomeState state;
@@ -275,6 +286,7 @@ class _MessagesList extends StatelessWidget {
   final ValueChanged<ConversationSummary> onTap;
   final ValueChanged<ConversationSummary> onJoinableTap;
   final String? selectedId;
+  final List<Widget> searchActions;
 
   @override
   Widget build(BuildContext context) {
@@ -300,6 +312,7 @@ class _MessagesList extends StatelessWidget {
             child: _TopSearch(
               hintText: 'Tìm tin nhắn, nhóm, kênh...',
               onChanged: onSearch,
+              actions: searchActions,
             ),
           ),
           SliverToBoxAdapter(
@@ -357,7 +370,8 @@ class _MessagesList extends StatelessWidget {
           else ...[
             if (quickChannels.isNotEmpty)
               SliverToBoxAdapter(
-                child: _QuickChannelStrip(
+                key: const ValueKey('quick-channel-strip'),
+                child: QuickChannelStrip(
                   channels: quickChannels,
                   onTap: onTap,
                   onShowAll: () => onFilterChanged(workTab),
@@ -393,68 +407,6 @@ class _MessagesList extends StatelessWidget {
           const SliverToBoxAdapter(child: SizedBox(height: WebTuiSpacing.lg)),
         ],
       ),
-    );
-  }
-}
-
-/// Dải kênh nghiệp vụ (đơn hàng, gia hạn...) đầu hộp thư: bấm một lần là vào.
-/// Thứ tự cố định theo danh mục nghiệp vụ, tin chưa đọc hiện bằng huy hiệu.
-class _QuickChannelStrip extends StatelessWidget {
-  const _QuickChannelStrip({
-    required this.channels,
-    required this.onTap,
-    required this.onShowAll,
-  });
-
-  final List<ConversationSummary> channels;
-  final ValueChanged<ConversationSummary> onTap;
-  final VoidCallback onShowAll;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(
-            left: WebTuiSpacing.lg,
-            top: WebTuiSpacing.sm,
-            right: WebTuiSpacing.xs,
-          ),
-          child: Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Nghiệp vụ',
-                  style: TextStyle(
-                    color: WebTuiColors.textSecondary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              TextButton(onPressed: onShowAll, child: const Text('Xem tất cả')),
-            ],
-          ),
-        ),
-        SizedBox(
-          height: 96,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.md),
-            itemCount: channels.length,
-            separatorBuilder: (context, index) {
-              return const SizedBox(width: WebTuiSpacing.xs);
-            },
-            itemBuilder: (context, index) {
-              final channel = channels[index];
-              return BusinessChannelTile(
-                channel: channel,
-                onTap: () => onTap(channel),
-              );
-            },
-          ),
-        ),
-      ],
     );
   }
 }
@@ -627,21 +579,33 @@ class _ChannelList extends StatelessWidget {
 }
 
 class _TopSearch extends StatelessWidget {
-  const _TopSearch({required this.hintText, required this.onChanged});
+  const _TopSearch({
+    required this.hintText,
+    required this.onChanged,
+    this.actions = const [],
+  });
 
   final String hintText;
   final ValueChanged<String> onChanged;
+  final List<Widget> actions;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
+      padding: EdgeInsets.fromLTRB(
         WebTuiSpacing.lg,
         WebTuiSpacing.md,
-        WebTuiSpacing.lg,
+        actions.isEmpty ? WebTuiSpacing.lg : WebTuiSpacing.xs,
         WebTuiSpacing.sm,
       ),
-      child: WebTuiSearchBar(hintText: hintText, onChanged: onChanged),
+      child: Row(
+        children: [
+          Expanded(
+            child: WebTuiSearchBar(hintText: hintText, onChanged: onChanged),
+          ),
+          ...actions,
+        ],
+      ),
     );
   }
 }

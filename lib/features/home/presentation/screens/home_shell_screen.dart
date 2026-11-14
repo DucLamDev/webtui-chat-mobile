@@ -288,6 +288,11 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     final notificationState = ref.watch(
       notificationCenterControllerProvider(activeWorkspace.id),
     );
+    final notificationBell = _NotificationBellButton(
+      unreadCount: notificationState.unreadCount,
+      onPressed: () =>
+          context.push('/notifications?workspaceId=${activeWorkspace.id}'),
+    );
 
     return KeyedSubtree(
       key: ValueKey('workspace-shell-${workspaceState.generation}'),
@@ -295,6 +300,9 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         title: organization == null
             ? _titles[_tabIndex]
             : '${organization.name} · ${_titles[_tabIndex]}',
+        // Tab Tin nhắn bỏ thanh tiêu đề cho rộng chỗ: chuông và nút soạn tin
+        // nằm cạnh ô tìm kiếm.
+        showAppBar: _tabIndex != 0,
         selectedTab: _tabIndex,
         onTabSelected: (index) {
           if (index == _tabIndex) return;
@@ -311,20 +319,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
             name: organization?.name ?? activeWorkspace.name,
           ),
         ),
-        actions: [
-          _NotificationBellButton(
-            unreadCount: notificationState.unreadCount,
-            onPressed: () => context.push(
-              '/notifications?workspaceId=${activeWorkspace.id}',
-            ),
-          ),
-          if (_tabIndex == 0)
-            IconButton(
-              tooltip: 'Tin nhắn mới hoặc tạo nhóm',
-              onPressed: _showComposeOptions,
-              icon: const Icon(CupertinoIcons.square_pencil),
-            ),
-        ],
+        actions: [notificationBell],
         body: Column(
           children: [
             if (_networkDegraded)
@@ -340,7 +335,17 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
                 index: _tabIndex,
                 children: [
                   if (_visitedTabs.contains(0))
-                    MessagesHomeView(workspaceId: activeWorkspace.id)
+                    MessagesHomeView(
+                      workspaceId: activeWorkspace.id,
+                      searchActions: [
+                        notificationBell,
+                        IconButton(
+                          tooltip: 'Tin nhắn mới hoặc tạo nhóm',
+                          onPressed: _showComposeOptions,
+                          icon: const Icon(CupertinoIcons.square_pencil),
+                        ),
+                      ],
+                    )
                   else
                     const SizedBox.shrink(),
                   if (_visitedTabs.contains(1))
