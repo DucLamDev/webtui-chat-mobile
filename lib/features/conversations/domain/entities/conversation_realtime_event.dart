@@ -19,6 +19,10 @@ enum ConversationRealtimeEventType {
   transcriptUpdated,
   typingStarted,
   typingStopped,
+
+  /// Một thành viên vừa đọc tới đâu trong kênh 1-1 (`ChannelReadUpdated`):
+  /// `payload` có `user_id`, `last_read_message_id`, `last_read_at`.
+  channelReadUpdated,
   callInvited,
   callAccepted,
   callReady,

@@ -164,6 +164,49 @@ void main() {
     expect(event?.message?.reactions.single.reactedByMe, isTrue);
   });
 
+  test('giải mã ChannelReadUpdated: người đọc, mốc đọc, giữ payload', () {
+    final event = ConversationRealtimeEventMapper.fromSocketData(
+      jsonEncode({
+        'type': 'ChannelReadUpdated',
+        'room': 'workspace:w1:channel:c1',
+        'payload': {
+          'workspace_id': 'w1',
+          'channel_id': 'c1',
+          'user_id': 'u2',
+          'last_read_message_id': 'm9',
+          'last_read_at': '2026-07-17T08:05:00Z',
+        },
+      }),
+      fallbackWorkspaceId: 'w1',
+      fallbackChannelId: 'c1',
+    );
+
+    expect(event?.type, ConversationRealtimeEventType.channelReadUpdated);
+    expect(event?.channelId, 'c1');
+    expect(event?.userId, 'u2');
+    expect(event?.payload['last_read_at'], '2026-07-17T08:05:00Z');
+    expect(event?.payload['last_read_message_id'], 'm9');
+  });
+
+  test('reducer bỏ qua ChannelReadUpdated, không đổi danh sách tin', () {
+    const reducer = ConversationRealtimeReducer();
+    final before = ConversationRealtimeState(
+      messages: [_message(id: 'm1', body: 'Xin chào')],
+    );
+    final after = reducer.reduce(
+      before,
+      const ConversationRealtimeEvent(
+        type: ConversationRealtimeEventType.channelReadUpdated,
+        workspaceId: 'w1',
+        channelId: 'c1',
+        userId: 'u2',
+      ),
+      currentUserId: 'u1',
+    );
+
+    expect(after.messages, before.messages);
+  });
+
   test('maps attachment created event with message id', () {
     final event = ConversationRealtimeEventMapper.fromSocketData(
       jsonEncode({

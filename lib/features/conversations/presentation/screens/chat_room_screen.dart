@@ -12,6 +12,7 @@ import '../../../../core/error/error_mapper.dart';
 import '../../../../core/platform/chat_share_intent_service.dart';
 import '../../../../core/result/result.dart';
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
@@ -33,7 +34,11 @@ import '../controllers/collaboration_task_controller.dart';
 import '../controllers/conversation_home_controller.dart';
 import '../controllers/message_sender_directory.dart';
 import '../controllers/notice_bot_identity.dart';
+import '../controllers/peer_presence.dart';
+import '../controllers/peer_read_controller.dart';
 import '../controllers/pending_chat_share_controller.dart';
+import '../widgets/chat_call_history_card.dart';
+import '../widgets/chat_room_app_bar.dart';
 import '../widgets/collaboration_room_sheet.dart';
 import '../widgets/message_cards/message_card_view.dart';
 import '../widgets/message_cards/streaming_message_bubble.dart';
@@ -463,6 +468,36 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
     final showSenderNames =
         conversationKind == ConversationKind.channel ||
         (conversationKind == null && senderDirectory.length > 2);
+    // "Đã xem" chỉ cho chat 1-1 thật, không cho nhóm / kênh / chat bot.
+    final conversation = widget.conversation;
+    final isDirectChat =
+        !noticeBot &&
+        !(conversation?.isAutomation ?? false) &&
+        !(conversation?.privateSessionMode ?? false) &&
+        (conversationKind == ConversationKind.direct ||
+            (conversationKind == null && senderDirectory.length == 2));
+    final seenMessageId = isDirectChat
+        ? seenMessageIdFor(
+            messages: state.messages,
+            peerReadAt: ref
+                .watch(peerReadProvider(scope))
+                .peerReadAt(state.currentUserId),
+          )
+        : null;
+    final presenceUserId = isDirectChat ? _safetyTargetUserId(state) : null;
+    final peerPresence = presenceUserId == null
+        ? null
+        : peerPresenceLabel(
+            ref
+                .watch(
+                  peerPresenceProvider((
+                    workspaceId: workspaceId,
+                    peerUserId: presenceUserId,
+                  )),
+                )
+                .valueOrNull,
+            DateTime.now(),
+          );
     final serverCapabilities = ref.watch(
       activeServerDiscoveryProvider.select((value) => value?.capabilities),
     );
@@ -521,11 +556,12 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
       onPopInvokedWithResult: (_, _) {
         unawaited(controller.persistDraft());
       },
-      child: _ChatRoomBody(
+      child: ChatRoomBody(
         workspaceId: workspaceId,
         state: state,
         senderDirectory: senderDirectory,
         showSenderNames: showSenderNames,
+        seenMessageId: seenMessageId,
         directAvatarUrl: botIdentity != null
             ? botIdentity.logoUrl
             : widget.conversation?.avatarUrl,
@@ -666,6 +702,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
             _EmbeddedChatHeader(
               title: roomTitle,
               avatarUrl: widget.avatarUrl,
+              presence: peerPresence,
               onDetails: () => _openDetails(context),
               onSafety: safetyTargetUserId == null
                   ? null
@@ -685,105 +722,61 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
 
     return Scaffold(
       backgroundColor: WebTuiColors.chatBackground,
-      appBar: AppBar(
-        toolbarHeight: 50,
-        backgroundColor: WebTuiColors.chatHeader,
-        foregroundColor: WebTuiColors.textOnPrimary,
-        iconTheme: const IconThemeData(color: WebTuiColors.textOnPrimary),
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        titleSpacing: 0,
-        title: Text(
-          roomTitle,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: WebTuiTypography.titleMedium.copyWith(
-            color: WebTuiColors.textOnPrimary,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Tìm tin nhắn',
-            onPressed: () =>
-                _openSearch(context, controller, state.searchQuery),
-            icon: const Icon(CupertinoIcons.search, size: 21),
-          ),
-          if (noticeBot)
-            NoticeBotMuteAction(
-              workspaceId: workspaceId,
-              channelId: widget.channelId,
-            )
-          else ...[
-            if (callsEnabled) ...[
-              IconButton(
-                tooltip: 'Gọi thoại',
-                onPressed: interactionBlocked
-                    ? () => _showCapabilityUnavailable(
-                        context,
-                        'Hãy bỏ chặn người dùng trước khi gọi.',
-                      )
-                    : () => unawaited(
-                        _startCallFromCurrentConversation(
-                          context,
-                          controller,
-                          state,
-                          CallMode.audio,
-                        ),
-                      ),
-                icon: const Icon(CupertinoIcons.phone, size: 21),
+      appBar: ChatRoomAppBar(
+        title: roomTitle,
+        avatarUrl: noticeBot
+            ? botIdentity?.logoUrl
+            : widget.avatarUrl ?? widget.conversation?.avatarUrl,
+        publicAvatar: noticeBot,
+        noticeBot: noticeBot,
+        directChat: isDirectChat,
+        presence: peerPresence,
+        memberCount: (conversation?.memberCount ?? 0) > 0
+            ? conversation!.memberCount
+            : senderDirectory.length,
+        callsEnabled: callsEnabled,
+        notificationAction: noticeBot
+            ? NoticeBotMuteAction(
+                workspaceId: workspaceId,
+                channelId: widget.channelId,
+              )
+            : null,
+        onCall: (mode) {
+          if (interactionBlocked) {
+            _showCapabilityUnavailable(
+              context,
+              'Hãy bỏ chặn người dùng trước khi gọi.',
+            );
+            return;
+          }
+          unawaited(
+            _startCallFromCurrentConversation(context, controller, state, mode),
+          );
+        },
+        onSearch: () => _openSearch(context, controller, state.searchQuery),
+        onSafety: safetyTargetUserId == null
+            ? null
+            : () => showUserSafetyActions(
+                context,
+                ref,
+                workspaceId: workspaceId,
+                userId: safetyTargetUserId,
+                userLabel: widget.title,
               ),
-              IconButton(
-                tooltip: 'Gọi video',
-                onPressed: interactionBlocked
-                    ? () => _showCapabilityUnavailable(
-                        context,
-                        'Hãy bỏ chặn người dùng trước khi gọi.',
-                      )
-                    : () => unawaited(
-                        _startCallFromCurrentConversation(
-                          context,
-                          controller,
-                          state,
-                          CallMode.video,
-                        ),
-                      ),
-                icon: const Icon(CupertinoIcons.video_camera, size: 22),
-              ),
-            ],
-            if (safetyTargetUserId != null)
-              IconButton(
-                tooltip: 'Báo cáo hoặc chặn người dùng',
-                onPressed: () => showUserSafetyActions(
-                  context,
-                  ref,
-                  workspaceId: workspaceId,
-                  userId: safetyTargetUserId,
-                  userLabel: widget.title,
-                ),
-                icon: const Icon(Icons.shield_outlined, size: 22),
-              ),
-            IconButton(
-              key: const Key('chat_collaboration_tools_action'),
-              tooltip: 'Công cụ làm việc',
-              onPressed: interactionBlocked
-                  ? () => _showBlockedSharedContentGuidance(context)
-                  : () => showCollaborationRoomSheet(
-                      context,
-                      workspaceId: workspaceId,
-                      channelId: widget.channelId,
-                      title: widget.title,
-                      conversation: widget.conversation,
-                    ),
-              icon: const Icon(CupertinoIcons.square_grid_2x2, size: 21),
-            ),
-            IconButton(
-              tooltip: 'Chi tiết kênh',
-              onPressed: () => _openDetails(context),
-              icon: const Icon(CupertinoIcons.line_horizontal_3, size: 23),
-            ),
-          ],
-        ],
+        onTools: () {
+          if (interactionBlocked) {
+            _showBlockedSharedContentGuidance(context);
+            return;
+          }
+          showCollaborationRoomSheet(
+            context,
+            workspaceId: workspaceId,
+            channelId: widget.channelId,
+            title: widget.title,
+            conversation: widget.conversation,
+          );
+        },
+        onDetails: () => _openDetails(context),
       ),
       body: SafeArea(top: false, child: body),
     );
@@ -1291,8 +1284,10 @@ class _MessageSearchSheetState extends State<_MessageSearchSheet> {
   }
 }
 
-class _ChatRoomBody extends StatefulWidget {
-  const _ChatRoomBody({
+/// Thân phòng chat (danh sách tin + ô nhập). Công khai chỉ để test dựng riêng.
+@visibleForTesting
+class ChatRoomBody extends StatefulWidget {
+  const ChatRoomBody({
     required this.workspaceId,
     required this.state,
     required this.senderDirectory,
@@ -1339,7 +1334,12 @@ class _ChatRoomBody extends StatefulWidget {
     required this.onFocusMessage,
     required this.onCancelComposerContext,
     required this.onRetryCall,
+    this.seenMessageId,
+    super.key,
   });
+
+  /// Tin CUỐI của mình đã được người kia đọc (chỉ chat 1-1): hiện "Đã xem".
+  final String? seenMessageId;
 
   final String workspaceId;
   final ChatRoomState state;
@@ -1393,10 +1393,13 @@ class _ChatRoomBody extends StatefulWidget {
   final ValueChanged<CallMode> onRetryCall;
 
   @override
-  State<_ChatRoomBody> createState() => _ChatRoomBodyState();
+  State<ChatRoomBody> createState() => _ChatRoomBodyState();
 }
 
-class _ChatRoomBodyState extends State<_ChatRoomBody> {
+class _ChatRoomBodyState extends State<ChatRoomBody> {
+  /// Tin đang hiện dòng giờ vì người dùng vừa chạm vào.
+  String? _timeShownMessageId;
+
   final _scrollController = ScrollController();
   final _messageKeys = <String, GlobalKey>{};
 
@@ -1407,7 +1410,7 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
   }
 
   @override
-  void didUpdateWidget(covariant _ChatRoomBody oldWidget) {
+  void didUpdateWidget(covariant ChatRoomBody oldWidget) {
     super.didUpdateWidget(oldWidget);
     final loadedOlder =
         oldWidget.state.isLoadingOlder && !widget.state.isLoadingOlder;
@@ -1526,6 +1529,21 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
                           previous != null &&
                           previous.senderId == message.senderId &&
                           !showDay;
+                      final seen = widget.seenMessageId == message.id;
+                      final deliveryPending =
+                          message.isMine &&
+                          const {
+                            'uploading',
+                            'queued',
+                            'sending',
+                            'failed',
+                          }.contains(message.deliveryStatus);
+                      // Như mẫu: chỉ hiện dòng giờ khi tin vừa được xem, đang gửi /
+                      // lỗi, hoặc người dùng chạm vào tin để xem giờ.
+                      final showStatusLine =
+                          seen ||
+                          deliveryPending ||
+                          _timeShownMessageId == message.id;
                       final senderId = message.senderId?.trim();
                       final senderBlocked =
                           !message.isMine &&
@@ -1533,9 +1551,7 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
                           widget.blockedUserIds.contains(senderId);
                       return Container(
                         key: _messageKey(message.id),
-                        padding: EdgeInsets.only(
-                          top: sameSender ? WebTuiSpacing.xs : WebTuiSpacing.md,
-                        ),
+                        padding: EdgeInsets.only(top: sameSender ? 4 : 12),
                         child: AnimatedContainer(
                           duration: disableAnimations
                               ? Duration.zero
@@ -1556,15 +1572,13 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
                                 const SizedBox(height: WebTuiSpacing.md),
                               if (message.isSystem)
                                 _isCallHistoryMessage(message)
-                                    ? _CallHistoryCard(
-                                        detail: _callHistoryDetail(message),
+                                    ? ChatCallHistoryCard(
+                                        label: _callHistoryLabel(message),
                                         missed: _isMissedCallMessage(message),
-                                        mode: _callMessageMode(message),
+                                        video:
+                                            _callMessageMode(message) ==
+                                            CallMode.video,
                                         outgoing: false,
-                                        title: _callHistoryTitle(message),
-                                        timeLabel: _timeLabel(
-                                          message.createdAt,
-                                        ),
                                         onRetry: () => widget.onRetryCall(
                                           _callMessageMode(message),
                                         ),
@@ -1583,6 +1597,12 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
                               else
                                 GestureDetector(
                                   behavior: HitTestBehavior.opaque,
+                                  onTap: () => setState(
+                                    () => _timeShownMessageId =
+                                        _timeShownMessageId == message.id
+                                        ? null
+                                        : message.id,
+                                  ),
                                   onLongPress: () => _showMessageActions(
                                     context,
                                     workspaceId: widget.workspaceId,
@@ -1648,6 +1668,36 @@ class _ChatRoomBodyState extends State<_ChatRoomBody> {
                                           widget.onReact(message, emoji),
                                       onRetryCall: widget.onRetryCall,
                                       onCardReply: widget.onCardReply,
+                                      hasAvatarColumn:
+                                          widget.showSenderNames ||
+                                          widget.noticeBot,
+                                      mediaTimeLabel:
+                                          message.attachments.any(
+                                            (attachment) =>
+                                                attachment.isImage ||
+                                                attachment.isVideo,
+                                          )
+                                          ? _timeLabel(message.createdAt)
+                                          : null,
+                                      statusLine: showStatusLine
+                                          ? _MessageStatusLine(
+                                              timeLabel: _timeLabel(
+                                                message.createdAt,
+                                              ),
+                                              outgoing: message.isMine,
+                                              statusLabel: message.isMine
+                                                  ? seen
+                                                        ? 'Đã xem'
+                                                        : _deliveryStatusLabel(
+                                                            message,
+                                                          )
+                                                  : null,
+                                              seen: seen,
+                                              failed:
+                                                  message.deliveryStatus ==
+                                                  'failed',
+                                            )
+                                          : null,
                                     ),
                                   ),
                                 ),
@@ -2345,97 +2395,97 @@ class _ComposerState extends State<_Composer> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  IconButton(
-                    tooltip: 'Thêm biểu tượng cảm xúc',
-                    onPressed: widget.sending ? null : _toggleEmojiTray,
-                    color: WebTuiColors.primary,
-                    icon: const Icon(CupertinoIcons.smiley),
-                  ),
-                  IconButton(
-                    tooltip: 'Đính kèm',
-                    onPressed: widget.sending ? null : _showAttachmentSheet,
-                    color: WebTuiColors.primary,
-                    icon: const Icon(CupertinoIcons.plus_circle),
-                  ),
-                  PopupMenuButton<String>(
-                    tooltip: 'Tùy chọn gửi',
-                    icon: const Icon(Icons.more_horiz_rounded),
-                    onSelected: (value) {
-                      if (value == 'silent') {
-                        setState(() => _silent = !_silent);
-                      } else if (value == 'schedule') {
-                        widget.onSchedule();
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      PopupMenuItem(
-                        value: 'silent',
-                        child: ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: const Icon(Icons.notifications_off_outlined),
-                          title: Text(
-                            _silent
-                                ? 'Bật lại thông báo'
-                                : 'Gửi không thông báo',
-                          ),
-                        ),
+                  SizedBox.square(
+                    dimension: 44,
+                    child: IconButton.filled(
+                      key: const Key('chat_composer_attach'),
+                      tooltip: 'Đính kèm',
+                      onPressed: widget.sending ? null : _showAttachmentSheet,
+                      style: IconButton.styleFrom(
+                        backgroundColor: WebTuiColors.primarySoft,
+                        foregroundColor: WebTuiColors.primary,
+                        disabledBackgroundColor: WebTuiColors.primarySoft,
                       ),
-                      const PopupMenuItem(
-                        value: 'schedule',
-                        child: ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: Icon(Icons.schedule_send_outlined),
-                          title: Text('Hẹn giờ gửi'),
-                        ),
-                      ),
-                    ],
+                      icon: const Icon(WebTuiIcons.add, size: 24),
+                    ),
                   ),
+                  const SizedBox(width: WebTuiSpacing.sm),
                   Expanded(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(
-                        minHeight: 42,
+                        minHeight: 44,
                         maxHeight: 120,
                       ),
                       child: Container(
                         decoration: BoxDecoration(
-                          color: WebTuiColors.backgroundMuted,
+                          color: WebTuiColors.surface,
                           borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: WebTuiColors.border.withValues(alpha: 0.7),
-                          ),
+                          border: Border.all(color: WebTuiColors.border),
                         ),
-                        child: TextField(
-                          controller: widget.controller,
-                          focusNode: widget.focusNode,
-                          onChanged: widget.onChanged,
-                          onTap: _focusInput,
-                          style: WebTuiTypography.bodyMedium.copyWith(
-                            color: WebTuiColors.textPrimary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          keyboardType: TextInputType.multiline,
-                          minLines: 1,
-                          maxLines: 4,
-                          textInputAction: TextInputAction.newline,
-                          decoration: InputDecoration(
-                            hintText: 'Nhập tin nhắn...',
-                            hintStyle: WebTuiTypography.bodyMedium.copyWith(
-                              color: WebTuiColors.textMuted,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                key: const Key('chat_composer_input'),
+                                controller: widget.controller,
+                                focusNode: widget.focusNode,
+                                onChanged: widget.onChanged,
+                                onTap: _focusInput,
+                                style: WebTuiTypography.bodyMedium.copyWith(
+                                  fontSize: 16,
+                                  color: WebTuiColors.textPrimary,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                                keyboardType: TextInputType.multiline,
+                                minLines: 1,
+                                maxLines: 4,
+                                textInputAction: TextInputAction.newline,
+                                decoration: InputDecoration(
+                                  hintText: 'Nhập tin nhắn...',
+                                  hintStyle: WebTuiTypography.bodyMedium
+                                      .copyWith(
+                                        fontSize: 16,
+                                        color: WebTuiColors.textMuted,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                  filled: false,
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  disabledBorder: InputBorder.none,
+                                  contentPadding: const EdgeInsets.fromLTRB(
+                                    18,
+                                    10,
+                                    0,
+                                    10,
+                                  ),
+                                ),
+                              ),
                             ),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: WebTuiSpacing.md,
-                              vertical: 10,
+                            IconButton(
+                              key: const Key('chat_composer_emoji'),
+                              tooltip: 'Thêm biểu tượng cảm xúc',
+                              onPressed: widget.sending
+                                  ? null
+                                  : _toggleEmojiTray,
+                              color: WebTuiColors.textSecondary,
+                              icon: const Icon(WebTuiIcons.emoji, size: 24),
                             ),
-                          ),
+                          ],
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(width: WebTuiSpacing.sm),
                   SizedBox.square(
-                    dimension: 48,
+                    dimension: 46,
                     child: IconButton.filled(
+                      key: Key(
+                        widget.canSend
+                            ? 'chat_composer_send'
+                            : 'chat_composer_mic',
+                      ),
                       tooltip: _uploadingAttachments
                           ? 'Đang tải tệp lên'
                           : widget.canSend
@@ -2458,9 +2508,9 @@ class _ComposerState extends State<_Composer> {
                             )
                           : Icon(
                               widget.canSend
-                                  ? CupertinoIcons.paperplane_fill
-                                  : CupertinoIcons.mic_fill,
-                              size: 20,
+                                  ? WebTuiIcons.send
+                                  : WebTuiIcons.mic,
+                              size: 22,
                             ),
                     ),
                   ),
@@ -2575,6 +2625,26 @@ class _ComposerState extends State<_Composer> {
                     onTap: () {
                       Navigator.of(context).pop();
                       widget.onPickAttachment(MessageAttachmentPickSource.file);
+                    },
+                  ),
+                  _AttachmentSourceTile(
+                    icon: Icons.notifications_off_outlined,
+                    title: _silent
+                        ? 'Bật lại thông báo'
+                        : 'Gửi không thông báo',
+                    subtitle: 'Người nhận không bị báo khi có tin này',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      setState(() => _silent = !_silent);
+                    },
+                  ),
+                  _AttachmentSourceTile(
+                    icon: Icons.schedule_send_outlined,
+                    title: 'Hẹn giờ gửi',
+                    subtitle: 'Chọn thời điểm gửi tin đang soạn',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      widget.onSchedule();
                     },
                   ),
                   _AttachmentSourceTile(
@@ -3735,6 +3805,9 @@ class _MessageRow extends StatelessWidget {
     required this.onRetryCall,
     this.onCardReply,
     this.avatarPublicImage = false,
+    this.hasAvatarColumn = true,
+    this.statusLine,
+    this.mediaTimeLabel,
   });
 
   final ChatMessage message;
@@ -3756,18 +3829,41 @@ class _MessageRow extends StatelessWidget {
   final ValueChanged<CallMode> onRetryCall;
   final ValueChanged<String>? onCardReply;
 
+  /// Chat 1-1 không có cột ảnh đại diện (tên phòng đã là người kia).
+  final bool hasAvatarColumn;
+
+  /// Dòng "13:42 · Đã xem" dưới tin (null: không hiện).
+  final Widget? statusLine;
+
+  /// Giờ hiện trên ảnh / video của tin.
+  final String? mediaTimeLabel;
+
   @override
   Widget build(BuildContext context) {
+    final leading = <Widget>[
+      if (hasAvatarColumn) ...[
+        SizedBox.square(
+          dimension: 30,
+          child: showAvatar
+              ? WebTuiAvatar(
+                  label: avatarLabel,
+                  imageUrl: avatarUrl,
+                  allowPublicRequest: avatarPublicImage,
+                  size: 30,
+                )
+              : const SizedBox.shrink(),
+        ),
+        const SizedBox(width: WebTuiSpacing.sm),
+      ],
+    ];
     final showBody = text.trim().isNotEmpty || message.isDeleted;
     final voice = message.voice;
     if (_isCallHistoryMessage(message)) {
-      return _CallHistoryCard(
-        detail: _callHistoryDetail(message),
+      return ChatCallHistoryCard(
+        label: _callHistoryLabel(message),
         missed: _isMissedCallMessage(message),
-        mode: _callMessageMode(message),
+        video: _callMessageMode(message) == CallMode.video,
         outgoing: outgoing,
-        title: _callHistoryTitle(message),
-        timeLabel: timeLabel,
         onRetry: () => onRetryCall(_callMessageMode(message)),
       );
     }
@@ -3799,18 +3895,7 @@ class _MessageRow extends StatelessWidget {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          SizedBox.square(
-            dimension: 30,
-            child: showAvatar
-                ? WebTuiAvatar(
-                    label: avatarLabel,
-                    imageUrl: avatarUrl,
-                    allowPublicRequest: avatarPublicImage,
-                    size: 30,
-                  )
-                : const SizedBox.shrink(),
-          ),
-          const SizedBox(width: WebTuiSpacing.sm),
+          ...leading,
           Flexible(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -3834,18 +3919,7 @@ class _MessageRow extends StatelessWidget {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          SizedBox.square(
-            dimension: 30,
-            child: showAvatar
-                ? WebTuiAvatar(
-                    label: avatarLabel,
-                    imageUrl: avatarUrl,
-                    allowPublicRequest: avatarPublicImage,
-                    size: 30,
-                  )
-                : const SizedBox.shrink(),
-          ),
-          const SizedBox(width: WebTuiSpacing.sm),
+          ...leading,
           Flexible(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -3868,50 +3942,53 @@ class _MessageRow extends StatelessWidget {
         ],
       );
     }
+    final bubble = showBody
+        ? WebTuiMessageBubble(
+            text: text,
+            textSpan: message.isDeleted
+                ? null
+                : _messageTextSpan(message, outgoing, onOpenLink),
+            timeLabel: timeLabel,
+            outgoing: outgoing,
+            showFooter: false,
+            reactions: reactions,
+          )
+        : null;
+    final attachmentList = message.attachments.isEmpty
+        ? null
+        : _MessageAttachmentList(
+            attachments: message.attachments,
+            outgoing: outgoing,
+            voice: voice,
+            uploadProgress: outgoing ? message.uploadProgress : null,
+            uploadStage: outgoing ? message.uploadStage : null,
+            timeLabel: mediaTimeLabel,
+          );
+    // Ảnh / video đứng trên, chú thích là bong bóng chữ riêng ngay dưới.
+    final parts = <Widget>[
+      ?attachmentList,
+      if (bubble != null)
+        Padding(
+          padding: EdgeInsets.only(
+            top: attachmentList == null ? 0 : WebTuiSpacing.xs,
+          ),
+          child: bubble,
+        ),
+      ?statusLine,
+    ];
     if (outgoing) {
       return Align(
         alignment: Alignment.centerRight,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            if (showBody)
-              WebTuiMessageBubble(
-                text: text,
-                textSpan: message.isDeleted
-                    ? null
-                    : _messageTextSpan(message, true, onOpenLink),
-                timeLabel: timeLabel,
-                outgoing: true,
-                statusLabel: _deliveryStatusLabel(message),
-                reactions: reactions,
-              ),
-            if (message.attachments.isNotEmpty)
-              _MessageAttachmentList(
-                attachments: message.attachments,
-                outgoing: true,
-                voice: voice,
-                uploadProgress: message.uploadProgress,
-                uploadStage: message.uploadStage,
-              ),
-          ],
+          children: parts,
         ),
       );
     }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        SizedBox.square(
-          dimension: 30,
-          child: showAvatar
-              ? WebTuiAvatar(
-                  label: avatarLabel,
-                  imageUrl: avatarUrl,
-                  allowPublicRequest: avatarPublicImage,
-                  size: 30,
-                )
-              : const SizedBox.shrink(),
-        ),
-        const SizedBox(width: WebTuiSpacing.sm),
+        ...leading,
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -3919,21 +3996,8 @@ class _MessageRow extends StatelessWidget {
               if (senderName != null) _SenderName(name: senderName!),
               if (message.isStreaming && !message.isDeleted)
                 StreamingMessageBubble(text: message.body, timeLabel: timeLabel)
-              else if (showBody)
-                WebTuiMessageBubble(
-                  text: text,
-                  textSpan: message.isDeleted
-                      ? null
-                      : _messageTextSpan(message, false, onOpenLink),
-                  timeLabel: timeLabel,
-                  reactions: reactions,
-                ),
-              if (message.attachments.isNotEmpty)
-                _MessageAttachmentList(
-                  attachments: message.attachments,
-                  outgoing: false,
-                  voice: voice,
-                ),
+              else
+                ...parts,
             ],
           ),
         ),
@@ -3962,6 +4026,54 @@ class _SenderName extends StatelessWidget {
           color: WebTuiColors.textSecondary,
           fontWeight: FontWeight.w600,
         ),
+      ),
+    );
+  }
+}
+
+/// Dòng nhỏ dưới tin: "13:42 · Đã xem" + biểu tượng hai dấu tích xanh.
+class _MessageStatusLine extends StatelessWidget {
+  const _MessageStatusLine({
+    required this.timeLabel,
+    required this.outgoing,
+    required this.seen,
+    required this.failed,
+    this.statusLabel,
+  });
+
+  final String timeLabel;
+  final bool outgoing;
+  final String? statusLabel;
+  final bool seen;
+  final bool failed;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = statusLabel == null ? timeLabel : '$timeLabel · $statusLabel';
+    return Padding(
+      key: const Key('chat_message_status_line'),
+      padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            text,
+            style: WebTuiTypography.labelSmall.copyWith(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: failed ? WebTuiColors.danger : WebTuiColors.textMuted,
+            ),
+          ),
+          if (seen) ...[
+            const SizedBox(width: 4),
+            const Icon(
+              WebTuiIcons.seen,
+              key: Key('chat_message_seen_icon'),
+              size: 16,
+              color: WebTuiColors.primary,
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -4408,148 +4520,6 @@ _PollDefinition? _pollDefinition(ChatMessage message) {
   );
 }
 
-class _CallHistoryCard extends StatelessWidget {
-  const _CallHistoryCard({
-    required this.detail,
-    required this.missed,
-    required this.mode,
-    required this.outgoing,
-    required this.title,
-    required this.timeLabel,
-    required this.onRetry,
-  });
-
-  final String detail;
-  final bool missed;
-  final CallMode mode;
-  final bool outgoing;
-  final String title;
-  final String timeLabel;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final background = outgoing
-        ? WebTuiColors.messageOutgoing
-        : WebTuiColors.messageIncoming;
-    final borderColor = outgoing
-        ? WebTuiColors.messageOutgoingBorder
-        : WebTuiColors.border;
-    final toneColor = missed ? WebTuiColors.danger : WebTuiColors.primary;
-    final titleColor = missed ? WebTuiColors.danger : WebTuiColors.textPrimary;
-    final icon = missed
-        ? Icons.phone_missed_rounded
-        : mode == CallMode.video
-        ? CupertinoIcons.video_camera
-        : CupertinoIcons.phone;
-
-    return Align(
-      alignment: outgoing ? Alignment.centerRight : Alignment.centerLeft,
-      child: Column(
-        crossAxisAlignment: outgoing
-            ? CrossAxisAlignment.end
-            : CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 148, maxWidth: 190),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: background,
-                borderRadius: BorderRadius.circular(WebTuiRadii.sm),
-                border: Border.all(color: borderColor),
-                boxShadow: [
-                  BoxShadow(
-                    color: WebTuiColors.textPrimary.withValues(alpha: 0.08),
-                    blurRadius: 14,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(WebTuiRadii.sm),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 9),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: WebTuiTypography.bodySmall.copyWith(
-                              color: titleColor,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 7),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(icon, size: 18, color: toneColor),
-                              const SizedBox(width: 7),
-                              Flexible(
-                                child: Text(
-                                  detail,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: WebTuiTypography.bodySmall.copyWith(
-                                    color: WebTuiColors.textSecondary,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    Divider(height: 1, color: borderColor),
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: onRetry,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 9),
-                          child: Center(
-                            child: Text(
-                              'Gọi lại',
-                              style: WebTuiTypography.bodySmall.copyWith(
-                                color: WebTuiColors.primary,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text(
-              timeLabel,
-              style: WebTuiTypography.labelSmall.copyWith(
-                color: WebTuiColors.textMuted,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _MessageAttachmentList extends StatelessWidget {
   const _MessageAttachmentList({
     required this.attachments,
@@ -4557,10 +4527,14 @@ class _MessageAttachmentList extends StatelessWidget {
     this.voice,
     this.uploadProgress,
     this.uploadStage,
+    this.timeLabel,
   });
 
   final List<MessageAttachment> attachments;
   final bool outgoing;
+
+  /// Giờ gửi hiện trên góc dưới phải của ảnh / video cuối của tin.
+  final String? timeLabel;
 
   /// Tiến độ nén / tải của tin đang gửi (phủ lên video tạm).
   final double? uploadProgress;
@@ -4588,6 +4562,12 @@ class _MessageAttachmentList extends StatelessWidget {
     ];
     final hiddenAttachmentCount =
         attachments.length - displayedAttachments.length;
+    final lastVideoId = otherAttachments
+        .where((attachment) => !attachment.isImage && attachment.isVideo)
+        .lastOrNull
+        ?.id;
+    // Giờ nằm trên phần ảnh / video cuối cùng của tin (video đứng sau ảnh).
+    final timeOnImage = lastVideoId == null;
     final firstAudioId = displayedAttachments
         .where((attachment) => attachment.isAudio)
         .firstOrNull
@@ -4606,6 +4586,7 @@ class _MessageAttachmentList extends StatelessWidget {
                 attachment: images.first,
                 apiBaseUri: networkScope?.apiBaseUri,
                 fit: BoxFit.contain,
+                timeLabel: timeOnImage ? timeLabel : null,
                 maxHeight: singleImageMaxHeight.toDouble(),
                 maxWidth: singleImageMaxWidth.toDouble(),
                 onPressed: () => openMessageImageGallery(
@@ -4631,6 +4612,9 @@ class _MessageAttachmentList extends StatelessWidget {
                       MessageImageAttachmentView(
                         attachment: images[index],
                         apiBaseUri: networkScope?.apiBaseUri,
+                        timeLabel: timeOnImage && index == images.length - 1
+                            ? timeLabel
+                            : null,
                         height: imageTileSize.toDouble(),
                         maxHeight: imageTileSize.toDouble(),
                         maxWidth: imageTileSize.toDouble(),
@@ -4670,6 +4654,9 @@ class _MessageAttachmentList extends StatelessWidget {
                       apiBaseUri: networkScope?.apiBaseUri,
                       uploadProgress: uploadProgress,
                       uploadStage: uploadStage,
+                      timeLabel: attachment.id == lastVideoId
+                          ? timeLabel
+                          : null,
                     )
                   : MessageFileAttachmentView(
                       attachment: attachment,
@@ -4723,8 +4710,11 @@ class _EmbeddedChatHeader extends StatelessWidget {
     required this.onDetails,
     this.avatarUrl,
     this.onSafety,
+    this.presence,
   });
 
+  /// Chat 1-1: trạng thái hoạt động của người kia (`null`: ẩn dòng phụ và chấm).
+  final PeerPresenceLabel? presence;
   final String title;
   final VoidCallback onDetails;
   final String? avatarUrl;
@@ -4740,7 +4730,14 @@ class _EmbeddedChatHeader extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.lg),
           child: Row(
             children: [
-              WebTuiAvatar(label: title, imageUrl: avatarUrl, size: 36),
+              WebTuiAvatar(
+                label: title,
+                imageUrl: avatarUrl,
+                status: presence?.online == true
+                    ? WebTuiPresenceStatus.online
+                    : null,
+                size: 36,
+              ),
               const SizedBox(width: WebTuiSpacing.md),
               Expanded(
                 child: Column(
@@ -4753,14 +4750,17 @@ class _EmbeddedChatHeader extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: WebTuiTypography.titleMedium,
                     ),
-                    Text(
-                      'Đang hoạt động',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: WebTuiTypography.labelSmall.copyWith(
-                        color: WebTuiColors.accentGreen,
+                    if (presence != null)
+                      Text(
+                        presence!.text,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: WebTuiTypography.labelSmall.copyWith(
+                          color: presence!.online
+                              ? WebTuiColors.accentGreen
+                              : WebTuiColors.textMuted,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -4918,20 +4918,18 @@ class _DayDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: DecoratedBox(
+        key: const Key('chat_day_divider'),
         decoration: BoxDecoration(
-          color: WebTuiColors.surface.withValues(alpha: 0.86),
-          borderRadius: BorderRadius.circular(WebTuiRadii.sm),
-          border: Border.all(color: WebTuiColors.border),
+          color: const Color(0xFFD9E0EA),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: WebTuiSpacing.sm,
-            vertical: WebTuiSpacing.xs,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
           child: Text(
             _dateLabel(date),
-            style: WebTuiTypography.labelSmall.copyWith(
+            style: WebTuiTypography.bodySmall.copyWith(
               color: WebTuiColors.textSecondary,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),
@@ -5076,28 +5074,18 @@ bool _isCallHistoryMessage(ChatMessage message) {
   return message.isCallEvent || _isMissedCallMessage(message);
 }
 
-String _callHistoryTitle(ChatMessage message) {
+/// Chữ một dòng của thẻ cuộc gọi: "Cuộc gọi thoại đi · 17 giây" hoặc
+/// "Cuộc gọi nhỡ · 13:46".
+String _callHistoryLabel(ChatMessage message) {
   if (_isMissedCallMessage(message)) {
-    if (message.isCallEvent) {
-      return message.isMine ? 'Cuộc gọi nhỡ' : 'Bạn bị nhỡ';
-    }
-    return _legacyMissedCallTitle(message);
+    return 'Cuộc gọi nhỡ · ${_timeLabel(message.createdAt)}';
   }
   final modeLabel = _callMessageMode(message) == CallMode.video
       ? 'video'
       : 'thoại';
   final directionLabel = message.isMine ? 'đi' : 'đến';
-  return 'Cuộc gọi $modeLabel $directionLabel';
-}
-
-String _callHistoryDetail(ChatMessage message) {
-  final modeLabel = _callMessageMode(message) == CallMode.video
-      ? 'Cuộc gọi video'
-      : 'Cuộc gọi thoại';
-  if (_isMissedCallMessage(message)) {
-    return modeLabel;
-  }
-  return _formatCallDurationLabel(message.callDurationSeconds);
+  return 'Cuộc gọi $modeLabel $directionLabel · '
+      '${_formatCallDurationLabel(message.callDurationSeconds)}';
 }
 
 CallMode _callMessageMode(ChatMessage message) {
@@ -5108,17 +5096,8 @@ String _formatCallDurationLabel(int durationSeconds) {
   final safeSeconds = durationSeconds < 0 ? 0 : durationSeconds;
   final minutes = safeSeconds ~/ 60;
   final seconds = safeSeconds % 60;
+  if (minutes == 0) return '$seconds giây';
   return '$minutes phút $seconds giây';
-}
-
-String _legacyMissedCallTitle(ChatMessage message) {
-  final normalized = _removeVietnameseDiacritics(
-    _compactMessageText(message.body),
-  );
-  if (normalized.contains('ban bi nho')) {
-    return 'Bạn bị nhỡ';
-  }
-  return 'Cuộc gọi nhỡ';
 }
 
 bool _isGeneratedAttachmentBody(
@@ -5278,14 +5257,19 @@ InlineSpan _messageTextSpan(
   bool outgoing,
   ValueChanged<String> onOpenLink,
 ) {
+  // Tin của mình nền xanh: chữ trắng, liên kết / nhắc tên cũng trắng (đậm,
+  // gạch chân) để vẫn đọc được trên nền xanh.
   final baseStyle = WebTuiTypography.bodyMedium.copyWith(
-    color: WebTuiColors.textPrimary,
-    fontWeight: FontWeight.w500,
-    height: 1.38,
+    fontSize: 16,
+    color: outgoing ? WebTuiColors.textOnPrimary : WebTuiColors.textPrimary,
+    fontWeight: FontWeight.w400,
+    height: 1.35,
   );
-  final accentColor = WebTuiColors.primary;
+  final accentColor = outgoing
+      ? WebTuiColors.textOnPrimary
+      : WebTuiColors.primary;
   final codeBackground = outgoing
-      ? WebTuiColors.primary.withValues(alpha: 0.10)
+      ? WebTuiColors.textOnPrimary.withValues(alpha: 0.18)
       : WebTuiColors.backgroundMuted;
   final pattern = RegExp(
     r'<@([A-Za-z0-9_-]+)>|(@[A-Za-z0-9_.-]+)|\*\*([^*]+)\*\*|`([^`]+)`|(https?:\/\/[^\s<]+)',

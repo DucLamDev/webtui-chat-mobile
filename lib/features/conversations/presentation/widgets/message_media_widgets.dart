@@ -14,6 +14,7 @@ import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/network/redirect_safe_file_downloader.dart';
 import '../../../../core/security/instance_scope.dart';
 import '../../../../design_system/components/webtui_owned_decoded_image.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
@@ -130,6 +131,39 @@ class _MessageImageGalleryScreenState
   }
 }
 
+/// Giờ gửi nằm góc dưới phải TRÊN ảnh / video, trong viên nền tối mờ.
+class MessageMediaTimeBadge extends StatelessWidget {
+  const MessageMediaTimeBadge({required this.label, super.key});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      right: 8,
+      bottom: 8,
+      child: DecoratedBox(
+        key: const Key('message_media_time_badge'),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          child: Text(
+            label,
+            style: WebTuiTypography.labelSmall.copyWith(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class MessageImageAttachmentView extends ConsumerStatefulWidget {
   const MessageImageAttachmentView({
     required this.attachment,
@@ -140,11 +174,15 @@ class MessageImageAttachmentView extends ConsumerStatefulWidget {
     this.maxWidth = 260,
     this.onPressed,
     this.preferThumbnail = true,
+    this.timeLabel,
     super.key,
   });
 
   final MessageAttachment attachment;
   final Uri? apiBaseUri;
+
+  /// Giờ gửi hiện trên góc dưới phải của ảnh (null: không hiện).
+  final String? timeLabel;
 
   /// Dùng ảnh thu nhỏ (nếu máy chủ có) cho danh sách / bong bóng; màn xem ảnh
   /// đặt `false` để mở bản gốc.
@@ -306,16 +344,22 @@ class _MessageImageAttachmentViewState
       button: widget.onPressed != null,
       label: 'Mở ảnh ${widget.attachment.file.name}',
       child: InkWell(
-        borderRadius: BorderRadius.circular(WebTuiRadii.md),
+        borderRadius: BorderRadius.circular(WebTuiRadii.lg),
         onTap: widget.onPressed,
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(WebTuiRadii.md),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: widget.maxHeight,
-              maxWidth: widget.maxWidth,
-            ),
-            child: image,
+          borderRadius: BorderRadius.circular(WebTuiRadii.lg),
+          child: Stack(
+            children: [
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: widget.maxHeight,
+                  maxWidth: widget.maxWidth,
+                ),
+                child: image,
+              ),
+              if (widget.timeLabel != null)
+                MessageMediaTimeBadge(label: widget.timeLabel!),
+            ],
           ),
         ),
       ),
@@ -329,11 +373,15 @@ class MessageVoiceAttachmentView extends ConsumerStatefulWidget {
     this.apiBaseUri,
     this.voice,
     this.playbackLink,
+    this.outgoing = false,
     super.key,
   });
 
   final MessageAttachment attachment;
   final Uri? apiBaseUri;
+
+  /// Tin của mình: bong bóng xanh nhạt; tin người khác: bong bóng trắng.
+  final bool outgoing;
 
   /// `metadata.voice` của tin: hiện thời lượng và sóng âm trước khi tải tệp.
   final MessageVoiceMetadata? voice;
@@ -619,48 +667,51 @@ class _MessageVoiceAttachmentViewState
     return SizedBox(
       width: width.toDouble(),
       child: DecoratedBox(
+        key: const Key('message_voice_bubble'),
         decoration: BoxDecoration(
-          color: WebTuiColors.primary,
-          borderRadius: BorderRadius.circular(19),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x24245EBE),
-              blurRadius: 16,
-              offset: Offset(0, 6),
-            ),
-          ],
+          color: widget.outgoing
+              ? const Color(0xFFE3F0FF)
+              : WebTuiColors.messageIncoming,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: widget.outgoing
+              ? null
+              : const [
+                  BoxShadow(
+                    color: Color(0x14172033),
+                    blurRadius: 10,
+                    offset: Offset(0, 2),
+                  ),
+                ],
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          padding: const EdgeInsets.fromLTRB(6, 5, 14, 5),
           child: Row(
             children: [
               SizedBox.square(
-                dimension: 31,
+                dimension: 36,
                 child: IconButton.filled(
                   tooltip: _playing ? 'Tạm dừng' : 'Phát tin nhắn thoại',
                   padding: EdgeInsets.zero,
                   style: IconButton.styleFrom(
-                    backgroundColor: Colors.white.withValues(alpha: 0.18),
+                    backgroundColor: WebTuiColors.primary,
                     foregroundColor: Colors.white,
                   ),
                   onPressed: _loading ? null : _togglePlayback,
                   icon: _loading
                       ? const SizedBox.square(
-                          dimension: 15,
+                          dimension: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                             color: Colors.white,
                           ),
                         )
                       : Icon(
-                          _playing
-                              ? CupertinoIcons.pause_fill
-                              : CupertinoIcons.play_fill,
-                          size: 16,
+                          _playing ? WebTuiIcons.pause : WebTuiIcons.play,
+                          size: 18,
                         ),
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 10),
               Expanded(
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
@@ -689,8 +740,8 @@ class _MessageVoiceAttachmentViewState
                               child: DecoratedBox(
                                 decoration: BoxDecoration(
                                   color: index / waveform.length <= progress
-                                      ? Colors.white
-                                      : Colors.white.withValues(alpha: 0.42),
+                                      ? WebTuiColors.primary
+                                      : const Color(0xFF9AA9C2),
                                   borderRadius: BorderRadius.circular(2),
                                 ),
                                 child: SizedBox(height: waveform[index]),
@@ -702,28 +753,30 @@ class _MessageVoiceAttachmentViewState
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 10),
               Text(
                 _failed
                     ? '--:--'
                     : _formatDuration(_playing ? _position : knownDuration),
-                style: WebTuiTypography.labelSmall.copyWith(
-                  color: Colors.white,
+                style: WebTuiTypography.bodySmall.copyWith(
+                  color: WebTuiColors.textSecondary,
                   fontFeatures: const [FontFeature.tabularFigures()],
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(width: 3),
-              TextButton(
-                onPressed: _cycleRate,
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(28, 24),
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              if (_playing) ...[
+                const SizedBox(width: 3),
+                TextButton(
+                  onPressed: _cycleRate,
+                  style: TextButton.styleFrom(
+                    foregroundColor: WebTuiColors.primary,
+                    minimumSize: const Size(28, 24),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text('${_rateLabel(_playbackRate)}x'),
                 ),
-                child: Text('${_rateLabel(_playbackRate)}x'),
-              ),
+              ],
             ],
           ),
         ),
@@ -739,12 +792,17 @@ class MessageVideoAttachmentView extends ConsumerStatefulWidget {
     this.allowFullscreen = true,
     this.uploadProgress,
     this.uploadStage,
+    this.timeLabel,
     super.key,
   });
 
   final MessageAttachment attachment;
   final Uri? apiBaseUri;
   final bool allowFullscreen;
+
+  /// Giờ gửi hiện trên góc dưới phải của khung video (null: không hiện, và
+  /// còn dòng tên tệp phía dưới như trước).
+  final String? timeLabel;
 
   /// Tiến độ nén / tải lên 0..1 của bong bóng tạm (null: không hiện vòng).
   final double? uploadProgress;
@@ -1088,6 +1146,7 @@ class _MessageVideoAttachmentViewState
         progress: widget.uploadProgress,
         stage: widget.uploadStage,
         allowFullscreen: widget.allowFullscreen,
+        timeLabel: widget.timeLabel,
       );
     }
     final controller = _controller;
@@ -1182,6 +1241,8 @@ class _MessageVideoAttachmentViewState
                           ),
                         ),
                       ),
+                    if (widget.timeLabel != null)
+                      MessageMediaTimeBadge(label: widget.timeLabel!),
                   ],
                 ),
               ),
@@ -1195,7 +1256,7 @@ class _MessageVideoAttachmentViewState
                     backgroundColor: Colors.white12,
                   ),
                 ),
-              if (widget.allowFullscreen)
+              if (widget.allowFullscreen && widget.timeLabel == null)
                 Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: WebTuiSpacing.sm,
@@ -1333,11 +1394,13 @@ class MessageLocalVideoPreview extends StatefulWidget {
     this.progress,
     this.stage,
     this.allowFullscreen = true,
+    this.timeLabel,
     super.key,
   });
 
   final String path;
   final String fileName;
+  final String? timeLabel;
   final double? progress;
   final String? stage;
   final bool allowFullscreen;
@@ -1470,6 +1533,8 @@ class _MessageLocalVideoPreviewState extends State<MessageLocalVideoPreview> {
                       ),
                     ),
                   ),
+                if (widget.timeLabel != null)
+                  MessageMediaTimeBadge(label: widget.timeLabel!),
               ],
             ),
           ),

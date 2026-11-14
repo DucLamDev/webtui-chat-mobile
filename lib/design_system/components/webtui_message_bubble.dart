@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../tokens/webtui_colors.dart';
-import '../tokens/webtui_radii.dart';
-import '../tokens/webtui_shadows.dart';
 import '../tokens/webtui_spacing.dart';
 import '../tokens/webtui_typography.dart';
 
@@ -14,6 +12,7 @@ class WebTuiMessageBubble extends StatelessWidget {
     this.statusLabel,
     this.reactions = const [],
     this.textSpan,
+    this.showFooter = true,
     super.key,
   });
 
@@ -24,19 +23,24 @@ class WebTuiMessageBubble extends StatelessWidget {
   final List<String> reactions;
   final InlineSpan? textSpan;
 
+  /// `false`: bong bóng chỉ có chữ; giờ và trạng thái do nơi gọi hiện ở dòng
+  /// riêng dưới nhóm tin (phòng chat).
+  final bool showFooter;
+
   TextStyle get _bodyStyle => WebTuiTypography.bodyMedium.copyWith(
-    color: WebTuiColors.textPrimary,
-    fontWeight: FontWeight.w500,
-    height: 1.38,
+    fontSize: 16,
+    color: outgoing ? WebTuiColors.textOnPrimary : WebTuiColors.textPrimary,
+    fontWeight: FontWeight.w400,
+    height: 1.35,
   );
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final widthFactor = constraints.maxWidth >= 700 ? 0.58 : 0.68;
+        final widthFactor = constraints.maxWidth >= 700 ? 0.58 : 0.78;
         final maxWidth = (constraints.maxWidth * widthFactor)
-            .clamp(64.0, 520.0)
+            .clamp(64.0, 560.0)
             .toDouble();
 
         return Align(
@@ -52,27 +56,26 @@ class WebTuiMessageBubble extends StatelessWidget {
                 DecoratedBox(
                   decoration: BoxDecoration(
                     color: outgoing
-                        ? WebTuiColors.messageOutgoing
+                        ? WebTuiColors.primary
                         : WebTuiColors.messageIncoming,
-                    border: Border.all(
-                      color: outgoing
-                          ? WebTuiColors.messageOutgoingBorder
-                          : WebTuiColors.border.withValues(alpha: 0.58),
-                    ),
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(WebTuiRadii.lg),
-                      topRight: const Radius.circular(WebTuiRadii.lg),
-                      bottomLeft: Radius.circular(
-                        outgoing ? WebTuiRadii.lg : WebTuiRadii.xs,
-                      ),
-                      bottomRight: Radius.circular(
-                        outgoing ? WebTuiRadii.xs : WebTuiRadii.lg,
-                      ),
-                    ),
-                    boxShadow: outgoing ? null : WebTuiShadows.soft,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: outgoing
+                        ? null
+                        : const [
+                            BoxShadow(
+                              color: Color(0x14172033),
+                              blurRadius: 6,
+                              offset: Offset(0, 1),
+                            ),
+                          ],
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 7),
+                    padding: showFooter
+                        ? const EdgeInsets.fromLTRB(14, 9, 14, 7)
+                        : const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
@@ -80,35 +83,26 @@ class WebTuiMessageBubble extends StatelessWidget {
                         textSpan == null
                             ? Text(text, style: _bodyStyle)
                             : RichText(text: textSpan!),
-                        const SizedBox(height: WebTuiSpacing.xs),
-                        Semantics(
-                          label: statusLabel == null
-                              ? timeLabel
-                              : '$timeLabel, $statusLabel',
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                timeLabel,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: WebTuiTypography.labelSmall.copyWith(
-                                  color: outgoing
-                                      ? WebTuiColors.textMuted
-                                      : WebTuiColors.textMuted,
-                                ),
+                        if (showFooter) ...[
+                          const SizedBox(height: WebTuiSpacing.xs),
+                          Semantics(
+                            label: statusLabel == null
+                                ? timeLabel
+                                : '$timeLabel, $statusLabel',
+                            child: Text(
+                              timeLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: WebTuiTypography.labelSmall.copyWith(
+                                color: outgoing
+                                    ? WebTuiColors.textOnPrimary.withValues(
+                                        alpha: 0.78,
+                                      )
+                                    : WebTuiColors.textMuted,
                               ),
-                              if (outgoing) ...[
-                                const SizedBox(width: WebTuiSpacing.xs),
-                                Icon(
-                                  Icons.done_all_rounded,
-                                  size: 14,
-                                  color: WebTuiColors.primary,
-                                ),
-                              ],
-                            ],
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
