@@ -1,50 +1,47 @@
-import '../../conversations/domain/entities/business_channel_catalog.dart';
 import '../../conversations/domain/entities/conversation_summary.dart';
 import 'customer_ticket_access_policy.dart';
 
 /// `slug` của kênh bot "Ticket" trong danh mục kênh nghiệp vụ.
 const customerTicketChannelSlug = 'ticket';
 
-/// Đường mở khi bấm [conversation] trong hộp thư: kênh bot "Ticket" mở thẳng
-/// hộp thư ticket khách (giống mục Ticket trên web) nếu người dùng xem được
-/// ticket; kèm mã kênh để màn ticket có nút quay lại kênh chat (dùng lệnh bot).
-/// Còn lại trả `null`: mở phòng chat như thường.
+/// Hộp thư ticket khách hàng (giống mục Ticket trên web).
+String customerTicketInboxLocation(String? workspaceId) {
+  final workspace = workspaceId?.trim() ?? '';
+  return Uri(
+    path: '/customer-tickets',
+    queryParameters: workspace.isEmpty ? null : {'workspaceId': workspace},
+  ).toString();
+}
+
+/// [conversation] có phải kênh "Ticket" (kênh bot gốc hoặc phiên riêng mở từ
+/// kênh đó) không.
+///
+/// - Có `slug`: chỉ khớp `ticket`.
+/// - Không có `slug` (máy chủ cũ, hoặc phiên riêng: máy chủ tạo phòng 1-1 không
+///   slug, đặt tên theo kênh gốc): tên "Ticket" và là kênh bot / phiên riêng
+///   (phòng 1-1 không có người nhận). Nhóm thường hay người dùng tên "Ticket"
+///   không khớp.
+bool isCustomerTicketChannel(ConversationSummary conversation) {
+  final slug = conversation.slug?.trim().toLowerCase() ?? '';
+  if (slug.isNotEmpty) return slug == customerTicketChannelSlug;
+  if (conversation.title.trim().toLowerCase() != customerTicketChannelSlug) {
+    return false;
+  }
+  final peer = conversation.peerUserId?.trim() ?? '';
+  final botSession =
+      conversation.kind == ConversationKind.direct && peer.isEmpty;
+  return conversation.isAutomation ||
+      conversation.privateSessionMode ||
+      botSession;
+}
+
+/// Đường mở khi bấm [conversation]: kênh "Ticket" luôn mở thẳng hộp thư ticket
+/// khách (không vào phòng chat bot) nếu người dùng xem được ticket. Còn lại
+/// trả `null`: mở phòng chat như thường.
 String? customerTicketLocationForConversation(
   ConversationSummary conversation,
   CustomerTicketAccess access,
 ) {
-  if (!access.canView || !conversation.isAutomation) return null;
-  final definition = businessChannelDefinitionOf(conversation);
-  if (definition?.slug != customerTicketChannelSlug) return null;
-  final workspaceId = conversation.workspaceId.trim();
-  final channelId = conversation.channelId.trim();
-  return Uri(
-    path: '/customer-tickets',
-    queryParameters: {
-      if (workspaceId.isNotEmpty) 'workspaceId': workspaceId,
-      if (channelId.isNotEmpty) 'channelId': channelId,
-      if (channelId.isNotEmpty) 'channelTitle': conversation.title,
-    },
-  ).toString();
-}
-
-/// Đường mở kênh chat bot "Ticket" từ màn ticket (để gõ lệnh `/ticket`,
-/// `/user`...). `null` khi không biết kênh.
-String? customerTicketChannelChatLocation({
-  required String? channelId,
-  required String? channelTitle,
-  required String? workspaceId,
-}) {
-  final id = channelId?.trim() ?? '';
-  if (id.isEmpty) return null;
-  final workspace = workspaceId?.trim() ?? '';
-  final title = channelTitle?.trim() ?? '';
-  return Uri(
-    path: '/conversations/$id',
-    queryParameters: {
-      if (workspace.isNotEmpty) 'workspaceId': workspace,
-      'title': title.isEmpty ? 'Ticket' : title,
-      'kind': ConversationKind.channel.name,
-    },
-  ).toString();
+  if (!access.canView || !isCustomerTicketChannel(conversation)) return null;
+  return customerTicketInboxLocation(conversation.workspaceId);
 }

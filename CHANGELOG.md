@@ -4,6 +4,15 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
+## 1.18.2 · 14/11/2026
+### Sửa lỗi
+- Bấm kênh Ticket luôn mở màn trả lời ticket khách
+  Trước đây bấm kênh Ticket trên điện thoại vẫn vào phòng chat với bot Ticket (nhất là khi kênh đã mở dạng phòng
+  riêng, hoặc mở từ thông báo / máy tính bảng). Nay mọi lối vào kênh Ticket (danh sách hội thoại, ô kênh nghiệp vụ,
+  thông báo, công cụ workspace, màn hình rộng) đều chuyển thẳng sang hộp thư Ticket khách, giống mục Ticket trên web,
+  vì ticket đã về hết hộp thư này. Bỏ nút "Mở kênh chat Ticket". Người không có quyền xem ticket vẫn mở phòng chat
+  như trước.
+
 ## 1.18.1 · 13/11/2026
 ### Sửa lỗi
 - Bản build TestFlight không còn bị chặn bởi một test chập chờn

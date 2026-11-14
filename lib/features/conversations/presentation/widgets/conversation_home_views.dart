@@ -101,6 +101,13 @@ class MessagesHomeView extends ConsumerWidget {
               return;
             }
             if (wide) {
+              if (_openCustomerTicketInbox(
+                context,
+                conversation,
+                onReturn: controller.syncSilently,
+              )) {
+                return;
+              }
               controller.selectConversation(conversation);
             } else {
               controller.markConversationOpened(conversation);
@@ -639,6 +646,26 @@ class _TopSearch extends StatelessWidget {
   }
 }
 
+/// Kênh "Ticket" (kênh bot gốc hoặc phiên riêng của nó): người xem được ticket
+/// khách vào thẳng hộp thư trả lời ticket như mục Ticket trên web, không mở
+/// phòng chat bot. Trả `true` khi đã mở hộp thư ticket.
+bool _openCustomerTicketInbox(
+  BuildContext context,
+  ConversationSummary conversation, {
+  Future<void> Function()? onReturn,
+}) {
+  final location = customerTicketLocationForConversation(
+    conversation,
+    ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(customerTicketAccessProvider),
+  );
+  if (location == null) return false;
+  context.push<void>(location).then((_) => onReturn?.call());
+  return true;
+}
+
 /// [onReturn] chạy khi người dùng rời phòng chat để danh sách có tin mới nhất,
 /// số chưa đọc đúng (hộp thư chưa nhận sự kiện realtime của từng phòng).
 void _openChat(
@@ -646,17 +673,7 @@ void _openChat(
   ConversationSummary conversation, {
   Future<void> Function()? onReturn,
 }) {
-  // Kênh bot "Ticket": người xem được ticket khách vào thẳng hộp thư trả lời
-  // ticket (như mục Ticket trên web); màn đó có nút mở lại kênh chat.
-  final ticketLocation = customerTicketLocationForConversation(
-    conversation,
-    ProviderScope.containerOf(
-      context,
-      listen: false,
-    ).read(customerTicketAccessProvider),
-  );
-  if (ticketLocation != null) {
-    context.push<void>(ticketLocation).then((_) => onReturn?.call());
+  if (_openCustomerTicketInbox(context, conversation, onReturn: onReturn)) {
     return;
   }
   final queryParameters = {
@@ -704,6 +721,14 @@ Future<void> _handleChannelTap(
   ConversationHomeController controller,
   ConversationSummary channel,
 ) async {
+  // Kênh Ticket: không mở phiên bot riêng, vào thẳng hộp thư ticket khách.
+  if (_openCustomerTicketInbox(
+    context,
+    channel,
+    onReturn: controller.syncSilently,
+  )) {
+    return;
+  }
   final destination = await controller.openChannel(channel);
   if (destination == null || !context.mounted) {
     return;
