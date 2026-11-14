@@ -357,8 +357,9 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
                   else
                     const SizedBox.shrink(),
                   if (_visitedTabs.contains(3))
-                    _SettingsTab(
+                    SettingsTab(
                       workspaceName: activeWorkspace.name,
+                      organizationLogoUrl: organization?.logoUrl,
                       notificationEnabled: _notificationEnabled,
                       compactMode: _compactMode,
                       soundLevel: _soundLevel,
@@ -366,10 +367,11 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
                       onProfileTap: () => context.push('/profile'),
                       onAdvancedTap: () => context.push('/settings'),
                       onPrivacyTap: () => context.push('/privacy'),
-                      // Chỉ hiện khi tài khoản có từ 2 workspace (2.4).
-                      onSwitchWorkspaceTap: workspaceState.canSwitchWorkspace
-                          ? () => context.push('/workspaces')
-                          : null,
+                      // Luôn mở được danh sách workspace (kể cả khi chỉ có 1:
+                      // xem workspace đang dùng, bấm Tải lại khi vừa được mời
+                      // thêm); chữ "Chuyển workspace" chỉ khi có từ 2 (2.4).
+                      canSwitchWorkspace: workspaceState.canSwitchWorkspace,
+                      onWorkspaceTap: () => context.push('/workspaces'),
                       // Máy chủ cũ không trả capability → ẩn (2.2).
                       onQrLoginTap: organization?.capabilities.qrLogin == true
                           ? () => context.push('/qr-login')
@@ -1672,21 +1674,24 @@ class _ShareTargetPickerSheetState extends State<_ShareTargetPickerSheet> {
 }
 
 class _OrganizationMark extends StatelessWidget {
-  const _OrganizationMark({required this.name, this.imageUrl});
+  const _OrganizationMark({required this.name, this.imageUrl, this.size = 30});
 
   final String name;
   final String? imageUrl;
+  final double size;
+
+  double get _radius => size * 8 / 30;
 
   @override
   Widget build(BuildContext context) {
     final url = imageUrl?.trim();
     if (url != null && url.isNotEmpty) {
       return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(_radius),
         child: WebTuiBoundedNetworkImage(
           imageUrl: url,
-          width: 30,
-          height: 30,
+          width: size,
+          height: size,
           fit: BoxFit.contain,
           maxBytes: webTuiMaxBrandImageBytes,
           allowPublicRequest: true,
@@ -1704,16 +1709,17 @@ class _OrganizationMark extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: WebTuiColors.primary,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(_radius),
       ),
       child: SizedBox.square(
-        dimension: 30,
+        dimension: size,
         child: Center(
           child: Text(
             initial.toUpperCase(),
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w900,
+              fontSize: size * 0.47,
             ),
           ),
         ),
@@ -2069,9 +2075,12 @@ class _NetworkQualityBanner extends StatelessWidget {
   }
 }
 
-class _SettingsTab extends StatelessWidget {
-  const _SettingsTab({
+/// Tab Cài đặt. Công khai để test dựng riêng, không cần cả màn chính.
+@visibleForTesting
+class SettingsTab extends StatelessWidget {
+  const SettingsTab({
     required this.workspaceName,
+    required this.onWorkspaceTap,
     required this.notificationEnabled,
     required this.compactMode,
     required this.soundLevel,
@@ -2084,12 +2093,20 @@ class _SettingsTab extends StatelessWidget {
     required this.onCompactChanged,
     required this.onSoundChanged,
     required this.onTextScaleChanged,
-    this.onSwitchWorkspaceTap,
+    this.canSwitchWorkspace = false,
+    this.organizationLogoUrl,
     this.onQrLoginTap,
+    super.key,
   });
 
-  /// null khi tài khoản chỉ có một workspace.
-  final VoidCallback? onSwitchWorkspaceTap;
+  /// Mở danh sách workspace.
+  final VoidCallback onWorkspaceTap;
+
+  /// Tài khoản có từ 2 workspace: dòng ghi "Chuyển workspace".
+  final bool canSwitchWorkspace;
+
+  /// Logo tổ chức (discovery); trống thì thẻ đầu trang hiện chữ viết tắt.
+  final String? organizationLogoUrl;
 
   /// null khi máy chủ không bật đăng nhập QR.
   final VoidCallback? onQrLoginTap;
@@ -2131,11 +2148,9 @@ class _SettingsTab extends StatelessWidget {
               padding: const EdgeInsets.all(WebTuiSpacing.lg),
               child: Row(
                 children: [
-                  WebTuiAvatar(
-                    label: workspaceName,
-                    size: 68,
-                    status: WebTuiPresenceStatus.online,
-                    color: WebTuiColors.surface,
+                  _WorkspaceBadge(
+                    name: workspaceName,
+                    logoUrl: organizationLogoUrl,
                   ),
                   const SizedBox(width: WebTuiSpacing.md),
                   Expanded(
@@ -2177,15 +2192,13 @@ class _SettingsTab extends StatelessWidget {
           children: [
             WebTuiSettingRow(
               key: const Key('settings_workspace_row'),
-              title: onSwitchWorkspaceTap == null
-                  ? 'Workspace'
-                  : 'Chuyển workspace',
+              title: canSwitchWorkspace ? 'Chuyển workspace' : 'Workspace',
               subtitle: workspaceName,
               icon: Icons.business_rounded,
-              onTap: onSwitchWorkspaceTap,
-              trailing: onSwitchWorkspaceTap == null
-                  ? null
-                  : const Icon(Icons.swap_horiz_rounded),
+              onTap: onWorkspaceTap,
+              trailing: canSwitchWorkspace
+                  ? const Icon(Icons.swap_horiz_rounded)
+                  : null,
             ),
             if (onQrLoginTap != null)
               WebTuiSettingRow(
@@ -2259,6 +2272,64 @@ class _SettingsTab extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// Ô tròn ở thẻ đầu tab Cài đặt: logo tổ chức (giống góc trên trái) trên nền
+/// trắng, không có logo thì chữ viết tắt tên workspace; chấm xanh = đang hoạt
+/// động.
+class _WorkspaceBadge extends StatelessWidget {
+  const _WorkspaceBadge({required this.name, this.logoUrl});
+
+  static const double _size = 68;
+
+  final String name;
+  final String? logoUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = logoUrl?.trim();
+    if (url == null || url.isEmpty) {
+      return WebTuiAvatar(
+        label: name,
+        size: _size,
+        status: WebTuiPresenceStatus.online,
+        color: WebTuiColors.surface,
+      );
+    }
+    return SizedBox.square(
+      key: const Key('settings_workspace_logo'),
+      dimension: _size,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                color: WebTuiColors.surface,
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: _OrganizationMark(name: name, imageUrl: url, size: 42),
+              ),
+            ),
+          ),
+          Positioned(
+            right: -1,
+            bottom: -1,
+            child: Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: WebTuiPresenceStatus.online.color,
+                shape: BoxShape.circle,
+                border: Border.all(color: WebTuiColors.surface, width: 2),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
