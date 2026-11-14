@@ -4,6 +4,14 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
+## 1.18.3 · 14/11/2026
+### Sửa lỗi
+- Cài đặt: hiện logo tổ chức và bấm được mục Workspace
+  Ô tròn ở thẻ đầu trang Cài đặt nay hiện logo của tổ chức (cùng logo ở góc trên bên trái) thay cho chữ viết tắt;
+  máy chủ chưa đặt logo thì vẫn hiện chữ viết tắt như cũ. Mục "Workspace" trước đây có mũi tên nhưng bấm không có
+  gì khi tài khoản chỉ thuộc một workspace; nay bấm vào mở danh sách workspace để xem workspace đang dùng, và khi vừa
+  được mời vào workspace khác thì bấm "Tải lại" để thấy và chuyển sang. Cần cài bản app mới để thấy.
+
 ## 1.18.2 · 14/11/2026
 ### Sửa lỗi
 - Bấm kênh Ticket luôn mở màn trả lời ticket khách
