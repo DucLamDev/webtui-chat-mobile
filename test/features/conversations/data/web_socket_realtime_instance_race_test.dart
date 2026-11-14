@@ -152,6 +152,67 @@ void main() {
   });
 
   test(
+    'handshake sends the server origin (servers reject a missing Origin)',
+    () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final receivedOrigin = Completer<String?>();
+      server.listen((request) async {
+        if (!receivedOrigin.isCompleted) {
+          receivedOrigin.complete(request.headers.value('origin'));
+        }
+        if (request.headers.value('origin') == null) {
+          // Giống x/net/websocket: thiếu Origin thì trả 403.
+          request.response.statusCode = HttpStatus.forbidden;
+          await request.response.close();
+          return;
+        }
+        final socket = await WebSocketTransformer.upgrade(request);
+        socket.listen(socket.add);
+      });
+
+      WebSocket? socket;
+      try {
+        socket = await connectWebSocketWithoutRedirects(
+          'ws://${server.address.host}:${server.port}/ws',
+          headers: const {'Authorization': 'Bearer instance-secret'},
+        );
+        expect(
+          await receivedOrigin.future,
+          'http://${server.address.host}:${server.port}',
+        );
+        final echo = socket.first;
+        socket.add('ping');
+        expect(await echo, 'ping');
+      } finally {
+        await socket?.close();
+        await server.close(force: true);
+      }
+    },
+  );
+
+  test('caller cannot override the handshake Origin', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    var requests = 0;
+    server.listen((request) async {
+      requests += 1;
+      request.response.statusCode = HttpStatus.forbidden;
+      await request.response.close();
+    });
+    try {
+      await expectLater(
+        connectWebSocketWithoutRedirects(
+          'ws://${server.address.host}:${server.port}/ws',
+          headers: const {'Origin': 'https://attacker.example'},
+        ),
+        throwsA(isA<WebSocketException>()),
+      );
+      expect(requests, 0);
+    } finally {
+      await server.close(force: true);
+    }
+  });
+
+  test(
     'repository keeps existing channel subscribers when another room joins',
     () async {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);

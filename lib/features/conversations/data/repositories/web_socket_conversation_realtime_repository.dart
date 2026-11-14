@@ -506,6 +506,11 @@ Future<WebSocket> connectWebSocketWithoutRedirects(
       ..set(HttpHeaders.upgradeHeader, 'websocket')
       ..set('Sec-WebSocket-Key', nonce)
       ..set('Sec-WebSocket-Version', '13')
+      // Máy chủ dùng x/net/websocket trả 403 "null origin" khi thiếu Origin:
+      // không có dòng này app không bao giờ nhận được sự kiện realtime (tín
+      // hiệu cuộc gọi kẹt "Đang kết nối"). Origin luôn là chính máy chủ đang
+      // kết nối, nơi gọi không đổi được.
+      ..set('Origin', requestUri.origin)
       ..set(HttpHeaders.cacheControlHeader, 'no-cache');
 
     final response = await request.close().timeout(const Duration(seconds: 15));
@@ -556,6 +561,7 @@ Future<WebSocket> connectWebSocketWithoutRedirects(
 
 const _webSocketHandshakeGuid = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 const _webSocketControlledHeaders = {
+  'origin',
   'connection',
   'upgrade',
   'sec-websocket-key',

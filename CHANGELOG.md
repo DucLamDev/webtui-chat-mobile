@@ -4,6 +4,13 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
+## 1.18.3 · 14/11/2026
+### Sửa lỗi
+- App kết nối realtime được với mọi máy chủ, gọi điện không còn kẹt "Đang kết nối"
+  App nay gửi kèm địa chỉ máy chủ ("Origin") khi mở kết nối realtime. Các máy chủ chưa cập nhật từ chối kết nối thiếu
+  thông tin này, làm app không nhận được tín hiệu cuộc gọi: bấm nghe xong vẫn đứng ở "Đang kết nối", không nghe được
+  gì, và tin nhắn mới chỉ hiện khi app tự tải lại. Cần cài bản app mới để có thay đổi này.
+
 ## 1.18.2 · 14/11/2026
 ### Sửa lỗi
 - Bấm kênh Ticket luôn mở màn trả lời ticket khách
