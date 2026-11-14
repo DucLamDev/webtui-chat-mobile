@@ -410,14 +410,14 @@ class _ActionButton extends StatelessWidget {
           )
         : Icon(switch (action) {
             _ when done => WebTuiIcons.check,
-            MessageCardCopyAction() => WebTuiIcons.file,
-            MessageCardReplyAction() => WebTuiIcons.newMessage,
+            MessageCardCopyAction() => WebTuiIcons.copy,
+            MessageCardReplyAction() => WebTuiIcons.reply,
             MessageCardApprovalAction(
               decision: MessageCardApprovalDecision.approve,
             ) =>
               WebTuiIcons.check,
             MessageCardApprovalAction() => WebTuiIcons.close,
-            MessageCardCallbackAction() => WebTuiIcons.forward,
+            MessageCardCallbackAction() => WebTuiIcons.tapAction,
             MessageCardOpenAction() => WebTuiIcons.externalLink,
           }, size: 16);
     final label = Text(

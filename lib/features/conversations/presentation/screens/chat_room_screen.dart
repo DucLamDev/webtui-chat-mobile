@@ -2562,7 +2562,7 @@ class _ComposerState extends State<_Composer> {
                 const WebTuiSheetHeader(title: 'Thêm vào tin nhắn'),
                 const _PermissionRationaleTile(),
                 WebTuiSheetActionTile(
-                  icon: WebTuiIcons.image,
+                  icon: WebTuiIcons.camera,
                   title: 'Chụp ảnh',
                   subtitle: 'Mở camera và gửi ảnh vào cuộc trò chuyện',
                   onTap: () => close(
@@ -2572,7 +2572,7 @@ class _ComposerState extends State<_Composer> {
                   ),
                 ),
                 WebTuiSheetActionTile(
-                  icon: WebTuiIcons.file,
+                  icon: WebTuiIcons.documentScan,
                   title: 'Quét tài liệu',
                   subtitle: 'Chụp tài liệu bằng camera với chất lượng cao',
                   onTap: () => close(
@@ -2582,13 +2582,13 @@ class _ComposerState extends State<_Composer> {
                   ),
                 ),
                 WebTuiSheetActionTile(
-                  icon: WebTuiIcons.view,
+                  icon: WebTuiIcons.qrScan,
                   title: 'Quét QR',
                   subtitle: 'Chèn nội dung mã QR vào tin nhắn',
                   onTap: () => close(widget.onScanQrCode),
                 ),
                 WebTuiSheetActionTile(
-                  icon: WebTuiIcons.imageFile,
+                  icon: WebTuiIcons.gallery,
                   title: 'Thư viện ảnh',
                   subtitle: 'Chọn ảnh sẵn có trong máy',
                   onTap: () => close(
@@ -2620,7 +2620,7 @@ class _ComposerState extends State<_Composer> {
                   onTap: () => close(_toggleEmojiTray),
                 ),
                 WebTuiSheetActionTile(
-                  icon: WebTuiIcons.sharedFiles,
+                  icon: WebTuiIcons.attach,
                   title: 'Tệp',
                   subtitle: 'Gửi PDF, Office, ZIP, âm thanh hoặc video',
                   onTap: () => close(
@@ -2636,7 +2636,7 @@ class _ComposerState extends State<_Composer> {
                   onTap: () => close(() => setState(() => _silent = !_silent)),
                 ),
                 WebTuiSheetActionTile(
-                  icon: WebTuiIcons.meetings,
+                  icon: WebTuiIcons.scheduleSend,
                   title: 'Hẹn giờ gửi',
                   subtitle: 'Chọn thời điểm gửi tin đang soạn',
                   onTap: () => close(widget.onSchedule),
@@ -4083,90 +4083,84 @@ class _PollComposerDialogState extends State<_PollComposerDialog> {
     final canSubmit =
         _questionController.text.trim().isNotEmpty && options.length >= 2;
 
-    return AlertDialog(
-      title: const Row(
+    return WebTuiDialog(
+      title: 'Tạo bình chọn',
+      message: 'Lấy ý kiến các thành viên trong nhóm.',
+      icon: WebTuiIcons.poll,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(Icons.poll_outlined, color: WebTuiColors.primary),
-          SizedBox(width: WebTuiSpacing.sm),
-          Text('Tạo bình chọn'),
+          WebTuiDialogTextField(
+            key: const Key('poll_question'),
+            controller: _questionController,
+            autofocus: true,
+            maxLength: 500,
+            showCounter: false,
+            label: 'Câu hỏi',
+            hint: 'Ví dụ: Chọn lịch họp tuần này?',
+            textInputAction: TextInputAction.next,
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: WebTuiSpacing.md),
+          for (var index = 0; index < _optionControllers.length; index++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: WebTuiSpacing.sm),
+              child: WebTuiDialogTextField(
+                key: Key('poll_option_$index'),
+                controller: _optionControllers[index],
+                maxLength: 200,
+                showCounter: false,
+                hint: 'Lựa chọn ${index + 1}',
+                textInputAction: TextInputAction.next,
+                onChanged: (_) => setState(() {}),
+                suffix: _optionControllers.length > 2
+                    ? IconButton(
+                        tooltip: 'Xóa lựa chọn',
+                        onPressed: () {
+                          final removed = _optionControllers.removeAt(index);
+                          removed.dispose();
+                          setState(() {});
+                        },
+                        icon: const Icon(WebTuiIcons.close, size: 18),
+                      )
+                    : null,
+              ),
+            ),
+          if (_optionControllers.length < 10)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => setState(
+                  () => _optionControllers.add(TextEditingController()),
+                ),
+                icon: const Icon(WebTuiIcons.add, size: 18),
+                label: const Text('Thêm lựa chọn'),
+              ),
+            ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Cho phép chọn nhiều đáp án'),
+            value: _multiple,
+            onChanged: (value) => setState(() => _multiple = value),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Ẩn danh người bình chọn'),
+            value: _anonymous,
+            onChanged: (value) => setState(() => _anonymous = value),
+          ),
         ],
       ),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 460),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _questionController,
-                autofocus: true,
-                maxLength: 500,
-                onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(
-                  labelText: 'Câu hỏi',
-                  hintText: 'Ví dụ: Chọn lịch họp tuần này?',
-                ),
-              ),
-              const SizedBox(height: WebTuiSpacing.sm),
-              for (var index = 0; index < _optionControllers.length; index++)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: WebTuiSpacing.sm),
-                  child: TextField(
-                    controller: _optionControllers[index],
-                    maxLength: 200,
-                    onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration(
-                      counterText: '',
-                      labelText: 'Lựa chọn ${index + 1}',
-                      suffixIcon: _optionControllers.length > 2
-                          ? IconButton(
-                              tooltip: 'Xóa lựa chọn',
-                              onPressed: () {
-                                final removed = _optionControllers.removeAt(
-                                  index,
-                                );
-                                removed.dispose();
-                                setState(() {});
-                              },
-                              icon: const Icon(Icons.close_rounded),
-                            )
-                          : null,
-                    ),
-                  ),
-                ),
-              if (_optionControllers.length < 10)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: () => setState(
-                      () => _optionControllers.add(TextEditingController()),
-                    ),
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('Thêm lựa chọn'),
-                  ),
-                ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Cho phép chọn nhiều đáp án'),
-                value: _multiple,
-                onChanged: (value) => setState(() => _multiple = value),
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Ẩn danh người bình chọn'),
-                value: _anonymous,
-                onChanged: (value) => setState(() => _anonymous = value),
-              ),
-            ],
-          ),
-        ),
-      ),
       actions: [
-        TextButton(
+        WebTuiDialogAction(
+          label: 'Hủy',
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Hủy'),
         ),
-        FilledButton(
+        WebTuiDialogAction(
+          key: const Key('poll_submit'),
+          label: 'Tạo bình chọn',
+          primary: true,
           onPressed: canSubmit
               ? () => Navigator.of(context).pop(
                   _PollDraft(
@@ -4177,7 +4171,6 @@ class _PollComposerDialogState extends State<_PollComposerDialog> {
                   ),
                 )
               : null,
-          child: const Text('Tạo bình chọn'),
         ),
       ],
     );

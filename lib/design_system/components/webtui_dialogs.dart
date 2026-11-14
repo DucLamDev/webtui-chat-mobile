@@ -413,6 +413,7 @@ class WebTuiDialogTextField extends StatelessWidget {
     this.onSubmitted,
     this.prefixIcon,
     this.suffix,
+    this.showCounter = true,
     super.key,
   });
 
@@ -429,6 +430,9 @@ class WebTuiDialogTextField extends StatelessWidget {
   final ValueChanged<String>? onSubmitted;
   final IconData? prefixIcon;
   final Widget? suffix;
+
+  /// Hiện bộ đếm ký tự dưới ô khi có [maxLength] (tắt cho ô ngắn lặp lại).
+  final bool showCounter;
 
   @override
   Widget build(BuildContext context) {
@@ -467,6 +471,7 @@ class WebTuiDialogTextField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: hint,
             errorText: errorText,
+            counterText: showCounter ? null : '',
             filled: true,
             fillColor: WebTuiColors.backgroundMuted,
             prefixIcon: prefixIcon == null

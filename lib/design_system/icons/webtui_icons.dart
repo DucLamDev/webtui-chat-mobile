@@ -59,6 +59,15 @@ abstract final class WebTuiIcons {
   static const IconData pause = LucideIcons.pause;
   static const IconData seen = LucideIcons.checkCheck;
   static const IconData image = LucideIcons.image;
+  static const IconData camera = LucideIcons.camera;
+  static const IconData gallery = LucideIcons.images;
+  static const IconData documentScan = LucideIcons.scanText;
+  static const IconData qrScan = LucideIcons.scanQrCode;
+  static const IconData attach = LucideIcons.paperclip;
+  static const IconData scheduleSend = LucideIcons.calendarClock;
+  static const IconData copy = LucideIcons.copy;
+  static const IconData reply = LucideIcons.reply;
+  static const IconData tapAction = LucideIcons.mousePointerClick;
 
   // Công việc.
   static const IconData tasks = LucideIcons.listChecks;
