@@ -4,6 +4,12 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
+## 1.26.1 · 15/11/2026
+### Sửa lỗi
+- Chat 1-1 chỉ hiện avatar người kia cạnh tin, không lặp tên người gửi
+  Trong cuộc trò chuyện riêng, tin của người kia giờ có avatar nhỏ bên trái (giống Zalo) thay vì dòng tên lặp lại trên
+  mỗi cụm tin, kể cả thẻ cuộc gọi đến. Nhóm và kênh vẫn hiện tên người gửi như cũ để biết ai nói.
+
 ## 1.26.0 · 14/11/2026
 ### Tính năng
 - Gọi điện không còn kẹt "Đang kết nối", video có ảnh xem trước, hiện tên người gửi, biểu tượng kênh có màu

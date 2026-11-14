@@ -75,13 +75,16 @@ bool startsSenderRun(ChatMessage? previous, ChatMessage message) {
   return b.difference(a).abs() > messageRunGap;
 }
 
-/// Tên người gửi in phía trên tin; null khi không nên hiện: tin của mình, tin
+/// Tên người gửi in phía trên tin; null khi không nên hiện: chat 1-1 (giống
+/// Zalo, tiêu đề đã là tên người kia, chỉ hiện avatar), tin của mình, tin
 /// không mở đầu cụm, hoặc chưa biết tên (không bao giờ hiện mã người gửi).
 String? senderNameToShow({
   required ChatMessage message,
   required ChatMessage? previous,
   required MessageSenderDirectory directory,
+  required bool isGroupChat,
 }) {
+  if (!isGroupChat) return null;
   if (message.isMine || !startsSenderRun(previous, message)) return null;
   final name = directory[message.senderId]?.name.trim();
   if (name == null ||

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:webtui_chat/design_system/components/webtui_avatar.dart';
 import 'package:webtui_chat/design_system/icons/webtui_icons.dart';
 import 'package:webtui_chat/design_system/tokens/webtui_colors.dart';
 import 'package:webtui_chat/features/conversations/domain/entities/call_session.dart';
@@ -279,7 +280,9 @@ void main() {
       );
       await settleImages(tester);
       final image = tester.getRect(find.byType(Image));
-      expect(image.left, lessThan(24));
+      // Chat 1-1 có cột avatar người kia (giống Zalo): ảnh nằm sát ngay sau avatar.
+      final avatar = tester.getRect(find.byType(WebTuiAvatar));
+      expect(image.left - avatar.right, inInclusiveRange(0, 16));
       expect(image.width / image.height, closeTo(0.5, 0.02));
     });
 
