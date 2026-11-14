@@ -1,6 +1,6 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../icons/webtui_icons.dart';
 import '../tokens/webtui_colors.dart';
 import '../tokens/webtui_density.dart';
 import '../tokens/webtui_radii.dart';
@@ -18,6 +18,9 @@ class WebTuiConversationListItem extends StatelessWidget {
     this.avatarUrl,
     this.avatarPublicImage = false,
     this.avatarIcon,
+    this.squareAvatar = false,
+    this.pinned = false,
+    this.badgeLabel,
     this.unreadCount = 0,
     this.status,
     this.muted = false,
@@ -35,8 +38,18 @@ class WebTuiConversationListItem extends StatelessWidget {
   final String? avatarUrl;
   final bool avatarPublicImage;
 
-  /// Biểu tượng thay chữ cái đầu (mục nghiệp vụ như Phê duyệt, Ticket).
+  /// Biểu tượng thay chữ cái đầu (kênh, mục nghiệp vụ như Phê duyệt, Ticket).
   final IconData? avatarIcon;
+
+  /// Ô vuông bo góc (kênh) thay vì ảnh tròn (người). Có [avatarIcon] thì tự
+  /// là ô vuông.
+  final bool squareAvatar;
+
+  /// Hội thoại ghim: nền xanh nhạt bo góc và biểu tượng ghim cạnh số chưa đọc.
+  final bool pinned;
+
+  /// Nhãn nhỏ cạnh tên (ví dụ "BOT").
+  final String? badgeLabel;
   final int unreadCount;
   final WebTuiPresenceStatus? status;
   final bool muted;
@@ -47,10 +60,16 @@ class WebTuiConversationListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
+    final square = squareAvatar || avatarIcon != null;
+    final highlighted = pinned && !selected;
+    final row = Material(
       color: selected
           ? WebTuiColors.primarySoft.withValues(alpha: 0.74)
+          : highlighted
+          ? WebTuiColors.primarySoft.withValues(alpha: 0.6)
           : WebTuiColors.surface,
+      borderRadius: highlighted ? BorderRadius.circular(WebTuiRadii.lg) : null,
+      clipBehavior: highlighted ? Clip.antiAlias : Clip.none,
       child: InkWell(
         onTap: onTap,
         onLongPress: onLongPress,
@@ -86,6 +105,8 @@ class WebTuiConversationListItem extends StatelessWidget {
                       imageUrl: avatarUrl,
                       allowPublicRequest: avatarPublicImage,
                       status: status,
+                      square: square,
+                      size: WebTuiListDensity.listAvatarSize,
                     ),
                     const SizedBox(width: WebTuiSpacing.md),
                     Expanded(
@@ -93,23 +114,31 @@ class WebTuiConversationListItem extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: WebTuiTypography.bodyMedium.copyWith(
-                              color: WebTuiColors.textPrimary,
-                              fontWeight: unreadCount > 0
-                                  ? FontWeight.w800
-                                  : FontWeight.w700,
-                            ),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: WebTuiTypography.titleMedium.copyWith(
+                                    color: WebTuiColors.textPrimary,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                              if (badgeLabel != null) ...[
+                                const SizedBox(width: WebTuiSpacing.sm),
+                                _InlineBadge(label: badgeLabel!),
+                              ],
+                            ],
                           ),
                           const SizedBox(height: WebTuiSpacing.xs),
                           Row(
                             children: [
                               if (muted) ...[
                                 const Icon(
-                                  CupertinoIcons.bell_slash,
+                                  WebTuiIcons.bellOff,
                                   size: 14,
                                   color: WebTuiColors.textMuted,
                                 ),
@@ -120,13 +149,9 @@ class WebTuiConversationListItem extends StatelessWidget {
                                   preview,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: WebTuiTypography.bodySmall.copyWith(
-                                    color: unreadCount > 0
-                                        ? WebTuiColors.textSecondary
-                                        : WebTuiColors.textMuted,
-                                    fontWeight: unreadCount > 0
-                                        ? FontWeight.w600
-                                        : FontWeight.w400,
+                                  style: WebTuiTypography.bodyMedium.copyWith(
+                                    color: WebTuiColors.textSecondary,
+                                    fontWeight: FontWeight.w400,
                                   ),
                                 ),
                               ),
@@ -147,23 +172,73 @@ class WebTuiConversationListItem extends StatelessWidget {
                             timeLabel,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: WebTuiTypography.labelSmall.copyWith(
-                              color: unreadCount > 0
-                                  ? WebTuiColors.primary
-                                  : WebTuiColors.textMuted,
-                              fontWeight: unreadCount > 0
-                                  ? FontWeight.w800
-                                  : FontWeight.w600,
+                            style: WebTuiTypography.bodySmall.copyWith(
+                              color: WebTuiColors.textMuted,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          const SizedBox(height: WebTuiSpacing.sm),
-                          WebTuiUnreadBadge(count: unreadCount),
+                          const SizedBox(height: WebTuiSpacing.xs),
+                          if (pinned || unreadCount > 0)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (pinned)
+                                  const Padding(
+                                    padding: EdgeInsets.only(
+                                      right: WebTuiSpacing.xs,
+                                    ),
+                                    child: Icon(
+                                      WebTuiIcons.pin,
+                                      size: 16,
+                                      color: WebTuiColors.textSecondary,
+                                    ),
+                                  ),
+                                WebTuiUnreadBadge(count: unreadCount),
+                              ],
+                            )
+                          else
+                            const SizedBox(
+                              height: WebTuiListDensity.unreadBadgeMinSize,
+                            ),
                         ],
                       ),
                   ],
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+    if (!highlighted) return row;
+    // Nền ghim thụt vào hai bên như mẫu, không kẻ đường dưới.
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.sm),
+      child: row,
+    );
+  }
+}
+
+/// Nhãn xám nhỏ cạnh tên hội thoại (ví dụ BOT).
+class _InlineBadge extends StatelessWidget {
+  const _InlineBadge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: WebTuiColors.backgroundMuted,
+        borderRadius: BorderRadius.circular(WebTuiRadii.xs),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        child: Text(
+          label,
+          style: WebTuiTypography.labelSmall.copyWith(
+            color: WebTuiColors.textSecondary,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),
@@ -249,7 +324,7 @@ class WebTuiChannelBotListItem extends StatelessWidget {
                   )
                 else
                   const Icon(
-                    CupertinoIcons.chevron_right,
+                    WebTuiIcons.forward,
                     color: WebTuiColors.textMuted,
                   ),
               ],

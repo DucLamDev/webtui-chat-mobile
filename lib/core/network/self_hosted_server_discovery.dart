@@ -193,6 +193,9 @@ final class SelfHostedServerDiscovery {
         emailVerification: capabilities['email_verification'] == true,
         // Bot thông báo thay nút chuông; máy chủ cũ không trả → giữ chuông.
         noticeBot: capabilities['notice_bot'] == true,
+        // Tab Công việc (lối tắt, đếm việc, lịch họp chung) và "Đã xem".
+        workHub: capabilities['work_hub'] == true,
+        readReceipts: capabilities['read_receipts'] == true,
       ),
       logoUrl: logoUrl,
       zoneKind: _text(zone['kind']).toLowerCase(),
@@ -376,6 +379,8 @@ final class SelfHostedCapabilities {
     this.deviceApproval = false,
     this.emailVerification = false,
     this.noticeBot = false,
+    this.workHub = false,
+    this.readReceipts = false,
   });
 
   final bool chat;
@@ -435,6 +440,12 @@ final class SelfHostedCapabilities {
   /// Thông báo đi qua chat bot của tổ chức thay cho nút chuông.
   final bool noticeBot;
 
+  /// Máy chủ có API lối tắt ứng dụng, đếm việc của tôi và lịch họp chung.
+  final bool workHub;
+
+  /// Máy chủ phát sự kiện đã đọc cho chat 1-1 ("Đã xem").
+  final bool readReceipts;
+
   Map<String, bool> toJson() {
     return {
       'self_hosted': true,
@@ -465,6 +476,8 @@ final class SelfHostedCapabilities {
       'device_approval': deviceApproval,
       'email_verification': emailVerification,
       'notice_bot': noticeBot,
+      'work_hub': workHub,
+      'read_receipts': readReceipts,
     };
   }
 }

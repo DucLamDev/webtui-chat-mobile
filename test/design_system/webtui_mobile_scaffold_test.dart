@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/design_system/components/webtui_mobile_scaffold.dart';
+import 'package:webtui_chat/design_system/icons/webtui_icons.dart';
+import 'package:webtui_chat/design_system/theme/webtui_theme.dart';
+import 'package:webtui_chat/design_system/tokens/webtui_colors.dart';
 
 void main() {
   Future<void> pump(WidgetTester tester, {required bool showAppBar}) {
@@ -106,4 +109,66 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'biểu tượng Lucide, mục chọn nền xanh nhạt, số chưa đỏ ở Tin nhắn',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: WebTuiTheme.light(),
+          home: WebTuiMobileScaffold(
+            title: 't',
+            selectedTab: 2,
+            tabBadges: const {0: 5, 1: 120},
+            onTabSelected: (_) {},
+            body: const SizedBox.shrink(),
+          ),
+        ),
+      );
+      for (final icon in [
+        WebTuiIcons.messages,
+        WebTuiIcons.friends,
+        WebTuiIcons.work,
+        WebTuiIcons.settings,
+      ]) {
+        expect(find.byIcon(icon), findsOneWidget);
+      }
+      // Số chưa đọc nằm ở góc biểu tượng, màu đỏ; quá 99 thì rút gọn.
+      final badges = find.byKey(const ValueKey('tab-badge'));
+      expect(badges, findsNWidgets(2));
+      expect(find.text('5'), findsOneWidget);
+      expect(find.text('99+'), findsOneWidget);
+      final decoration =
+          tester.widget<Container>(badges.first).decoration! as BoxDecoration;
+      expect(decoration.color, const Color(0xFFE5484D));
+      // Mục đang chọn: nền xanh nhạt, chữ và biểu tượng xanh.
+      final selected = tester.widget<AnimatedContainer>(
+        find.descendant(
+          of: find.byKey(const ValueKey('tab-Công việc')),
+          matching: find.byType(AnimatedContainer),
+        ),
+      );
+      expect(
+        (selected.decoration! as BoxDecoration).color,
+        WebTuiColors.primarySoft,
+      );
+      final text = tester.widget<Text>(find.text('Công việc'));
+      expect(text.style!.color, WebTuiColors.primary);
+      // Không có số thì không hiện chấm.
+      await tester.pumpWidget(
+        MaterialApp(
+          home: WebTuiMobileScaffold(
+            title: 't',
+            selectedTab: 0,
+            onTabSelected: (_) {},
+            body: const SizedBox.shrink(),
+          ),
+        ),
+      );
+      expect(find.byKey(const ValueKey('tab-badge')), findsNothing);
+    },
+  );
 }

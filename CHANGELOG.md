@@ -4,6 +4,16 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
+## 1.22.0 · 14/11/2026
+### Tính năng
+- Màn Tin nhắn và tab Công việc mới theo ảnh mẫu
+  Màn Tin nhắn gọn hơn: bỏ tiêu đề lớn, nút soạn tin nằm bên trái ô tìm, các nút lọc Tất cả / Chưa đọc / Nghiệp vụ / Nhóm,
+  kênh có biểu tượng riêng trong ô vuông, người có ảnh tròn và chấm xanh khi đang hoạt động. Thanh dưới nổi bo tròn 4 mục
+  với bộ biểu tượng mới (cùng họ với bản web). Tab Công việc có "Việc của tôi" (số việc Chưa nhận / Đã nhận / Hoàn thành,
+  các việc sắp tới hạn, bấm ô vuông để nhận hoặc hoàn thành việc), My Note, và khối "Ứng dụng" gồm Lịch họp chung, Tệp
+  chia sẻ và các lối tắt do quản trị thêm (quản trị thấy ô "Thêm" và "Quản lý"). Máy chủ chưa cập nhật thì ẩn Lịch họp và
+  lối tắt.
+
 ## 1.21.0 · 14/11/2026
 ### Tính năng
 - Thông báo chuyển sang chat với bot, bỏ nút chuông

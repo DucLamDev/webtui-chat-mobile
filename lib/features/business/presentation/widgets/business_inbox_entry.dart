@@ -1,8 +1,8 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 
 /// Dòng "Tổng quan nghiệp vụ" ở tab Nghiệp vụ (cùng kiểu dòng hội thoại): mở
@@ -22,7 +22,7 @@ class BusinessInboxEntry extends StatelessWidget {
       preview: 'Số liệu và việc cần xử lý',
       timeLabel: '',
       avatarLabel: 'Tổng quan nghiệp vụ',
-      avatarIcon: Icons.dashboard_customize_outlined,
+      avatarIcon: WebTuiIcons.work,
       trailing: const Icon(
         CupertinoIcons.chevron_right,
         size: 18,

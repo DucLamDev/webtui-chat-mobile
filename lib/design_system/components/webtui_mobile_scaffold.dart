@@ -1,6 +1,6 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../icons/webtui_icons.dart';
 import '../tokens/webtui_colors.dart';
 import '../tokens/webtui_density.dart';
 import '../tokens/webtui_spacing.dart';
@@ -16,8 +16,12 @@ class WebTuiMobileScaffold extends StatelessWidget {
     this.actions = const [],
     this.floatingActionButton,
     this.showAppBar = true,
+    this.tabBadges = const {},
     super.key,
   });
+
+  /// Số hiện ở góc biểu tượng từng tab (chỉ số tab → số chưa đọc).
+  final Map<int, int> tabBadges;
 
   /// `false`: bỏ thanh tiêu đề để màn có thêm chỗ (tab tự đặt nút của nó).
   final bool showAppBar;
@@ -61,32 +65,24 @@ class WebTuiMobileScaffold extends StatelessWidget {
       bottomNavigationBar: WebTuiFloatingTabBar(
         selectedIndex: selectedTab,
         onSelected: onTabSelected,
+        badges: tabBadges,
       ),
     );
   }
 }
 
 class _TabSpec {
-  const _TabSpec(this.icon, this.selectedIcon, this.label);
+  const _TabSpec(this.icon, this.label);
 
   final IconData icon;
-  final IconData selectedIcon;
   final String label;
 }
 
 const _tabs = [
-  _TabSpec(
-    CupertinoIcons.chat_bubble_2,
-    CupertinoIcons.chat_bubble_2_fill,
-    'Tin nhắn',
-  ),
-  _TabSpec(CupertinoIcons.person_2, CupertinoIcons.person_2_fill, 'Bạn bè'),
-  _TabSpec(
-    CupertinoIcons.briefcase,
-    CupertinoIcons.briefcase_fill,
-    'Công việc',
-  ),
-  _TabSpec(CupertinoIcons.gear, CupertinoIcons.gear_solid, 'Cài đặt'),
+  _TabSpec(WebTuiIcons.messages, 'Tin nhắn'),
+  _TabSpec(WebTuiIcons.friends, 'Bạn bè'),
+  _TabSpec(WebTuiIcons.work, 'Công việc'),
+  _TabSpec(WebTuiIcons.settings, 'Cài đặt'),
 ];
 
 /// Thanh tab nổi dạng viên thuốc: cách mép dưới, bo tròn, đổ bóng nhẹ. Đặt làm
@@ -96,11 +92,13 @@ class WebTuiFloatingTabBar extends StatelessWidget {
   const WebTuiFloatingTabBar({
     required this.selectedIndex,
     required this.onSelected,
+    this.badges = const {},
     super.key,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onSelected;
+  final Map<int, int> badges;
 
   @override
   Widget build(BuildContext context) {
@@ -138,6 +136,7 @@ class WebTuiFloatingTabBar extends StatelessWidget {
                     child: _FloatingTabItem(
                       spec: _tabs[index],
                       selected: index == selectedIndex,
+                      badge: badges[index] ?? 0,
                       onTap: () => onSelected(index),
                     ),
                   ),
@@ -155,10 +154,12 @@ class _FloatingTabItem extends StatelessWidget {
     required this.spec,
     required this.selected,
     required this.onTap,
+    this.badge = 0,
   });
 
   final _TabSpec spec;
   final bool selected;
+  final int badge;
   final VoidCallback onTap;
 
   @override
@@ -181,19 +182,28 @@ class _FloatingTabItem extends StatelessWidget {
           ),
           padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
           decoration: BoxDecoration(
-            color: selected
-                ? scheme.primary.withValues(alpha: 0.14)
-                : Colors.transparent,
+            color: selected ? WebTuiColors.primarySoft : Colors.transparent,
             borderRadius: BorderRadius.circular(WebTuiBottomTabTokens.height),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                selected ? spec.selectedIcon : spec.icon,
-                size: WebTuiBottomTabTokens.iconSize,
-                color: color,
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(
+                    spec.icon,
+                    size: WebTuiBottomTabTokens.iconSize,
+                    color: color,
+                  ),
+                  if (badge > 0)
+                    Positioned(
+                      left: WebTuiBottomTabTokens.iconSize - 8,
+                      top: -7,
+                      child: _TabBadge(count: badge),
+                    ),
+                ],
               ),
               const SizedBox(height: 2),
               Text(
@@ -209,6 +219,40 @@ class _FloatingTabItem extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Số chưa đọc màu đỏ ở góc biểu tượng tab.
+class _TabBadge extends StatelessWidget {
+  const _TabBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = count > 99 ? '99+' : '$count';
+    return Container(
+      key: const ValueKey('tab-badge'),
+      constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE5484D),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: WebTuiColors.surface, width: 1.5),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        maxLines: 1,
+        softWrap: false,
+        style: const TextStyle(
+          fontSize: 11,
+          height: 1.1,
+          color: Colors.white,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

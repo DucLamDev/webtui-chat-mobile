@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../icons/webtui_icons.dart';
 import '../tokens/webtui_colors.dart';
 import '../tokens/webtui_density.dart';
 import '../tokens/webtui_radii.dart';
@@ -89,7 +90,7 @@ class WebTuiSettingRow extends StatelessWidget {
                 const SizedBox(width: WebTuiSpacing.sm),
                 trailing ??
                     const Icon(
-                      Icons.chevron_right_rounded,
+                      WebTuiIcons.forward,
                       color: WebTuiColors.textMuted,
                     ),
               ],
