@@ -1445,6 +1445,10 @@ ChannelMember _channelMemberFromMap(JsonMap map, {required String channelId}) {
       'last_read_message_id',
       'lastReadMessageId',
     ]),
+    lastReadAt: nullableDateTimeField(source, const [
+      'last_read_at',
+      'lastReadAt',
+    ]),
   );
 }
 

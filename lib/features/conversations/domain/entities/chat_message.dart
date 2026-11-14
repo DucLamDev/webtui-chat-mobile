@@ -356,6 +356,7 @@ final class ChannelMember {
     required this.joinedAt,
     this.avatarUrl,
     this.lastReadMessageId,
+    this.lastReadAt,
   });
 
   final String channelId;
@@ -367,6 +368,9 @@ final class ChannelMember {
   final DateTime joinedAt;
   final String? avatarUrl;
   final String? lastReadMessageId;
+
+  /// Thời điểm thành viên đọc tới (máy chủ cũ không trả thì `null`).
+  final DateTime? lastReadAt;
 }
 
 /// Kiểu MIME máy chủ lưu được tin trước, đuôi tệp chỉ dùng khi MIME thiếu / chung

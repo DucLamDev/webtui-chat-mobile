@@ -443,6 +443,7 @@ class _VoiceAttachmentWithTranscriptState
           apiBaseUri: widget.apiBaseUri,
           voice: widget.voice,
           playbackLink: _link,
+          outgoing: widget.outgoing,
         ),
         VoiceTranscriptView(attachment: widget.attachment, playbackLink: _link),
       ],

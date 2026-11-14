@@ -328,6 +328,7 @@ final class MemberDto {
     required this.status,
     required this.joinedAt,
     this.lastReadMessageId,
+    this.lastReadAt,
   });
 
   final String channelId;
@@ -338,6 +339,7 @@ final class MemberDto {
   final String status;
   final DateTime joinedAt;
   final String? lastReadMessageId;
+  final DateTime? lastReadAt;
 
   factory MemberDto.fromJson(Map<String, dynamic> json) {
     return MemberDto(
@@ -349,6 +351,7 @@ final class MemberDto {
       status: _string(json['status'], fallback: 'active'),
       joinedAt: _date(json['joined_at']),
       lastReadMessageId: _nullableString(json['last_read_message_id']),
+      lastReadAt: _nullableDate(json['last_read_at']),
     );
   }
 
@@ -362,6 +365,7 @@ final class MemberDto {
       status: status,
       joinedAt: joinedAt,
       lastReadMessageId: lastReadMessageId,
+      lastReadAt: lastReadAt,
     );
   }
 }

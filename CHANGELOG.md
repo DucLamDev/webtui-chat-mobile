@@ -4,6 +4,15 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
+## 1.23.0 · 14/11/2026
+### Tính năng
+- Màn chat mới theo ảnh mẫu, có "Đã xem"
+  Đầu trang có ảnh, tên và trạng thái hoạt động thật ("Đang hoạt động" hoặc "Hoạt động N phút trước"), nút gọi thoại,
+  gọi video và nút "…" gom các công cụ khác. Tin của mình màu xanh, của người khác màu trắng; ảnh và video hiện sát viền,
+  giờ nằm ngay trên ảnh, chú thích tách thành bong bóng riêng; tin thoại có nút phát và sóng âm; thẻ cuộc gọi có nút gọi
+  lại (cuộc gọi nhỡ chữ đỏ). Ô nhập có nút "+", biểu tượng cảm xúc trong ô, nút mic đổi thành nút gửi khi đã gõ chữ. Chat
+  1-1 hiện "Đã xem" dưới tin cuối của mình khi người kia đã đọc (cần máy chủ bản mới).
+
 ## 1.22.0 · 14/11/2026
 ### Tính năng
 - Màn Tin nhắn và tab Công việc mới theo ảnh mẫu

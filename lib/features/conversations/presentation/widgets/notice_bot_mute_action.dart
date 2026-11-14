@@ -31,7 +31,7 @@ class NoticeBotMuteAction extends ConsumerWidget {
             child: CircularProgressIndicator(
               key: Key('notice_bot_mute_saving'),
               strokeWidth: 2,
-              color: WebTuiColors.textOnPrimary,
+              color: WebTuiColors.primary,
             ),
           ),
         ),

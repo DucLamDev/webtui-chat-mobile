@@ -87,6 +87,8 @@ final class ConversationRealtimeReducer {
       // Ghép đoạn chữ do controller làm (cần tải lại tin khi thiếu đoạn).
       ConversationRealtimeEventType.messageDelta => state,
       ConversationRealtimeEventType.transcriptUpdated => state,
+      // Vị trí đọc của người kia do bộ điều khiển "Đã xem" xử lý, không đổi tin.
+      ConversationRealtimeEventType.channelReadUpdated => state,
       ConversationRealtimeEventType.typingStarted => _typing(
         state,
         event.userId,
