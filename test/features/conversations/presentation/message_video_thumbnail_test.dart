@@ -67,13 +67,22 @@ void main() {
     handle.dispose();
   });
 
-  testWidgets('không có ảnh bìa thì giữ nút tải như cũ', (tester) async {
-    await _pump(tester, _video());
-    await tester.pump();
+  testWidgets(
+    'không có ảnh bìa thì hiện ô tối có phim, tên, thời lượng, nút phát',
+    (tester) async {
+      await _pump(tester, _video());
+      await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('video-thumbnail-play')), findsNothing);
-    expect(find.byTooltip('Tải video để phát'), findsOneWidget);
-  });
+      expect(find.byKey(const ValueKey('video-thumbnail-play')), findsNothing);
+      expect(find.byKey(const ValueKey('video-placeholder')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('video-placeholder-play')),
+        findsOneWidget,
+      );
+      expect(find.text('clip.mp4'), findsOneWidget);
+      expect(find.text('0:35'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'bấm nút phát trên ảnh bìa bắt đầu tải (máy chủ không hợp lệ thì báo lỗi)',

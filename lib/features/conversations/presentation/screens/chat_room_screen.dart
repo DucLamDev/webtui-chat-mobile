@@ -1534,10 +1534,7 @@ class _ChatRoomBodyState extends State<ChatRoomBody> {
                       final showDay =
                           previous == null ||
                           !_sameDay(previous.createdAt, message.createdAt);
-                      final sameSender =
-                          previous != null &&
-                          previous.senderId == message.senderId &&
-                          !showDay;
+                      final sameSender = !startsSenderRun(previous, message);
                       final seen = widget.seenMessageId == message.id;
                       final deliveryPending =
                           message.isMine &&
@@ -1660,14 +1657,11 @@ class _ChatRoomBodyState extends State<ChatRoomBody> {
                                                 ?.avatarUrl
                                           : widget.directAvatarUrl,
                                       avatarPublicImage: widget.noticeBot,
-                                      senderName:
-                                          widget.showSenderNames &&
-                                              !message.isMine &&
-                                              !sameSender
-                                          ? widget.senderDirectory.nameOf(
-                                              message.senderId,
-                                            )
-                                          : null,
+                                      senderName: senderNameToShow(
+                                        message: message,
+                                        previous: previous,
+                                        directory: widget.senderDirectory,
+                                      ),
                                       showAvatar:
                                           !message.isMine && !sameSender,
                                       outgoing: message.isMine,
@@ -3765,7 +3759,7 @@ class _MessageRow extends StatelessWidget {
   /// Logo tổ chức của chat bot: ảnh công khai.
   final bool avatarPublicImage;
 
-  /// Tên người gửi in phía trên tin đầu của chuỗi tin cùng người (chỉ nhóm).
+  /// Tên người gửi in phía trên tin đầu của cụm tin cùng người (nhóm và nhắn riêng).
   final String? senderName;
   final bool showAvatar;
   final bool outgoing;
@@ -3807,13 +3801,24 @@ class _MessageRow extends StatelessWidget {
     final showBody = text.trim().isNotEmpty || message.isDeleted;
     final voice = message.voice;
     if (_isCallHistoryMessage(message)) {
-      return ChatCallHistoryCard(
+      final callCard = ChatCallHistoryCard(
         missed: _isMissedCallMessage(message),
         video: _callMessageMode(message) == CallMode.video,
         outgoing: outgoing,
         durationSeconds: message.callDurationSeconds,
         timeLabel: _timeLabel(message.createdAt),
         onRetry: () => onRetryCall(_callMessageMode(message)),
+      );
+      if (outgoing || senderName == null) return callCard;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.only(left: hasAvatarColumn ? 38 : 0),
+            child: _SenderName(name: senderName!),
+          ),
+          callCard,
+        ],
       );
     }
     final poll = _pollDefinition(message);

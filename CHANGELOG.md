@@ -4,6 +4,16 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
+## 1.25.0 · 14/11/2026
+### Tính năng
+- Gọi điện không còn kẹt "Đang kết nối", video có ảnh xem trước, hiện tên người gửi, biểu tượng kênh có màu
+  Cuộc gọi đi từ một thiết bị không còn đổ chuông nhầm trên thiết bị khác đăng nhập cùng tài khoản (trước đây bấm
+  nhận ở đó sẽ kẹt "Đang kết nối"). Bắt máy không được (cuộc gọi đã kết thúc hoặc đã nhận ở máy khác) thì app báo rõ rồi
+  tự đóng; sau 40 giây vẫn chưa nối được tiếng thì báo "Không kết nối được, vui lòng thử lại" và kết thúc gọn.
+  Video cũ chưa có ảnh bìa tự lấy khung hình đầu để xem trước; bấm phát là xem ngay trong lúc tải dần, không phải chờ
+  tải hết. Tin của người khác hiện tên người gửi ở tin đầu mỗi cụm, cả trong nhắn riêng lẫn nhóm. Biểu tượng kênh
+  mỗi loại một màu (Chung xanh dương, Thông báo cam, Trò chuyện xanh ngọc, bot tím...).
+
 ## 1.24.0 · 14/11/2026
 ### Tính năng
 - App gọn hơn, xem tệp ngay, hộp thoại làm mới theo góp ý đợt 2

@@ -162,6 +162,8 @@ Future<void> pumpChatRoom(
   void Function(CallMode mode)? onCall,
   GlobalKey? boundaryKey,
   Size size = const Size(390, 844),
+  MessageSenderDirectory senderDirectory = const MessageSenderDirectory.empty(),
+  ThemeData? theme,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -194,7 +196,7 @@ Future<void> pumpChatRoom(
   final body = ChatRoomBody(
     workspaceId: 'ws',
     state: state,
-    senderDirectory: const MessageSenderDirectory.empty(),
+    senderDirectory: senderDirectory,
     showSenderNames: false,
     directAvatarUrl: null,
     seenMessageId: seenMessageId,
@@ -243,7 +245,7 @@ Future<void> pumpChatRoom(
   );
   Widget app = MaterialApp(
     debugShowCheckedModeBanner: false,
-    theme: WebTuiTheme.light(),
+    theme: theme ?? WebTuiTheme.light(),
     home: Scaffold(
       backgroundColor: const Color(0xFFE8F0F7),
       appBar: withAppBar
