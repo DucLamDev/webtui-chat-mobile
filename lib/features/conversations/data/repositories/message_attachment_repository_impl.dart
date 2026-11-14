@@ -28,6 +28,27 @@ final class MessageAttachmentRepositoryImpl
   }
 
   @override
+  Future<Result<UploadedMessageFile>> uploadThumbnail({
+    required String workspaceId,
+    required String fileId,
+    required String thumbnailPath,
+    int? durationMs,
+    int? width,
+    int? height,
+  }) {
+    return guardResult(
+      () => _remote.uploadThumbnail(
+        workspaceId: workspaceId,
+        fileId: fileId,
+        thumbnailPath: thumbnailPath,
+        durationMs: durationMs,
+        width: width,
+        height: height,
+      ),
+    );
+  }
+
+  @override
   Future<Result<MessageAttachment>> attachFile({
     required String workspaceId,
     required String channelId,

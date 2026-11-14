@@ -1,6 +1,8 @@
 package com.vpsttt.webtui_chat
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.os.Build
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Handler
@@ -26,6 +28,8 @@ import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import java.io.FileOutputStream
+import java.util.concurrent.Executors
 
 /**
  * Kênh `webtui/video_compress`: nén video bằng Media3 Transformer
@@ -48,6 +52,7 @@ class VideoCompressChannel(
     private val channel = MethodChannel(messenger, "webtui/video_compress")
     private val handler = Handler(Looper.getMainLooper())
     private val jobs = HashMap<String, Job>()
+    private val posterExecutor = Executors.newSingleThreadExecutor()
 
     init {
         channel.setMethodCallHandler(this)
@@ -55,6 +60,7 @@ class VideoCompressChannel(
 
     fun dispose() {
         channel.setMethodCallHandler(null)
+        posterExecutor.shutdown()
         for (job in jobs.values.toList()) {
             finishCancelled(job)
         }
@@ -64,6 +70,7 @@ class VideoCompressChannel(
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "compress" -> compress(call, result)
+            "poster" -> poster(call, result)
             "cancel" -> {
                 val id = call.argument<String>("id")
                 val job = if (id == null) null else jobs[id]
@@ -183,6 +190,131 @@ class VideoCompressChannel(
             jobs.remove(id)
             partFile.delete()
             result.error("COMPRESS_FAILED", e.message ?: "Không bắt đầu được nén video.", null)
+        }
+    }
+
+    /**
+     * Lấy một khung hình làm ảnh bìa (JPEG, cạnh dài tối đa `maxSide`) và đọc
+     * kích thước / thời lượng video. Chạy ngoài luồng chính.
+     */
+    private fun poster(call: MethodCall, result: MethodChannel.Result) {
+        val input = call.argument<String>("input")
+        val output = call.argument<String>("output")
+        val maxSide = call.argument<Number>("maxSide")?.toInt() ?: 480
+        val timeMs = call.argument<Number>("timeMs")?.toLong() ?: 1000L
+        if (input.isNullOrEmpty() || output.isNullOrEmpty() || maxSide <= 0) {
+            result.error("INVALID_ARGUMENTS", "Thiếu tham số lấy ảnh bìa.", null)
+            return
+        }
+        val inputFile = File(input)
+        if (!inputFile.isFile) {
+            result.error("INPUT_MISSING", "Không thấy tệp video nguồn.", null)
+            return
+        }
+        try {
+            posterExecutor.execute {
+                val outcome = try {
+                    Result.success(extractPoster(inputFile, File(output), maxSide, timeMs))
+                } catch (e: Exception) {
+                    Result.failure<Map<String, Any>>(e)
+                }
+                handler.post {
+                    outcome.fold(
+                        onSuccess = { result.success(it) },
+                        onFailure = {
+                            result.error(
+                                "POSTER_FAILED",
+                                it.message ?: "Không lấy được ảnh bìa.",
+                                null,
+                            )
+                        },
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            result.error("POSTER_FAILED", e.message ?: "Không lấy được ảnh bìa.", null)
+        }
+    }
+
+    private fun extractPoster(
+        input: File,
+        output: File,
+        maxSide: Int,
+        timeMs: Long,
+    ): Map<String, Any> {
+        val partFile = File("${output.path}.part")
+        val retriever = MediaMetadataRetriever()
+        try {
+            retriever.setDataSource(input.path)
+            fun meta(key: Int) = retriever.extractMetadata(key)?.toLongOrNull()
+            val durationMs = meta(MediaMetadataRetriever.METADATA_KEY_DURATION) ?: 0L
+            val rawWidth = meta(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toInt() ?: 0
+            val rawHeight = meta(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toInt() ?: 0
+            val rotation = meta(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toInt() ?: 0
+            // Kích thước theo chiều hiển thị: xoay 90 / 270 thì đổi chỗ.
+            val swap = rotation == 90 || rotation == 270
+            val width = if (swap) rawHeight else rawWidth
+            val height = if (swap) rawWidth else rawHeight
+
+            // Video ngắn hơn mốc yêu cầu thì lấy giữa video.
+            val atMs = if (durationMs in 1..timeMs) durationMs / 2 else timeMs
+            val atUs = atMs * 1000L
+            var frame: Bitmap? = null
+            if (Build.VERSION.SDK_INT >= 27 && width > 0 && height > 0) {
+                val scale = minOf(1.0, maxSide.toDouble() / maxOf(width, height))
+                val dstW = maxOf(1, Math.round(width * scale).toInt())
+                val dstH = maxOf(1, Math.round(height * scale).toInt())
+                frame = retriever.getScaledFrameAtTime(
+                    atUs,
+                    MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
+                    dstW,
+                    dstH,
+                )
+            }
+            if (frame == null) {
+                frame = retriever.getFrameAtTime(atUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                    ?: retriever.getFrameAtTime(-1)
+            }
+            if (frame == null) throw IllegalStateException("Không đọc được khung hình.")
+            var bitmap: Bitmap = frame
+            val longest = maxOf(bitmap.width, bitmap.height)
+            if (longest > maxSide) {
+                val scale = maxSide.toDouble() / longest
+                val scaled = Bitmap.createScaledBitmap(
+                    bitmap,
+                    maxOf(1, Math.round(bitmap.width * scale).toInt()),
+                    maxOf(1, Math.round(bitmap.height * scale).toInt()),
+                    true,
+                )
+                if (scaled !== bitmap) {
+                    bitmap.recycle()
+                    bitmap = scaled
+                }
+            }
+            output.parentFile?.mkdirs()
+            partFile.delete()
+            val ok = FileOutputStream(partFile).use { stream ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 80, stream)
+            }
+            val outWidth = if (width > 0) width else bitmap.width
+            val outHeight = if (height > 0) height else bitmap.height
+            bitmap.recycle()
+            if (!ok || partFile.length() <= 0L) throw IllegalStateException("Không ghi được ảnh bìa.")
+            output.delete()
+            if (!partFile.renameTo(output)) throw IllegalStateException("Không ghi được ảnh bìa.")
+            return mapOf(
+                "path" to output.path,
+                "byteSize" to output.length(),
+                "width" to outWidth,
+                "height" to outHeight,
+                "durationMs" to durationMs,
+            )
+        } finally {
+            partFile.delete()
+            try {
+                retriever.release()
+            } catch (_: Exception) {
+            }
         }
     }
 

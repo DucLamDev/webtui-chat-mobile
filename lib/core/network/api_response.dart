@@ -93,6 +93,12 @@ int intField(JsonMap map, Iterable<String> keys, {int fallback = 0}) {
   return int.tryParse(value?.toString() ?? '') ?? fallback;
 }
 
+/// Số nguyên dương, `null` nếu thiếu / không hợp lệ / <= 0.
+int? positiveIntField(JsonMap map, Iterable<String> keys) {
+  final value = intField(map, keys);
+  return value > 0 ? value : null;
+}
+
 bool boolField(JsonMap map, Iterable<String> keys, {bool fallback = false}) {
   final value = field(map, keys);
   if (value is bool) {
