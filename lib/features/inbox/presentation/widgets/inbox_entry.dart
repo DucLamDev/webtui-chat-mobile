@@ -1,13 +1,13 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
-import '../../../../design_system/tokens/webtui_radii.dart';
-import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../controllers/inbox_access_provider.dart';
 
-/// Ô "Hộp thư khách" trên màn chính. Chỉ hiện khi máy chủ báo
+/// Dòng "Hộp thư khách" (cùng kiểu dòng hội thoại). Chỉ hiện khi máy chủ báo
 /// `capabilities.omnichannel_inbox` và người dùng có quyền xem.
 class InboxEntry extends ConsumerWidget {
   const InboxEntry({required this.workspaceId, super.key});
@@ -19,33 +19,20 @@ class InboxEntry extends ConsumerWidget {
     final access = ref.watch(inboxAccessProvider(workspaceId));
     final id = workspaceId.trim();
     if (!access.canView || id.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        WebTuiSpacing.lg,
-        WebTuiSpacing.sm,
-        WebTuiSpacing.lg,
-        0,
+    return WebTuiConversationListItem(
+      key: const Key('inbox_entry'),
+      title: 'Hộp thư khách',
+      preview: 'Tin khách từ email, Messenger, Zalo...',
+      timeLabel: '',
+      avatarLabel: 'Hộp thư khách',
+      avatarIcon: Icons.forum_outlined,
+      trailing: const Icon(
+        CupertinoIcons.chevron_right,
+        size: 18,
+        color: WebTuiColors.textMuted,
       ),
-      child: Material(
-        color: WebTuiColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(WebTuiRadii.md),
-          side: const BorderSide(color: WebTuiColors.border),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: ListTile(
-          key: const Key('inbox_entry'),
-          leading: const Icon(Icons.forum_outlined),
-          title: const Text('Hộp thư khách'),
-          subtitle: const Text('Tin khách từ email, Messenger, Zalo...'),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => context.push(
-            Uri(
-              path: '/inbox',
-              queryParameters: {'workspaceId': id},
-            ).toString(),
-          ),
-        ),
+      onTap: () => context.push(
+        Uri(path: '/inbox', queryParameters: {'workspaceId': id}).toString(),
       ),
     );
   }

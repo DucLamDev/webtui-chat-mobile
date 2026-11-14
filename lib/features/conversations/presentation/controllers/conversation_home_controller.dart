@@ -37,15 +37,13 @@ final conversationHomeControllerProvider = StateNotifierProvider.autoDispose
 /// module nội bộ (automation).
 enum ConversationListFilter { all, unread, direct, group, favorite, bot }
 
-/// Thứ tự tab hộp thư: Nghiệp vụ (kênh bot gia hạn, order... của
-/// chat.vpsttt.com) đứng ngay sau Tất cả để vào nhanh nhất.
+/// Bộ lọc hiện trên hộp thư: Tất cả, Chưa đọc, Nghiệp vụ (chỉ khi bật
+/// automation), Nhóm. Ghim chỉ là thứ tự (ghim lên đầu Tất cả), không còn tab.
 const _inboxFilterOrder = [
   ConversationListFilter.all,
-  ConversationListFilter.bot,
   ConversationListFilter.unread,
-  ConversationListFilter.direct,
+  ConversationListFilter.bot,
   ConversationListFilter.group,
-  ConversationListFilter.favorite,
 ];
 
 const _inboxFilterLabels = {
@@ -143,12 +141,9 @@ final class ConversationHomeState {
 
     for (final item in unread) {
       bump(ConversationListFilter.unread);
-      if (item.kind != ConversationKind.channel) {
-        bump(ConversationListFilter.direct);
-      } else if (!item.isAutomation) {
+      if (item.kind == ConversationKind.channel && !item.isAutomation) {
         bump(ConversationListFilter.group);
       }
-      if (item.favorite) bump(ConversationListFilter.favorite);
     }
     for (final item in quickChannels) {
       if (item.isUnread) bump(ConversationListFilter.bot);
@@ -162,9 +157,8 @@ final class ConversationHomeState {
     ];
   }
 
-  /// Kênh nghiệp vụ (bot đơn hàng, gia hạn...) cho dải truy cập nhanh đầu hộp
-  /// thư và tab Nghiệp vụ, theo thứ tự cố định của [businessChannelCatalog]
-  /// (Đơn hàng, Gia hạn, Kế toán...) để mỗi kênh luôn ở cùng một chỗ; tin chưa
+  /// Kênh nghiệp vụ (bot đơn hàng, gia hạn...) cho tab Nghiệp vụ, theo thứ tự cố định của
+  /// [businessChannelCatalog] (Đơn hàng, Gia hạn, Kế toán...) để mỗi kênh luôn ở cùng một chỗ; tin chưa
   /// đọc hiện bằng huy hiệu số. Gồm cả kênh chưa tham gia (bấm để mở phiên
   /// riêng / tham gia).
   List<ConversationSummary> get quickChannels {
@@ -185,8 +179,8 @@ final class ConversationHomeState {
 
   /// Hộp thư gộp: tin nhắn riêng và nhóm / kênh đã tham gia trong một danh
   /// sách, ghim lên đầu, còn lại theo hoạt động gần nhất (tin mới nhất trên
-  /// cùng). Kênh nghiệp vụ nằm ở dải truy cập nhanh và tab Nghiệp vụ; ở Tất
-  /// cả chỉ hiện khi đang tìm kiếm.
+  /// cùng). Kênh nghiệp vụ nằm ở tab Nghiệp vụ; ở Tất cả chỉ hiện khi
+  /// đang tìm kiếm.
   List<ConversationSummary> get inbox {
     if (messageFilter == ConversationListFilter.bot) {
       final query = searchQuery.trim().toLowerCase();

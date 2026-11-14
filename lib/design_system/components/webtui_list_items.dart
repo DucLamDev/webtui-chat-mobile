@@ -17,6 +17,7 @@ class WebTuiConversationListItem extends StatelessWidget {
     required this.avatarLabel,
     this.avatarUrl,
     this.avatarPublicImage = false,
+    this.avatarIcon,
     this.unreadCount = 0,
     this.status,
     this.muted = false,
@@ -33,6 +34,9 @@ class WebTuiConversationListItem extends StatelessWidget {
   final String avatarLabel;
   final String? avatarUrl;
   final bool avatarPublicImage;
+
+  /// Biểu tượng thay chữ cái đầu (mục nghiệp vụ như Phê duyệt, Ticket).
+  final IconData? avatarIcon;
   final int unreadCount;
   final WebTuiPresenceStatus? status;
   final bool muted;
@@ -78,6 +82,7 @@ class WebTuiConversationListItem extends StatelessWidget {
                   children: [
                     WebTuiAvatar(
                       label: avatarLabel,
+                      icon: avatarIcon,
                       imageUrl: avatarUrl,
                       allowPublicRequest: avatarPublicImage,
                       status: status,

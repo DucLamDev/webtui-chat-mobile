@@ -46,7 +46,7 @@ void main() {
     expect(filtered(ConversationListFilter.direct).joinableChannels, isEmpty);
   });
 
-  test('work channels only appear with automation, right after All', () {
+  test('work channels only appear with automation, after Unread', () {
     expect(state.inboxFilters.contains(ConversationListFilter.bot), isFalse);
     expect(state.quickChannels, isEmpty);
     expect(ids(state.inbox).contains('orders'), isFalse);
@@ -58,10 +58,14 @@ void main() {
       automationEnabled: true,
       messageFilter: ConversationListFilter.bot,
     );
-    expect(internal.inboxFilterLabels.take(2), ['Tất cả', 'Nghiệp vụ']);
+    expect(internal.inboxFilterLabels, [
+      'Tất cả',
+      'Chưa đọc 1',
+      'Nghiệp vụ',
+      'Nhóm',
+    ]);
     expect(ids(internal.inbox), ['orders']);
-    // Ở Tất cả kênh nghiệp vụ nằm ở dải truy cập nhanh, không chen vào danh
-    // sách; tìm kiếm thì vẫn ra.
+    // Ở Tất cả kênh nghiệp vụ không chen vào danh sách; tìm kiếm thì vẫn ra.
     final all = internal.copyWith(messageFilter: ConversationListFilter.all);
     expect(ids(all.inbox).contains('orders'), isFalse);
     expect(ids(all.copyWith(searchQuery: 'đơn').inbox), ['orders']);
@@ -97,17 +101,11 @@ void main() {
     );
 
     expect(ids(internal.quickChannels), ['order', 'renew', 'proxy', 'custom']);
-    expect(internal.inboxFilterLabels[1], 'Nghiệp vụ 1');
+    expect(internal.inboxFilterLabels[2], 'Nghiệp vụ 1');
   });
 
   test('tab labels show unread counts', () {
-    expect(state.inboxFilterLabels, [
-      'Tất cả',
-      'Chưa đọc 1',
-      'Cá nhân 1',
-      'Nhóm',
-      'Ghim',
-    ]);
+    expect(state.inboxFilterLabels, ['Tất cả', 'Chưa đọc 1', 'Nhóm']);
   });
 
   test('search covers people and groups', () {

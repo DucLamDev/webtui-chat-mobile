@@ -75,6 +75,7 @@ dependencies:
   mobile_scanner: ^7.4.0
   receive_sharing_intent: 1.8.1
   livekit_client: ^2.13.2
+  lucide_icons_flutter: ^4.0.3
 
 dev_dependencies:
   flutter_test:

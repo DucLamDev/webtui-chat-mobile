@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../tokens/webtui_colors.dart';
 import '../tokens/webtui_density.dart';
+import '../tokens/webtui_spacing.dart';
 import '../tokens/webtui_typography.dart';
 
 class WebTuiMobileScaffold extends StatelessWidget {
@@ -57,32 +58,158 @@ class WebTuiMobileScaffold extends StatelessWidget {
             ),
       body: SafeArea(top: !showAppBar, child: body),
       floatingActionButton: floatingActionButton,
-      bottomNavigationBar: NavigationBar(
-        height: WebTuiBottomTabTokens.height,
+      bottomNavigationBar: WebTuiFloatingTabBar(
         selectedIndex: selectedTab,
-        onDestinationSelected: onTabSelected,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(CupertinoIcons.chat_bubble_2),
-            selectedIcon: Icon(CupertinoIcons.chat_bubble_2_fill),
-            label: 'Tin nhắn',
+        onSelected: onTabSelected,
+      ),
+    );
+  }
+}
+
+class _TabSpec {
+  const _TabSpec(this.icon, this.selectedIcon, this.label);
+
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
+}
+
+const _tabs = [
+  _TabSpec(
+    CupertinoIcons.chat_bubble_2,
+    CupertinoIcons.chat_bubble_2_fill,
+    'Tin nhắn',
+  ),
+  _TabSpec(CupertinoIcons.person_2, CupertinoIcons.person_2_fill, 'Bạn bè'),
+  _TabSpec(
+    CupertinoIcons.briefcase,
+    CupertinoIcons.briefcase_fill,
+    'Công việc',
+  ),
+  _TabSpec(CupertinoIcons.gear, CupertinoIcons.gear_solid, 'Cài đặt'),
+];
+
+/// Thanh tab nổi dạng viên thuốc: cách mép dưới, bo tròn, đổ bóng nhẹ. Đặt làm
+/// `bottomNavigationBar` nên phần thân luôn kết thúc phía trên thanh (không bị
+/// che), kể cả vùng an toàn dưới cùng.
+class WebTuiFloatingTabBar extends StatelessWidget {
+  const WebTuiFloatingTabBar({
+    required this.selectedIndex,
+    required this.onSelected,
+    super.key,
+  });
+
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.only(bottom: WebTuiBottomTabTokens.margin),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          WebTuiBottomTabTokens.margin,
+          WebTuiSpacing.xs,
+          WebTuiBottomTabTokens.margin,
+          0,
+        ),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.surface.withValues(alpha: 0.96),
+            borderRadius: BorderRadius.circular(WebTuiBottomTabTokens.height),
+            border: Border.all(color: scheme.outlineVariant),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.14),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(CupertinoIcons.person_2),
-            selectedIcon: Icon(CupertinoIcons.person_2_fill),
-            label: 'Bạn bè',
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: Row(
+              children: [
+                for (var index = 0; index < _tabs.length; index++)
+                  Expanded(
+                    child: _FloatingTabItem(
+                      spec: _tabs[index],
+                      selected: index == selectedIndex,
+                      onTap: () => onSelected(index),
+                    ),
+                  ),
+              ],
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(CupertinoIcons.briefcase),
-            selectedIcon: Icon(CupertinoIcons.briefcase_fill),
-            label: 'Công việc',
+        ),
+      ),
+    );
+  }
+}
+
+class _FloatingTabItem extends StatelessWidget {
+  const _FloatingTabItem({
+    required this.spec,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _TabSpec spec;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = selected ? scheme.primary : scheme.onSurfaceVariant;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: spec.label,
+      excludeSemantics: true,
+      child: InkWell(
+        key: ValueKey('tab-${spec.label}'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(WebTuiBottomTabTokens.height),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          constraints: const BoxConstraints(
+            minHeight: WebTuiBottomTabTokens.height - 8,
           ),
-          NavigationDestination(
-            icon: Icon(CupertinoIcons.gear),
-            selectedIcon: Icon(CupertinoIcons.gear_solid),
-            label: 'Cài đặt',
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+          decoration: BoxDecoration(
+            color: selected
+                ? scheme.primary.withValues(alpha: 0.14)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(WebTuiBottomTabTokens.height),
           ),
-        ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                selected ? spec.selectedIcon : spec.icon,
+                size: WebTuiBottomTabTokens.iconSize,
+                color: color,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                spec.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  height: 1.2,
+                  color: color,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

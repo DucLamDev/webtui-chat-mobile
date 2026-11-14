@@ -11,7 +11,11 @@ final class WebTuiListDensity {
 final class WebTuiBottomTabTokens {
   const WebTuiBottomTabTokens._();
 
+  /// Chiều cao thanh nổi (không gồm lề và vùng an toàn).
   static const double height = 62;
+
+  /// Lề trái / phải / dưới của thanh nổi so với mép màn hình.
+  static const double margin = 14;
   static const double iconSize = 22;
   static const int tabCount = 4;
 }
