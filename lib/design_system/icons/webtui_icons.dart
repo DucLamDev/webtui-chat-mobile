@@ -69,6 +69,36 @@ abstract final class WebTuiIcons {
   static const IconData file = LucideIcons.fileText;
   static const IconData audioFile = LucideIcons.fileAudio;
   static const IconData videoFile = LucideIcons.fileVideo;
+
+  // Cuộc gọi trong lịch sử chat (hướng gọi).
+  static const IconData phoneIncoming = LucideIcons.phoneIncoming;
+  static const IconData phoneOutgoing = LucideIcons.phoneOutgoing;
+  static const IconData videoOff = LucideIcons.videoOff;
+  static const IconData poll = LucideIcons.chartColumn;
+
+  // Nhóm và thành viên.
+  static const IconData group = LucideIcons.usersRound;
+  static const IconData addMember = LucideIcons.userRoundPlus;
+  static const IconData selected = LucideIcons.circleCheck;
+  static const IconData unselected = LucideIcons.circle;
+  static const IconData check = LucideIcons.check;
+
+  // Tệp, thư mục, ghi chú.
+  static const IconData imageFile = LucideIcons.fileImage;
+  static const IconData spreadsheetFile = LucideIcons.fileSpreadsheet;
+  static const IconData share = LucideIcons.share2;
+  static const IconData refresh = LucideIcons.refreshCw;
+  static const IconData folderPlus = LucideIcons.folderPlus;
+  static const IconData folderOpen = LucideIcons.folderOpen;
+  static const IconData folderEdit = LucideIcons.folderPen;
+  static const IconData tag = LucideIcons.tag;
+  static const IconData filter = LucideIcons.slidersHorizontal;
+
+  // Bảo mật / xác thực.
+  static const IconData lock = LucideIcons.lockKeyhole;
+  static const IconData fingerprint = LucideIcons.fingerprint;
+  static const IconData key = LucideIcons.keyRound;
+  static const IconData shieldCheck = LucideIcons.shieldCheck;
 }
 
 /// Khoá biểu tượng lối tắt ứng dụng do máy chủ trả về (danh sách cố định, cùng
