@@ -1262,6 +1262,12 @@ ConversationSummary _channelFromMap(JsonMap map) {
   final visibility = _visibilityFromApi(
     stringField(map, const ['type', 'kind'], fallback: 'public'),
   );
+  // Thời điểm tin mới nhất của kênh; máy chủ cũ không trả / kênh chưa có tin
+  // thì `null`.
+  final lastMessageAt = nullableDateTimeField(map, const [
+    'last_message_at',
+    'lastMessageAt',
+  ]);
   return ConversationSummary(
     id: channelId,
     workspaceId: workspaceId,
@@ -1273,7 +1279,9 @@ ConversationSummary _channelFromMap(JsonMap map) {
     preview: stringField(map, const ['description', 'preview']),
     avatarLabel: _avatarLabel(stringField(map, const ['name', 'title'])),
     avatarUrl: nullableStringField(map, const ['avatar_url', 'avatarUrl']),
-    updatedAt: dateTimeField(map, const ['updated_at', 'updatedAt']),
+    // Có thời điểm tin cuối thì xếp / hiện giờ theo tin cuối như chat 1-1.
+    updatedAt:
+        lastMessageAt ?? dateTimeField(map, const ['updated_at', 'updatedAt']),
     unreadCount: intField(map, const ['unread_count', 'unreadCount']),
     favorite: boolField(map, const ['is_favorite', 'favorite']),
     muted:
@@ -1292,6 +1300,7 @@ ConversationSummary _channelFromMap(JsonMap map) {
     isAutomation: boolField(map, const ['is_automation', 'isAutomation']),
     noticeBot: boolField(map, const ['notice_bot', 'noticeBot']),
     slug: nullableStringField(map, const ['slug']),
+    lastMessageAt: lastMessageAt,
   );
 }
 

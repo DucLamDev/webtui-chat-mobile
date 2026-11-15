@@ -331,6 +331,7 @@ Map<String, Object?> _conversationToJson(ConversationSummary item) {
     'isAutomation': item.isAutomation,
     'noticeBot': item.noticeBot,
     'slug': item.slug,
+    'lastMessageAt': item.lastMessageAt?.toUtc().toIso8601String(),
   };
 }
 
@@ -372,6 +373,7 @@ ConversationSummary _conversationFromJson(Map<String, Object?> json) {
     isAutomation: _bool(json['isAutomation']),
     noticeBot: _bool(json['noticeBot']),
     slug: _nullableString(json['slug']),
+    lastMessageAt: _dateTime(json['lastMessageAt']),
   );
 }
 

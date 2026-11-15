@@ -35,4 +35,8 @@ Phase M4 triển khai feature-first Clean Architecture cho màn Tin nhắn, Danh
 - "Nén + tải lên" chạy trong `MessageMediaUploader` dùng chung toàn app (không tải trùng một tệp, thoát phòng vẫn
   tải tiếp). Bấm Gửi khi tệp chưa tải xong: tin vào hàng chờ với `pending_uploads`, bộ gửi tin chờ tải nốt ở nền
   (không chặn tin chữ gửi sau) rồi mới gửi tin.
+- Tin nhắn gộp chat 1-1 và kênh (`domain/entities/inbox_channel_rules.dart`): kênh nội bộ (`slug` general /
+  announcements / random / chung / thong-bao / tro-chuyen) luôn có; kênh khác đã tham gia chỉ khi có
+  `last_message_at` (trường tuỳ chọn của danh sách kênh), còn tin chưa đọc hoặc đang mở. Mọi kênh đã tham gia và
+  kênh công khai có thể tham gia nằm ở Danh bạ > Kênh.
 - Tìm kiếm nhanh trong danh sách hiện tại chạy trên dữ liệu API đã tải; tìm kiếm nội dung đầy đủ dùng endpoint search phía server.

@@ -148,6 +148,27 @@ void main() {
     expect(find.text('Đơn hàng'), findsNothing);
   });
 
+  testWidgets('Tin nhắn: kênh nội bộ luôn hiện, kênh chưa có tin thì không, '
+      'bỏ khu nhóm có thể tham gia', (tester) async {
+    await pump(
+      tester,
+      automation: false,
+      directs: [_item('dm', 'Lan', channel: false)],
+      channels: [
+        _item('g', 'Chung', slug: 'general', hasMessages: false),
+        _item('a', 'Dự án A'),
+        _item('q', 'Nhóm im lặng', hasMessages: false),
+        _item('m', 'Kênh mở', member: false),
+      ],
+    );
+    expect(find.text('Lan'), findsOneWidget);
+    expect(find.text('Chung'), findsOneWidget);
+    expect(find.text('Dự án A'), findsOneWidget);
+    expect(find.text('Nhóm im lặng'), findsNothing);
+    expect(find.text('Kênh mở'), findsNothing);
+    expect(find.text('Nhóm có thể tham gia'), findsNothing);
+  });
+
   testWidgets('tắt nghiệp vụ: chỉ còn 4 chip', (tester) async {
     await pump(
       tester,
@@ -474,6 +495,9 @@ ConversationSummary _item(
   bool private = false,
   String? peer,
   bool muted = false,
+  bool member = true,
+  // Kênh trong bài test mặc định đã có tin (máy chủ trả `last_message_at`).
+  bool hasMessages = true,
 }) {
   return ConversationSummary(
     id: id,
@@ -491,11 +515,12 @@ ConversationSummary _item(
     favorite: favorite,
     unreadCount: unread,
     noticeBot: notice,
-    membershipStatus: MembershipStatus.active,
+    membershipStatus: member ? MembershipStatus.active : MembershipStatus.none,
     isAutomation: automation,
     slug: slug,
     peerUserId: peer,
     muted: muted,
+    lastMessageAt: channel && hasMessages ? DateTime.utc(2026, 7, 16) : null,
   );
 }
 

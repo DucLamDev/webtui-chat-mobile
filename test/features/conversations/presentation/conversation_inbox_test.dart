@@ -50,7 +50,68 @@ void main() {
       'general',
     ]);
     expect(ids(filtered(ConversationListFilter.favorite).inbox), ['pinned']);
-    expect(filtered(ConversationListFilter.direct).joinableChannels, isEmpty);
+    // Kênh có thể tham gia nằm ở Danh bạ > Kênh, không theo chip của Tin nhắn.
+    expect(ids(filtered(ConversationListFilter.direct).joinableChannels), [
+      'public',
+    ]);
+  });
+
+  group('Tin nhắn: kênh nội bộ luôn có, kênh khác khi đã có tin', () {
+    final mixed = ConversationHomeState(
+      workspaceId: 'workspace-1',
+      conversations: [_item('dm', 'Lan', hour: 9)],
+      channels: [
+        _item(
+          'chung',
+          'Chung',
+          hour: 1,
+          group: true,
+          slug: 'general',
+          hasMessages: false,
+        ),
+        _item('du-an', 'Dự án A', hour: 11, group: true),
+        _item(
+          'im-lang',
+          'Nhóm im lặng',
+          hour: 12,
+          group: true,
+          hasMessages: false,
+        ),
+        _item(
+          'chua-doc',
+          'Nhóm máy chủ cũ',
+          hour: 3,
+          group: true,
+          unread: 1,
+          hasMessages: false,
+        ),
+      ],
+    );
+
+    test('hộp thư gộp và xếp theo tin mới nhất', () {
+      expect(ids(mixed.inbox), ['du-an', 'dm', 'chua-doc', 'chung']);
+      expect(
+        ids(mixed.copyWith(messageFilter: ConversationListFilter.group).inbox),
+        ['du-an', 'chua-doc', 'chung'],
+      );
+    });
+
+    test('kênh chưa có tin vẫn ở Danh bạ > Kênh', () {
+      expect(ids(mixed.joinedChannels), [
+        'chung',
+        'du-an',
+        'im-lang',
+        'chua-doc',
+      ]);
+      expect(ids(mixed.copyWith(searchQuery: 'im lặng').joinedChannels), [
+        'im-lang',
+      ]);
+    });
+
+    test('kênh đang mở (màn rộng) không biến mất dù chưa có tin', () {
+      final opened = mixed.copyWith(selectedConversation: mixed.channels[2]);
+      expect(ids(opened.inbox), contains('im-lang'));
+    });
   });
 
   test('work channels only appear with automation, after Unread', () {
@@ -349,6 +410,8 @@ ConversationSummary _item(
   bool muted = false,
   bool mutedMember = false,
   bool notice = false,
+  // Kênh trong bài test mặc định đã có tin (máy chủ trả `last_message_at`).
+  bool hasMessages = true,
 }) {
   return ConversationSummary(
     id: id,
@@ -373,5 +436,8 @@ ConversationSummary _item(
     peerUserId: peer,
     muted: muted,
     noticeBot: notice,
+    lastMessageAt: group && hasMessages
+        ? DateTime.utc(2026, 10, 27, hour)
+        : null,
   );
 }

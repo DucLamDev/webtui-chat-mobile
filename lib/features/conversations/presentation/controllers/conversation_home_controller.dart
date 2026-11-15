@@ -9,6 +9,7 @@ import '../../application/use_cases/load_conversation_home_use_case.dart';
 import '../../application/use_cases/open_direct_conversation_use_case.dart';
 import '../../domain/entities/business_channel_catalog.dart';
 import '../../domain/entities/conversation_summary.dart';
+import '../../domain/entities/inbox_channel_rules.dart';
 import '../models/conversation_privacy_projection.dart';
 
 final conversationHomeControllerProvider = StateNotifierProvider.autoDispose
@@ -207,7 +208,8 @@ final class ConversationHomeState {
   }
 
   /// Hộp thư gộp: tin nhắn riêng và nhóm / kênh đã tham gia trong một danh
-  /// sách, ghim lên đầu, còn lại theo hoạt động gần nhất (tin mới nhất trên
+  /// sách (kênh thường chỉ khi là kênh nội bộ mặc định hoặc đã có tin, xem
+  /// [shouldShowChannelInInbox]), ghim lên đầu, còn lại theo hoạt động gần nhất (tin mới nhất trên
   /// cùng). Kênh nghiệp vụ nằm ở tab Nghiệp vụ; ở Tất cả chỉ hiện khi
   /// đang tìm kiếm.
   List<ConversationSummary> get inbox {
@@ -224,17 +226,33 @@ final class ConversationHomeState {
       filter: messageFilter,
       query: searchQuery,
       automationEnabled: automationEnabled,
+      // Kênh đang mở (màn rộng) không biến mất khỏi danh sách dù chưa có tin.
+      openChannelId: selectedConversation?.channelId,
     );
   }
 
-  /// Kênh công khai chưa tham gia (gợi ý ở cuối hộp thư khi xem Tất cả / Nhóm).
-  List<ConversationSummary> get joinableChannels {
-    if (messageFilter != ConversationListFilter.all &&
-        messageFilter != ConversationListFilter.group) {
-      return const [];
-    }
+  /// Danh bạ > Kênh, phần "Đã tham gia": kênh / nhóm mình là thành viên (cả
+  /// kênh chưa có tin), xếp theo tên; lọc theo ô tìm (tên kênh). Không gồm
+  /// kênh bot nghiệp vụ (ở tab Nghiệp vụ), chat bot thông báo và kênh hệ
+  /// thống bị ẩn.
+  List<ConversationSummary> get joinedChannels {
     final query = searchQuery.trim().toLowerCase();
-    return channels
+    final result = channels
+        .where((channel) {
+          if (!channel.isMember || !_isGroupChat(channel)) return false;
+          if (isHiddenSystemChannel(channel)) return false;
+          return _matchesChannelName(channel, query);
+        })
+        .toList(growable: false);
+    result.sort(_compareChannelName);
+    return result;
+  }
+
+  /// Danh bạ > Kênh, phần "Có thể tham gia": kênh công khai chưa tham gia (bấm
+  /// để xem và xin / tham gia), xếp theo tên; lọc theo ô tìm (tên kênh).
+  List<ConversationSummary> get joinableChannels {
+    final query = searchQuery.trim().toLowerCase();
+    final result = channels
         .where((channel) {
           if (channel.isMember || channel.isAutomation) return false;
           if (isHiddenSystemChannel(channel)) return false;
@@ -242,10 +260,11 @@ final class ConversationHomeState {
           if (channel.channelVisibility != ChannelVisibility.public) {
             return false;
           }
-          if (query.isEmpty) return true;
-          return channel.title.toLowerCase().contains(query);
+          return _matchesChannelName(channel, query);
         })
         .toList(growable: false);
+    result.sort(_compareChannelName);
+    return result;
   }
 
   List<ConversationSummary> get filteredConversations {
@@ -569,21 +588,16 @@ List<ConversationSummary> _buildInbox({
   required ConversationListFilter filter,
   required String query,
   required bool automationEnabled,
+  String? openChannelId,
 }) {
   final normalizedQuery = query.trim().toLowerCase();
-  final seen = <String>{};
-  final items = <ConversationSummary>[];
-  void add(ConversationSummary item) {
-    if (seen.add(item.channelId)) items.add(item);
-  }
-
-  for (final direct in directs) {
-    add(direct);
-  }
-  for (final channel in channels) {
-    // Kênh chưa tham gia không nằm trong hộp thư (gợi ý riêng ở cuối).
-    if (channel.isMember || channel.privateSessionMode) add(channel);
-  }
+  // Kênh chưa tham gia không vào hộp thư (ở Danh bạ > Kênh); kênh thường đã
+  // tham gia chỉ vào khi là kênh nội bộ mặc định hoặc đã có tin.
+  final items = mergeInboxConversations(
+    directs: directs,
+    channels: channels,
+    openChannelId: openChannelId,
+  );
 
   final result = items
       .where((item) {
@@ -605,7 +619,6 @@ List<ConversationSummary> _buildInbox({
         );
       })
       .toList(growable: false);
-  result.sort(_compareInbox);
   return result;
 }
 
@@ -629,12 +642,11 @@ bool _matchesQuery(ConversationSummary item, String normalizedQuery) {
   );
 }
 
-/// Ghim trước; sau đó hội thoại có tin mới nhất trước; bằng thời gian thì
-/// hội thoại chưa đọc trước, rồi theo tên để thứ tự ổn định.
-int _compareInbox(ConversationSummary left, ConversationSummary right) {
-  if (left.favorite != right.favorite) return left.favorite ? -1 : 1;
-  final byTime = right.updatedAt.compareTo(left.updatedAt);
-  if (byTime != 0) return byTime;
-  if (left.isUnread != right.isUnread) return left.isUnread ? -1 : 1;
+bool _matchesChannelName(ConversationSummary channel, String normalizedQuery) {
+  return normalizedQuery.isEmpty ||
+      channel.title.toLowerCase().contains(normalizedQuery);
+}
+
+int _compareChannelName(ConversationSummary left, ConversationSummary right) {
   return left.title.toLowerCase().compareTo(right.title.toLowerCase());
 }
