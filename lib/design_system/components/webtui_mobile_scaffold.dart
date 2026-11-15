@@ -245,16 +245,19 @@ class _TabBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(9),
         border: Border.all(color: WebTuiColors.surface, width: 1.5),
       ),
-      alignment: Alignment.center,
-      child: Text(
-        label,
-        maxLines: 1,
-        softWrap: false,
-        style: const TextStyle(
-          fontSize: 11,
-          height: 1.1,
-          color: Colors.white,
-          fontWeight: FontWeight.w700,
+      child: Center(
+        widthFactor: 1,
+        heightFactor: 1,
+        child: Text(
+          label,
+          maxLines: 1,
+          softWrap: false,
+          style: const TextStyle(
+            fontSize: 11,
+            height: 1.1,
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );

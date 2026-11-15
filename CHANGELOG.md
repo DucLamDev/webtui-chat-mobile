@@ -16,6 +16,8 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   đang mở); "Hệ thống" thì theo chế độ sáng / tối của điện thoại. Màn đăng nhập vẫn giữ nền sáng. Tệp chia sẻ → Video:
   video cũ chưa có ảnh xem trước nay được app tự lấy một khung hình làm ảnh bìa (lấy ngay trên máy, lưu lại cho lần
   sau), không còn ô đen. Trên iPhone, video dạng WebM không lấy được ảnh nên vẫn hiện biểu tượng video.
+  Số tin chưa đọc (danh sách tin, thanh tab dưới, lối tắt Ticket khách) luôn là viên tròn gọn 18px, giãn ngang theo
+  số ("99+"), không còn bị kéo dài thành hình bầu dục.
 
 ## 1.27.2 · 15/11/2026
 ### Sửa lỗi

@@ -31,7 +31,11 @@ class WebTuiUnreadBadge extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.xs),
+          // Hệ số 1: không giãn theo chiều cao / rộng chỗ chứa (vd dòng cao cố
+          // định), huy hiệu luôn gọn.
           child: Center(
+            widthFactor: 1,
+            heightFactor: 1,
             child: Text(
               label,
               maxLines: 1,
