@@ -223,7 +223,14 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
           ..._channelSlivers(context, state, controller)
         else
           ..._colleagueSlivers(context, state, controller),
-        const SliverToBoxAdapter(child: SizedBox(height: WebTuiSpacing.lg)),
+        // Đệm đáy: mục cuối cuộn lên được trên thanh tab nổi.
+        SliverToBoxAdapter(
+          child: SizedBox(
+            height:
+                WebTuiSpacing.lg +
+                WebTuiFloatingTabBar.contentBottomPadding(context),
+          ),
+        ),
       ],
     );
   }
@@ -513,7 +520,14 @@ class _MessagesList extends StatelessWidget {
               },
             ),
           ],
-          const SliverToBoxAdapter(child: SizedBox(height: WebTuiSpacing.lg)),
+          // Đệm đáy: hội thoại cuối cuộn lên được trên thanh tab nổi.
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height:
+                  WebTuiSpacing.lg +
+                  WebTuiFloatingTabBar.contentBottomPadding(context),
+            ),
+          ),
         ],
       ),
     );

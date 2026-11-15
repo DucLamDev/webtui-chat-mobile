@@ -55,11 +55,12 @@ class WorkspaceToolsScreen extends ConsumerWidget {
         .toList(growable: false);
     return ListView(
       key: const Key('workspace_tools_list'),
-      padding: const EdgeInsets.fromLTRB(
+      // Đệm đáy gồm chỗ của thanh tab nổi: khu Ứng dụng không bị che.
+      padding: EdgeInsets.fromLTRB(
         WebTuiSpacing.lg,
         WebTuiSpacing.md,
         WebTuiSpacing.lg,
-        WebTuiSpacing.xxl,
+        WebTuiSpacing.xxl + WebTuiFloatingTabBar.contentBottomPadding(context),
       ),
       children: [
         MyTasksCard(workspaceId: id),

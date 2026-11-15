@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/core/error/failure.dart';
+import 'package:webtui_chat/design_system/components/webtui_mobile_scaffold.dart';
 import 'package:webtui_chat/design_system/icons/webtui_icons.dart';
 import 'package:webtui_chat/features/conversations/domain/entities/collaboration_room.dart';
+import 'package:webtui_chat/features/conversations/presentation/screens/workspace_tools_screen.dart';
 import 'package:webtui_chat/features/work_hub/domain/entities/work_hub.dart';
 import 'package:webtui_chat/features/work_hub/presentation/screens/meetings_screen.dart';
 import 'package:webtui_chat/features/work_hub/presentation/screens/my_tasks_screen.dart';
@@ -544,6 +546,94 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Chốt báo cáo tháng 9'), findsOneWidget);
+    });
+  });
+
+  group('khu Ứng dụng', () {
+    testWidgets('ô Lịch họp, Tệp chia sẻ, Thêm cùng cỡ, chữ thẳng hàng', (
+      tester,
+    ) async {
+      phone(tester);
+      await tester.pumpWidget(
+        workHubApp(
+          repository: FakeWorkHubRepository(canManage: true),
+          tasks: FakeTaskRepository([]),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final boxes = find.byKey(const Key('app_tile_icon_box'));
+      expect(boxes, findsNWidgets(3));
+      final rects = [for (var i = 0; i < 3; i++) tester.getRect(boxes.at(i))];
+      for (final rect in rects) {
+        // Ô màu và ô "Thêm" viền đứt cùng kích thước ngoài, cùng hàng.
+        expect(rect.width, moreOrLessEquals(52));
+        expect(rect.height, moreOrLessEquals(52));
+        expect(rect.top, moreOrLessEquals(rects.first.top));
+      }
+      final icons = [
+        WebTuiIcons.meetings,
+        WebTuiIcons.sharedFiles,
+        WebTuiIcons.add,
+      ].map((icon) => tester.widget<Icon>(find.byIcon(icon)).size);
+      expect(icons.toSet(), {26});
+      final labels = [
+        'Lịch họp',
+        'Tệp chia sẻ',
+        'Thêm',
+      ].map((label) => tester.getRect(find.text(label)));
+      for (final rect in labels) {
+        expect(rect.top, moreOrLessEquals(labels.first.top));
+      }
+      final tiles = [
+        find.byKey(const Key('app_meetings')),
+        find.byKey(const Key('app_shared_files')),
+        find.byKey(const Key('app_add')),
+      ].map((finder) => tester.getSize(finder)).toList();
+      for (final size in tiles) {
+        expect(size.width, moreOrLessEquals(tiles.first.width));
+        expect(size.height, moreOrLessEquals(tiles.first.height));
+      }
+      expect(find.text('Chưa có lối tắt'), findsOneWidget);
+    });
+
+    testWidgets('trong thanh tab nổi: khu Ứng dụng cuộn lên trên thanh', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 700);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(bottom: 34);
+      tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        workHubApp(
+          repository: FakeWorkHubRepository(canManage: true),
+          tasks: FakeTaskRepository([]),
+          home: WebTuiMobileScaffold(
+            title: 'Công việc',
+            showAppBar: false,
+            selectedTab: 2,
+            onTabSelected: (_) {},
+            body: const WorkspaceToolsScreen(workspaceId: 'ws'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byKey(const Key('workspace_tools_list')),
+        const Offset(0, -3000),
+      );
+      await tester.pumpAndSettle();
+      final pill = tester.getRect(
+        find.byKey(const ValueKey('floating-tab-bar-pill')),
+      );
+      expect(
+        tester.getRect(find.text('Chưa có lối tắt')).bottom,
+        lessThanOrEqualTo(pill.top),
+      );
+      expect(
+        tester.getRect(find.byKey(const Key('app_add'))).bottom,
+        lessThanOrEqualTo(pill.top),
+      );
     });
   });
 }

@@ -265,7 +265,8 @@ Future<void> pumpChatRoom(
               onDetails: noop,
             )
           : null,
-      body: SafeArea(top: false, child: body),
+      // Giống màn thật: thanh cuối thân tự lo vùng an toàn đáy.
+      body: SafeArea(top: false, bottom: false, child: body),
     ),
   );
   if (boundaryKey != null) {

@@ -2185,7 +2185,12 @@ class SettingsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.only(bottom: WebTuiSpacing.lg),
+      // Đệm đáy gồm chỗ của thanh tab nổi: mục cuối không bị che.
+      padding: EdgeInsets.only(
+        bottom:
+            WebTuiSpacing.lg +
+            WebTuiFloatingTabBar.contentBottomPadding(context),
+      ),
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(
