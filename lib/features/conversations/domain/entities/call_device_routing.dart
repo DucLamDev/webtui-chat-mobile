@@ -23,6 +23,19 @@ bool callAnsweredOnThisDevice({
   return answered != null && local != null && _sameCallDevice(answered, local);
 }
 
+/// Cuộc gọi do chính máy này tạo (`initiator_device_id` trùng mã máy). Thiếu
+/// một trong hai mã thì không kết luận được: trả `false`.
+bool callPlacedFromThisDevice({
+  required String? initiatorDeviceId,
+  required String? localDeviceId,
+}) {
+  final initiator = normalizedCallDeviceId(initiatorDeviceId);
+  final local = normalizedCallDeviceId(localDeviceId);
+  return initiator != null &&
+      local != null &&
+      _sameCallDevice(initiator, local);
+}
+
 /// Cuộc gọi đã được nhận trên một máy khác của cùng người dùng. Thiếu mã
 /// (máy chủ cũ hoặc chưa đọc được mã máy) thì không kết luận được: trả `false`
 /// để giữ hành vi cũ.

@@ -5,6 +5,7 @@ import '../../../../core/result/result.dart';
 import '../../../auth/domain/repositories/device_identity_repository.dart';
 import '../../domain/entities/call_session.dart';
 import '../../domain/repositories/call_repository.dart';
+import '../incoming_call_ring_gate.dart';
 
 /// Mã thiết bị gửi kèm khi tạo / nhận / từ chối cuộc gọi: chính là mã máy đã
 /// đăng ký push, để máy chủ biết máy nào đã nhận và báo các máy còn lại ngừng
@@ -39,12 +40,17 @@ final class StartCallUseCase {
     this._repository, {
     Uuid uuid = const Uuid(),
     ResolveCallDeviceIdUseCase? resolveDeviceId,
+    OutgoingCallRegistry? outgoingCalls,
   }) : _uuid = uuid,
-       _resolveDeviceId = resolveDeviceId;
+       _resolveDeviceId = resolveDeviceId,
+       _outgoingCalls = outgoingCalls;
 
   final CallRepository _repository;
   final Uuid _uuid;
   final ResolveCallDeviceIdUseCase? _resolveDeviceId;
+
+  /// Ghi nhớ cuộc gọi đi để máy này không tự hiện "Cuộc gọi đến" cho nó.
+  final OutgoingCallRegistry? _outgoingCalls;
 
   Future<Result<CallSession>> execute({
     required String workspaceId,
@@ -77,15 +83,23 @@ final class StartCallUseCase {
     required String targetUserId,
     required CallMode mode,
   }) async {
-    return _repository.createCall(
+    final clientCallId = _uuid.v4();
+    // Ghi trước khi gửi: `CallInvited` có thể tới trước kết quả tạo cuộc gọi.
+    _outgoingCalls?.rememberClientCallId(clientCallId);
+    final result = await _repository.createCall(
       workspaceId: workspaceId,
       channelId: channelId,
       targetUserId: targetUserId,
       mode: mode,
-      clientCallId: _uuid.v4(),
+      clientCallId: clientCallId,
       metadata: const {'client': 'mobile'},
       deviceId: await _resolveDeviceId?.execute(),
     );
+    final call = result.valueOrNull;
+    if (call != null) {
+      _outgoingCalls?.rememberCall(call.id, clientCallId: clientCallId);
+    }
+    return result;
   }
 }
 

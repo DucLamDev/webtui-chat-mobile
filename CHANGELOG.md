@@ -14,6 +14,17 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   ngày sau mới nhắc lại. Từ chối ở hộp của điện thoại thì app không nhắc nữa, người dùng tự bật trong cài đặt điện
   thoại. iPhone còn cần máy chủ cài khoá Apple (APNs) mới đổ chuông được khi tắt app.
 
+## 1.28.0 · 15/11/2026
+### Tính năng
+- Ảnh đại diện nhóm; người gọi không còn thấy hộp "Cuộc gọi đến" của chính cuộc mình gọi
+  Nhóm có ảnh đại diện: mở thông tin nhóm, bấm "Đổi ảnh nhóm" (hoặc bấm vào ảnh nhóm), chụp mới hay chọn ảnh có sẵn rồi
+  cắt vuông; ảnh hiện ở danh sách Tin nhắn, đầu phòng chat, tab Kênh và thông tin nhóm. Thành viên nào của nhóm cũng đổi
+  được; kênh công khai chỉ người quản lý kênh đổi được. Cần máy chủ 1.38.0 trở lên. Sửa lỗi bấm gọi (thoại hay video)
+  thì máy người gọi cũng hiện hộp "Cuộc gọi đến — Nghe / Từ chối": app nay nhớ các cuộc do chính máy mình gọi (kể cả
+  khi máy chủ báo trước khi tạo xong cuộc gọi), nhận ra cuộc gọi đi từ máy khác cùng tài khoản theo tài khoản đã đăng
+  nhập trên máy (không cần tải hồ sơ qua mạng như trước), và tự đóng hộp nếu lỡ hiện. Người được gọi vẫn đổ chuông như cũ.
+
+
 ## 1.27.1 · 15/11/2026
 ### Sửa lỗi
 - Đầu phòng chat gọn lại, tên người hiện đủ

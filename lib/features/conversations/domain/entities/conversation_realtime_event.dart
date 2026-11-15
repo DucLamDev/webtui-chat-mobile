@@ -46,6 +46,11 @@ enum ConversationRealtimeEventType {
   /// danh sách hội thoại để chat bot hiện ngay, không chờ tải lại.
   noticeChannelCreated,
 
+  /// Thông tin kênh vừa đổi (`ChannelUpdated`, hiện là ảnh nhóm): `payload` có
+  /// `channel_id`, `workspace_id`, `avatar_url`, `actor_user_id`. Làm mới danh
+  /// sách hội thoại / màn thông tin kênh.
+  channelUpdated,
+
   /// Gọi nhóm có đổ chuông (Lõi 7), gửi vào room cá nhân: bắt đầu đổ chuông
   /// (`payload` là `GroupCall`), ngừng đổ chuông máy này
   /// (`payload.group_call_id`, `payload.reason`), cuộc gọi nhóm kết thúc.

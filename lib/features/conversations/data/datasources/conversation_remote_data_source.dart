@@ -739,6 +739,34 @@ final class ConversationRemoteDataSource {
     return _channelFromMap(envelopeItem(response.data, 'channel'));
   }
 
+  /// Đổi ảnh đại diện của kênh / nhóm: `POST .../channels/{id}/avatar`,
+  /// multipart trường `avatar`. Máy chủ trả kênh với `avatar_url` mới.
+  Future<ConversationSummary> uploadChannelAvatar({
+    required String workspaceId,
+    required String channelId,
+    required String filePath,
+    required String fileName,
+    required String mimeType,
+  }) async {
+    final form = FormData.fromMap({
+      'avatar': await MultipartFile.fromFile(
+        filePath,
+        filename: fileName,
+        contentType: DioMediaType.parse(mimeType),
+      ),
+    });
+    final response = await _api.post<Object>(
+      '/api/v1/workspaces/${_e(workspaceId)}/channels/${_e(channelId)}/avatar',
+      data: form,
+      options: Options(contentType: Headers.multipartFormDataContentType),
+    );
+    final channel = _channelFromMap(envelopeItem(response.data, 'channel'));
+    if (channel.channelId.isEmpty) {
+      throw StateError('Máy chủ không trả thông tin kênh sau khi đổi ảnh.');
+    }
+    return channel;
+  }
+
   Future<ConversationSummary> createChannel({
     required String workspaceId,
     required String slug,

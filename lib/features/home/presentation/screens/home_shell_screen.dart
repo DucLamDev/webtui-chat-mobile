@@ -33,7 +33,7 @@ import '../../../conversations/domain/entities/call_device_routing.dart';
 import '../../../conversations/domain/entities/call_session.dart';
 import '../../../conversations/domain/entities/conversation_realtime_event.dart';
 import '../../../conversations/domain/entities/conversation_summary.dart';
-import '../../../conversations/domain/entities/incoming_call_policy.dart';
+import '../../../conversations/presentation/controllers/channel_detail_controller.dart';
 import '../../../conversations/presentation/controllers/chat_room_controller.dart';
 import '../../../conversations/presentation/controllers/conversation_home_controller.dart';
 import '../../../conversations/presentation/controllers/messages_tab_unread.dart';
@@ -122,6 +122,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   StreamSubscription<NotificationTarget>? _notificationOpenSubscription;
   StreamSubscription<NotificationTarget>? _foregroundNotificationSubscription;
   StreamSubscription<NativeIncomingCallAction>? _nativeCallSubscription;
+  StreamSubscription<String>? _outgoingCallSubscription;
   StreamSubscription<ChatSharePayload>? _shareIntentSubscription;
   StreamSubscription<ScopedNotificationQuickReply>? _quickReplySubscription;
   StreamSubscription<ScopedNotificationApprovalAction>?
@@ -160,6 +161,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     _notificationOpenSubscription?.cancel();
     _foregroundNotificationSubscription?.cancel();
     _nativeCallSubscription?.cancel();
+    _outgoingCallSubscription?.cancel();
     _shareIntentSubscription?.cancel();
     _quickReplySubscription?.cancel();
     _approvalActionSubscription?.cancel();
@@ -912,6 +914,17 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
 
   void _listenPushTargets() {
     final service = ref.read(pushNotificationServiceProvider);
+    // Biết thêm một cuộc gọi đi của máy này (vd. kết quả tạo cuộc gọi về sau
+    // `CallInvited`): nếu hộp "Cuộc gọi đến" đang hiện cho nó thì đóng ngay.
+    _outgoingCallSubscription ??= ref
+        .read(outgoingCallRegistryProvider)
+        .registered
+        .listen((callId) {
+          _notRingingCallIds.add(callId);
+          if (_ringingDialogCallId == callId) {
+            unawaited(_dismissRingingCall(callId));
+          }
+        });
     _nativeCallSubscription ??= NativeIncomingCallService.actions.listen((
       action,
     ) {
@@ -992,6 +1005,12 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         _notRingingCallIds.contains(callId)) {
       return;
     }
+    final ringGate = ref.read(incomingCallRingGateProvider);
+    if (ringGate.isOwnOutgoingCall(callId)) {
+      // Cuộc gọi đi của chính máy này: không bao giờ hiện "Cuộc gọi đến".
+      _notRingingCallIds.add(callId);
+      return;
+    }
     _activeIncomingCallId = callId;
     try {
       final initialResult = await ref
@@ -1004,18 +1023,12 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         await NativeIncomingCallService.endCall(callId, remoteEnded: true);
         return;
       }
-      // Cuộc gọi đi từ thiết bị khác của chính mình (hoặc gọi người khác):
-      // không đổ chuông, không báo gì lên máy chủ.
-      final currentUserId =
-          (await ref.read(loadProfileUseCaseProvider).execute())
-              .valueOrNull
-              ?.id;
+      // Cuộc gọi đi của chính mình (máy này hoặc máy khác cùng tài khoản):
+      // không đổ chuông, không báo gì lên máy chủ. Id người dùng lấy từ phiên
+      // lưu trên máy, không phụ thuộc lần tải hồ sơ qua mạng.
+      final shouldRing = await ringGate.shouldRing(initialCall);
       if (!mounted) return;
-      if (!shouldRingForIncomingCall(
-        currentUserId: currentUserId,
-        initiatorUserId: initialCall.initiatorUserId,
-        targetUserId: initialCall.targetUserId,
-      )) {
+      if (!shouldRing || ringGate.isOwnOutgoingCall(callId)) {
         _notRingingCallIds.add(callId);
         await NativeIncomingCallService.endCallIfActive(
           callId,
@@ -1024,6 +1037,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         );
         return;
       }
+      if (_notRingingCallIds.contains(callId)) return;
       final dismiss = ValueNotifier<bool>(false);
       _ringingDialogCallId = callId;
       _ringingDialogDismiss = dismiss;
@@ -1376,6 +1390,21 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           if (event.isContactEvent) {
             ref.invalidate(conversationHomeControllerProvider(workspaceId));
             ref.invalidate(notificationCenterControllerProvider(workspaceId));
+            return;
+          }
+          // Thông tin kênh đổi (ảnh nhóm): tải lại danh sách hội thoại và màn
+          // thông tin kênh đang mở để ảnh mới hiện ngay.
+          if (event.type == ConversationRealtimeEventType.channelUpdated) {
+            final home = conversationHomeControllerProvider(workspaceId);
+            if (ref.exists(home)) {
+              unawaited(ref.read(home.notifier).syncSilently());
+            }
+            if (event.channelId.isNotEmpty) {
+              final tick = ref.read(
+                channelUpdatedTickProvider(event.channelId).notifier,
+              );
+              tick.state = tick.state + 1;
+            }
             return;
           }
           // Chat bot thông báo vừa được tạo: tải lại danh sách để nó hiện ngay.
