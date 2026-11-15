@@ -108,6 +108,16 @@ thẻ xác nhận của trợ lý AI trả lời bằng `ok` / `huỷ`.
 
 Mobile đăng ký thiết bị với backend qua `POST /api/v1/mobile/devices`. Nếu Firebase đã được cấu hình, app sẽ lấy FCM token và gửi lên backend; nếu chưa có cấu hình Firebase, app vẫn chạy và chỉ đăng ký thiết bị với `push_provider=none`.
 
+Token FCM (và token PushKit VoIP trên iOS) chỉ được lấy khi hệ điều hành đã cho phép thông báo. Chưa cho phép thì máy chủ không đánh thức được app đang tắt, nên cuộc gọi đến không đổ chuông.
+
+Lời mời bật thông báo (`lib/core/notifications/notification_permission_offer.dart`):
+- Sau khi đăng nhập và qua hộp Điều khoản, app hiện hộp "Nhận cuộc gọi khi tắt app".
+- Hộp hỏi quyền của hệ điều hành chỉ bật khi người dùng bấm "Cho phép".
+- Bấm "Để sau" thì 7 ngày sau mời lại.
+- Hệ điều hành từ chối thì không mời nữa; người dùng bật lại trong Cài đặt > Thông báo.
+
+iPhone nhận cuộc gọi khi tắt app qua PushKit VoIP, nên máy chủ phải cấu hình APNs (`APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY_BASE64`). Xem `docs/operations/push-notifications.md` của backend.
+
 Có thể cấu hình Firebase bằng native config của FlutterFire, hoặc truyền nhanh bằng `--dart-define`:
 
 ```sh

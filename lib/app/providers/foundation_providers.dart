@@ -13,6 +13,7 @@ import '../../core/network/request_id.dart';
 import '../../core/network/self_hosted_server_discovery.dart';
 import '../../core/network/self_hosted_server_discovery_client.dart';
 import '../../core/notifications/native_incoming_call_service.dart';
+import '../../core/notifications/notification_permission_offer.dart';
 import '../../core/notifications/push_notification_service.dart';
 import '../../core/notifications/scoped_local_notification_service.dart';
 import '../../core/platform/biometric_auth_service.dart';
@@ -426,6 +427,10 @@ final appDatabaseProvider = Provider<AppDatabase>((ref) {
   final database = AppDatabase(createDriftConnection());
   ref.onDispose(database.close);
   return database;
+});
+
+final notificationOfferStoreProvider = Provider<NotificationOfferStore>((ref) {
+  return NotificationOfferStore(ref.watch(appDatabaseProvider));
 });
 
 final secureKeyValueStoreProvider = Provider<SecureKeyValueStore>((_) {
