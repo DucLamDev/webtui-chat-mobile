@@ -96,6 +96,11 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     _instanceScope = ref.read(activeInstanceScopeProvider);
     _activeCalls = ref.read(activeCallTrackerProvider.notifier)
       ..begin(widget.callId);
+    if (!widget.incoming) {
+      // Màn gọi đi đang mở: máy này không bao giờ hiện "Cuộc gọi đến" cho
+      // chính cuộc này (máy chủ phát `CallInvited` cả tới người gọi).
+      ref.read(outgoingCallRegistryProvider).rememberCall(widget.callId);
+    }
     _speakerEnabled = widget.mode == CallMode.video;
     unawaited(_initialize());
     _stateTimer = Timer.periodic(

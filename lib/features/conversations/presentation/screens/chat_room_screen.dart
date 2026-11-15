@@ -284,6 +284,25 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
     return false;
   }
 
+  /// Ảnh nhóm mới nhất trong danh sách hội thoại đã tải (đổi ảnh nhóm /
+  /// `ChannelUpdated` làm mới danh sách thì đầu phòng chat cập nhật theo).
+  String? _liveChannelAvatarUrl(String workspaceId) {
+    final home = conversationHomeControllerProvider(workspaceId);
+    if (!ref.exists(home)) return null;
+    return ref.watch(
+      home.select((state) {
+        for (final item in [...state.conversations, ...state.channels]) {
+          if (item.channelId == widget.channelId &&
+              item.kind == ConversationKind.channel) {
+            final url = item.avatarUrl?.trim();
+            return url == null || url.isEmpty ? null : url;
+          }
+        }
+        return null;
+      }),
+    );
+  }
+
   void _redirectToCustomerTickets(String location) {
     if (_ticketRedirected) return;
     _ticketRedirected = true;
@@ -551,6 +570,11 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
       }
     });
 
+    final roomAvatarUrl = isDirectChat
+        ? widget.avatarUrl ?? widget.conversation?.avatarUrl
+        : _liveChannelAvatarUrl(workspaceId) ??
+              widget.avatarUrl ??
+              widget.conversation?.avatarUrl;
     final body = PopScope(
       canPop: true,
       onPopInvokedWithResult: (_, _) {
@@ -707,7 +731,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
           children: [
             _EmbeddedChatHeader(
               title: roomTitle,
-              avatarUrl: widget.avatarUrl,
+              avatarUrl: roomAvatarUrl,
               presence: peerPresence,
               onDetails: () => _openDetails(context),
               onSafety: safetyTargetUserId == null
@@ -730,9 +754,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
       backgroundColor: WebTuiColors.chatBackground,
       appBar: ChatRoomAppBar(
         title: roomTitle,
-        avatarUrl: noticeBot
-            ? botIdentity?.logoUrl
-            : widget.avatarUrl ?? widget.conversation?.avatarUrl,
+        avatarUrl: noticeBot ? botIdentity?.logoUrl : roomAvatarUrl,
         publicAvatar: noticeBot,
         noticeBot: noticeBot,
         directChat: isDirectChat,

@@ -2,18 +2,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
+import '../../../profile/domain/entities/avatar_upload.dart';
+import '../../application/use_cases/channel_avatar_use_cases.dart';
 import '../../application/use_cases/channel_use_cases.dart';
 import '../../application/use_cases/message_attachment_use_cases.dart';
 import '../../domain/entities/channel_file.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/conversation_summary.dart';
 
+/// Tăng mỗi khi nhận `ChannelUpdated` cho kênh (theo `channel_id`): màn
+/// thông tin kênh đang mở tải lại thông tin kênh mà không hiện màn chờ.
+final channelUpdatedTickProvider = StateProvider.family<int, String>(
+  (ref, channelId) => 0,
+);
+
 final channelDetailControllerProvider = StateNotifierProvider.autoDispose
     .family<ChannelDetailController, ChannelDetailState, ChannelDetailScope>((
       ref,
       scope,
     ) {
-      return ChannelDetailController(
+      final controller = ChannelDetailController(
         scope: scope,
         loadChannelDetailUseCase: ref.watch(loadChannelDetailUseCaseProvider),
         requestJoinChannelUseCase: ref.watch(requestJoinChannelUseCaseProvider),
@@ -30,7 +38,15 @@ final channelDetailControllerProvider = StateNotifierProvider.autoDispose
           rejectChannelJoinRequestUseCaseProvider,
         ),
         listChannelMediaUseCase: ref.watch(listChannelMediaUseCaseProvider),
+        changeChannelAvatarUseCase: ref.watch(
+          changeChannelAvatarUseCaseProvider,
+        ),
       )..load();
+      ref.listen<int>(
+        channelUpdatedTickProvider(scope.channelId),
+        (_, _) => controller.reloadChannelSilently(),
+      );
+      return controller;
     });
 
 final class ChannelDetailScope {
@@ -67,6 +83,8 @@ final class ChannelDetailState {
     this.joinRequests = const [],
     this.isLoading = false,
     this.isSubmitting = false,
+    this.isUpdatingAvatar = false,
+    this.avatarErrorMessage,
     this.errorMessage,
     this.noticeMessage,
     this.membersErrorMessage,
@@ -84,6 +102,12 @@ final class ChannelDetailState {
   final List<ChannelMember> joinRequests;
   final bool isLoading;
   final bool isSubmitting;
+
+  /// Đang tải ảnh nhóm mới lên.
+  final bool isUpdatingAvatar;
+
+  /// Lỗi đổi ảnh nhóm (hiện riêng, không thay cả màn bằng trạng thái lỗi).
+  final String? avatarErrorMessage;
   final String? errorMessage;
   final String? noticeMessage;
   final String? membersErrorMessage;
@@ -102,6 +126,8 @@ final class ChannelDetailState {
     List<ChannelMember>? joinRequests,
     bool? isLoading,
     bool? isSubmitting,
+    bool? isUpdatingAvatar,
+    String? avatarErrorMessage,
     String? errorMessage,
     String? noticeMessage,
     String? membersErrorMessage,
@@ -110,6 +136,7 @@ final class ChannelDetailState {
     String? mediaErrorMessage,
     bool clearError = false,
     bool clearNotice = false,
+    bool clearAvatarError = false,
   }) {
     return ChannelDetailState(
       scope: scope,
@@ -121,6 +148,10 @@ final class ChannelDetailState {
       joinRequests: joinRequests ?? this.joinRequests,
       isLoading: isLoading ?? this.isLoading,
       isSubmitting: isSubmitting ?? this.isSubmitting,
+      isUpdatingAvatar: isUpdatingAvatar ?? this.isUpdatingAvatar,
+      avatarErrorMessage: clearAvatarError
+          ? null
+          : avatarErrorMessage ?? this.avatarErrorMessage,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
       noticeMessage: clearNotice ? null : noticeMessage ?? this.noticeMessage,
       membersErrorMessage: membersErrorMessage ?? this.membersErrorMessage,
@@ -141,7 +172,9 @@ final class ChannelDetailController extends StateNotifier<ChannelDetailState> {
     required ApproveChannelJoinRequestUseCase approveChannelJoinRequestUseCase,
     required RejectChannelJoinRequestUseCase rejectChannelJoinRequestUseCase,
     required ListChannelMediaUseCase listChannelMediaUseCase,
-  }) : _loadChannelDetailUseCase = loadChannelDetailUseCase,
+    ChangeChannelAvatarUseCase? changeChannelAvatarUseCase,
+  }) : _changeChannelAvatarUseCase = changeChannelAvatarUseCase,
+       _loadChannelDetailUseCase = loadChannelDetailUseCase,
        _requestJoinChannelUseCase = requestJoinChannelUseCase,
        _inviteChannelMemberUseCase = inviteChannelMemberUseCase,
        _loadChannelJoinRequestsUseCase = loadChannelJoinRequestsUseCase,
@@ -157,6 +190,95 @@ final class ChannelDetailController extends StateNotifier<ChannelDetailState> {
   final ApproveChannelJoinRequestUseCase _approveChannelJoinRequestUseCase;
   final RejectChannelJoinRequestUseCase _rejectChannelJoinRequestUseCase;
   final ListChannelMediaUseCase _listChannelMediaUseCase;
+  final ChangeChannelAvatarUseCase? _changeChannelAvatarUseCase;
+
+  /// Tải lại thông tin kênh (sau `ChannelUpdated`) mà không hiện màn chờ;
+  /// đang tải ảnh lên / đang tải lần đầu thì bỏ qua (kết quả đó mới hơn).
+  Future<void> reloadChannelSilently() async {
+    if (state.isLoading || state.isUpdatingAvatar) return;
+    final result = await _loadChannelDetailUseCase.execute(
+      workspaceId: state.scope.workspaceId,
+      channelId: state.scope.channelId,
+    );
+    if (!mounted || state.isUpdatingAvatar) return;
+    if (result case Success<ChannelDetailData>(value: final data)) {
+      state = state.copyWith(channel: data.channel);
+    }
+  }
+
+  /// Chọn ảnh rồi đổi ảnh nhóm. Trả `true` khi đã đổi xong (để màn làm mới
+  /// danh sách hội thoại).
+  Future<bool> changeAvatar(AvatarPickerSource source) async {
+    final channel = state.channel;
+    final useCase = _changeChannelAvatarUseCase;
+    if (channel == null || useCase == null || state.isUpdatingAvatar) {
+      return false;
+    }
+    state = state.copyWith(
+      isUpdatingAvatar: true,
+      clearAvatarError: true,
+      clearNotice: true,
+    );
+    final result = await useCase.execute(
+      workspaceId: state.scope.workspaceId,
+      channel: channel,
+      source: source,
+    );
+    if (!mounted) return false;
+    switch (result) {
+      case Success<ConversationSummary?>(value: final updated):
+        if (updated == null) {
+          state = state.copyWith(isUpdatingAvatar: false);
+          return false;
+        }
+        state = state.copyWith(
+          channel: _mergeChannel(channel, updated),
+          isUpdatingAvatar: false,
+          noticeMessage: 'Đã đổi ảnh nhóm.',
+        );
+        return true;
+      case FailureResult<ConversationSummary?>(failure: final failure):
+        state = state.copyWith(
+          isUpdatingAvatar: false,
+          avatarErrorMessage: failure.message,
+        );
+        return false;
+    }
+  }
+
+  /// Máy chủ trả DTO kênh đầy đủ; nếu thiếu trạng thái thành viên (máy chủ cũ)
+  /// thì giữ thông tin đang có, chỉ thay ảnh.
+  static ConversationSummary _mergeChannel(
+    ConversationSummary current,
+    ConversationSummary updated,
+  ) {
+    if (updated.membershipStatus != MembershipStatus.none) return updated;
+    return ConversationSummary(
+      id: current.id,
+      workspaceId: current.workspaceId,
+      channelId: current.channelId,
+      kind: current.kind,
+      title: current.title,
+      preview: current.preview,
+      updatedAt: current.updatedAt,
+      avatarLabel: current.avatarLabel,
+      avatarUrl: updated.avatarUrl,
+      peerUserId: current.peerUserId,
+      unreadCount: current.unreadCount,
+      favorite: current.favorite,
+      muted: current.muted,
+      memberCount: current.memberCount,
+      participantIds: current.participantIds,
+      channelVisibility: current.channelVisibility,
+      membershipStatus: current.membershipStatus,
+      canManage: current.canManage,
+      privateSessionMode: current.privateSessionMode,
+      isAutomation: current.isAutomation,
+      noticeBot: current.noticeBot,
+      slug: current.slug,
+      lastMessageAt: current.lastMessageAt,
+    );
+  }
 
   Future<void> load() async {
     state = state.copyWith(

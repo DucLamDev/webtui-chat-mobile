@@ -135,6 +135,32 @@ void main() {
     expect(stopped.typingUserIds, isEmpty);
   });
 
+  test('ChannelUpdated: ánh xạ kênh và giữ avatar_url trong payload', () {
+    final event = ConversationRealtimeEventMapper.fromSocketData(
+      jsonEncode({
+        'type': 'ChannelUpdated',
+        'room': 'workspace:w1:channel:c1',
+        'payload': {
+          'workspace_id': 'w1',
+          'channel_id': 'c1',
+          'actor_user_id': 'u2',
+          'avatar_url':
+              '/api/v1/channels/avatars/z/c1/avatar-0123456789abcdef.jpg',
+        },
+      }),
+      fallbackWorkspaceId: 'w1',
+      fallbackChannelId: '',
+    );
+
+    expect(event?.type, ConversationRealtimeEventType.channelUpdated);
+    expect(event?.channelId, 'c1');
+    expect(event?.workspaceId, 'w1');
+    expect(
+      event?.payload['avatar_url'],
+      '/api/v1/channels/avatars/z/c1/avatar-0123456789abcdef.jpg',
+    );
+  });
+
   test('maps websocket payload to domain event', () {
     final event = ConversationRealtimeEventMapper.fromSocketData(
       jsonEncode({

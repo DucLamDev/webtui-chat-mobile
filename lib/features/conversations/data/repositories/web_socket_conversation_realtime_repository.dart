@@ -681,6 +681,7 @@ const _keepsPayload = {
   ConversationRealtimeEventType.orderTicketUpdated,
   ConversationRealtimeEventType.transcriptUpdated,
   ConversationRealtimeEventType.channelReadUpdated,
+  ConversationRealtimeEventType.channelUpdated,
   ConversationRealtimeEventType.sessionRevoked,
   ConversationRealtimeEventType.deviceApprovalRequested,
   ConversationRealtimeEventType.inboxConversationUpdated,
@@ -772,6 +773,7 @@ ConversationRealtimeEventType _eventType(String value) {
       ConversationRealtimeEventType.contactRequestCancelled,
     'NoticeChannelCreated' =>
       ConversationRealtimeEventType.noticeChannelCreated,
+    'ChannelUpdated' => ConversationRealtimeEventType.channelUpdated,
     'OrderTicketUpdated' => ConversationRealtimeEventType.orderTicketUpdated,
     'SessionRevoked' => ConversationRealtimeEventType.sessionRevoked,
     'DeviceApprovalRequested' =>
