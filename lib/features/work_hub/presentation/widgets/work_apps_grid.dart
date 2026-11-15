@@ -169,6 +169,18 @@ class WorkAppsSection extends ConsumerWidget {
   }
 }
 
+/// Kích thước chung của ô biểu tượng trong khu "Ứng dụng": ô màu và ô "Thêm"
+/// viền đứt cùng cạnh, cùng bo góc, biểu tượng cùng cỡ.
+abstract final class WorkAppTileMetrics {
+  static const double iconBox = 52;
+  static const double iconRadius = 16;
+  static const double iconSize = 26;
+
+  /// Viền ô (mảnh với ô màu, nét đứt với ô "Thêm"): vẽ phía trong cạnh ô nên
+  /// kích thước ngoài của mọi ô luôn đúng [iconBox].
+  static const double borderWidth = 1.4;
+}
+
 class _AppTile extends StatelessWidget {
   const _AppTile({
     required this.icon,
@@ -185,34 +197,27 @@ class _AppTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return WorkCard(
+    return _AppTileFrame(
       onTap: onTap,
-      radius: 20,
-      padding: const EdgeInsets.fromLTRB(6, 14, 6, 12),
-      child: SizedBox(
-        height: 84,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            WorkIconBox(
-              icon: icon,
-              size: 48,
-              radius: 15,
-              iconSize: 26,
-              background: colors.background,
-              foreground: colors.foreground,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: WebTuiTypography.bodyMedium.copyWith(
-                fontWeight: FontWeight.w700,
-                color: WebTuiColors.textPrimary,
-              ),
-            ),
-          ],
+      label: label,
+      icon: DecoratedBox(
+        key: const Key('app_tile_icon_box'),
+        // Viền mảnh cùng màu biểu tượng: nền nhạt (cam, xanh) trên thẻ trắng
+        // vẫn thấy rõ mép ô, nên ô màu trông bằng ô "Thêm" viền đứt.
+        decoration: BoxDecoration(
+          color: colors.background,
+          borderRadius: BorderRadius.circular(WorkAppTileMetrics.iconRadius),
+          border: Border.all(
+            color: colors.foreground.withValues(alpha: 0.16),
+            width: WorkAppTileMetrics.borderWidth,
+          ),
+        ),
+        child: Center(
+          child: Icon(
+            icon,
+            size: WorkAppTileMetrics.iconSize,
+            color: colors.foreground,
+          ),
         ),
       ),
     );
@@ -226,38 +231,62 @@ class _AddTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return WorkCard(
+    return _AppTileFrame(
       key: const Key('app_add'),
+      onTap: onTap,
+      label: 'Thêm',
+      icon: const CustomPaint(
+        key: Key('app_tile_icon_box'),
+        painter: _DashedBoxPainter(),
+        child: Center(
+          child: Icon(
+            WebTuiIcons.add,
+            size: WorkAppTileMetrics.iconSize,
+            color: WebTuiColors.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Khung chung của một ô ứng dụng: thẻ trắng, ô biểu tượng cố định
+/// [WorkAppTileMetrics.iconBox] rồi một dòng chữ. Mọi ô dùng cùng khung nên
+/// ô biểu tượng và dòng chữ thẳng hàng giữa các ô.
+class _AppTileFrame extends StatelessWidget {
+  const _AppTileFrame({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    super.key,
+  });
+
+  final Widget icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return WorkCard(
       onTap: onTap,
       radius: 20,
       padding: const EdgeInsets.fromLTRB(6, 14, 6, 12),
-      child: SizedBox(
-        height: 84,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CustomPaint(
-              painter: const _DashedBoxPainter(),
-              child: const SizedBox(
-                width: 48,
-                height: 48,
-                child: Icon(
-                  WebTuiIcons.add,
-                  size: 26,
-                  color: WebTuiColors.textSecondary,
-                ),
-              ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox.square(dimension: WorkAppTileMetrics.iconBox, child: icon),
+          const SizedBox(height: 10),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: WebTuiTypography.bodyMedium.copyWith(
+              fontWeight: FontWeight.w700,
+              color: WebTuiColors.textPrimary,
             ),
-            const SizedBox(height: 10),
-            Text(
-              'Thêm',
-              style: WebTuiTypography.bodyMedium.copyWith(
-                fontWeight: FontWeight.w700,
-                color: WebTuiColors.textPrimary,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -269,13 +298,19 @@ class _DashedBoxPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    const stroke = WorkAppTileMetrics.borderWidth;
     final paint = Paint()
-      ..color = const Color(0xFF8A96A8)
+      ..color = WebTuiColors.textMuted
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4;
+      ..strokeWidth = stroke;
+    // Lùi nửa nét vào trong: nét đứt nằm gọn trong ô, cạnh ngoài bằng ô màu.
+    final rect = (Offset.zero & size).deflate(stroke / 2);
     final path = Path()
       ..addRRect(
-        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(15)),
+        RRect.fromRectAndRadius(
+          rect,
+          const Radius.circular(WorkAppTileMetrics.iconRadius - stroke / 2),
+        ),
       );
     for (final metric in path.computeMetrics()) {
       var distance = 0.0;

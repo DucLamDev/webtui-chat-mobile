@@ -4,6 +4,7 @@ import 'package:webtui_chat/design_system/components/webtui_mobile_scaffold.dart
 import 'package:webtui_chat/design_system/icons/webtui_icons.dart';
 import 'package:webtui_chat/design_system/theme/webtui_theme.dart';
 import 'package:webtui_chat/design_system/tokens/webtui_colors.dart';
+import 'package:webtui_chat/design_system/tokens/webtui_density.dart';
 
 void main() {
   Future<void> pump(WidgetTester tester, {required bool showAppBar}) {
@@ -63,20 +64,24 @@ void main() {
     for (final label in ['Tin nhắn', 'Bạn bè', 'Công việc', 'Cài đặt']) {
       expect(find.text(label), findsOneWidget);
     }
-    final bar = tester.getRect(find.byType(WebTuiFloatingTabBar));
     final pill = tester.getRect(
-      find
-          .descendant(
-            of: find.byType(WebTuiFloatingTabBar),
-            matching: find.byType(DecoratedBox),
-          )
-          .first,
+      find.byKey(const ValueKey('floating-tab-bar-pill')),
     );
     expect(844 - pill.bottom, greaterThanOrEqualTo(12), reason: 'nổi cách mép');
     expect(pill.left, greaterThanOrEqualTo(12));
-    // Thân kết thúc phía trên thanh: nội dung cuối cuộn tới không bị che.
+    expect(390 - pill.right, greaterThanOrEqualTo(12));
+    // Thanh nổi đè lên thân (extendBody): danh sách chạy tới đáy màn hình,
+    // nội dung cuộn ra phía sau thanh mờ.
     final list = tester.getRect(find.byType(ListView));
-    expect(list.bottom, lessThanOrEqualTo(bar.top + 0.5));
+    expect(list.bottom, 844);
+    expect(tester.widget<Scaffold>(find.byType(Scaffold)).extendBody, isTrue);
+    // Cuộn tới cuối: dòng cuối vẫn nằm trên thanh, không bị che.
+    await tester.drag(find.byType(ListView), const Offset(0, -5000));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getRect(find.text('dong 39')).bottom,
+      lessThanOrEqualTo(pill.top),
+    );
 
     await tester.tap(find.text('Công việc'));
     await tester.pump();
@@ -171,4 +176,123 @@ void main() {
       expect(find.byKey(const ValueKey('tab-badge')), findsNothing);
     },
   );
+
+  testWidgets('kiểu Telegram: kính mờ bo 30, nền sáng / tối, vùng bấm ≥ 44', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    Future<BoxDecoration> pumpTheme(ThemeData theme) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: WebTuiMobileScaffold(
+            title: 't',
+            selectedTab: 0,
+            tabBadges: const {0: 3},
+            onTabSelected: (_) {},
+            body: const SizedBox.shrink(),
+          ),
+        ),
+      );
+      // Đổi theme có hiệu ứng chuyển màu: chờ xong.
+      await tester.pumpAndSettle();
+      final pill = find.byKey(const ValueKey('floating-tab-bar-pill'));
+      expect(
+        find.descendant(of: pill, matching: find.byType(BackdropFilter)),
+        findsOneWidget,
+      );
+      final clip = tester.widget<ClipRRect>(
+        find.descendant(of: pill, matching: find.byType(ClipRRect)),
+      );
+      expect(
+        clip.borderRadius,
+        BorderRadius.circular(WebTuiBottomTabTokens.radius),
+      );
+      // Bóng nằm ngoài lớp cắt bo góc.
+      final shadow =
+          tester.widget<DecoratedBox>(pill).decoration as BoxDecoration;
+      expect(shadow.boxShadow, isNotEmpty);
+      // Nền trong suốt một phần để thấy nội dung mờ phía sau.
+      final fill =
+          tester
+                  .widget<DecoratedBox>(
+                    find
+                        .descendant(
+                          of: find.byType(BackdropFilter),
+                          matching: find.byType(DecoratedBox),
+                        )
+                        .first,
+                  )
+                  .decoration
+              as BoxDecoration;
+      expect(fill.color!.a, lessThan(0.9));
+      expect(fill.border, isNotNull);
+      // Mỗi mục bấm được trong ô ≥ 44 điểm.
+      for (final label in ['Tin nhắn', 'Bạn bè', 'Công việc', 'Cài đặt']) {
+        final size = tester.getSize(find.byKey(ValueKey('tab-$label')));
+        expect(size.height, greaterThanOrEqualTo(44));
+        expect(size.width, greaterThanOrEqualTo(44));
+      }
+      expect(find.byKey(const ValueKey('tab-badge')), findsOneWidget);
+      return fill;
+    }
+
+    final light = await pumpTheme(WebTuiTheme.light());
+    expect(light.color, WebTuiColors.surface.withValues(alpha: 0.85));
+    final dark = await pumpTheme(ThemeData.dark());
+    // Nền tối: xám đen mờ, không dùng nền trắng của nền sáng.
+    expect(dark.color!.a, lessThan(0.9));
+    expect(dark.color!.computeLuminance(), lessThan(0.05));
+    final darkLabel = tester.widget<Text>(find.text('Tin nhắn'));
+    final darkOther = tester.widget<Text>(find.text('Bạn bè'));
+    expect(darkLabel.style!.color, isNot(darkOther.style!.color));
+  });
+
+  for (final (name, platform, inset, gap) in [
+    ('iPhone thanh home 34', TargetPlatform.iOS, 34.0, 22.0),
+    ('Android cử chỉ 24', TargetPlatform.android, 24.0, 24.0),
+    ('Android 3 nút 48', TargetPlatform.android, 48.0, 48.0),
+    ('không vùng an toàn', TargetPlatform.android, 0.0, 14.0),
+  ]) {
+    testWidgets('$name: thanh nằm trên vùng an toàn, thân đệm đáy đủ', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = FakeViewPadding(bottom: inset);
+      tester.view.viewPadding = FakeViewPadding(bottom: inset);
+      addTearDown(tester.view.reset);
+      late double bodyBottomPadding;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: WebTuiTheme.light().copyWith(platform: platform),
+          home: WebTuiMobileScaffold(
+            title: 't',
+            selectedTab: 0,
+            onTabSelected: (_) {},
+            body: Builder(
+              builder: (context) {
+                bodyBottomPadding = WebTuiFloatingTabBar.contentBottomPadding(
+                  context,
+                );
+                return const SizedBox.expand();
+              },
+            ),
+          ),
+        ),
+      );
+      final pill = tester.getRect(
+        find.byKey(const ValueKey('floating-tab-bar-pill')),
+      );
+      // Khoảng dưới thanh chỉ vừa vùng an toàn (iPhone bớt phần thừa trên
+      // thanh home), không đè thanh home / nút hệ thống.
+      expect(844 - pill.bottom, gap);
+      expect(pill.height, WebTuiBottomTabTokens.height);
+      // Thân biết thanh chiếm bao nhiêu: hằng chiều cao thanh + khoảng dưới.
+      expect(bodyBottomPadding, WebTuiBottomTabTokens.reservedHeight(gap));
+      expect(bodyBottomPadding, greaterThanOrEqualTo(844 - pill.top));
+    });
+  }
 }

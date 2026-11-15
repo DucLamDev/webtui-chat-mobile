@@ -4,6 +4,17 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
+## 1.29.0 · 15/11/2026
+### Tính năng
+- Thanh điều hướng dưới dạng nổi như Telegram; ô nhập tin sát đáy; ô Ứng dụng đều nhau
+  - Thanh Tin nhắn / Bạn bè / Công việc / Cài đặt giờ là thanh nổi hình viên thuốc, nền kính mờ, cách hai mép màn
+    hình. Mục đang chọn có nền viên thuốc phía sau. Danh sách cuộn ra phía sau thanh, cuộn hết thì mục cuối vẫn nằm
+    trên thanh.
+  - Phòng chat: bỏ dải trống thừa dưới ô nhập tin. Nền trắng của ô nhập chạy tới mép màn hình, hàng nhập nằm sát ngay
+    trên thanh home của iPhone (Android giữ đúng chỗ thanh điều hướng). Khi bàn phím mở, ô nhập sát bàn phím.
+  - Khu Ứng dụng ở tab Công việc: ô biểu tượng Lịch họp, Tệp chia sẻ, Thêm cùng kích thước và cùng bo góc; chữ bên
+    dưới thẳng hàng.
+
 ## 1.27.2 · 15/11/2026
 ### Sửa lỗi
 - App mời bật thông báo để nhận cuộc gọi khi đang tắt app
