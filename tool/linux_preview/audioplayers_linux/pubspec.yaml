@@ -1,0 +1,22 @@
+name: audioplayers_linux
+description: >-
+  Bản thay thế audioplayers_linux chỉ cho bản Linux chạy thử trên Dev VPS
+  (vpsttt-app). Máy dev thiếu thư viện GStreamer dev nên gói thật không dựng
+  được. Không có tác dụng với bản Android / iOS.
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ^3.0.0
+  flutter: '>=3.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    implements: audioplayers
+    platforms:
+      linux:
+        dartPluginClass: AudioplayersLinuxPreview

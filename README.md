@@ -157,6 +157,26 @@ flutter test integration_test/app_smoke_test.dart -d flutter-tester
 flutter build apk --debug --flavor dev -t lib/main_dev.dart
 ```
 
+## Chạy Thử Trên Dev VPS
+
+`vpsttt-app run --device android` (hoặc `--device iphone`) dựng bản Linux của app và mở trong khung điện thoại; xem và
+bấm trong IDE ở mục **Màn hình app**. Bản Linux chỉ để chạy thử, không phát hành:
+
+- `linux/` là thư mục nền tảng do `flutter create --platforms=linux .` tạo.
+- `dependency_overrides` trong `pubspec.yaml` thay phần Linux của hai gói bằng gói trong `tool/linux_preview/`, vì máy
+  dev thiếu GStreamer / libsecret dev và không có dịch vụ kho khoá. Android / iOS vẫn dùng gói thật
+  (`test/release/linux_preview_overrides_policy_test.dart` giữ điều này).
+  - `audioplayers_linux`: không phát âm thanh.
+  - `flutter_secure_storage_linux`: phiên đăng nhập chỉ giữ trong bộ nhớ, tắt hoặc khởi động lại app là phải đăng
+    nhập lại.
+- Bản chạy thử không kiểm được âm thanh, thông báo đẩy, cuộc gọi, camera. Lúc mở app, nhật ký báo
+  `MissingPluginException` của `firebase_messaging` và `flutter_callkit_incoming` (hai gói này không có bản Linux):
+  bỏ qua được.
+- Lần dựng trước bị lỗi giữa chừng mà lần sau báo `file INSTALL cannot copy file ... /usr/local/...`: xoá `build/linux`
+  rồi chạy lại (CMake nhớ sai thư mục cài từ lần lỗi).
+- `vpsttt-app` dùng Flutter của công cụ, có thể khác bản CI (`FLUTTER_VERSION` trong `.github/workflows/mobile.yml`)
+  nên chạy xong `pubspec.lock` có thể đổi vài gói đi kèm SDK. Không commit thay đổi đó: `git checkout -- pubspec.lock`.
+
 ## Android Packaging M11
 
 - Workflow `.github/workflows/mobile.yml` chạy format, architecture/release check,

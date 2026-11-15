@@ -91,6 +91,17 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
 
+# Chỉ thay phần Linux của hai gói, để bản Linux chạy thử trên Dev VPS
+# (`vpsttt-app run`) dựng được: máy dev thiếu GStreamer / libsecret dev và
+# không có dịch vụ kho khoá. App không phát hành bản Linux; Android / iOS vẫn
+# dùng gói thật. Nâng audioplayers / flutter_secure_storage lên bản lớn mới thì
+# xem lại hai gói này (tool/linux_preview/).
+dependency_overrides:
+  audioplayers_linux:
+    path: tool/linux_preview/audioplayers_linux
+  flutter_secure_storage_linux:
+    path: tool/linux_preview/flutter_secure_storage_linux
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
