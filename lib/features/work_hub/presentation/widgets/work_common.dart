@@ -52,8 +52,8 @@ class WorkCard extends StatelessWidget {
 class WorkIconBox extends StatelessWidget {
   const WorkIconBox({
     required this.icon,
-    this.background = WebTuiColors.primarySoft,
-    this.foreground = WebTuiColors.primary,
+    this.background,
+    this.foreground,
     this.size = 52,
     this.iconSize,
     this.radius = 16,
@@ -61,8 +61,8 @@ class WorkIconBox extends StatelessWidget {
   });
 
   final IconData icon;
-  final Color background;
-  final Color foreground;
+  final Color? background;
+  final Color? foreground;
   final double size;
   final double? iconSize;
   final double radius;
@@ -73,10 +73,14 @@ class WorkIconBox extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: background,
+        color: background ?? WebTuiColors.primarySoft,
         borderRadius: BorderRadius.circular(radius),
       ),
-      child: Icon(icon, color: foreground, size: iconSize ?? size * 0.5),
+      child: Icon(
+        icon,
+        color: foreground ?? WebTuiColors.primary,
+        size: iconSize ?? size * 0.5,
+      ),
     );
   }
 }

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
 import '../../../../core/security/active_call_tracker.dart';
+import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../domain/entities/app_lock_timeout_policy.dart';
 
 /// Lớp khoá ứng dụng (lõi 3.1).
@@ -169,8 +170,8 @@ class _AppLockGateState extends ConsumerState<AppLockGate>
     if (value == null && enabled.hasError) {
       overlay = _lockErrorView();
     } else if (value == null) {
-      overlay = const ColoredBox(
-        color: Color(0xFFF6FAFF),
+      overlay = ColoredBox(
+        color: WebTuiColors.background,
         child: Center(child: CircularProgressIndicator()),
       );
     } else if (value && _locked) {
@@ -204,7 +205,7 @@ class _AppLockGateState extends ConsumerState<AppLockGate>
     }
     final blockedSeconds = _remainingBlockSeconds();
     return Scaffold(
-      backgroundColor: const Color(0xFFF6FAFF),
+      backgroundColor: WebTuiColors.background,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(

@@ -284,7 +284,7 @@ class _ModerationReportDialogState extends State<_ModerationReportDialog> {
               padding: const EdgeInsets.only(top: WebTuiSpacing.sm),
               child: Text(
                 _errorMessage!,
-                style: const TextStyle(color: WebTuiColors.danger),
+                style: TextStyle(color: WebTuiColors.danger),
               ),
             ),
         ],

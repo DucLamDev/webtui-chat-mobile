@@ -237,7 +237,7 @@ class _DeleteSwipeBackground extends StatelessWidget {
         color: WebTuiColors.danger,
         borderRadius: BorderRadius.circular(WebTuiRadii.lg),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.delete_outline_rounded, color: WebTuiColors.textOnPrimary),
@@ -347,7 +347,7 @@ class _NotificationTile extends StatelessWidget {
               ),
               if (unread) ...[
                 const SizedBox(width: WebTuiSpacing.sm),
-                const Icon(Icons.circle, size: 9, color: WebTuiColors.primary),
+                Icon(Icons.circle, size: 9, color: WebTuiColors.primary),
               ],
             ],
           ),

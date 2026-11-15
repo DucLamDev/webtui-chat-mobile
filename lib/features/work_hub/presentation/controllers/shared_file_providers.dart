@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/network/redirect_safe_file_downloader.dart';
+import '../../../../core/platform/video_compressor.dart';
 import '../../../../core/security/instance_scope.dart';
 import '../../../auth/domain/repositories/auth_token_repository.dart';
 import '../../../conversations/data/files/scoped_attachment_file_store.dart';
 import '../../domain/entities/work_hub.dart';
 import 'shared_file_logic.dart';
+import 'shared_video_poster_cache.dart';
 
 /// Bộ nhớ đệm tệp chia sẻ, tối đa 300 MB, nằm trong kho tệp theo máy chủ +
 /// phiên đăng nhập (`ScopedAttachmentFileStore`): đăng xuất, đổi máy chủ hay
@@ -60,6 +62,36 @@ final sharedFileMediaResolverProvider =
         absolute: (url) => resolveSharedFileUrl(apiBase, url),
         download: (file, target) =>
             _downloadSharedFile(ref, apiBase, workspaceId, file, target),
+      );
+    });
+
+/// Ảnh bìa tự cắt trên máy cho video chưa có ảnh bìa trên máy chủ.
+final sharedVideoPosterCacheProvider =
+    Provider.family<SharedVideoPosterCache, String>((ref, workspaceId) {
+      final resolver = ref.watch(sharedFileMediaResolverProvider(workspaceId));
+      final compressor = ref.watch(videoCompressorProvider);
+      return SharedVideoPosterCache(
+        directory: () async {
+          final base = await scopedSharedFileDirectory(
+            scope: ref.read(activeServerDiscoveryProvider)?.instanceScope,
+            guard: await ref
+                .read(authTokenRepositoryProvider)
+                .captureMutationGuard(),
+          );
+          return Directory('${base.path}/video-posters');
+        },
+        streamUri: (fileId) async {
+          // Chỉ cần id để xin đường dẫn phát dần.
+          return resolver.streamUriById(fileId);
+        },
+        extract: (url, output) async {
+          if (compressor is! VideoUrlPoster) return false;
+          final poster = await (compressor as VideoUrlPoster).posterFromUrl(
+            url: url,
+            outputPath: output,
+          );
+          return poster != null;
+        },
       );
     });
 

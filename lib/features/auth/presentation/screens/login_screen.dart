@@ -974,7 +974,7 @@ class _RegisterMark extends StatelessWidget {
               size: 20,
             ),
           ),
-          const Positioned(
+          Positioned(
             left: 82,
             bottom: 10,
             child: Icon(
@@ -1027,7 +1027,7 @@ class _SelectedServerBar extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
         child: Row(
           children: [
-            const Icon(
+            Icon(
               Icons.verified_rounded,
               color: WebTuiColors.accentGreen,
               size: 19,
@@ -1177,7 +1177,7 @@ class _SubmitButton extends StatelessWidget {
           ),
         ),
         icon: loading
-            ? const SizedBox.square(
+            ? SizedBox.square(
                 dimension: 18,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.2,
@@ -1302,7 +1302,7 @@ class _DividerLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Expanded(child: Divider(color: WebTuiColors.border)),
+        Expanded(child: Divider(color: WebTuiColors.border)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Text(
@@ -1313,7 +1313,7 @@ class _DividerLabel extends StatelessWidget {
             ),
           ),
         ),
-        const Expanded(child: Divider(color: WebTuiColors.border)),
+        Expanded(child: Divider(color: WebTuiColors.border)),
       ],
     );
   }
@@ -1340,7 +1340,7 @@ class _SocialButton extends StatelessWidget {
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF1D2433),
         minimumSize: const Size.fromHeight(54),
-        side: const BorderSide(color: WebTuiColors.border),
+        side: BorderSide(color: WebTuiColors.border),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
         textStyle: WebTuiTypography.bodyMedium.copyWith(
           fontWeight: FontWeight.w800,

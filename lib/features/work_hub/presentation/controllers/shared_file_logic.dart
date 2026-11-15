@@ -259,9 +259,11 @@ final class SharedFileMediaResolver {
     return SharedMediaLocal(await localFile(file));
   }
 
-  Future<Uri?> streamUri(SharedFile file) async {
+  Future<Uri?> streamUri(SharedFile file) => streamUriById(file.id);
+
+  Future<Uri?> streamUriById(String fileId) async {
     try {
-      final link = await links.linkFor(file.id);
+      final link = await links.linkFor(fileId);
       return link == null ? null : absolute(link.url);
     } on Object {
       return null;

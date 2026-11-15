@@ -89,10 +89,7 @@ class WebTuiSettingRow extends StatelessWidget {
                 ),
                 const SizedBox(width: WebTuiSpacing.sm),
                 trailing ??
-                    const Icon(
-                      WebTuiIcons.forward,
-                      color: WebTuiColors.textMuted,
-                    ),
+                    Icon(WebTuiIcons.forward, color: WebTuiColors.textMuted),
               ],
             ),
           ),

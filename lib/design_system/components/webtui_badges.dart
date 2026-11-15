@@ -50,17 +50,14 @@ class WebTuiUnreadBadge extends StatelessWidget {
 }
 
 class WebTuiStatusPill extends StatelessWidget {
-  const WebTuiStatusPill({
-    required this.label,
-    this.color = WebTuiColors.primary,
-    super.key,
-  });
+  const WebTuiStatusPill({required this.label, this.color, super.key});
 
   final String label;
-  final Color color;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
+    final color = this.color ?? WebTuiColors.primary;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),

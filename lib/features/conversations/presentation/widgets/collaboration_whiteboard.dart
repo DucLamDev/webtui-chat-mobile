@@ -869,7 +869,7 @@ class _CollaborationWhiteboardState
   Widget _buildHeader() {
     return Row(
       children: [
-        const Icon(Icons.draw_outlined, color: WebTuiColors.primary, size: 20),
+        Icon(Icons.draw_outlined, color: WebTuiColors.primary, size: 20),
         const SizedBox(width: WebTuiSpacing.sm),
         Expanded(
           child: Text(
@@ -907,7 +907,7 @@ class _CollaborationWhiteboardState
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
+          Icon(
             Icons.cloud_off_rounded,
             color: WebTuiColors.textMuted,
             size: 34,
@@ -1035,9 +1035,7 @@ class _CollaborationWhiteboardState
             color: parseWhiteboardColor(value),
             shape: BoxShape.circle,
             border: Border.all(color: Colors.white, width: 2),
-            boxShadow: const [
-              BoxShadow(color: WebTuiColors.border, spreadRadius: 1),
-            ],
+            boxShadow: [BoxShadow(color: WebTuiColors.border, spreadRadius: 1)],
           ),
         ),
       ),
@@ -1129,13 +1127,9 @@ class _CollaborationWhiteboardState
       // Lưu hỏng: thay chữ hướng dẫn bằng trạng thái lỗi để người dùng thấy.
       return Row(
         children: [
-          const Icon(
-            Icons.cloud_off_rounded,
-            size: 18,
-            color: WebTuiColors.danger,
-          ),
+          Icon(Icons.cloud_off_rounded, size: 18, color: WebTuiColors.danger),
           const SizedBox(width: WebTuiSpacing.xs),
-          const Expanded(
+          Expanded(
             child: Text(
               'Chưa lưu được',
               maxLines: 1,
@@ -1154,10 +1148,7 @@ class _CollaborationWhiteboardState
             _tool.hint,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: WebTuiColors.textSecondary,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: WebTuiColors.textSecondary, fontSize: 12),
           ),
         ),
         const SizedBox(width: WebTuiSpacing.sm),
@@ -1206,7 +1197,7 @@ class _ToolButton extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(WebTuiRadii.md),
             side: selected
-                ? const BorderSide(color: WebTuiColors.primary, width: 1.5)
+                ? BorderSide(color: WebTuiColors.primary, width: 1.5)
                 : BorderSide.none,
           ),
           child: InkWell(

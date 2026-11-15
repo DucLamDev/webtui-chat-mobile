@@ -238,7 +238,7 @@ class _AddTile extends StatelessWidget {
           children: [
             CustomPaint(
               painter: const _DashedBoxPainter(),
-              child: const SizedBox(
+              child: SizedBox(
                 width: 48,
                 height: 48,
                 child: Icon(

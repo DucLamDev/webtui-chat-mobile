@@ -69,7 +69,7 @@ class MessageCardRowsView extends StatelessWidget {
       children: [
         for (var index = 0; index < rows.length; index++) ...[
           if (index > 0)
-            const Divider(height: WebTuiSpacing.md, color: WebTuiColors.border),
+            Divider(height: WebTuiSpacing.md, color: WebTuiColors.border),
           _RowLine(parts: _split(rows[index])),
         ],
       ],
@@ -177,7 +177,7 @@ class MessageCardCommandsView extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
               child: Text(
                 command,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 12,
                   color: WebTuiColors.textPrimary,

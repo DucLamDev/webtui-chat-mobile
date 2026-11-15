@@ -177,11 +177,8 @@ class _WorkspaceRow extends StatelessWidget {
       icon: Icons.business_rounded,
       onTap: busy ? null : onTap,
       trailing: selected
-          ? const Icon(Icons.check_circle_rounded, color: WebTuiColors.primary)
-          : const Icon(
-              Icons.chevron_right_rounded,
-              color: WebTuiColors.textMuted,
-            ),
+          ? Icon(Icons.check_circle_rounded, color: WebTuiColors.primary)
+          : Icon(Icons.chevron_right_rounded, color: WebTuiColors.textMuted),
     );
   }
 }

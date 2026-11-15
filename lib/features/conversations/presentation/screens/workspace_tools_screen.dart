@@ -112,7 +112,7 @@ class _ModuleCard extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(WebTuiIcons.forward, color: WebTuiColors.textSecondary),
+          Icon(WebTuiIcons.forward, color: WebTuiColors.textSecondary),
         ],
       ),
     );

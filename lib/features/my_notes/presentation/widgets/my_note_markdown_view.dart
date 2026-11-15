@@ -62,14 +62,14 @@ class _MyNoteMarkdownViewState extends ConsumerState<MyNoteMarkdownView> {
             ),
             MarkdownCode(:final text) => TextSpan(
               text: text,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'monospace',
                 backgroundColor: WebTuiColors.primarySoft,
               ),
             ),
             MarkdownLink(:final label, :final url) => TextSpan(
               text: label,
-              style: const TextStyle(
+              style: TextStyle(
                 color: WebTuiColors.primary,
                 decoration: TextDecoration.underline,
               ),

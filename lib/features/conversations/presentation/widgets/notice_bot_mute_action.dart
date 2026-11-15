@@ -23,7 +23,7 @@ class NoticeBotMuteAction extends ConsumerWidget {
     final muted = state.muted ?? false;
     final label = muted ? 'Bật thông báo' : 'Tắt thông báo';
     if (state.isSaving) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(horizontal: 14),
         child: Center(
           child: SizedBox.square(

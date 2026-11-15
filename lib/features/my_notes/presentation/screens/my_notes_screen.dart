@@ -416,7 +416,7 @@ class _NoteTile extends StatelessWidget {
                   ),
                   if (note.pinned) ...[
                     const SizedBox(width: WebTuiSpacing.xs),
-                    const Icon(
+                    Icon(
                       Icons.push_pin_rounded,
                       size: 16,
                       color: WebTuiColors.primary,

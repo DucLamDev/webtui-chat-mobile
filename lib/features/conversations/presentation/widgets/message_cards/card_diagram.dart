@@ -112,7 +112,7 @@ class _MessageCardDiagramViewState extends State<MessageCardDiagramView> {
                       scrollDirection: Axis.horizontal,
                       child: Text(
                         mermaid,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'monospace',
                           fontSize: 12,
                           color: WebTuiColors.textPrimary,

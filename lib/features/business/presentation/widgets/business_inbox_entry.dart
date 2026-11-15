@@ -23,7 +23,7 @@ class BusinessInboxEntry extends StatelessWidget {
       timeLabel: '',
       avatarLabel: 'Tổng quan nghiệp vụ',
       avatarIcon: WebTuiIcons.work,
-      trailing: const Icon(
+      trailing: Icon(
         CupertinoIcons.chevron_right,
         size: 18,
         color: WebTuiColors.textMuted,

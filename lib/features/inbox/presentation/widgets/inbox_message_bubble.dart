@@ -71,7 +71,7 @@ class InboxMessageBubble extends StatelessWidget {
               if (message.senderName.isNotEmpty && !customer)
                 Text(
                   message.senderName,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: WebTuiColors.textSecondary,
                   ),
@@ -92,10 +92,7 @@ class InboxMessageBubble extends StatelessWidget {
               if (failed && message.error.isNotEmpty)
                 Text(
                   message.error,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: WebTuiColors.danger,
-                  ),
+                  style: TextStyle(fontSize: 12, color: WebTuiColors.danger),
                 ),
               if (failed && message.retryable && onRetry != null)
                 TextButton(

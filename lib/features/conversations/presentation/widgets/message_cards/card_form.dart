@@ -129,7 +129,7 @@ class _MessageCardFormViewState extends State<MessageCardFormView> {
             padding: const EdgeInsets.only(bottom: WebTuiSpacing.xs),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.check_circle_rounded,
                   size: 16,
                   color: WebTuiColors.accentGreen,

@@ -49,13 +49,13 @@ class _MessageCardTableViewState extends State<MessageCardTableView> {
               child: Table(
                 defaultColumnWidth: const IntrinsicColumnWidth(),
                 defaultVerticalAlignment: TableCellVerticalAlignment.top,
-                border: const TableBorder(
+                border: TableBorder(
                   horizontalInside: BorderSide(color: WebTuiColors.border),
                 ),
                 children: [
                   if (hasHeader)
                     TableRow(
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: WebTuiColors.backgroundMuted,
                       ),
                       children: [

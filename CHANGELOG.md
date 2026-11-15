@@ -5,12 +5,17 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
 
 ## 1.29.0 · 15/11/2026
 ### Tính năng
-- Cài đặt gọn lại, có tiếng Anh; ghi âm WebM trên iPhone mở được bằng ứng dụng khác
+- Cài đặt gọn lại, có tiếng Anh, chọn được giao diện Sáng / Tối; video trong Tệp có ảnh xem trước; ghi âm WebM trên
+  iPhone mở được bằng ứng dụng khác
   Đầu tab Cài đặt nay là một thẻ có ảnh đại diện, tên và dòng "Hồ sơ cá nhân"; bấm vào mở màn Hồ sơ, trong đó có mục
   "Tài khoản và bảo mật". Bỏ hai dòng "Hồ sơ cá nhân" và "Tài khoản" bị trùng ở dưới. Chọn "English" trong Thiết lập
   ứng dụng thì tab Cài đặt, Thiết lập ứng dụng, màn Hồ sơ và thanh tab dưới đổi sang tiếng Anh ngay; các màn khác sẽ
   dịch dần ở bản sau. Ở mục Tệp, ghi âm dạng WebM / Ogg (thường gửi từ web) iPhone không phát trực tiếp được: bấm vào
   sẽ mở bảng "Mở bằng ứng dụng khác" hoặc lưu về máy; ghi âm khác phát lỗi thì có nút "Mở bằng ứng dụng khác".
+  Thiết lập ứng dụng → Giao diện: chọn "Tối" thì cả app đổi sang nền tối ngay (không phải mở lại app, không mất màn
+  đang mở); "Hệ thống" thì theo chế độ sáng / tối của điện thoại. Màn đăng nhập vẫn giữ nền sáng. Tệp chia sẻ → Video:
+  video cũ chưa có ảnh xem trước nay được app tự lấy một khung hình làm ảnh bìa (lấy ngay trên máy, lưu lại cho lần
+  sau), không còn ô đen. Trên iPhone, video dạng WebM không lấy được ảnh nên vẫn hiện biểu tượng video.
 
 ## 1.27.2 · 15/11/2026
 ### Sửa lỗi

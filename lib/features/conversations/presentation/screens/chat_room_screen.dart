@@ -1913,7 +1913,7 @@ class _MessageSearchPanel extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       CupertinoIcons.search,
                       size: 16,
                       color: WebTuiColors.textMuted,
@@ -2144,7 +2144,7 @@ class _ThreadPanel extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.forum_outlined,
                   size: 18,
                   color: WebTuiColors.primary,
@@ -2170,7 +2170,7 @@ class _ThreadPanel extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: WebTuiSpacing.xs),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.subdirectory_arrow_right_rounded,
                     size: 14,
                     color: WebTuiColors.primary,
@@ -2237,7 +2237,7 @@ class _ThreadPanel extends StatelessWidget {
                     tooltip: 'Gửi vào thread',
                     onPressed: canSend ? onSend : null,
                     icon: sending
-                        ? const SizedBox.square(
+                        ? SizedBox.square(
                             dimension: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
@@ -2541,7 +2541,7 @@ class _ComposerState extends State<_Composer> {
                           ? _send
                           : _startVoiceRecording,
                       icon: widget.sending || _uploadingAttachments
-                          ? const SizedBox.square(
+                          ? SizedBox.square(
                               dimension: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
@@ -2783,11 +2783,7 @@ class _PermissionRationaleTile extends StatelessWidget {
           padding: const EdgeInsets.all(WebTuiSpacing.md),
           child: Row(
             children: [
-              const Icon(
-                WebTuiIcons.lock,
-                size: 20,
-                color: WebTuiColors.primary,
-              ),
+              Icon(WebTuiIcons.lock, size: 20, color: WebTuiColors.primary),
               const SizedBox(width: WebTuiSpacing.sm),
               Expanded(
                 child: Text(
@@ -2832,11 +2828,7 @@ class _VoiceRecordingBar extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(
-              CupertinoIcons.mic_fill,
-              size: 18,
-              color: WebTuiColors.danger,
-            ),
+            Icon(CupertinoIcons.mic_fill, size: 18, color: WebTuiColors.danger),
             const SizedBox(width: WebTuiSpacing.sm),
             Expanded(
               child: Text(
@@ -3094,11 +3086,7 @@ class _ComposerContextBanner extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Icon(
-                Icons.reply_rounded,
-                size: 18,
-                color: WebTuiColors.primary,
-              ),
+              Icon(Icons.reply_rounded, size: 18, color: WebTuiColors.primary),
               const SizedBox(width: WebTuiSpacing.sm),
               Expanded(
                 child: Column(
@@ -4058,7 +4046,7 @@ class _MessageStatusLine extends StatelessWidget {
           ),
           if (seen) ...[
             const SizedBox(width: 4),
-            const Icon(
+            Icon(
               WebTuiIcons.seen,
               key: Key('chat_message_seen_icon'),
               size: 16,
@@ -4307,7 +4295,7 @@ class _PollMessageCard extends StatelessWidget {
                       color: WebTuiColors.primarySoft,
                       borderRadius: BorderRadius.circular(WebTuiRadii.sm),
                     ),
-                    child: const Padding(
+                    child: Padding(
                       padding: EdgeInsets.all(8),
                       child: Icon(
                         Icons.poll_outlined,
@@ -4792,7 +4780,7 @@ class _BlockedMessagePlaceholder extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.visibility_off_outlined,
                 size: 18,
                 color: WebTuiColors.textMuted,
@@ -4830,7 +4818,7 @@ class _BlockedConversationComposer extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Icon(Icons.block_rounded, color: WebTuiColors.textMuted),
+              Icon(Icons.block_rounded, color: WebTuiColors.textMuted),
               const SizedBox(width: WebTuiSpacing.sm),
               const Expanded(
                 child: Text(
@@ -4860,11 +4848,11 @@ class _ChatEmptyState extends StatelessWidget {
             Container(
               width: 64,
               height: 64,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: WebTuiColors.primarySoft,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.chat_bubble_outline_rounded,
                 color: WebTuiColors.primary,
                 size: 28,
@@ -4965,7 +4953,7 @@ class _InlineError extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(
+            Icon(
               Icons.error_outline_rounded,
               size: 18,
               color: WebTuiColors.danger,

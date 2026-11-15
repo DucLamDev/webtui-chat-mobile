@@ -499,7 +499,7 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
             ),
           ),
           if (note.pinned)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 6, left: WebTuiSpacing.xs),
               child: Icon(
                 Icons.push_pin_rounded,

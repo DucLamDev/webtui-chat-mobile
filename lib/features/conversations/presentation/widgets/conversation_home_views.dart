@@ -642,7 +642,7 @@ class _ConversationTile extends ConsumerWidget {
       onTap: onTap,
       onLongPress: privacy.isBlocked ? onTap : null,
       trailing: privacy.isBlocked
-          ? const Tooltip(
+          ? Tooltip(
               message: 'Quản lý người dùng đã chặn',
               child: Icon(Icons.block_rounded, color: WebTuiColors.danger),
             )
@@ -804,7 +804,7 @@ class _MessagesTopBar extends StatelessWidget {
                 key: const Key('compose_button'),
                 borderRadius: BorderRadius.circular(WebTuiRadii.md + 2),
                 onTap: onCompose,
-                child: const SizedBox.square(
+                child: SizedBox.square(
                   dimension: 46,
                   child: Tooltip(
                     message: 'Tin nhắn mới hoặc tạo nhóm',

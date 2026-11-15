@@ -378,9 +378,7 @@ class _SegmentRow extends StatelessWidget {
         decoration: BoxDecoration(
           color: active ? WebTuiColors.primarySoft : null,
           border: active
-              ? const Border(
-                  left: BorderSide(color: WebTuiColors.primary, width: 3),
-                )
+              ? Border(left: BorderSide(color: WebTuiColors.primary, width: 3))
               : null,
           borderRadius: BorderRadius.circular(WebTuiRadii.xs),
         ),

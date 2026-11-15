@@ -108,7 +108,7 @@ class _EmailVerificationScreenState
         child: ListView(
           padding: const EdgeInsets.all(WebTuiSpacing.lg),
           children: [
-            const Icon(
+            Icon(
               Icons.mark_email_read_outlined,
               size: 56,
               color: WebTuiColors.primary,

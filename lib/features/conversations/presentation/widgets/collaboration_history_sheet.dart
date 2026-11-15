@@ -102,7 +102,7 @@ class CollaborationHistorySheet extends ConsumerWidget {
                 ],
               ),
             ),
-            const Divider(height: 1, color: WebTuiColors.border),
+            Divider(height: 1, color: WebTuiColors.border),
             Expanded(
               child: previewing
                   ? _Preview(
@@ -193,7 +193,7 @@ class _VersionList extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: WebTuiSpacing.sm),
       itemCount: state.versions.length,
       separatorBuilder: (_, _) =>
-          const Divider(height: 1, indent: 72, color: WebTuiColors.border),
+          Divider(height: 1, indent: 72, color: WebTuiColors.border),
       itemBuilder: (context, index) {
         final version = state.versions[index];
         return ListTile(

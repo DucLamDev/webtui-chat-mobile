@@ -26,7 +26,7 @@ class ApprovalInboxEntry extends ConsumerWidget {
       timeLabel: '',
       avatarLabel: 'Phê duyệt',
       avatarIcon: WebTuiIcons.tasks,
-      trailing: const Icon(
+      trailing: Icon(
         CupertinoIcons.chevron_right,
         size: 18,
         color: WebTuiColors.textMuted,

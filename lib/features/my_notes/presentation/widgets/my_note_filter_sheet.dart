@@ -116,7 +116,7 @@ class _MyNoteFilterSheetState extends ConsumerState<_MyNoteFilterSheet> {
   );
 
   Widget _check() =>
-      const Icon(WebTuiIcons.check, size: 20, color: WebTuiColors.primary);
+      Icon(WebTuiIcons.check, size: 20, color: WebTuiColors.primary);
 
   Widget _folderActions(MyNoteFolderNode node) {
     return Padding(
@@ -141,15 +141,12 @@ class _MyNoteFilterSheetState extends ConsumerState<_MyNoteFilterSheet> {
               onPressed: () => unawaited(_create(parentId: node.folder.id)),
             ),
           ActionChip(
-            avatar: const Icon(
+            avatar: Icon(
               WebTuiIcons.delete,
               size: 16,
               color: WebTuiColors.danger,
             ),
-            label: const Text(
-              'Xoá',
-              style: TextStyle(color: WebTuiColors.danger),
-            ),
+            label: Text('Xoá', style: TextStyle(color: WebTuiColors.danger)),
             onPressed: () => unawaited(_delete(node.folder)),
           ),
         ],

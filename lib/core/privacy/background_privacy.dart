@@ -140,7 +140,7 @@ class _PrivacyOrganizationMark extends StatelessWidget {
       width: 48,
       height: 48,
       alignment: Alignment.center,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: WebTuiColors.primarySoft,
         shape: BoxShape.circle,
       ),

@@ -220,7 +220,7 @@ class _ShortcutsManageScreenState extends ConsumerState<ShortcutsManageScreen> {
                         IconButton(
                           key: Key('shortcut_delete_${item.id}'),
                           tooltip: 'Xoá',
-                          icon: const Icon(
+                          icon: Icon(
                             WebTuiIcons.delete,
                             size: 20,
                             color: WebTuiColors.danger,
@@ -229,7 +229,7 @@ class _ShortcutsManageScreenState extends ConsumerState<ShortcutsManageScreen> {
                         ),
                         ReorderableDragStartListener(
                           index: index,
-                          child: const Padding(
+                          child: Padding(
                             padding: EdgeInsets.symmetric(horizontal: 8),
                             child: Icon(
                               WebTuiIcons.dragHandle,

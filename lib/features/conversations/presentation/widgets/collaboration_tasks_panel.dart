@@ -399,7 +399,7 @@ class TaskTile extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               if (assignee == null)
-                                const Icon(
+                                Icon(
                                   Icons.person_outline_rounded,
                                   size: 16,
                                   color: WebTuiColors.textMuted,

@@ -331,7 +331,7 @@ class CustomerTicketTile extends StatelessWidget {
                           if (staffPrefix.isNotEmpty)
                             TextSpan(
                               text: staffPrefix,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 color: WebTuiColors.textSecondary,
                               ),
@@ -368,7 +368,7 @@ class CustomerTicketTile extends StatelessWidget {
                             },
                           )
                         else if (ticket.status == CustomerTicketStatus.answered)
-                          const WebTuiStatusPill(
+                          WebTuiStatusPill(
                             label: 'Đã trả lời',
                             color: WebTuiColors.accentGreen,
                           ),
@@ -379,7 +379,7 @@ class CustomerTicketTile extends StatelessWidget {
                           ),
                         if (assignee != null)
                           assignee.isUser(currentUserId)
-                              ? const WebTuiStatusPill(
+                              ? WebTuiStatusPill(
                                   label: 'Bạn đang xử lý',
                                   color: WebTuiColors.accentGreen,
                                 )
@@ -389,7 +389,7 @@ class CustomerTicketTile extends StatelessWidget {
                                   color: WebTuiColors.textSecondary,
                                 ),
                         if (ticket.hasAiDraft)
-                          const WebTuiStatusPill(
+                          WebTuiStatusPill(
                             label: 'Có nháp AI',
                             color: WebTuiColors.primary,
                           ),

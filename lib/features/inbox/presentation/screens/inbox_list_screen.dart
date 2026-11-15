@@ -231,7 +231,7 @@ class InboxConversationTile extends StatelessWidget {
       color: WebTuiColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(WebTuiRadii.md),
-        side: const BorderSide(color: WebTuiColors.border),
+        side: BorderSide(color: WebTuiColors.border),
       ),
       clipBehavior: Clip.antiAlias,
       child: ListTile(
@@ -266,7 +266,7 @@ class InboxConversationTile extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 key: Key('inbox_extra_${item.id}'),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   color: WebTuiColors.textSecondary,
                 ),
@@ -279,10 +279,7 @@ class InboxConversationTile extends StatelessWidget {
           children: [
             Text(
               formatInboxTime(item.lastMessageAt),
-              style: const TextStyle(
-                fontSize: 12,
-                color: WebTuiColors.textMuted,
-              ),
+              style: TextStyle(fontSize: 12, color: WebTuiColors.textMuted),
             ),
             if (unread > 0) ...[
               const SizedBox(height: WebTuiSpacing.xs),
@@ -295,7 +292,7 @@ class InboxConversationTile extends StatelessWidget {
                 ),
                 child: Text(
                   unread > 99 ? '99+' : '$unread',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: WebTuiColors.textOnPrimary,
                     fontSize: 12,
                     fontWeight: FontWeight.w700,

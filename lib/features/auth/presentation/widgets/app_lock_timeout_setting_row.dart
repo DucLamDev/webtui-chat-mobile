@@ -59,7 +59,7 @@ class AppLockTimeoutSettingRow extends ConsumerWidget {
                 title: AppLockTimeoutPolicy.label(minutes),
                 selected: minutes == current,
                 trailing: minutes == current
-                    ? const Icon(
+                    ? Icon(
                         WebTuiIcons.check,
                         size: 20,
                         color: WebTuiColors.primary,

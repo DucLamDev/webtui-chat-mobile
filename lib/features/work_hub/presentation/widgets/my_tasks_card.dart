@@ -11,9 +11,12 @@ import '../controllers/task_status_actions.dart';
 import '../controllers/work_hub_providers.dart';
 import 'work_common.dart';
 
-const _grayTile = Color(0xFFF0F2F5);
-const _grayTileText = Color(0xFF5B6675);
-const _greenTile = Color(0xFFE7F7EE);
+Color get _grayTile =>
+    WebTuiColors.brightness == Brightness.dark ? const Color(0xFF222D3D) : const Color(0xFFF0F2F5);
+Color get _grayTileText =>
+    WebTuiColors.brightness == Brightness.dark ? const Color(0xFFA7B3C6) : const Color(0xFF5B6675);
+Color get _greenTile =>
+    WebTuiColors.brightness == Brightness.dark ? const Color(0xFF14382C) : const Color(0xFFE7F7EE);
 const _greenTileText = Color(0xFF1E9E5A);
 
 /// Địa chỉ mở một việc trong kênh của nó (bảng việc của kênh).

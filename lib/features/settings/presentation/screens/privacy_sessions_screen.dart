@@ -100,7 +100,7 @@ class PrivacySessionsScreen extends ConsumerWidget {
             ],
             const WebTuiSectionLabel('Riêng tư khi chuyển ứng dụng'),
             WebTuiListSurface(
-              children: const [
+              children: [
                 WebTuiSettingRow(
                   title: 'Ẩn nội dung khi app vào nền',
                   subtitle: 'Che nội dung trong trình chuyển ứng dụng',
@@ -438,7 +438,7 @@ class _RequiresLoginState extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+              Icon(
                 Icons.lock_clock_rounded,
                 color: WebTuiColors.danger,
                 size: 28,
@@ -707,7 +707,7 @@ class _SessionTile extends StatelessWidget {
                       ),
                     ),
                     if (session.isCurrent)
-                      const _SessionBadge(
+                      _SessionBadge(
                         label: 'Máy này',
                         color: WebTuiColors.primary,
                       ),

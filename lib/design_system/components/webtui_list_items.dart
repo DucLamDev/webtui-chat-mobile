@@ -85,7 +85,7 @@ class WebTuiConversationListItem extends StatelessWidget {
           child: Stack(
             children: [
               if (selected)
-                const Positioned(
+                Positioned(
                   left: 0,
                   top: 10,
                   bottom: 10,
@@ -148,7 +148,7 @@ class WebTuiConversationListItem extends StatelessWidget {
                           Row(
                             children: [
                               if (muted) ...[
-                                const Icon(
+                                Icon(
                                   WebTuiIcons.bellOff,
                                   size: 14,
                                   color: WebTuiColors.textMuted,
@@ -194,7 +194,7 @@ class WebTuiConversationListItem extends StatelessWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 if (pinned)
-                                  const Padding(
+                                  Padding(
                                     padding: EdgeInsets.only(
                                       right: WebTuiSpacing.xs,
                                     ),
@@ -334,10 +334,7 @@ class WebTuiChannelBotListItem extends StatelessWidget {
                     ),
                   )
                 else
-                  const Icon(
-                    WebTuiIcons.forward,
-                    color: WebTuiColors.textMuted,
-                  ),
+                  Icon(WebTuiIcons.forward, color: WebTuiColors.textMuted),
               ],
             ),
           ),

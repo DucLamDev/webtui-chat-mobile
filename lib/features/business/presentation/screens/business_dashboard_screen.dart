@@ -285,7 +285,7 @@ class _TicketsSection extends StatelessWidget {
           subtitle: 'Tạo ticket mới bằng endpoint backend',
           icon: Icons.add_task_outlined,
           onTap: onCreate,
-          trailing: const Icon(Icons.add_rounded, color: WebTuiColors.primary),
+          trailing: Icon(Icons.add_rounded, color: WebTuiColors.primary),
         ),
         if (items.isEmpty)
           const WebTuiSettingRow(
@@ -467,7 +467,7 @@ class _AdminMobileSection extends StatelessWidget {
               title: log.action,
               subtitle: '${log.entityType} - ${_date(log.createdAt)}',
               icon: Icons.manage_search_outlined,
-              trailing: const Icon(
+              trailing: Icon(
                 Icons.history_rounded,
                 color: WebTuiColors.textMuted,
               ),

@@ -538,7 +538,7 @@ class _TicketMessageBubble extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (message.isAssistant) ...[
-                const Icon(
+                Icon(
                   Icons.smart_toy_outlined,
                   size: 14,
                   color: WebTuiColors.primary,
@@ -657,7 +657,7 @@ class _AiDraftCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.auto_awesome_outlined,
                   size: 18,
                   color: WebTuiColors.primary,
@@ -826,7 +826,7 @@ class _Notice extends StatelessWidget {
             if (onClose != null)
               InkWell(
                 onTap: onClose,
-                child: const Icon(
+                child: Icon(
                   Icons.close_rounded,
                   size: 16,
                   color: WebTuiColors.textMuted,
@@ -972,21 +972,15 @@ class _Composer extends StatelessWidget {
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(22),
-                        borderSide: const BorderSide(
-                          color: WebTuiColors.border,
-                        ),
+                        borderSide: BorderSide(color: WebTuiColors.border),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(22),
-                        borderSide: const BorderSide(
-                          color: WebTuiColors.border,
-                        ),
+                        borderSide: BorderSide(color: WebTuiColors.border),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(22),
-                        borderSide: const BorderSide(
-                          color: WebTuiColors.primary,
-                        ),
+                        borderSide: BorderSide(color: WebTuiColors.primary),
                       ),
                     ),
                   ),
@@ -1003,7 +997,7 @@ class _Composer extends StatelessWidget {
                       tooltip: 'Gửi trả lời',
                       onPressed: ready ? onSend : null,
                       icon: state.isSending
-                          ? const SizedBox.square(
+                          ? SizedBox.square(
                               dimension: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
@@ -1078,7 +1072,7 @@ class _ReadOnlyNote extends StatelessWidget {
       padding: const EdgeInsets.all(WebTuiSpacing.md),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.visibility_outlined,
             size: 18,
             color: WebTuiColors.textMuted,

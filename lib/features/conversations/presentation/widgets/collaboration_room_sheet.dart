@@ -264,7 +264,7 @@ class _CollaborationRoomSheetState
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.cloud_off_rounded,
                           color: WebTuiColors.textMuted,
                           size: 38,
@@ -325,7 +325,7 @@ class _CollaborationRoomSheetState
               color: WebTuiColors.primarySoft,
               borderRadius: BorderRadius.circular(WebTuiRadii.lg),
             ),
-            child: const Icon(
+            child: Icon(
               CupertinoIcons.video_camera_solid,
               color: WebTuiColors.primary,
             ),
@@ -379,7 +379,7 @@ class _CollaborationRoomSheetState
       (Icons.task_alt_outlined, 'Task'),
     ];
     return DecoratedBox(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: WebTuiColors.surface,
         border: Border(bottom: BorderSide(color: WebTuiColors.border)),
       ),
@@ -1033,7 +1033,7 @@ class _CollaborationRoomSheetState
                   IconButton(
                     tooltip: 'Duyệt',
                     onPressed: () => _moderateGuest(guest.id, true),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.check_circle_rounded,
                       color: WebTuiColors.accentGreen,
                     ),
@@ -1041,7 +1041,7 @@ class _CollaborationRoomSheetState
                   IconButton(
                     tooltip: 'Từ chối',
                     onPressed: () => _moderateGuest(guest.id, false),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.cancel_outlined,
                       color: WebTuiColors.danger,
                     ),

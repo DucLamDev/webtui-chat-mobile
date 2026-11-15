@@ -156,7 +156,7 @@ class _TaskEditorSheetState extends ConsumerState<TaskEditorSheet> {
             color: WebTuiColors.surface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(WebTuiRadii.md),
-              side: const BorderSide(color: WebTuiColors.border),
+              side: BorderSide(color: WebTuiColors.border),
             ),
             child: ListTile(
               key: const Key('task_editor_assignee'),

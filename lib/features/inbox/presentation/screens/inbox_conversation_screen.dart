@@ -218,7 +218,7 @@ class _Header extends StatelessWidget {
                 if (conversation.contact.phone.isNotEmpty)
                   conversation.contact.phone,
               ].join(' · '),
-              style: const TextStyle(color: WebTuiColors.textSecondary),
+              style: TextStyle(color: WebTuiColors.textSecondary),
             ),
             const SizedBox(height: WebTuiSpacing.sm),
             Wrap(
@@ -389,7 +389,7 @@ class _ViewOnlyNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Material(
+    return Material(
       color: WebTuiColors.surface,
       child: Padding(
         padding: EdgeInsets.all(WebTuiSpacing.md),
@@ -453,7 +453,7 @@ class _Composer extends StatelessWidget {
                 child: Text(
                   reason.isEmpty ? 'Chưa trả lời được hội thoại này.' : reason,
                   key: const Key('inbox_reply_blocked'),
-                  style: const TextStyle(color: WebTuiColors.danger),
+                  style: TextStyle(color: WebTuiColors.danger),
                 ),
               ),
             if (noteMode)

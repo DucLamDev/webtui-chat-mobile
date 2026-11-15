@@ -149,10 +149,7 @@ class _ImagePlaceholder extends StatelessWidget {
                 dimension: 18,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
-            : const Icon(
-                Icons.broken_image_outlined,
-                color: WebTuiColors.textMuted,
-              ),
+            : Icon(Icons.broken_image_outlined, color: WebTuiColors.textMuted),
       ),
     );
   }

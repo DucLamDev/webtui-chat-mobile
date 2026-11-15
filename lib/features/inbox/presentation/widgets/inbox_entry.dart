@@ -26,7 +26,7 @@ class InboxEntry extends ConsumerWidget {
       timeLabel: '',
       avatarLabel: 'Hộp thư khách',
       avatarIcon: WebTuiIcons.messages,
-      trailing: const Icon(
+      trailing: Icon(
         CupertinoIcons.chevron_right,
         size: 18,
         color: WebTuiColors.textMuted,

@@ -157,7 +157,7 @@ class _WebTuiSearchBarState extends State<WebTuiSearchBar> {
                       minWidth: 32,
                       minHeight: 32,
                     ),
-                    icon: const Icon(
+                    icon: Icon(
                       WebTuiIcons.close,
                       size: 18,
                       color: WebTuiColors.textMuted,

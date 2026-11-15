@@ -135,7 +135,7 @@ class _IdleView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.qr_code_scanner_rounded,
               size: 56,
               color: WebTuiColors.primary,

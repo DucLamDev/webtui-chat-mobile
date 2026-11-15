@@ -78,7 +78,7 @@ class CallPrivacySettingRow extends ConsumerWidget {
               subtitle: option.description,
               selected: option == current,
               trailing: option == current
-                  ? const Icon(
+                  ? Icon(
                       WebTuiIcons.check,
                       size: 20,
                       color: WebTuiColors.primary,

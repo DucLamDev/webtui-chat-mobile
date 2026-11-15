@@ -25,7 +25,7 @@ class NoticeBotReadOnlyBar extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
+              Icon(
                 Icons.notifications_none_rounded,
                 size: 18,
                 color: WebTuiColors.textMuted,

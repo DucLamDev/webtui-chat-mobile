@@ -8,7 +8,8 @@ import '../tokens/webtui_typography.dart';
 /// Màu chủ đạo của hộp thoại: thường (xanh) hay nguy hiểm (đỏ: xoá, rời...).
 enum WebTuiDialogTone { normal, danger }
 
-const _dangerSoft = Color(0xFFFDECEC);
+Color get _dangerSoft =>
+    WebTuiColors.brightness == Brightness.dark ? const Color(0xFF3A1D24) : const Color(0xFFFDECEC);
 
 /// Một nút ở chân hộp thoại. `primary` là nút chính (nền đặc), còn lại là nút
 /// phụ (nền xám nhạt). `destructive` tô đỏ nút chính.

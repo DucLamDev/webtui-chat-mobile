@@ -6,8 +6,8 @@ import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 
 const callCardMissedColor = Color(0xFFE5322D);
-const callCardIncomingColor = WebTuiColors.accentGreen;
-const callCardOutgoingColor = WebTuiColors.primary;
+Color get callCardIncomingColor => WebTuiColors.accentGreen;
+Color get callCardOutgoingColor => WebTuiColors.primary;
 
 /// Thẻ lịch sử cuộc gọi trong phòng chat.
 ///

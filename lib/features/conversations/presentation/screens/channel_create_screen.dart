@@ -449,11 +449,7 @@ class _SelectedChip extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: WebTuiSpacing.xs),
-              const Icon(
-                WebTuiIcons.close,
-                size: 16,
-                color: WebTuiColors.primary,
-              ),
+              Icon(WebTuiIcons.close, size: 16, color: WebTuiColors.primary),
             ],
           ),
         ),

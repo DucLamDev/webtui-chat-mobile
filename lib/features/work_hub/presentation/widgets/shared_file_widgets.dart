@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
@@ -9,6 +12,7 @@ import '../../domain/entities/work_hub.dart';
 import '../controllers/shared_audio_controller.dart';
 import '../controllers/shared_file_display.dart';
 import '../controllers/shared_file_logic.dart';
+import '../controllers/shared_file_providers.dart';
 import 'work_common.dart';
 
 export '../controllers/shared_file_display.dart' show sharedFileSizeText;
@@ -159,6 +163,75 @@ class _VideoCoverFallback extends StatelessWidget {
   }
 }
 
+/// Video chưa có ảnh bìa trên máy chủ: hiện ô thay thế trong lúc chờ, tự cắt
+/// một khung hình trên máy (có nhớ lại) rồi hiện làm ảnh bìa; lỗi thì giữ ô
+/// thay thế.
+class _GeneratedVideoCover extends ConsumerStatefulWidget {
+  const _GeneratedVideoCover({
+    required this.workspaceId,
+    required this.file,
+    required this.iconSize,
+  });
+
+  final String workspaceId;
+  final SharedFile file;
+  final double? iconSize;
+
+  @override
+  ConsumerState<_GeneratedVideoCover> createState() =>
+      _GeneratedVideoCoverState();
+}
+
+class _GeneratedVideoCoverState extends ConsumerState<_GeneratedVideoCover> {
+  File? _poster;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(_GeneratedVideoCover old) {
+    super.didUpdateWidget(old);
+    if (old.file.id != widget.file.id ||
+        old.file.byteSize != widget.file.byteSize ||
+        old.workspaceId != widget.workspaceId) {
+      _poster = null;
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    final file = widget.file;
+    final workspaceId = widget.workspaceId;
+    File? poster;
+    try {
+      poster = await ref
+          .read(sharedVideoPosterCacheProvider(workspaceId))
+          .posterFor(file);
+    } on Object {
+      poster = null;
+    }
+    if (!mounted || widget.file.id != file.id) return;
+    if (poster != null) setState(() => _poster = poster);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final poster = _poster;
+    if (poster == null) return _VideoCoverFallback(iconSize: widget.iconSize);
+    return Image.file(
+      poster,
+      key: const Key('file_video_generated_cover'),
+      fit: BoxFit.cover,
+      cacheWidth: 480,
+      gaplessPlayback: true,
+      errorBuilder: (_, _, _) => _VideoCoverFallback(iconSize: widget.iconSize),
+    );
+  }
+}
+
 /// Ảnh thu nhỏ bo góc cho ảnh / video (video: dấu phát giữa ô).
 class SharedFileThumbnail extends StatelessWidget {
   const SharedFileThumbnail({
@@ -201,7 +274,11 @@ class SharedFileThumbnail extends StatelessWidget {
                 ),
               )
             else
-              const _VideoCoverFallback(iconSize: null),
+              _GeneratedVideoCover(
+                workspaceId: workspaceId,
+                file: file,
+                iconSize: null,
+              ),
             if (video)
               Center(
                 child: Container(
@@ -252,7 +329,11 @@ class SharedFileCoverImage extends StatelessWidget {
       return SizedBox(
         width: width,
         height: height,
-        child: _VideoCoverFallback(iconSize: height * 0.28),
+        child: _GeneratedVideoCover(
+          workspaceId: workspaceId,
+          file: file,
+          iconSize: height * 0.28,
+        ),
       );
     }
     return MessageImageAttachmentView(
@@ -327,7 +408,11 @@ class _SharedMediaGridTileState extends State<SharedMediaGridTile>
                         maxHeight: side,
                       )
                     else
-                      _VideoCoverFallback(iconSize: side * 0.3),
+                      _GeneratedVideoCover(
+                        workspaceId: widget.workspaceId,
+                        file: file,
+                        iconSize: side * 0.3,
+                      ),
                     if (video)
                       Positioned(
                         left: 0,

@@ -367,7 +367,7 @@ class _TabletListDetailPreview extends StatelessWidget {
                       horizontal: WebTuiSpacing.lg,
                       vertical: WebTuiSpacing.sm,
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
                         Icon(
                           Icons.sentiment_satisfied_alt_rounded,
@@ -462,7 +462,7 @@ class _PhoneChatPreview extends StatelessWidget {
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.all(WebTuiSpacing.lg),
-                children: const [
+                children: [
                   Center(
                     child: Text(
                       'Hôm nay',
@@ -553,7 +553,7 @@ class _PhoneCollaborationPreview extends StatelessWidget {
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.all(WebTuiSpacing.lg),
-                children: const [
+                children: [
                   Center(
                     child: Text(
                       'Hôm nay',
@@ -615,7 +615,7 @@ class _FilePreviewCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: WebTuiColors.border),
         ),
-        child: const Row(
+        child: Row(
           children: [
             Icon(Icons.description_outlined, color: WebTuiColors.primary),
             SizedBox(width: WebTuiSpacing.sm),
@@ -663,7 +663,7 @@ class _CallPreviewCard extends StatelessWidget {
             color: WebTuiColors.primary.withValues(alpha: 0.2),
           ),
         ),
-        child: const Column(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
@@ -741,7 +741,7 @@ class _PhoneContactsPreview extends StatelessWidget {
       ],
       body: ListView(
         padding: const EdgeInsets.only(bottom: WebTuiSpacing.lg),
-        children: const [
+        children: [
           Padding(
             padding: EdgeInsets.fromLTRB(
               WebTuiSpacing.lg,
@@ -1075,7 +1075,7 @@ class _PhoneIncomingCallPreview extends StatelessWidget {
               const Spacer(),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: const [
+                children: [
                   _RoundCallAction(
                     label: 'Từ chối',
                     icon: Icons.call_end_rounded,
@@ -1115,7 +1115,7 @@ class _PhoneChannelsPreview extends StatelessWidget {
       ],
       body: ListView(
         padding: const EdgeInsets.only(bottom: WebTuiSpacing.lg),
-        children: const [
+        children: [
           Padding(
             padding: EdgeInsets.fromLTRB(
               WebTuiSpacing.lg,
@@ -1189,7 +1189,7 @@ class _PhoneSafetyPreview extends StatelessWidget {
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: WebTuiSpacing.sm),
-            const Text(
+            Text(
               'Báo cáo nội dung, chặn người dùng và quản lý phiên đăng nhập ngay trong ứng dụng.',
               style: TextStyle(color: WebTuiColors.textSecondary),
             ),
@@ -1222,7 +1222,7 @@ class _PhoneSafetyPreview extends StatelessWidget {
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(color: WebTuiColors.border),
               ),
-              child: const Column(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
@@ -1266,7 +1266,7 @@ class _CallControlsPreview extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
       ),
-      child: const Row(
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _SmallCallButton(label: 'Mic', icon: Icons.mic_rounded),
@@ -1360,7 +1360,7 @@ class _WorkspaceSummaryPreview extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: WebTuiColors.border),
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -1420,7 +1420,7 @@ class _MetricPreview extends StatelessWidget {
           children: [
             Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 color: WebTuiColors.primary,
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
@@ -1430,10 +1430,7 @@ class _MetricPreview extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: WebTuiColors.textSecondary,
-                fontSize: 11,
-              ),
+              style: TextStyle(color: WebTuiColors.textSecondary, fontSize: 11),
             ),
           ],
         ),
@@ -1457,7 +1454,7 @@ class _ComposerPreview extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.sentiment_satisfied_alt_rounded,
             color: WebTuiColors.primary,
           ),
@@ -1471,7 +1468,7 @@ class _ComposerPreview extends StatelessWidget {
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: WebTuiColors.border),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Text(
                     'Nhập tin nhắn...',
@@ -1482,7 +1479,7 @@ class _ComposerPreview extends StatelessWidget {
             ),
           ),
           const SizedBox(width: WebTuiSpacing.sm),
-          const CircleAvatar(
+          CircleAvatar(
             radius: 21,
             backgroundColor: WebTuiColors.primary,
             child: Icon(

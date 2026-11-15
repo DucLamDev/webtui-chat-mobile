@@ -53,7 +53,7 @@ class CustomerTicketInboxEntry extends ConsumerWidget {
               WebTuiUnreadBadge(count: pending),
               const SizedBox(width: WebTuiSpacing.xs),
             ],
-            const Icon(
+            Icon(
               CupertinoIcons.chevron_right,
               size: 18,
               color: WebTuiColors.textMuted,

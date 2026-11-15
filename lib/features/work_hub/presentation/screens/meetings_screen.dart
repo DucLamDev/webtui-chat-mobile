@@ -197,7 +197,7 @@ class _MeetingCard extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(WebTuiIcons.forward, color: WebTuiColors.textMuted),
+          Icon(WebTuiIcons.forward, color: WebTuiColors.textMuted),
         ],
       ),
     );

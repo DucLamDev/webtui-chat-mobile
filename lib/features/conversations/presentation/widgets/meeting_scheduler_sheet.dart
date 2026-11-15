@@ -111,7 +111,7 @@ class _MeetingSchedulerSheetState extends State<_MeetingSchedulerSheet> {
                       color: WebTuiColors.primary.withValues(alpha: 0.11),
                       borderRadius: BorderRadius.circular(WebTuiRadii.lg),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.event_available_rounded,
                       color: WebTuiColors.primary,
                     ),
@@ -184,7 +184,7 @@ class _MeetingSchedulerSheetState extends State<_MeetingSchedulerSheet> {
                     children: [
                       ListTile(
                         contentPadding: EdgeInsets.zero,
-                        leading: const Icon(
+                        leading: Icon(
                           Icons.calendar_month_outlined,
                           color: WebTuiColors.primary,
                         ),
@@ -196,7 +196,7 @@ class _MeetingSchedulerSheetState extends State<_MeetingSchedulerSheet> {
                       const Divider(height: 1),
                       ListTile(
                         contentPadding: EdgeInsets.zero,
-                        leading: const Icon(
+                        leading: Icon(
                           Icons.schedule_rounded,
                           color: WebTuiColors.primary,
                         ),
@@ -292,7 +292,7 @@ class _MeetingSchedulerSheetState extends State<_MeetingSchedulerSheet> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.info_outline_rounded,
                           color: WebTuiColors.primary,
                           size: 20,

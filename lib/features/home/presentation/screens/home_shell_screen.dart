@@ -2119,7 +2119,7 @@ class _NetworkQualityBanner extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(
+            Icon(
               Icons.wifi_off_rounded,
               size: 18,
               color: WebTuiColors.accentAmber,
@@ -2263,7 +2263,7 @@ class SettingsTab extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const Icon(
+                    Icon(
                       Icons.chevron_right_rounded,
                       color: WebTuiColors.textMuted,
                     ),

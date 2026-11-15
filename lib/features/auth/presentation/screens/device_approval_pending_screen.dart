@@ -92,7 +92,7 @@ class _DeviceApprovalPendingScreenState
             _ => ListView(
               padding: const EdgeInsets.all(WebTuiSpacing.lg),
               children: [
-                const Icon(
+                Icon(
                   Icons.phonelink_lock_rounded,
                   size: 56,
                   color: WebTuiColors.primary,

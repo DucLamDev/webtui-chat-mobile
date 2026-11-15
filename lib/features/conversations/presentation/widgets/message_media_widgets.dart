@@ -1617,7 +1617,7 @@ class _MessageVideoAttachmentViewState
                 VideoProgressIndicator(
                   activeController,
                   allowScrubbing: true,
-                  colors: const VideoProgressColors(
+                  colors: VideoProgressColors(
                     playedColor: WebTuiColors.primary,
                     bufferedColor: Colors.white38,
                     backgroundColor: Colors.white12,
@@ -2036,7 +2036,7 @@ class _MessageFileAttachmentViewState
                               dimension: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(
+                          : Icon(
                               CupertinoIcons.doc_fill,
                               size: 20,
                               color: WebTuiColors.primary,
@@ -2101,7 +2101,7 @@ class _ImagePlaceholder extends StatelessWidget {
                   dimension: 22,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Icon(
+              : Icon(
                   CupertinoIcons.photo,
                   color: WebTuiColors.primary,
                   size: 28,
