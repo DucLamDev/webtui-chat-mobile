@@ -3822,13 +3822,19 @@ class _MessageRow extends StatelessWidget {
           ? callCard
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [_SenderName(name: senderName!), callCard],
+              children: [
+                _SenderName(name: senderName!),
+                callCard,
+              ],
             );
       if (!hasAvatarColumn) return incoming;
       // Thẻ cuộc gọi đến có avatar như các tin khác của người đó, thẳng cột.
       return Row(
         crossAxisAlignment: CrossAxisAlignment.end,
-        children: [...leading, Expanded(child: incoming)],
+        children: [
+          ...leading,
+          Expanded(child: incoming),
+        ],
       );
     }
     final poll = _pollDefinition(message);

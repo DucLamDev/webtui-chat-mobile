@@ -19,6 +19,9 @@ abstract final class WebTuiIcons {
   static const IconData back = LucideIcons.chevronLeft;
   static const IconData forward = LucideIcons.chevronRight;
   static const IconData more = LucideIcons.ellipsis;
+
+  /// Nút ba gạch (≡): menu gom các việc phụ ở đầu phòng chat.
+  static const IconData menu = LucideIcons.menu;
   static const IconData moreVertical = LucideIcons.ellipsisVertical;
   static const IconData add = LucideIcons.plus;
   static const IconData close = LucideIcons.x;

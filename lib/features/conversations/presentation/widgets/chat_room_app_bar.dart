@@ -9,11 +9,13 @@ import '../../domain/entities/call_session.dart';
 import '../controllers/peer_presence.dart';
 
 /// Đầu phòng chat: quay lại, ảnh đại diện (chấm xanh khi 1-1) + tên + dòng phụ,
-/// gọi thoại / gọi video (xanh, nét mảnh) và nút "…" gom: tìm tin nhắn, báo cáo
-/// hoặc chặn, công cụ làm việc, chi tiết kênh.
+/// chỉ hai nút gọi thoại / gọi video và nút ba gạch (≡) gom: tìm tin nhắn, báo
+/// cáo hoặc chặn, công cụ làm việc, chi tiết kênh. Các phần đều gọn (nút 44
+/// điểm, ảnh 38 điểm) và chữ tên tự nhỏ dần khi thiếu chỗ để tên người thường
+/// gặp (vd. "Nguyễn Thanh Tiền") hiện đủ trên điện thoại khổ 360–390 điểm.
 ///
 /// Chat bot thông báo: thay hai nút gọi bằng [notificationAction] (menu tắt /
-/// bật thông báo), menu "…" chỉ còn "Tìm tin nhắn".
+/// bật thông báo), menu ≡ chỉ còn "Tìm tin nhắn".
 class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
   const ChatRoomAppBar({
     required this.title,
@@ -77,12 +79,13 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
         bottom: BorderSide(color: WebTuiColors.border.withValues(alpha: 0.8)),
       ),
       automaticallyImplyLeading: false,
-      leadingWidth: 48,
+      leadingWidth: _actionSize,
       leading: IconButton(
         key: const Key('chat_room_back'),
         tooltip: 'Quay lại',
+        style: _actionStyle,
         onPressed: () => Navigator.of(context).maybePop(),
-        icon: const Icon(WebTuiIcons.back, size: 30),
+        icon: const Icon(WebTuiIcons.back, size: 28),
       ),
       titleSpacing: 0,
       title: Row(
@@ -94,24 +97,15 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
             status: presence?.online == true
                 ? WebTuiPresenceStatus.online
                 : null,
-            size: 44,
+            size: 38,
           ),
-          const SizedBox(width: WebTuiSpacing.md),
+          const SizedBox(width: WebTuiSpacing.sm),
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: WebTuiTypography.titleMedium.copyWith(
-                    color: WebTuiColors.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+                _ChatRoomTitle(title),
                 if (subtitle != null)
                   Text(
                     subtitle,
@@ -133,20 +127,24 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
           IconButton(
             key: const Key('chat_room_call_audio'),
             tooltip: 'Gọi thoại',
+            style: _actionStyle,
             onPressed: () => onCall(CallMode.audio),
-            icon: const Icon(WebTuiIcons.phone, size: 25),
+            icon: const Icon(WebTuiIcons.phone, size: 24),
           ),
           IconButton(
             key: const Key('chat_room_call_video'),
             tooltip: 'Gọi video',
+            style: _actionStyle,
             onPressed: () => onCall(CallMode.video),
-            icon: const Icon(WebTuiIcons.video, size: 27),
+            icon: const Icon(WebTuiIcons.video, size: 26),
           ),
         ],
         PopupMenuButton<String>(
           key: const Key('chat_room_more_menu'),
-          tooltip: 'Thêm',
-          icon: const Icon(WebTuiIcons.more, size: 26),
+          tooltip: 'Thêm tuỳ chọn',
+          padding: EdgeInsets.zero,
+          style: _actionStyle,
+          icon: const Icon(WebTuiIcons.menu, size: 26),
           onSelected: (value) {
             switch (value) {
               case 'search':
@@ -194,7 +192,71 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
               ),
           ],
         ),
+        const SizedBox(width: WebTuiSpacing.xs),
       ],
+    );
+  }
+}
+
+/// Vùng bấm của mỗi nút đầu trang: đúng 44 điểm (mức tối thiểu của iOS), không
+/// nới thêm thành 48 như mặc định của Material để dành chỗ cho tên.
+const double _actionSize = 44;
+final ButtonStyle _actionStyle = IconButton.styleFrom(
+  fixedSize: const Size.square(_actionSize),
+  minimumSize: const Size.square(_actionSize),
+  padding: EdgeInsets.zero,
+  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+);
+
+/// Tên ở đầu phòng chat: chữ 17; thiếu chỗ thì nhỏ dần còn 16 rồi 15 để tên ba
+/// chữ thường gặp vẫn hiện đủ trên máy khổ hẹp. Nhỏ tới 15 vẫn không vừa (tên
+/// nhóm dài) mới cắt bằng "…".
+class _ChatRoomTitle extends StatelessWidget {
+  const _ChatRoomTitle(this.title);
+
+  final String title;
+
+  static const List<double> _fontSizes = [17, 16, 15];
+
+  @override
+  Widget build(BuildContext context) {
+    final style = DefaultTextStyle.of(context).style.merge(
+      WebTuiTypography.titleMedium.copyWith(
+        color: WebTuiColors.textPrimary,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+    final textScaler = MediaQuery.textScalerOf(context);
+    final textDirection = Directionality.of(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        bool fits(double fontSize) {
+          final painter = TextPainter(
+            text: TextSpan(
+              text: title,
+              style: style.copyWith(fontSize: fontSize),
+            ),
+            maxLines: 1,
+            ellipsis: '…',
+            textDirection: textDirection,
+            textScaler: textScaler,
+          )..layout(maxWidth: constraints.maxWidth);
+          final exceeded = painter.didExceedMaxLines;
+          painter.dispose();
+          return !exceeded;
+        }
+
+        final fontSize = _fontSizes.firstWhere(
+          fits,
+          orElse: () => _fontSizes.last,
+        );
+        return Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: style.copyWith(fontSize: fontSize),
+        );
+      },
     );
   }
 }
