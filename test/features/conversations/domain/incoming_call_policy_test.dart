@@ -55,6 +55,64 @@ void main() {
       );
     });
 
+    test('máy này tạo cuộc gọi thì không đổ chuông dù thiếu id người dùng', () {
+      expect(
+        shouldRingForIncomingCall(
+          currentUserId: null,
+          initiatorUserId: 'u-a',
+          targetUserId: 'u-b',
+          placedByThisDevice: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test('initiator_device_id trùng mã máy (kể cả hậu tố :voip)', () {
+      expect(
+        shouldRingForIncomingCall(
+          currentUserId: null,
+          initiatorUserId: 'u-a',
+          targetUserId: 'u-b',
+          initiatorDeviceId: 'dev-1',
+          localDeviceId: 'dev-1',
+        ),
+        isFalse,
+      );
+      expect(
+        shouldRingForIncomingCall(
+          currentUserId: null,
+          initiatorUserId: 'u-a',
+          targetUserId: 'u-b',
+          initiatorDeviceId: 'dev-1:voip',
+          localDeviceId: 'dev-1',
+        ),
+        isFalse,
+      );
+    });
+
+    test('người nhận vẫn đổ chuông khi initiator_device_id là máy khác', () {
+      expect(
+        shouldRingForIncomingCall(
+          currentUserId: 'u-me',
+          initiatorUserId: 'u-other',
+          targetUserId: 'u-me',
+          initiatorDeviceId: 'dev-caller',
+          localDeviceId: 'dev-me',
+        ),
+        isTrue,
+      );
+      expect(
+        shouldRingForIncomingCall(
+          currentUserId: null,
+          initiatorUserId: 'u-other',
+          targetUserId: 'u-me',
+          initiatorDeviceId: 'dev-caller',
+          localDeviceId: null,
+        ),
+        isTrue,
+      );
+    });
+
     test('máy chủ không trả người được gọi thì không chặn', () {
       expect(
         shouldRingForIncomingCall(

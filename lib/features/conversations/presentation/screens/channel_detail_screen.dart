@@ -1,20 +1,27 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../moderation/presentation/controllers/moderation_controller.dart';
 import '../../../moderation/presentation/widgets/moderation_actions.dart';
+import '../../../profile/domain/entities/avatar_upload.dart';
 import '../../../profile/presentation/controllers/profile_controller.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
+import '../../domain/entities/channel_avatar_policy.dart';
 import '../../domain/entities/channel_file.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/conversation_summary.dart';
 import '../controllers/channel_detail_controller.dart';
+import '../controllers/conversation_home_controller.dart';
+import '../widgets/channel_avatar_setting.dart';
 import '../widgets/message_media_widgets.dart';
 
 class ChannelDetailScreen extends ConsumerStatefulWidget {
@@ -74,6 +81,10 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
     final currentUserId = ref.watch(
       profileControllerProvider.select((state) => state.profile?.id),
     );
+    final canChangeAvatar = canChangeChannelAvatar(state.channel);
+    final onChangeAvatar = canChangeAvatar && !state.isUpdatingAvatar
+        ? () => _pickChannelAvatar(context, controller, workspaceId)
+        : null;
 
     return Scaffold(
       backgroundColor: WebTuiColors.background,
@@ -110,6 +121,8 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
                     _Notice(message: state.noticeMessage!),
                   _ChannelHeader(
                     channel: state.channel,
+                    updatingAvatar: state.isUpdatingAvatar,
+                    onChangeAvatar: onChangeAvatar,
                     fallbackTitle: state.title,
                     submitting: state.isSubmitting,
                     joinPending:
@@ -121,6 +134,12 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
                     onRequestJoin: state.channel?.isMember == true
                         ? null
                         : controller.requestJoin,
+                  ),
+                  ChannelAvatarSetting(
+                    channel: state.channel,
+                    updating: state.isUpdatingAvatar,
+                    errorMessage: state.avatarErrorMessage,
+                    onChange: onChangeAvatar,
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(
@@ -182,17 +201,64 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
   }
 }
 
+Future<void> _pickChannelAvatar(
+  BuildContext context,
+  ChannelDetailController controller,
+  String workspaceId,
+) async {
+  final source = await showWebTuiSheet<AvatarPickerSource>(
+    context: context,
+    builder: (sheetContext) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const WebTuiSheetHeader(title: 'Ảnh nhóm'),
+          WebTuiSheetActionTile(
+            title: 'Chụp ảnh mới',
+            icon: WebTuiIcons.image,
+            onTap: () =>
+                Navigator.of(sheetContext).pop(AvatarPickerSource.camera),
+          ),
+          WebTuiSheetActionTile(
+            title: 'Chọn từ thư viện',
+            icon: WebTuiIcons.imageFile,
+            onTap: () =>
+                Navigator.of(sheetContext).pop(AvatarPickerSource.gallery),
+          ),
+          const SizedBox(height: 8),
+        ],
+      );
+    },
+  );
+  if (source == null || !context.mounted) return;
+  final changed = await controller.changeAvatar(source);
+  if (!changed || !context.mounted) return;
+  // Làm mới danh sách Tin nhắn / Kênh để ảnh mới hiện ngay (máy chủ cũng phát
+  // `ChannelUpdated`, đây là đường dự phòng khi mất kết nối realtime).
+  final container = ProviderScope.containerOf(context, listen: false);
+  final home = conversationHomeControllerProvider(workspaceId);
+  if (container.exists(home)) {
+    unawaited(container.read(home.notifier).syncSilently());
+  }
+}
+
 class _ChannelHeader extends StatelessWidget {
   const _ChannelHeader({
     required this.channel,
+    required this.updatingAvatar,
     required this.fallbackTitle,
     required this.submitting,
     required this.joinPending,
+    this.onChangeAvatar,
     this.onOpenChat,
     this.onRequestJoin,
   });
 
   final ConversationSummary? channel;
+  final bool updatingAvatar;
+
+  /// Có khi người dùng được đổi ảnh nhóm: chạm vào ảnh để đổi.
+  final VoidCallback? onChangeAvatar;
   final String fallbackTitle;
   final bool submitting;
   final bool joinPending;
@@ -219,13 +285,11 @@ class _ChannelHeader extends StatelessWidget {
           padding: const EdgeInsets.all(WebTuiSpacing.lg),
           child: Row(
             children: [
-              WebTuiAvatar(
-                label: title,
+              _HeaderAvatar(
+                title: title,
                 imageUrl: channel?.avatarUrl,
-                icon: Icons.tag_rounded,
-                color: WebTuiColors.primarySoft,
-                foregroundColor: WebTuiColors.primary,
-                size: 58,
+                updating: updatingAvatar,
+                onTap: onChangeAvatar,
               ),
               const SizedBox(width: WebTuiSpacing.md),
               Expanded(
@@ -289,6 +353,75 @@ class _ChannelHeader extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _HeaderAvatar extends StatelessWidget {
+  const _HeaderAvatar({
+    required this.title,
+    required this.imageUrl,
+    required this.updating,
+    this.onTap,
+  });
+
+  final String title;
+  final String? imageUrl;
+  final bool updating;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final avatar = Stack(
+      clipBehavior: Clip.none,
+      children: [
+        WebTuiAvatar(
+          label: title,
+          imageUrl: imageUrl,
+          icon: Icons.tag_rounded,
+          color: WebTuiColors.primarySoft,
+          foregroundColor: WebTuiColors.primary,
+          size: 58,
+        ),
+        if (updating)
+          const Positioned.fill(
+            child: Center(
+              child: SizedBox.square(
+                dimension: 22,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          )
+        else if (onTap != null)
+          Positioned(
+            right: -2,
+            bottom: -2,
+            child: Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: WebTuiColors.primary,
+                shape: BoxShape.circle,
+                border: Border.all(color: WebTuiColors.surface, width: 2),
+              ),
+              child: const Icon(
+                Icons.photo_camera_rounded,
+                size: 12,
+                color: Colors.white,
+              ),
+            ),
+          ),
+      ],
+    );
+    if (onTap == null) return avatar;
+    return Semantics(
+      button: true,
+      label: 'Đổi ảnh nhóm',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(WebTuiRadii.md),
+        child: avatar,
       ),
     );
   }

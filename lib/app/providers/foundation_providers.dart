@@ -32,6 +32,7 @@ import '../../features/auth/application/legal_acceptance_access_policy.dart';
 import '../../features/auth/application/session_termination.dart';
 import '../../features/auth/application/use_cases/app_lock_timeout_use_cases.dart';
 import '../../features/auth/application/use_cases/app_lock_use_cases.dart';
+import '../../features/auth/application/use_cases/current_user_id_use_case.dart';
 import '../../features/auth/application/use_cases/delete_account_use_case.dart';
 import '../../features/auth/application/use_cases/device_approval_use_cases.dart';
 import '../../features/auth/application/use_cases/email_verification_use_cases.dart';
@@ -77,7 +78,9 @@ import '../../features/call_privacy/application/use_cases/call_privacy_use_cases
 import '../../features/call_privacy/data/datasources/call_privacy_remote_data_source.dart';
 import '../../features/call_privacy/data/repositories/call_privacy_repository_impl.dart';
 import '../../features/call_privacy/domain/repositories/call_privacy_repository.dart';
+import '../../features/conversations/application/incoming_call_ring_gate.dart';
 import '../../features/conversations/application/use_cases/call_use_cases.dart';
+import '../../features/conversations/application/use_cases/channel_avatar_use_cases.dart';
 import '../../features/conversations/application/use_cases/channel_use_cases.dart';
 import '../../features/conversations/application/use_cases/collaboration_document_history_use_cases.dart';
 import '../../features/conversations/application/use_cases/collaboration_task_use_cases.dart';
@@ -103,6 +106,7 @@ import '../../features/conversations/data/files/scoped_attachment_file_store.dar
 import '../../features/conversations/data/repositories/audio_message_attachment_repository.dart';
 import '../../features/conversations/data/repositories/caching_conversation_repository.dart';
 import '../../features/conversations/data/repositories/call_repository_impl.dart';
+import '../../features/conversations/data/repositories/channel_avatar_repository_impl.dart';
 import '../../features/conversations/data/repositories/collaboration_document_history_repository_impl.dart';
 import '../../features/conversations/data/repositories/collaboration_task_repository_impl.dart';
 import '../../features/conversations/data/repositories/conversation_repository_impl.dart';
@@ -114,6 +118,7 @@ import '../../features/conversations/data/repositories/rich_message_repository_i
 import '../../features/conversations/data/repositories/secret_message_repository_impl.dart';
 import '../../features/conversations/data/repositories/web_socket_conversation_realtime_repository.dart';
 import '../../features/conversations/domain/repositories/call_repository.dart';
+import '../../features/conversations/domain/repositories/channel_avatar_repository.dart';
 import '../../features/conversations/domain/repositories/collaboration_document_history_repository.dart';
 import '../../features/conversations/domain/repositories/collaboration_task_repository.dart';
 import '../../features/conversations/domain/repositories/conversation_repository.dart';
@@ -1355,6 +1360,23 @@ final openPrivateChannelSessionUseCaseProvider =
       );
     });
 
+final channelAvatarRepositoryProvider = Provider<ChannelAvatarRepository>((
+  ref,
+) {
+  return ChannelAvatarRepositoryImpl(
+    ref.watch(conversationRemoteDataSourceProvider),
+  );
+});
+
+final changeChannelAvatarUseCaseProvider = Provider<ChangeChannelAvatarUseCase>(
+  (ref) {
+    return ChangeChannelAvatarUseCase(
+      pickerRepository: ref.watch(avatarPickerRepositoryProvider),
+      channelAvatarRepository: ref.watch(channelAvatarRepositoryProvider),
+    );
+  },
+);
+
 final loadChannelDetailUseCaseProvider = Provider<LoadChannelDetailUseCase>((
   ref,
 ) {
@@ -1628,10 +1650,41 @@ final resolveCallDeviceIdUseCaseProvider = Provider<ResolveCallDeviceIdUseCase>(
   },
 );
 
+/// Các cuộc gọi đi do máy này tạo (giữ suốt phiên chạy app).
+final outgoingCallRegistryProvider = Provider<OutgoingCallRegistry>((ref) {
+  final registry = OutgoingCallRegistry();
+  ref.onDispose(registry.dispose);
+  return registry;
+});
+
+/// Id người dùng hiện tại: từ access token trên máy, thiếu mới tải hồ sơ.
+final resolveCurrentUserIdUseCaseProvider =
+    Provider<ResolveCurrentUserIdUseCase>((ref) {
+      return ResolveCurrentUserIdUseCase(
+        readAccessToken: () =>
+            ref.read(authTokenRepositoryProvider).readAccessToken(),
+        loadProfileUserId: () async =>
+            (await ref.read(loadProfileUseCaseProvider).execute())
+                .valueOrNull
+                ?.id,
+      );
+    });
+
+final incomingCallRingGateProvider = Provider<IncomingCallRingGate>((ref) {
+  return IncomingCallRingGate(
+    outgoingCalls: ref.watch(outgoingCallRegistryProvider),
+    resolveCurrentUserId: () =>
+        ref.read(resolveCurrentUserIdUseCaseProvider).execute(),
+    resolveLocalDeviceId: () =>
+        ref.read(resolveCallDeviceIdUseCaseProvider).execute(),
+  );
+});
+
 final startCallUseCaseProvider = Provider<StartCallUseCase>((ref) {
   return StartCallUseCase(
     ref.watch(callRepositoryProvider),
     resolveDeviceId: ref.watch(resolveCallDeviceIdUseCaseProvider),
+    outgoingCalls: ref.watch(outgoingCallRegistryProvider),
   );
 });
 

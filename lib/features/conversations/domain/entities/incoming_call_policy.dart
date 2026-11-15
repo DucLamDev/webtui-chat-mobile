@@ -1,16 +1,34 @@
+import 'call_device_routing.dart';
+
 /// Quyết định có đổ chuông cuộc gọi đến trên máy này hay không.
 ///
-/// Máy chủ phát `CallInvited` tới mọi thiết bị của người dùng đang kết nối,
-/// kể cả khi chính người dùng là NGƯỜI GỌI từ thiết bị khác (ví dụ gọi từ
-/// trình duyệt khi app đăng nhập cùng tài khoản). Khi đó máy chỉ cho người
-/// được gọi nhận, nên đổ chuông chỉ dẫn tới lỗi 409 và màn gọi bị kẹt.
+/// Máy chủ phát `CallInvited` tới room cá nhân của CẢ người gọi lẫn người
+/// nhận (mọi thiết bị đang kết nối). Người gọi (trên máy vừa bấm gọi hoặc máy
+/// khác cùng tài khoản) không bao giờ được đổ chuông: máy chủ chỉ cho người
+/// được gọi nhận, đổ chuông chỉ dẫn tới hộp "Cuộc gọi đến" sai và lỗi 409.
+///
+/// Thứ tự kiểm (không cần mạng):
+/// 1. [placedByThisDevice]: máy này đã tạo / đang mở màn gọi đi cho cuộc này.
+/// 2. [initiatorDeviceId] trùng [localDeviceId]: máy này tạo cuộc gọi.
+/// 3. Có id người dùng: mình là người gọi, hoặc người được gọi là người khác.
+/// Thiếu id người dùng (và không khớp 1, 2) thì vẫn đổ chuông để người nhận
+/// không bị nhỡ cuộc gọi.
 bool shouldRingForIncomingCall({
   required String? currentUserId,
   required String initiatorUserId,
   required String targetUserId,
+  String? initiatorDeviceId,
+  String? localDeviceId,
+  bool placedByThisDevice = false,
 }) {
+  if (placedByThisDevice) return false;
+  if (callPlacedFromThisDevice(
+    initiatorDeviceId: initiatorDeviceId,
+    localDeviceId: localDeviceId,
+  )) {
+    return false;
+  }
   final me = currentUserId?.trim() ?? '';
-  // Thiếu id người dùng: giữ hành vi cũ (đổ chuông).
   if (me.isEmpty) return true;
   final initiator = initiatorUserId.trim();
   final target = targetUserId.trim();
