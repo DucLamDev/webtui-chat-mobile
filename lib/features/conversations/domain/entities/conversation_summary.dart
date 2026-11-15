@@ -30,6 +30,7 @@ final class ConversationSummary {
     this.isAutomation = false,
     this.noticeBot = false,
     this.slug,
+    this.lastMessageAt,
   });
 
   final String id;
@@ -59,6 +60,14 @@ final class ConversationSummary {
   /// Mã cố định của kênh do máy chủ đặt (ví dụ `orders`, `gia-han`); không đổi
   /// khi quản trị đổi tên kênh. Tin nhắn riêng và kênh người dùng tạo thường không có.
   final String? slug;
+
+  /// Thời điểm tin (chưa xoá) mới nhất của kênh, máy chủ trả ở
+  /// `last_message_at`. `null` khi kênh chưa có tin hoặc máy chủ cũ chưa trả
+  /// trường này. Chat 1-1 không dùng (thời điểm tin cuối nằm ở [updatedAt]).
+  final DateTime? lastMessageAt;
+
+  /// Kênh đã có tin nhắn (theo [lastMessageAt]).
+  bool get hasMessages => lastMessageAt != null;
 
   bool get isUnread => unreadCount > 0;
   bool get isMember =>
@@ -115,6 +124,7 @@ final class ConversationSummary {
       isAutomation: isAutomation,
       noticeBot: noticeBot,
       slug: slug,
+      lastMessageAt: lastMessageAt,
     );
   }
 }

@@ -4,6 +4,15 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
+## 1.27.0 · 15/11/2026
+### Tính năng
+- Kênh vào Danh bạ, Tin nhắn hiện sẵn các kênh đang dùng
+  Màn Bạn bè có hai tab "Đồng nghiệp" và "Kênh". Tab Kênh liệt kê kênh bạn đã tham gia (kể cả kênh chưa có tin) và
+  kênh công khai có thể tham gia, có ô tìm theo tên; bấm kênh đã tham gia là vào chat ngay. Danh sách Tin nhắn gộp
+  chat riêng với kênh, xếp theo tin mới nhất: luôn có ba kênh Chung, Thông báo, Trò chuyện, cùng mọi kênh bạn tham
+  gia đã có tin nhắn; kênh chưa có tin chỉ nằm ở Bạn bè > Kênh. Khu "Nhóm có thể tham gia" cuối Tin nhắn chuyển
+  sang tab Kênh. Máy chủ chưa cập nhật thì kênh khác chỉ hiện ở Tin nhắn khi còn tin chưa đọc.
+
 ## 1.26.1 · 15/11/2026
 ### Sửa lỗi
 - Chat 1-1 chỉ hiện avatar người kia cạnh tin, không lặp tên người gửi

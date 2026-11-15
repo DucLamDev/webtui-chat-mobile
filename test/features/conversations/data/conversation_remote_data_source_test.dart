@@ -35,6 +35,57 @@ void main() {
     expect(conversations, hasLength(1));
     expect(conversations.single.updatedAt, DateTime.utc(2026, 7, 21, 9, 30));
   });
+
+  test(
+    'kênh: đọc last_message_at, thiếu / null thì coi như chưa có tin',
+    () async {
+      final remote = ConversationRemoteDataSource(
+        _FakeApiTransport({
+          'data': {
+            'channels': [
+              {
+                'id': 'co-tin',
+                'workspace_id': 'workspace-1',
+                'name': 'Dự án A',
+                'updated_at': '2026-07-10T08:00:00Z',
+                'last_message_at': '2026-07-21T09:30:00Z',
+                'membership_status': 'active',
+              },
+              {
+                'id': 'tin-null',
+                'workspace_id': 'workspace-1',
+                'name': 'Dự án B',
+                'updated_at': '2026-07-10T08:00:00Z',
+                'last_message_at': null,
+                'membership_status': 'active',
+              },
+              {
+                // Máy chủ cũ: không có trường last_message_at.
+                'id': 'may-chu-cu',
+                'workspace_id': 'workspace-1',
+                'name': 'Dự án C',
+                'updated_at': '2026-07-10T08:00:00Z',
+                'membership_status': 'active',
+              },
+            ],
+          },
+        }),
+      );
+
+      final channels = await remote.listChannels(workspaceId: 'workspace-1');
+      final byId = {for (final channel in channels) channel.id: channel};
+
+      expect(byId['co-tin']!.lastMessageAt, DateTime.utc(2026, 7, 21, 9, 30));
+      expect(byId['co-tin']!.hasMessages, isTrue);
+      // Có tin thì xếp / hiện giờ theo tin cuối.
+      expect(byId['co-tin']!.updatedAt, DateTime.utc(2026, 7, 21, 9, 30));
+      for (final id in ['tin-null', 'may-chu-cu']) {
+        expect(byId[id]!.lastMessageAt, isNull, reason: id);
+        expect(byId[id]!.hasMessages, isFalse, reason: id);
+        expect(byId[id]!.updatedAt, DateTime.utc(2026, 7, 10, 8), reason: id);
+      }
+    },
+  );
 }
 
 final class _FakeApiTransport implements ApiTransport {

@@ -93,9 +93,6 @@ class MessagesHomeView extends ConsumerWidget {
           onFilterChanged: (index) {
             controller.setMessageFilter(state.inboxFilters[index]);
           },
-          onJoinableTap: (channel) {
-            _handleChannelTap(context, controller, channel);
-          },
           onTap: (conversation) async {
             final isGroup = conversation.kind == ConversationKind.channel;
             // Phiên hỗ trợ riêng / kênh chưa tham gia: đi luồng kênh như cũ.
@@ -171,20 +168,75 @@ class MessagesHomeView extends ConsumerWidget {
   }
 }
 
-class ContactsHomeView extends ConsumerWidget {
-  const ContactsHomeView({required this.workspaceId, super.key});
+/// Danh bạ: hai tab "Đồng nghiệp" (thành viên workspace, bấm để nhắn riêng)
+/// và "Kênh" (kênh đã tham gia, bấm để vào chat; kênh công khai có thể tham
+/// gia ở dưới).
+class ContactsHomeView extends ConsumerStatefulWidget {
+  const ContactsHomeView({
+    required this.workspaceId,
+    this.initialTab = ContactsHomeView.colleaguesTab,
+    super.key,
+  });
+
+  static const colleaguesTab = 0;
+  static const channelsTab = 1;
 
   final String workspaceId;
+  final int initialTab;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ContactsHomeView> createState() => _ContactsHomeViewState();
+}
+
+class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
+  late int _tab = widget.initialTab;
+
+  @override
+  Widget build(BuildContext context) {
+    final workspaceId = widget.workspaceId;
     final provider = conversationHomeControllerProvider(workspaceId);
     final state = ref.watch(provider);
     final controller = ref.read(provider.notifier);
+    final channelsTab = _tab == ContactsHomeView.channelsTab;
+
+    return CustomScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      slivers: [
+        SliverToBoxAdapter(
+          child: _TopSearch(
+            hintText: channelsTab
+                ? 'Tìm kênh theo tên...'
+                : 'Tìm đồng nghiệp...',
+            onChanged: controller.setSearchQuery,
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: _InboxFilterChips(
+            chipsKey: const ValueKey('contacts-tabs'),
+            labels: const ['Đồng nghiệp', 'Kênh'],
+            selectedIndex: _tab,
+            onChanged: (index) => setState(() => _tab = index),
+          ),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: WebTuiSpacing.xs)),
+        if (channelsTab)
+          ..._channelSlivers(context, state, controller)
+        else
+          ..._colleagueSlivers(context, state, controller),
+        const SliverToBoxAdapter(child: SizedBox(height: WebTuiSpacing.lg)),
+      ],
+    );
+  }
+
+  List<Widget> _colleagueSlivers(
+    BuildContext context,
+    ConversationHomeState state,
+    ConversationHomeController controller,
+  ) {
+    final workspaceId = widget.workspaceId;
     final moderationState = ref.watch(
       moderationControllerProvider(workspaceId),
     );
-
     final currentUserId = ref.watch(
       profileControllerProvider.select((state) => state.profile?.id),
     );
@@ -192,83 +244,161 @@ class ContactsHomeView extends ConsumerWidget {
     final contacts = state.filteredContacts
         .where((contact) => contact.userId != currentUserId)
         .toList(growable: false);
-    return CustomScrollView(
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      slivers: [
+    if (state.errorMessage != null) {
+      return [
         SliverToBoxAdapter(
-          child: _TopSearch(
-            hintText: 'Tìm bạn bè...',
-            onChanged: controller.setSearchQuery,
+          child: WebTuiErrorState(
+            title: 'Không tải được dữ liệu',
+            message: state.errorMessage!,
+            onRetry: controller.load,
           ),
         ),
-        if (state.errorMessage != null)
-          SliverToBoxAdapter(
-            child: WebTuiErrorState(
-              title: 'Không tải được dữ liệu',
-              message: state.errorMessage!,
-              onRetry: controller.load,
-            ),
-          )
-        else if (contacts.isEmpty)
-          const SliverToBoxAdapter(
-            child: WebTuiEmptyState(
-              title: 'Chưa có bạn bè',
-              message: 'Thành viên workspace hiện ở đây, bấm để nhắn ngay.',
-              icon: Icons.contacts_outlined,
-            ),
-          )
-        else ...[
-          const SliverToBoxAdapter(
-            child: WebTuiSectionLabel('Bạn bè trong workspace'),
+      ];
+    }
+    if (contacts.isEmpty) {
+      return const [
+        SliverToBoxAdapter(
+          child: WebTuiEmptyState(
+            title: 'Chưa có đồng nghiệp',
+            message: 'Thành viên workspace hiện ở đây, bấm để nhắn ngay.',
+            icon: Icons.contacts_outlined,
           ),
-          WebTuiSliverListSurface(
-            itemCount: contacts.length,
-            itemBuilder: (context, index) {
-              final contact = contacts[index];
-              return _ContactTile(
-                contact: contact,
-                presence: state.presenceByUserId[contact.userId],
-                blocked: moderationState.blockedUserIds.contains(
-                  contact.userId,
-                ),
-                onTap: () async {
-                  if (!contact.canOpenDirectConversation) {
-                    return;
-                  }
-                  if (moderationState.isBlocked(contact.userId)) {
-                    await showUserSafetyActions(
-                      context,
-                      ref,
-                      workspaceId: workspaceId,
-                      userId: contact.userId,
-                      userLabel: contact.displayName,
-                    );
-                    return;
-                  }
-                  final conversation = await controller.openDirect(contact);
-                  if (conversation != null && context.mounted) {
-                    _openChat(
-                      context,
-                      conversation,
-                      onReturn: controller.syncSilently,
-                    );
-                  }
-                },
-                onSafety: () => showUserSafetyActions(
+        ),
+      ];
+    }
+    return [
+      const SliverToBoxAdapter(child: WebTuiSectionLabel('Đồng nghiệp')),
+      WebTuiSliverListSurface(
+        itemCount: contacts.length,
+        itemBuilder: (context, index) {
+          final contact = contacts[index];
+          return _ContactTile(
+            contact: contact,
+            presence: state.presenceByUserId[contact.userId],
+            blocked: moderationState.blockedUserIds.contains(contact.userId),
+            onTap: () async {
+              if (!contact.canOpenDirectConversation) {
+                return;
+              }
+              if (moderationState.isBlocked(contact.userId)) {
+                await showUserSafetyActions(
                   context,
                   ref,
                   workspaceId: workspaceId,
                   userId: contact.userId,
                   userLabel: contact.displayName,
-                ),
-              );
+                );
+                return;
+              }
+              final conversation = await controller.openDirect(contact);
+              if (conversation != null && context.mounted) {
+                _openChat(
+                  context,
+                  conversation,
+                  onReturn: controller.syncSilently,
+                );
+              }
             },
-          ),
-        ],
-        const SliverToBoxAdapter(child: SizedBox(height: WebTuiSpacing.lg)),
-      ],
-    );
+            onSafety: () => showUserSafetyActions(
+              context,
+              ref,
+              workspaceId: workspaceId,
+              userId: contact.userId,
+              userLabel: contact.displayName,
+            ),
+          );
+        },
+      ),
+    ];
   }
+
+  List<Widget> _channelSlivers(
+    BuildContext context,
+    ConversationHomeState state,
+    ConversationHomeController controller,
+  ) {
+    final joined = state.joinedChannels;
+    final joinable = state.joinableChannels;
+    if (state.isLoading && state.channels.isEmpty) {
+      return const [
+        SliverToBoxAdapter(
+          child: WebTuiLoadingState(message: 'Đang tải kênh...'),
+        ),
+      ];
+    }
+    if (state.errorMessage != null) {
+      return [
+        SliverToBoxAdapter(
+          child: WebTuiErrorState(
+            title: 'Không tải được danh sách kênh',
+            message: state.errorMessage!,
+            onRetry: controller.load,
+          ),
+        ),
+      ];
+    }
+    if (joined.isEmpty && joinable.isEmpty) {
+      final searching = state.searchQuery.trim().isNotEmpty;
+      return [
+        SliverToBoxAdapter(
+          child: WebTuiEmptyState(
+            title: searching ? 'Không tìm thấy kênh' : 'Chưa có kênh nào',
+            message: searching
+                ? 'Thử tìm bằng tên khác.'
+                : 'Kênh bạn tham gia trong workspace sẽ hiện ở đây.',
+            icon: Icons.tag_outlined,
+          ),
+        ),
+      ];
+    }
+    return [
+      if (joined.isNotEmpty) ...[
+        const SliverToBoxAdapter(child: WebTuiSectionLabel('Kênh đã tham gia')),
+        WebTuiSliverListSurface(
+          itemCount: joined.length,
+          itemBuilder: (context, index) {
+            final channel = joined[index];
+            return WebTuiConversationListItem(
+              key: ValueKey('contacts-channel-${channel.channelId}'),
+              title: channel.title,
+              preview: channel.preview,
+              timeLabel: '',
+              avatarLabel: channel.avatarLabel ?? channel.title,
+              avatarUrl: channel.avatarUrl,
+              avatarIcon: conversationChannelIcon(channel),
+              unreadCount: channel.unreadCount,
+              muted: channel.muted,
+              onTap: () => _openDirectoryChannel(context, controller, channel),
+            );
+          },
+        ),
+      ],
+      if (joinable.isNotEmpty)
+        SliverToBoxAdapter(
+          child: _ChannelList(
+            channels: joinable,
+            emptyTitle: '',
+            sectionLabel: 'Kênh có thể tham gia',
+            onTap: (channel) => _handleChannelTap(context, controller, channel),
+          ),
+        ),
+    ];
+  }
+}
+
+/// Bấm một kênh ở Danh bạ > Kênh: kênh đã tham gia vào thẳng màn chat; phiên
+/// hỗ trợ riêng / kênh chưa tham gia đi luồng kênh như ở Tin nhắn.
+Future<void> _openDirectoryChannel(
+  BuildContext context,
+  ConversationHomeController controller,
+  ConversationSummary channel,
+) async {
+  if (channel.privateSessionMode || !channel.isMember) {
+    await _handleChannelTap(context, controller, channel);
+    return;
+  }
+  controller.markConversationOpened(channel);
+  _openChat(context, channel, onReturn: controller.syncSilently);
 }
 
 class _MessagesList extends StatelessWidget {
@@ -280,7 +410,6 @@ class _MessagesList extends StatelessWidget {
     required this.onSearch,
     required this.onFilterChanged,
     required this.onTap,
-    required this.onJoinableTap,
     this.selectedId,
     this.searchActions = const [],
     this.onCompose,
@@ -293,7 +422,6 @@ class _MessagesList extends StatelessWidget {
   final ValueChanged<String> onSearch;
   final ValueChanged<int> onFilterChanged;
   final ValueChanged<ConversationSummary> onTap;
-  final ValueChanged<ConversationSummary> onJoinableTap;
   final String? selectedId;
   final List<Widget> searchActions;
   final VoidCallback? onCompose;
@@ -301,7 +429,6 @@ class _MessagesList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final filterIndex = state.inboxFilters.indexOf(state.messageFilter);
-    final joinable = state.joinableChannels;
     final workTab = state.inboxFilters.indexOf(ConversationListFilter.bot);
     final showWorkEntries = state.messageFilter == ConversationListFilter.bot;
     // Máy chủ bật phê duyệt nhưng tắt automation thì không có tab Nghiệp vụ:
@@ -362,7 +489,7 @@ class _MessagesList extends StatelessWidget {
                 onRetry: onRetry,
               ),
             )
-          else if (conversations.isEmpty && joinable.isEmpty)
+          else if (conversations.isEmpty)
             const SliverToBoxAdapter(
               child: WebTuiEmptyState(
                 title: 'Chưa có hội thoại',
@@ -385,15 +512,6 @@ class _MessagesList extends StatelessWidget {
                 );
               },
             ),
-            if (joinable.isNotEmpty)
-              SliverToBoxAdapter(
-                child: _ChannelList(
-                  channels: joinable,
-                  emptyTitle: '',
-                  sectionLabel: 'Nhóm có thể tham gia',
-                  onTap: onJoinableTap,
-                ),
-              ),
           ],
           const SliverToBoxAdapter(child: SizedBox(height: WebTuiSpacing.lg)),
         ],
@@ -402,16 +520,19 @@ class _MessagesList extends StatelessWidget {
   }
 }
 
-/// Bộ lọc hộp thư dạng viên thuốc (Tất cả, Chưa đọc, Nghiệp vụ, Nhóm): chọn =
+/// Bộ lọc hộp thư dạng viên thuốc (Tất cả, Chưa đọc, Nghiệp vụ, Nhóm; cũng là
+/// tab Đồng nghiệp / Kênh ở Danh bạ): chọn =
 /// nền xanh chữ trắng, chưa chọn = viền xám nền trắng.
 class _InboxFilterChips extends StatelessWidget {
   const _InboxFilterChips({
     required this.labels,
+    this.chipsKey = const ValueKey('inbox-filter-chips'),
     required this.selectedIndex,
     required this.onChanged,
   });
 
   final List<String> labels;
+  final Key chipsKey;
   final int selectedIndex;
   final ValueChanged<int> onChanged;
 
@@ -421,7 +542,7 @@ class _InboxFilterChips extends StatelessWidget {
     // (đệm 16 nằm trong vùng cuộn để chip trượt sát mép màn hình). Mọi nút cùng
     // cỡ chữ, vùng bấm luôn cao ≥ 48dp.
     return SingleChildScrollView(
-      key: const ValueKey('inbox-filter-chips'),
+      key: chipsKey,
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.lg),
       child: Row(

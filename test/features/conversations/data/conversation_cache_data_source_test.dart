@@ -151,6 +151,39 @@ void main() {
     expect(channels.single.privateSessionMode, isTrue);
   });
 
+  test('kênh giữ thời điểm tin cuối khi đọc lại từ bộ nhớ đệm', () async {
+    final database = AppDatabase(createInMemoryDriftConnection());
+    addTearDown(database.close);
+    final cache = ConversationCacheDataSource(database, _instanceA);
+    ConversationSummary channel(String id, DateTime? lastMessageAt) {
+      return ConversationSummary(
+        id: id,
+        workspaceId: 'workspace-1',
+        channelId: id,
+        kind: ConversationKind.channel,
+        title: id,
+        preview: '',
+        updatedAt: DateTime.utc(2026, 11, 2),
+        membershipStatus: MembershipStatus.active,
+        lastMessageAt: lastMessageAt,
+      );
+    }
+
+    await cache.saveChannels(
+      workspaceId: 'workspace-1',
+      items: [
+        channel('co-tin', DateTime.utc(2026, 11, 3, 9)),
+        channel('chua-co-tin', null),
+      ],
+    );
+
+    final channels = await cache.readChannels(workspaceId: 'workspace-1');
+    final byId = {for (final item in channels!) item.id: item};
+
+    expect(byId['co-tin']!.lastMessageAt, DateTime.utc(2026, 11, 3, 9));
+    expect(byId['chua-co-tin']!.lastMessageAt, isNull);
+  });
+
   test('persists a sent message before a latest page exists', () async {
     final database = AppDatabase(createInMemoryDriftConnection());
     addTearDown(database.close);
