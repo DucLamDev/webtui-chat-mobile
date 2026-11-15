@@ -4,6 +4,15 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
+## 1.29.1 · 15/11/2026
+### Sửa lỗi
+- Chạy thử app trên Dev VPS bằng `vpsttt-app run` không còn báo lỗi
+  Trước đây lệnh báo "No Linux desktop project configured" vì app chưa có phần dựng cho Linux (công cụ chạy thử mở bản
+  Linux của app trong khung điện thoại). Thêm phần đó xong thì máy dev lại thiếu thư viện cho hai gói: âm thanh và kho
+  lưu phiên đăng nhập. Nay app có thư mục Linux, và riêng bản chạy thử dùng hai gói thay thế: không phát âm thanh, phiên
+  đăng nhập chỉ giữ tới khi tắt app. Bản Android / iOS phát hành không đổi gì. Cách chạy thử ghi ở README, mục "Chạy
+  Thử Trên Dev VPS".
+
 ## 1.29.0 · 15/11/2026
 ### Tính năng
 - Thanh điều hướng dưới dạng nổi như Telegram; ô nhập tin sát đáy; ô Ứng dụng đều nhau
