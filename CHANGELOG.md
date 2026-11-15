@@ -4,6 +4,16 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
+## 1.27.2 · 15/11/2026
+### Sửa lỗi
+- App mời bật thông báo để nhận cuộc gọi khi đang tắt app
+  Trước đây app chỉ xin quyền thông báo khi người dùng tự vào Cài đặt bấm "Cho phép". Ai chưa bấm thì máy chủ không
+  đánh thức được app đang tắt, nên có người gọi mà điện thoại không đổ chuông, phải mở app mới thấy. Nay sau khi đăng
+  nhập (đã qua hộp Điều khoản), app hiện hộp "Nhận cuộc gọi khi tắt app". Bấm "Cho phép" thì điện thoại hỏi quyền
+  thông báo; được cho phép thì app đăng ký với máy chủ để nhận cuộc gọi và tin nhắn khi đang tắt. Bấm "Để sau" thì 7
+  ngày sau mới nhắc lại. Từ chối ở hộp của điện thoại thì app không nhắc nữa, người dùng tự bật trong cài đặt điện
+  thoại. iPhone còn cần máy chủ cài khoá Apple (APNs) mới đổ chuông được khi tắt app.
+
 ## 1.27.1 · 15/11/2026
 ### Sửa lỗi
 - Đầu phòng chat gọn lại, tên người hiện đủ

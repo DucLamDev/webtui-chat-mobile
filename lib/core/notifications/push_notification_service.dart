@@ -342,6 +342,17 @@ final class PushNotificationService {
     }
   }
 
+  /// Trạng thái quyền để quyết định có mời bật thông báo không (xem
+  /// `notification_permission_offer.dart`); `unavailable` khi bản dựng không
+  /// có Firebase (không nhận được push nên không mời). Chỉ đọc trạng thái,
+  /// không bao giờ bật hộp hỏi quyền của hệ điều hành.
+  Future<String> permissionStatusForOffer() async {
+    if (!await ensureFirebaseRuntime()) {
+      return 'unavailable';
+    }
+    return notificationPermissionStatus();
+  }
+
   Future<String> requestNotificationPermissionForWorkspace(
     String workspaceId,
   ) async {

@@ -12,6 +12,7 @@ import '../../../../app/router/notification_locations.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/notifications/call_tone_player.dart';
 import '../../../../core/notifications/native_incoming_call_service.dart';
+import '../../../../core/notifications/notification_permission_offer.dart';
 import '../../../../core/notifications/scoped_local_notification_service.dart';
 import '../../../../core/platform/chat_share_intent_service.dart';
 import '../../../../core/security/instance_scope.dart';
@@ -111,6 +112,10 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   String? _approvalActionWorkspaceId;
   bool _syncInFlight = false;
   bool _incomingCallPollInFlight = false;
+
+  /// Đã mời bật thông báo trong lượt mở app này (mỗi lượt mời tối đa một lần).
+  bool _notificationOfferStarted = false;
+  ProviderSubscription<LegalAcceptanceState>? _legalReadySubscription;
   Timer? _pushRegistrationRetryTimer;
   Timer? _presenceTimer;
   Timer? _incomingCallPollTimer;
@@ -148,6 +153,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _legalReadySubscription?.close();
     _pushRegistrationRetryTimer?.cancel();
     _presenceTimer?.cancel();
     _incomingCallPollTimer?.cancel();
@@ -663,7 +669,87 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         if (!mounted || _pushRegisteredWorkspaceId != workspaceId) return;
         setState(() => _pushRegisteredWorkspaceId = null);
       });
+      return;
     }
+    if (!mounted || _pushRegisteredWorkspaceId != workspaceId) return;
+    _offerNotificationPermissionWhenReady(workspaceId);
+  }
+
+  /// Mời bật thông báo sau khi đăng ký thiết bị xong. Chờ qua hộp Điều khoản
+  /// (đang hiện thì hộp mời nằm khuất phía sau, người dùng không thấy).
+  void _offerNotificationPermissionWhenReady(String workspaceId) {
+    if (_notificationOfferStarted) return;
+    if (ref.read(legalAcceptanceControllerProvider).canCreateUserContent) {
+      unawaited(_offerNotificationPermission(workspaceId));
+      return;
+    }
+    _legalReadySubscription ??= ref.listenManual<LegalAcceptanceState>(
+      legalAcceptanceControllerProvider,
+      (_, next) {
+        if (!next.canCreateUserContent) return;
+        _legalReadySubscription?.close();
+        _legalReadySubscription = null;
+        final current = _pushRegisteredWorkspaceId;
+        if (current != null) {
+          unawaited(_offerNotificationPermission(current));
+        }
+      },
+    );
+  }
+
+  /// Không có quyền thông báo thì máy chủ không đánh thức được app đang tắt
+  /// (cuộc gọi đến không đổ chuông), nên mời người dùng bật. Hộp hỏi quyền của
+  /// hệ điều hành chỉ hiện khi người dùng bấm "Cho phép".
+  Future<void> _offerNotificationPermission(String workspaceId) async {
+    if (_notificationOfferStarted || !mounted) return;
+    _notificationOfferStarted = true;
+    final NotificationOfferOutcome outcome;
+    try {
+      final push = ref.read(pushNotificationServiceProvider);
+      outcome = await runNotificationPermissionOffer(
+        readPermissionStatus: push.permissionStatusForOffer,
+        readLastAnswer: () => ref.read(notificationOfferStoreProvider).read(),
+        saveAnswer: (record) =>
+            ref.read(notificationOfferStoreProvider).save(record),
+        askUser: () async {
+          if (!mounted || _pushRegisteredWorkspaceId != workspaceId) {
+            return null;
+          }
+          return showWebTuiConfirmDialog(
+            context,
+            title: 'Nhận cuộc gọi khi tắt app',
+            message:
+                'Cho phép thông báo để điện thoại đổ chuông khi có người gọi '
+                'và báo tin nhắn mới, kể cả khi bạn đã thoát app.',
+            confirmLabel: 'Cho phép',
+            cancelLabel: 'Để sau',
+            icon: WebTuiIcons.phoneIncoming,
+          );
+        },
+        requestPermission: () =>
+            push.requestNotificationPermissionForWorkspace(workspaceId),
+        now: DateTime.now,
+      );
+    } on Object {
+      // Lời mời chỉ là gợi ý: lỗi đọc / ghi không được làm hỏng màn hình chính.
+      return;
+    }
+    if (outcome == NotificationOfferOutcome.skipped || !mounted) return;
+    ref.invalidate(notificationPermissionStatusProvider);
+    final message = switch (outcome) {
+      NotificationOfferOutcome.granted => 'Đã bật thông báo.',
+      NotificationOfferOutcome.denied =>
+        'Thông báo đang bị tắt trong cài đặt điện thoại. Hãy bật lại để nhận '
+            'cuộc gọi khi không mở app.',
+      NotificationOfferOutcome.unknown =>
+        'Chưa bật được thông báo. Thử lại trong Cài đặt > Thông báo.',
+      NotificationOfferOutcome.skipped ||
+      NotificationOfferOutcome.later => null,
+    };
+    if (message == null) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _activatePresence(String workspaceId) {

@@ -21,6 +21,24 @@ void main() {
     expect(registrationBody, isNot(contains('prepareDevicePermissions()')));
   });
 
+  test('đọc trạng thái để mời bật thông báo không tự bật hộp hỏi quyền', () {
+    final source = File(
+      'lib/core/notifications/push_notification_service.dart',
+    ).readAsStringSync();
+    final offerStart = source.indexOf(
+      'Future<String> permissionStatusForOffer',
+    );
+    final explicitActionStart = source.indexOf(
+      'Future<String> requestNotificationPermissionForWorkspace',
+    );
+    expect(offerStart, greaterThanOrEqualTo(0));
+    expect(explicitActionStart, greaterThan(offerStart));
+
+    final offerBody = source.substring(offerStart, explicitActionStart);
+    expect(offerBody, isNot(contains('_requestPermission()')));
+    expect(offerBody, isNot(contains('prepareDevicePermissions()')));
+  });
+
   test('permission prompt is isolated behind an explicit user action API', () {
     final source = File(
       'lib/core/notifications/push_notification_service.dart',
