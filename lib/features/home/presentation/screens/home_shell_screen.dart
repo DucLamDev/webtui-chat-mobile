@@ -22,6 +22,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../approvals/application/approval_notification_actions.dart';
 import '../../../approvals/presentation/controllers/approval_list_controller.dart';
 import '../../../auth/application/session_termination.dart';
@@ -47,6 +48,7 @@ import '../../../meetings/domain/meeting_models.dart';
 import '../../../meetings/presentation/group_call_presenter.dart';
 import '../../../notifications/domain/entities/mobile_notification.dart';
 import '../../../notifications/presentation/controllers/notification_center_controller.dart';
+import '../../../profile/presentation/controllers/profile_controller.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
 import '../widgets/notification_bell.dart';
 
@@ -147,7 +149,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _tabIndex = widget.initialTabIndex.clamp(0, _titles.length - 1).toInt();
+    _tabIndex = widget.initialTabIndex.clamp(0, _tabCount - 1).toInt();
     _visitedTabs = {_tabIndex};
   }
 
@@ -303,8 +305,20 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       noticeBot: organization?.capabilities.noticeBot == true,
     );
 
+    // Hồ sơ người dùng cho thẻ đầu tab Cài đặt (cùng provider với màn Hồ sơ).
+    final userProfile = ref.watch(
+      profileControllerProvider.select((value) => value.profile),
+    );
+
     // Số tin chưa đọc ở góc biểu tượng tab Tin nhắn: đếm cả hộp thư, không
     // theo chip lọc / ô tìm đang chọn của màn Tin nhắn.
+    final strings = context.strings;
+    final titles = [
+      strings.tabMessages,
+      strings.tabFriends,
+      strings.tabWork,
+      strings.tabSettings,
+    ];
     final messagesUnread = ref.watch(
       messagesTabUnreadCountProvider(activeWorkspace.id),
     );
@@ -313,8 +327,8 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       key: ValueKey('workspace-shell-${workspaceState.generation}'),
       child: WebTuiMobileScaffold(
         title: organization == null
-            ? _titles[_tabIndex]
-            : '${organization.name} · ${_titles[_tabIndex]}',
+            ? titles[_tabIndex]
+            : '${organization.name} · ${titles[_tabIndex]}',
         // Tab Tin nhắn và Công việc bỏ thanh tiêu đề cho rộng chỗ (nút soạn
         // tin nằm cạnh ô tìm kiếm; Công việc có tiêu đề lớn riêng).
         showAppBar: _tabIndex != 0 && _tabIndex != 2,
@@ -328,7 +342,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           });
         },
         leading: IconButton(
-          tooltip: 'Hồ sơ cá nhân',
+          tooltip: context.strings.profileTitle,
           onPressed: () => context.push('/profile'),
           icon: _OrganizationMark(
             imageUrl: organization?.logoUrl,
@@ -369,14 +383,14 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
                   if (_visitedTabs.contains(3))
                     SettingsTab(
                       workspaceName: activeWorkspace.name,
-                      organizationLogoUrl: organization?.logoUrl,
+                      userName: userProfile?.displayName ?? '',
+                      userAvatarUrl: userProfile?.avatarUrl,
                       notificationEnabled: _notificationEnabled,
                       compactMode: _compactMode,
                       soundLevel: _soundLevel,
                       textScalePreview: _textScalePreview,
                       onProfileTap: () => context.push('/profile'),
                       onAdvancedTap: () => context.push('/settings'),
-                      onPrivacyTap: () => context.push('/privacy'),
                       // Luôn mở được danh sách workspace (kể cả khi chỉ có 1:
                       // xem workspace đang dùng, bấm Tải lại khi vừa được mời
                       // thêm); chữ "Chuyển workspace" chỉ khi có từ 2 (2.4).
@@ -1687,7 +1701,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     return result.failureOrNull?.kind == FailureKind.notFound;
   }
 
-  static const _titles = ['Tin nhắn', 'Bạn bè', 'Công việc', 'Cài đặt'];
+  static const _tabCount = 4;
 }
 
 class _ShareTargetPickerSheet extends StatefulWidget {
@@ -1819,11 +1833,12 @@ class _ShareTargetPickerSheetState extends State<_ShareTargetPickerSheet> {
 }
 
 class _OrganizationMark extends StatelessWidget {
-  const _OrganizationMark({required this.name, this.imageUrl, this.size = 30});
+  const _OrganizationMark({required this.name, this.imageUrl});
+
+  static const double size = 30;
 
   final String name;
   final String? imageUrl;
-  final double size;
 
   double get _radius => size * 8 / 30;
 
@@ -2138,6 +2153,7 @@ class _NetworkQualityBanner extends StatelessWidget {
 class SettingsTab extends StatelessWidget {
   const SettingsTab({
     required this.workspaceName,
+    required this.userName,
     required this.onWorkspaceTap,
     required this.notificationEnabled,
     required this.compactMode,
@@ -2145,14 +2161,13 @@ class SettingsTab extends StatelessWidget {
     required this.textScalePreview,
     required this.onProfileTap,
     required this.onAdvancedTap,
-    required this.onPrivacyTap,
     required this.onLogoutTap,
     required this.onNotificationChanged,
     required this.onCompactChanged,
     required this.onSoundChanged,
     required this.onTextScaleChanged,
     this.canSwitchWorkspace = false,
-    this.organizationLogoUrl,
+    this.userAvatarUrl,
     this.onQrLoginTap,
     super.key,
   });
@@ -2163,19 +2178,21 @@ class SettingsTab extends StatelessWidget {
   /// Tài khoản có từ 2 workspace: dòng ghi "Chuyển workspace".
   final bool canSwitchWorkspace;
 
-  /// Logo tổ chức (discovery); trống thì thẻ đầu trang hiện chữ viết tắt.
-  final String? organizationLogoUrl;
-
   /// null khi máy chủ không bật đăng nhập QR.
   final VoidCallback? onQrLoginTap;
   final String workspaceName;
+
+  /// Tên hiển thị của người dùng ở thẻ đầu trang (trống: chữ thay thế).
+  final String userName;
+
+  /// Ảnh đại diện của người dùng; trống thì thẻ hiện chữ cái tên.
+  final String? userAvatarUrl;
   final bool notificationEnabled;
   final bool compactMode;
   final double soundLevel;
   final double textScalePreview;
   final VoidCallback onProfileTap;
   final VoidCallback onAdvancedTap;
-  final VoidCallback onPrivacyTap;
   final VoidCallback onLogoutTap;
   final ValueChanged<bool> onNotificationChanged;
   final ValueChanged<bool> onCompactChanged;
@@ -2184,6 +2201,10 @@ class SettingsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
+    final displayName = userName.trim().isEmpty
+        ? strings.accountFallbackName
+        : userName.trim();
     return ListView(
       padding: const EdgeInsets.only(bottom: WebTuiSpacing.lg),
       children: [
@@ -2194,54 +2215,60 @@ class SettingsTab extends StatelessWidget {
             WebTuiSpacing.lg,
             WebTuiSpacing.lg,
           ),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: WebTuiColors.primarySoft,
+          child: Material(
+            color: WebTuiColors.primarySoft,
+            shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(WebTuiRadii.lg),
-              border: Border.all(
+              side: BorderSide(
                 color: WebTuiColors.primary.withValues(alpha: 0.12),
               ),
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(WebTuiSpacing.lg),
-              child: Row(
-                children: [
-                  _WorkspaceBadge(
-                    name: workspaceName,
-                    logoUrl: organizationLogoUrl,
-                  ),
-                  const SizedBox(width: WebTuiSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          workspaceName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: WebTuiTypography.titleMedium.copyWith(
-                            color: WebTuiColors.textPrimary,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: WebTuiSpacing.xs),
-                        Text(
-                          'Đang hoạt động trong workspace',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: WebTuiTypography.bodySmall.copyWith(
-                            color: WebTuiColors.textSecondary,
-                          ),
-                        ),
-                      ],
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              key: const Key('settings_profile_card'),
+              onTap: onProfileTap,
+              child: Padding(
+                padding: const EdgeInsets.all(WebTuiSpacing.lg),
+                child: Row(
+                  children: [
+                    WebTuiAvatar(
+                      label: displayName,
+                      imageUrl: userAvatarUrl,
+                      size: 68,
+                      status: WebTuiPresenceStatus.online,
                     ),
-                  ),
-                  IconButton.filledTonal(
-                    tooltip: 'Hồ sơ cá nhân',
-                    onPressed: onProfileTap,
-                    icon: const Icon(Icons.person_outline_rounded),
-                  ),
-                ],
+                    const SizedBox(width: WebTuiSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: WebTuiTypography.titleMedium.copyWith(
+                              color: WebTuiColors.textPrimary,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: WebTuiSpacing.xs),
+                          Text(
+                            strings.profileTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: WebTuiTypography.bodySmall.copyWith(
+                              color: WebTuiColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: WebTuiColors.textMuted,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -2250,7 +2277,9 @@ class SettingsTab extends StatelessWidget {
           children: [
             WebTuiSettingRow(
               key: const Key('settings_workspace_row'),
-              title: canSwitchWorkspace ? 'Chuyển workspace' : 'Workspace',
+              title: canSwitchWorkspace
+                  ? strings.switchWorkspace
+                  : strings.workspace,
               subtitle: workspaceName,
               icon: Icons.business_rounded,
               onTap: onWorkspaceTap,
@@ -2261,26 +2290,20 @@ class SettingsTab extends StatelessWidget {
             if (onQrLoginTap != null)
               WebTuiSettingRow(
                 key: const Key('settings_qr_login_row'),
-                title: 'Đăng nhập máy tính bằng QR',
-                subtitle: 'Quét mã trên trang đăng nhập của máy tính',
+                title: strings.qrLoginTitle,
+                subtitle: strings.qrLoginSubtitle,
                 icon: Icons.qr_code_scanner_rounded,
                 onTap: onQrLoginTap,
               ),
             WebTuiSettingRow(
-              title: 'Hồ sơ cá nhân',
-              subtitle: 'Cập nhật tên, ảnh đại diện và trạng thái',
-              icon: Icons.person_outline_rounded,
-              onTap: onProfileTap,
-            ),
-            WebTuiSettingRow(
-              title: 'Thiết lập nâng cao',
-              subtitle: 'Quyền riêng tư, bảo mật và thiết bị',
+              title: strings.advancedTitle,
+              subtitle: strings.advancedSubtitle,
               icon: Icons.tune_rounded,
               onTap: onAdvancedTap,
             ),
             WebTuiSettingRow(
-              title: 'Thông báo',
-              subtitle: 'Nhận tin nhắn và cảnh báo kênh',
+              title: strings.notificationsTitle,
+              subtitle: strings.notificationsSubtitle,
               icon: Icons.notifications_none_rounded,
               trailing: WebTuiToggle(
                 value: notificationEnabled,
@@ -2288,8 +2311,8 @@ class SettingsTab extends StatelessWidget {
               ),
             ),
             WebTuiSettingRow(
-              title: 'Danh sách dày',
-              subtitle: 'Tăng mật độ thông tin như ảnh reference',
+              title: strings.compactListTitle,
+              subtitle: strings.compactListSubtitle,
               icon: Icons.format_line_spacing_rounded,
               trailing: WebTuiToggle(
                 value: compactMode,
@@ -2298,7 +2321,7 @@ class SettingsTab extends StatelessWidget {
             ),
           ],
         ),
-        const WebTuiSectionLabel('Thiết lập chuông'),
+        WebTuiSectionLabel(strings.soundSettings),
         WebTuiListSurface(
           children: [
             WebTuiSliderRow(
@@ -2317,12 +2340,7 @@ class SettingsTab extends StatelessWidget {
         WebTuiListSurface(
           children: [
             WebTuiSettingRow(
-              title: 'Tài khoản',
-              icon: Icons.account_circle_outlined,
-              onTap: onPrivacyTap,
-            ),
-            WebTuiSettingRow(
-              title: 'Đăng xuất',
+              title: strings.logout,
               icon: Icons.logout_rounded,
               destructive: true,
               onTap: onLogoutTap,
@@ -2330,64 +2348,6 @@ class SettingsTab extends StatelessWidget {
           ],
         ),
       ],
-    );
-  }
-}
-
-/// Ô tròn ở thẻ đầu tab Cài đặt: logo tổ chức (giống góc trên trái) trên nền
-/// trắng, không có logo thì chữ viết tắt tên workspace; chấm xanh = đang hoạt
-/// động.
-class _WorkspaceBadge extends StatelessWidget {
-  const _WorkspaceBadge({required this.name, this.logoUrl});
-
-  static const double _size = 68;
-
-  final String name;
-  final String? logoUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    final url = logoUrl?.trim();
-    if (url == null || url.isEmpty) {
-      return WebTuiAvatar(
-        label: name,
-        size: _size,
-        status: WebTuiPresenceStatus.online,
-        color: WebTuiColors.surface,
-      );
-    }
-    return SizedBox.square(
-      key: const Key('settings_workspace_logo'),
-      dimension: _size,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: const BoxDecoration(
-                color: WebTuiColors.surface,
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: _OrganizationMark(name: name, imageUrl: url, size: 42),
-              ),
-            ),
-          ),
-          Positioned(
-            right: -1,
-            bottom: -1,
-            child: Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                color: WebTuiPresenceStatus.online.color,
-                shape: BoxShape.circle,
-                border: Border.all(color: WebTuiColors.surface, width: 2),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

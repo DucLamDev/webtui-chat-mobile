@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_strings.dart';
 import '../icons/webtui_icons.dart';
 import '../tokens/webtui_colors.dart';
 import '../tokens/webtui_density.dart';
@@ -75,14 +76,14 @@ class _TabSpec {
   const _TabSpec(this.icon, this.label);
 
   final IconData icon;
-  final String label;
+  final String Function(AppStrings strings) label;
 }
 
-const _tabs = [
-  _TabSpec(WebTuiIcons.messages, 'Tin nhắn'),
-  _TabSpec(WebTuiIcons.friends, 'Bạn bè'),
-  _TabSpec(WebTuiIcons.work, 'Công việc'),
-  _TabSpec(WebTuiIcons.settings, 'Cài đặt'),
+final _tabs = [
+  _TabSpec(WebTuiIcons.messages, (s) => s.tabMessages),
+  _TabSpec(WebTuiIcons.friends, (s) => s.tabFriends),
+  _TabSpec(WebTuiIcons.work, (s) => s.tabWork),
+  _TabSpec(WebTuiIcons.settings, (s) => s.tabSettings),
 ];
 
 /// Thanh tab nổi dạng viên thuốc: cách mép dưới, bo tròn, đổ bóng nhẹ. Đặt làm
@@ -166,13 +167,14 @@ class _FloatingTabItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final color = selected ? scheme.primary : scheme.onSurfaceVariant;
+    final label = spec.label(AppStrings.of(context));
     return Semantics(
       button: true,
       selected: selected,
-      label: spec.label,
+      label: label,
       excludeSemantics: true,
       child: InkWell(
-        key: ValueKey('tab-${spec.label}'),
+        key: ValueKey('tab-${spec.label(const AppStringsVi())}'),
         onTap: onTap,
         borderRadius: BorderRadius.circular(WebTuiBottomTabTokens.height),
         child: AnimatedContainer(
@@ -207,7 +209,7 @@ class _FloatingTabItem extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                spec.label,
+                label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(

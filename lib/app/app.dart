@@ -21,7 +21,9 @@ import '../features/auth/presentation/controllers/login_controller.dart';
 import '../features/auth/presentation/screens/device_approval_pending_screen.dart';
 import '../features/auth/presentation/widgets/app_lock_gate.dart';
 import '../features/auth/presentation/widgets/legal_acceptance_gate.dart';
+import '../features/settings/presentation/controllers/app_settings_controller.dart';
 import '../features/settings/presentation/widgets/mobile_update_gate.dart';
+import '../l10n/app_strings.dart';
 import 'flavor/app_config.dart';
 import 'providers/foundation_providers.dart';
 import 'router/app_router.dart';
@@ -171,14 +173,26 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp> {
     final imageCacheNamespace = '$imageIdentity:epoch$_imageCacheEpoch';
     final legalWorkspaceId = ref.watch(legalAcceptanceWorkspaceScopeProvider);
     final router = ref.watch(appRouterProvider);
+    // Đổi ngôn ngữ trong Thiết lập ứng dụng có tác dụng ngay, không cần mở lại.
+    // Chưa chọn máy chủ thì chưa có kho cài đặt: dùng tiếng Việt.
+    final languageCode = activeDiscovery == null
+        ? 'vi'
+        : ref.watch(
+            appSettingsControllerProvider.select(
+              (value) => value.settings.languageCode,
+            ),
+          );
 
     return MaterialApp.router(
       title: activeDiscovery?.name ?? config.appTitle,
       debugShowCheckedModeBanner: false,
       theme: WebTuiTheme.light(),
-      locale: const Locale('vi'),
+      locale: Locale(languageCode),
       supportedLocales: const [Locale('vi'), Locale('en')],
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      localizationsDelegates: [
+        AppStrings.delegate,
+        ...GlobalMaterialLocalizations.delegates,
+      ],
       routerConfig: router,
       builder: (context, child) {
         final mediaQuery = MediaQuery.maybeOf(context);

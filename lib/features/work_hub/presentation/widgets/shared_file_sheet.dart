@@ -104,8 +104,15 @@ Future<SharedFileSheetChoice?> showSharedFileActionSheet(
               WebTuiSheetActionTile(
                 key: const Key('file_action_open'),
                 icon: WebTuiIcons.externalLink,
-                title: 'Mở',
-                subtitle: 'Mở bằng ứng dụng có sẵn; từ đó lưu hoặc chia sẻ',
+                title: file.kind == SharedFileKind.audio
+                    ? 'Mở bằng ứng dụng khác'
+                    : 'Mở',
+                // Ghi âm chỉ vào bảng này khi máy không phát trực tiếp được
+                // (WebM / Ogg trên iPhone).
+                subtitle: file.kind == SharedFileKind.audio
+                    ? 'Máy này không phát trực tiếp được ghi âm định dạng '
+                          'này; mở bằng ứng dụng khác hoặc lưu về máy'
+                    : 'Mở bằng ứng dụng có sẵn; từ đó lưu hoặc chia sẻ',
                 onTap: () => pick(SharedFileSheetChoice.open),
               ),
             if (video || action == SharedFileTapAction.pdfSheet)

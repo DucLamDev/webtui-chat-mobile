@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/features/work_hub/domain/entities/work_hub.dart';
 import 'package:webtui_chat/features/work_hub/presentation/controllers/shared_audio_controller.dart';
@@ -72,6 +73,26 @@ void main() {
     expect(a('a.mp4', 'video/mp4'), SharedFileTapAction.videoSheet);
     expect(a('a.pdf', 'application/pdf'), SharedFileTapAction.pdfSheet);
     expect(a('a.docx', 'x/y'), SharedFileTapAction.openSheet);
+  });
+
+  test('ghi âm WebM / Ogg trên iPhone mở bằng ứng dụng khác, máy khác phát '
+      'ngay', () {
+    SharedFileTapAction a(String n, String m, TargetPlatform p) =>
+        sharedFileTapAction(_file(n, m), platform: p);
+    const ios = TargetPlatform.iOS;
+    const android = TargetPlatform.android;
+    expect(a('voice-1.webm', 'audio/webm', ios), SharedFileTapAction.openSheet);
+    expect(
+      a('voice-1', 'audio/webm;codecs=opus', ios),
+      SharedFileTapAction.openSheet,
+    );
+    expect(a('ghi-am.ogg', 'audio/ogg', ios), SharedFileTapAction.openSheet);
+    expect(a('a.m4a', 'audio/mp4', ios), SharedFileTapAction.playInline);
+    expect(a('a.mp3', 'audio/mpeg', ios), SharedFileTapAction.playInline);
+    expect(
+      a('voice-1.webm', 'audio/webm', android),
+      SharedFileTapAction.playInline,
+    );
   });
 
   test('tên tệp gọn: cắt giữa, giữ đuôi', () {

@@ -8,6 +8,7 @@ import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../auth/presentation/widgets/app_lock_timeout_setting_row.dart';
 import '../../../call_privacy/presentation/widgets/call_privacy_setting_row.dart';
 import '../../../mfa/presentation/mfa_settings_screen.dart';
@@ -21,6 +22,7 @@ class AppSettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final strings = context.strings;
     final state = ref.watch(appSettingsControllerProvider);
     final controller = ref.read(appSettingsControllerProvider.notifier);
     final settings = state.settings;
@@ -40,7 +42,7 @@ class AppSettingsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: WebTuiColors.background,
       appBar: AppBar(
-        title: const Text('Thiết lập ứng dụng'),
+        title: Text(strings.appSettingsTitle),
         surfaceTintColor: Colors.transparent,
         shape: Border(
           bottom: BorderSide(color: WebTuiColors.border.withValues(alpha: 0.7)),
@@ -51,7 +53,7 @@ class AppSettingsScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.only(bottom: WebTuiSpacing.xl),
           children: [
-            const WebTuiSectionLabel('Giao diện'),
+            WebTuiSectionLabel(strings.sectionAppearance),
             WebTuiListSurface(
               children: [
                 _ThemeRow(
@@ -64,10 +66,10 @@ class AppSettingsScreen extends ConsumerWidget {
                   },
                 ),
                 WebTuiSettingRow(
-                  title: 'Ngôn ngữ',
+                  title: strings.languageTitle,
                   subtitle: settings.languageCode == 'vi'
-                      ? 'Tiếng Việt'
-                      : 'English',
+                      ? strings.languageNameVi
+                      : strings.languageNameEn,
                   icon: Icons.language_rounded,
                   trailing: DropdownButton<String>(
                     value: settings.languageCode,
@@ -88,12 +90,13 @@ class AppSettingsScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            const WebTuiSectionLabel('Thông báo'),
+            WebTuiSectionLabel(strings.sectionNotifications),
             WebTuiListSurface(
               children: [
                 WebTuiSettingRow(
-                  title: 'Quyền thông báo hệ thống',
+                  title: strings.systemNotificationPermission,
                   subtitle: _notificationPermissionLabel(
+                    strings,
                     notificationPermission.valueOrNull,
                   ),
                   icon: Icons.notifications_active_outlined,
@@ -114,14 +117,14 @@ class AppSettingsScreen extends ConsumerWidget {
                             notificationPermission.valueOrNull == 'granted' ||
                                     notificationPermission.valueOrNull ==
                                         'provisional'
-                                ? 'Kiểm tra lại'
-                                : 'Cho phép',
+                                ? strings.recheck
+                                : strings.allow,
                           ),
                         ),
                 ),
                 WebTuiSettingRow(
-                  title: 'Nhận thông báo',
-                  subtitle: 'Tin nhắn, kênh và cảnh báo workspace',
+                  title: strings.receiveNotifications,
+                  subtitle: strings.receiveNotificationsSubtitle,
                   icon: Icons.notifications_none_rounded,
                   trailing: WebTuiToggle(
                     value: settings.notificationsEnabled,
@@ -141,8 +144,8 @@ class AppSettingsScreen extends ConsumerWidget {
                   ),
                 ),
                 WebTuiSettingRow(
-                  title: 'Ẩn xem trước nhạy cảm',
-                  subtitle: 'Không hiện nội dung trong lock screen',
+                  title: strings.hideSensitivePreview,
+                  subtitle: strings.hideSensitivePreviewSubtitle,
                   icon: Icons.privacy_tip_outlined,
                   trailing: WebTuiToggle(
                     value: settings.sensitivePreviewEnabled,
@@ -155,7 +158,7 @@ class AppSettingsScreen extends ConsumerWidget {
                   ),
                 ),
                 WebTuiSettingRow(
-                  title: 'Giờ yên lặng',
+                  title: strings.quietHours,
                   subtitle: '${settings.quietStart} - ${settings.quietEnd}',
                   icon: Icons.bedtime_outlined,
                   trailing: WebTuiToggle(
@@ -170,12 +173,12 @@ class AppSettingsScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            const WebTuiSectionLabel('Cuộc gọi'),
+            WebTuiSectionLabel(strings.sectionCalls),
             WebTuiListSurface(
               children: [
                 WebTuiSettingRow(
-                  title: 'Tắt mic khi tham gia',
-                  subtitle: 'Tránh tiếng ồn bất ngờ khi vào cuộc gọi',
+                  title: strings.muteMicOnJoin,
+                  subtitle: strings.muteMicOnJoinSubtitle,
                   icon: Icons.mic_off_outlined,
                   trailing: WebTuiToggle(
                     value: !settings.microphoneEnabledOnJoin,
@@ -188,8 +191,8 @@ class AppSettingsScreen extends ConsumerWidget {
                   ),
                 ),
                 WebTuiSettingRow(
-                  title: 'Tắt camera khi tham gia',
-                  subtitle: 'Có thể bật lại sau khi đã vào video call',
+                  title: strings.cameraOffOnJoin,
+                  subtitle: strings.cameraOffOnJoinSubtitle,
                   icon: Icons.videocam_off_outlined,
                   trailing: WebTuiToggle(
                     value: !settings.cameraEnabledOnJoin,
@@ -203,13 +206,12 @@ class AppSettingsScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            const WebTuiSectionLabel('Bảo mật ứng dụng'),
+            WebTuiSectionLabel(strings.sectionAppSecurity),
             WebTuiListSurface(
               children: [
                 WebTuiSettingRow(
-                  title: 'Khóa ứng dụng',
-                  subtitle:
-                      'Yêu cầu PIN hoặc sinh trắc học khi mở lại sau thời gian không dùng',
+                  title: strings.appLock,
+                  subtitle: strings.appLockSubtitle,
                   icon: Icons.phonelink_lock_rounded,
                   trailing: appLockEnabled.isLoading
                       ? const SizedBox.square(
@@ -229,8 +231,8 @@ class AppSettingsScreen extends ConsumerWidget {
                         .mfa ==
                     true)
                   WebTuiSettingRow(
-                    title: 'Xác thực TOTP',
-                    subtitle: 'Bật mã xác thực và quản lý mã khôi phục',
+                    title: strings.totpTitle,
+                    subtitle: strings.totpSubtitle,
                     icon: Icons.security,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
@@ -241,34 +243,34 @@ class AppSettingsScreen extends ConsumerWidget {
                 CallPrivacySettingRow(workspaceId: workspaceId),
               ],
             ),
-            const WebTuiSectionLabel('Dữ liệu offline'),
+            WebTuiSectionLabel(strings.sectionOfflineData),
             WebTuiListSurface(
               children: [
                 WebTuiSettingRow(
-                  title: 'Xóa cache workspace',
-                  subtitle: 'Chỉ xóa dữ liệu đọc gần nhất, giữ draft và outbox',
+                  title: strings.clearWorkspaceCache,
+                  subtitle: strings.clearWorkspaceCacheSubtitle,
                   icon: Icons.cleaning_services_outlined,
                   trailing: TextButton(
                     onPressed: workspaceId == null
                         ? null
                         : () => controller.clearWorkspaceCache(workspaceId),
-                    child: const Text('Xóa'),
+                    child: Text(strings.delete),
                   ),
                 ),
               ],
             ),
-            const WebTuiSectionLabel('Góp ý'),
+            WebTuiSectionLabel(strings.sectionFeedback),
             WebTuiListSurface(
               children: [
                 WebTuiSettingRow(
-                  title: 'Gửi góp ý',
-                  subtitle: 'Báo lỗi hoặc đề xuất tính năng mới',
+                  title: strings.sendFeedback,
+                  subtitle: strings.sendFeedbackSubtitle,
                   icon: Icons.feedback_outlined,
                   onTap: () => context.push('/feedback'),
                 ),
               ],
             ),
-            const WebTuiSectionLabel('Phiên bản'),
+            WebTuiSectionLabel(strings.sectionVersion),
             WebTuiListSurface(
               children: [
                 _ReleasePolicyRow(
@@ -283,15 +285,13 @@ class AppSettingsScreen extends ConsumerWidget {
                       return;
                     }
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Không mở được link cập nhật.'),
-                      ),
+                      SnackBar(content: Text(strings.cannotOpenUpdateLink)),
                     );
                   },
                 ),
                 if (state.releaseErrorMessage != null)
                   WebTuiSettingRow(
-                    title: 'Không kiểm tra được',
+                    title: strings.checkFailed,
                     subtitle: state.releaseErrorMessage!,
                     icon: Icons.warning_amber_rounded,
                   ),
@@ -299,7 +299,7 @@ class AppSettingsScreen extends ConsumerWidget {
             ),
             if (state.errorMessage != null)
               WebTuiErrorState(
-                title: 'Không lưu được thiết lập',
+                title: strings.settingsSaveFailed,
                 message: state.errorMessage!,
               ),
           ],
@@ -321,23 +321,23 @@ Future<void> _requestNotificationPermission(
   if (!context.mounted) {
     return;
   }
+  final strings = context.strings;
   final message = switch (permission) {
-    'granted' => 'Đã bật thông báo hệ thống.',
-    'provisional' => 'Thông báo tạm thời đã được bật.',
-    'denied' =>
-      'Quyền thông báo đang bị từ chối. Hãy bật trong Cài đặt hệ thống.',
-    _ => 'Không xác định được trạng thái quyền thông báo.',
+    'granted' => strings.notifGranted,
+    'provisional' => strings.notifProvisional,
+    'denied' => strings.notifDenied,
+    _ => strings.notifUnknown,
   };
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
 }
 
-String _notificationPermissionLabel(String? permission) {
+String _notificationPermissionLabel(AppStrings strings, String? permission) {
   return switch (permission) {
-    'granted' => 'Đã cho phép thông báo tin nhắn và cuộc gọi',
-    'provisional' => 'Đang cho phép thông báo tạm thời',
-    'denied' => 'Đã từ chối trong cài đặt hệ thống',
-    'unknown' || null => 'Chỉ hỏi quyền khi bạn chọn Cho phép',
-    _ => 'Trạng thái chưa xác định',
+    'granted' => strings.notifLabelGranted,
+    'provisional' => strings.notifLabelProvisional,
+    'denied' => strings.notifLabelDenied,
+    'unknown' || null => strings.notifLabelAsk,
+    _ => strings.notifLabelOther,
   };
 }
 
@@ -346,6 +346,7 @@ Future<void> _setAppLock(
   WidgetRef ref,
   bool enabled,
 ) async {
+  final strings = context.strings;
   if (enabled) {
     final pin = await _promptNewPin(context);
     if (pin == null || !context.mounted) {
@@ -370,7 +371,7 @@ Future<void> _setAppLock(
   final biometrics = ref.read(biometricAuthServiceProvider);
   if (await biometrics.isAvailable()) {
     authorized = await biometrics.authenticate(
-      reason: 'Xác thực để tắt khóa ứng dụng',
+      reason: strings.authToDisableLock,
     );
   }
   if (!authorized && context.mounted) {
@@ -383,7 +384,7 @@ Future<void> _setAppLock(
     if (!authorized && context.mounted) {
       final message = verification is FailureResult<void>
           ? verification.failure.message
-          : 'Không thể xác minh mã PIN.';
+          : strings.pinVerifyFailed;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
@@ -397,6 +398,7 @@ Future<void> _setAppLock(
 }
 
 Future<String?> _promptNewPin(BuildContext context) {
+  final strings = context.strings;
   final pinController = TextEditingController();
   final confirmationController = TextEditingController();
   return showDialog<String>(
@@ -406,7 +408,7 @@ Future<String?> _promptNewPin(BuildContext context) {
       String? error;
       return StatefulBuilder(
         builder: (context, setState) => WebTuiDialog(
-          title: 'Bật khóa ứng dụng',
+          title: strings.enableAppLockTitle,
           icon: WebTuiIcons.lock,
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -414,7 +416,7 @@ Future<String?> _promptNewPin(BuildContext context) {
             children: [
               WebTuiDialogTextField(
                 controller: pinController,
-                label: 'PIN (4-12 số)',
+                label: strings.pinLabel,
                 autofocus: true,
                 obscureText: true,
                 keyboardType: TextInputType.number,
@@ -423,7 +425,7 @@ Future<String?> _promptNewPin(BuildContext context) {
               const SizedBox(height: 12),
               WebTuiDialogTextField(
                 controller: confirmationController,
-                label: 'Nhập lại PIN',
+                label: strings.pinRepeat,
                 obscureText: true,
                 keyboardType: TextInputType.number,
                 prefixIcon: WebTuiIcons.key,
@@ -433,20 +435,20 @@ Future<String?> _promptNewPin(BuildContext context) {
           ),
           actions: [
             WebTuiDialogAction(
-              label: 'Hủy',
+              label: strings.cancel,
               onPressed: () => Navigator.pop(dialogContext),
             ),
             WebTuiDialogAction(
-              label: 'Bật khóa',
+              label: strings.enableLock,
               primary: true,
               onPressed: () {
                 final pin = pinController.text.trim();
                 if (!RegExp(r'^\d{4,12}$').hasMatch(pin)) {
-                  setState(() => error = 'PIN phải gồm 4-12 chữ số.');
+                  setState(() => error = strings.pinInvalid);
                   return;
                 }
                 if (pin != confirmationController.text.trim()) {
-                  setState(() => error = 'Hai mã PIN không khớp.');
+                  setState(() => error = strings.pinMismatch);
                   return;
                 }
                 Navigator.pop(dialogContext, pin);
@@ -463,15 +465,16 @@ Future<String?> _promptNewPin(BuildContext context) {
 }
 
 Future<String?> _promptCurrentPin(BuildContext context) {
+  final strings = context.strings;
   final controller = TextEditingController();
   return showDialog<String>(
     context: context,
     builder: (dialogContext) => WebTuiDialog(
-      title: 'Xác nhận mã PIN',
+      title: strings.confirmPinTitle,
       icon: WebTuiIcons.lock,
       content: WebTuiDialogTextField(
         controller: controller,
-        label: 'Mã PIN hiện tại',
+        label: strings.currentPin,
         autofocus: true,
         obscureText: true,
         keyboardType: TextInputType.number,
@@ -480,11 +483,11 @@ Future<String?> _promptCurrentPin(BuildContext context) {
       ),
       actions: [
         WebTuiDialogAction(
-          label: 'Hủy',
+          label: strings.cancel,
           onPressed: () => Navigator.pop(dialogContext),
         ),
         WebTuiDialogAction(
-          label: 'Xác nhận',
+          label: strings.confirm,
           primary: true,
           onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
         ),
@@ -508,17 +511,18 @@ class _ReleasePolicyRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     final updateRequired = policy?.requiresUpdate == true;
     final updateRecommended = policy?.recommendsUpdate == true;
     final updateUrl = _updateUrl(policy);
     return WebTuiSettingRow(
       title: updateRequired
-          ? 'Cần cập nhật ứng dụng'
+          ? strings.updateRequired
           : updateRecommended
-          ? 'Có bản cập nhật mới'
-          : 'Ứng dụng hiện tại',
+          ? strings.updateAvailable
+          : strings.appUpToDate,
       subtitle: policy == null
-          ? 'Kiểm tra version gate từ backend'
+          ? strings.versionCheckHint
           : _releaseSubtitle(policy!),
       icon: updateRequired
           ? Icons.system_update_alt_rounded
@@ -529,12 +533,12 @@ class _ReleasePolicyRow extends StatelessWidget {
           if (updateRecommended && updateUrl != null)
             TextButton(
               onPressed: () => onOpenUpdate(updateUrl),
-              child: Text(updateRequired ? 'Bắt buộc' : 'Cập nhật'),
+              child: Text(updateRequired ? strings.mandatory : strings.update),
             )
           else
             TextButton(
               onPressed: isChecking ? null : onCheck,
-              child: Text(isChecking ? 'Đang kiểm tra' : 'Kiểm tra'),
+              child: Text(isChecking ? strings.checking : strings.check),
             ),
         ],
       ),
@@ -550,29 +554,30 @@ class _ThemeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     return WebTuiSettingRow(
-      title: 'Chủ đề',
+      title: strings.themeTitle,
       subtitle: switch (settings.theme) {
-        WebTuiThemePreference.system => 'Theo hệ thống',
-        WebTuiThemePreference.light => 'Sáng',
-        WebTuiThemePreference.dark => 'Tối',
+        WebTuiThemePreference.system => strings.themeSystemSubtitle,
+        WebTuiThemePreference.light => strings.themeLight,
+        WebTuiThemePreference.dark => strings.themeDark,
       },
       icon: Icons.palette_outlined,
       trailing: DropdownButton<WebTuiThemePreference>(
         value: settings.theme,
         underline: const SizedBox.shrink(),
-        items: const [
+        items: [
           DropdownMenuItem(
             value: WebTuiThemePreference.system,
-            child: Text('Hệ thống'),
+            child: Text(strings.themeSystem),
           ),
           DropdownMenuItem(
             value: WebTuiThemePreference.light,
-            child: Text('Sáng'),
+            child: Text(strings.themeLight),
           ),
           DropdownMenuItem(
             value: WebTuiThemePreference.dark,
-            child: Text('Tối'),
+            child: Text(strings.themeDark),
           ),
         ],
         onChanged: (value) {

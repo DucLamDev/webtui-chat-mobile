@@ -90,7 +90,22 @@ class _SharedFilesScreenState extends ConsumerState<SharedFilesScreen> {
     switch (action) {
       case SharedFileTapAction.playInline:
         await _audio.toggle(file);
-        if (_audio.failed) _message('Không phát được ghi âm này.');
+        if (_audio.failed && mounted) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: const Text('Không phát được ghi âm này.'),
+                action: SnackBarAction(
+                  key: const Key('file_audio_open_external'),
+                  label: 'Mở bằng ứng dụng khác',
+                  onPressed: () => unawaited(
+                    _run(SharedFileSheetChoice.openExternally, file),
+                  ),
+                ),
+              ),
+            );
+        }
       case SharedFileTapAction.openImage:
         final images = shown
             .where((item) => item.kind == SharedFileKind.image)
