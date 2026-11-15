@@ -4,6 +4,14 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
+## 1.27.1 · 15/11/2026
+### Sửa lỗi
+- Đầu phòng chat gọn lại, tên người hiện đủ
+  Đầu phòng chat chỉ còn hai nút gọi thoại, gọi video và nút ba gạch (≡). Tìm tin nhắn, báo cáo hoặc chặn, công cụ
+  làm việc và chi tiết kênh nằm trong menu của nút ba gạch. Các nút, ảnh đại diện nhỏ gọn hơn; chữ tên tự nhỏ dần khi
+  thiếu chỗ. Nhờ vậy tên ba chữ như "Nguyễn Thanh Tiền" hiện đủ trên điện thoại khổ hẹp (360–390 điểm). Tên nhóm quá
+  dài vẫn bị cắt bằng "…".
+
 ## 1.27.0 · 15/11/2026
 ### Tính năng
 - Kênh vào Danh bạ, Tin nhắn hiện sẵn các kênh đang dùng
