@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/design_system/components/webtui_components.dart';
+import 'package:webtui_chat/design_system/components/webtui_person_silhouette.dart';
 import 'package:webtui_chat/design_system/icons/webtui_icons.dart';
 import 'package:webtui_chat/features/home/presentation/screens/home_shell_screen.dart';
 import 'package:webtui_chat/l10n/app_strings.dart';
@@ -71,6 +72,7 @@ void main() {
         _tab(
           userName: 'Lan Anh',
           userEmail: 'lan.anh@example.com',
+          userGender: 'female',
           onProfileTap: () => profileOpened++,
         ),
       ),
@@ -92,8 +94,14 @@ void main() {
       find.descendant(of: card, matching: find.byType(WebTuiAvatar)),
     );
     expect(avatar.size, 92);
-    // Chữ cái tên khi chưa có ảnh; không còn nút tròn trong khối.
-    expect(find.text('LA'), findsOneWidget);
+    // Chưa có ảnh: hình người theo giới tính (thay chữ cái tên); không còn nút
+    // tròn trong khối.
+    expect(avatar.gender, WebTuiAvatarGender.female);
+    expect(
+      find.descendant(of: card, matching: find.byType(WebTuiPersonSilhouette)),
+      findsOneWidget,
+    );
+    expect(find.text('LA'), findsNothing);
     expect(
       find.descendant(of: card, matching: find.byType(IconButton)),
       findsNothing,
@@ -253,6 +261,7 @@ SettingsTab _tab({
   bool canSwitchWorkspace = false,
   String userName = 'Người dùng',
   String? userEmail,
+  String? userGender,
   bool compactMode = false,
   VoidCallback? onWorkspaceTap,
   VoidCallback? onProfileTap,
@@ -266,6 +275,7 @@ SettingsTab _tab({
     workspaceName: 'Webtui Chat',
     userName: userName,
     userEmail: userEmail,
+    userGender: userGender,
     canSwitchWorkspace: canSwitchWorkspace,
     onWorkspaceTap: onWorkspaceTap ?? () {},
     onQrLoginTap: onQrLoginTap,

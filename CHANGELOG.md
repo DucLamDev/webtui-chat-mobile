@@ -3,8 +3,16 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.35.1 · 16/11/2026
+### Sửa lỗi
+- App dựng được trở lại sau khi gộp giao diện liền mạch (1.35.0), lấy lại ảnh đại diện theo giới tính
+  - Bản gộp giao diện mới làm mất phần ảnh đại diện theo giới tính (1.33.0) và biểu tượng "quá hạn" của màn Việc của tôi
+    (1.34.0), nên mã không dựng được. Nay người chưa có ảnh lại hiện hình người xám theo giới tính (nam / nữ / trung
+    tính), cả ở dòng đồng nghiệp trong Bạn bè và ảnh lớn đầu tab Cài đặt; nhóm, kênh, bot vẫn là chữ cái trắng trên dải
+    màu của giao diện mới. Nhóm việc "Quá hạn" có lại biểu tượng đồng hồ báo thức (bộ biểu tượng mới).
+  - Sửa số phiên bản: mục giao diện liền mạch ghi nhầm 1.33.0 (trùng số), nay là 1.35.0; VERSION trước đó chưa tăng.
 
-## 1.33.0 · 16/11/2026
+## 1.35.0 · 16/11/2026
 ### Tính năng
 - Giao diện mới liền mạch kiểu Zalo / Telegram: icon không khung, ảnh đại diện to và rõ mặt, thanh lọc trượt ngang kiểu
   YouTube
@@ -48,7 +56,6 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
 - Hồ sơ cá nhân có thêm mục "Giới tính" (Nam / Nữ / Không muốn nói): chọn là lưu ngay, ảnh đại diện mặc định đổi theo;
   lưu lỗi thì báo và giữ lựa chọn cũ. Cần máy chủ đã cập nhật bản có giới tính; máy chủ cũ thì mọi người hiện hình
   trung tính.
-
 
 ## 1.32.1 · 16/11/2026
 ### Sửa lỗi

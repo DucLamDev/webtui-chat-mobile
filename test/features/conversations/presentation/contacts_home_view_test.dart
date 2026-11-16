@@ -9,6 +9,7 @@ import 'package:webtui_chat/app/providers/foundation_providers.dart';
 import 'package:webtui_chat/core/error/failure.dart';
 import 'package:webtui_chat/core/result/result.dart';
 import 'package:webtui_chat/design_system/components/webtui_components.dart';
+import 'package:webtui_chat/design_system/components/webtui_person_silhouette.dart';
 import 'package:webtui_chat/design_system/theme/webtui_theme.dart';
 import 'package:webtui_chat/design_system/tokens/webtui_density.dart';
 import 'package:webtui_chat/features/conversations/application/use_cases/channel_use_cases.dart';
@@ -284,6 +285,28 @@ void main() {
     expect(find.text('Chặn người dùng'), findsOneWidget);
   });
 
+  testWidgets('dòng đồng nghiệp chưa có ảnh: hình người theo giới tính', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      members: [
+        _member('u-lan', 'Lan', gender: 'female'),
+        _member('u-nam', 'Nam'),
+      ],
+    );
+    WebTuiAvatar avatarOf(String id) => tester.widget<WebTuiAvatar>(
+      find.descendant(
+        of: find.byKey(ValueKey('contact-$id')),
+        matching: find.byType(WebTuiAvatar),
+      ),
+    );
+    expect(avatarOf('u-lan').gender, WebTuiAvatarGender.female);
+    // Chưa chọn giới tính: vẫn là ảnh người (hình trung tính), không chữ tắt.
+    expect(avatarOf('u-nam').gender, WebTuiAvatarGender.neutral);
+    expect(find.byType(WebTuiPersonSilhouette), findsNWidgets(2));
+  });
+
   testWidgets('bấm dòng đồng nghiệp vẫn mở chat riêng', (tester) async {
     await pump(tester, members: [_member('u-lan', 'Lan')]);
     await tester.tap(find.text('Lan'));
@@ -315,13 +338,14 @@ ConversationSummary _channel(
   );
 }
 
-ContactSummary _member(String id, String name) {
+ContactSummary _member(String id, String name, {String? gender}) {
   return ContactSummary(
     userId: id,
     displayName: name,
     username: id,
     email: '$id@example.com',
     status: 'active',
+    gender: gender,
   );
 }
 

@@ -392,6 +392,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
                       workspaceName: activeWorkspace.name,
                       userName: userProfile?.displayName ?? '',
                       userAvatarUrl: userProfile?.avatarUrl,
+                      userGender: userProfile?.gender,
                       userEmail: userProfile?.email,
                       notificationEnabled: _notificationEnabled,
                       compactMode: _compactMode,
@@ -2256,6 +2257,7 @@ class SettingsTab extends StatelessWidget {
     required this.onTextScaleChanged,
     this.canSwitchWorkspace = false,
     this.userAvatarUrl,
+    this.userGender,
     this.userEmail,
     this.onQrLoginTap,
     super.key,
@@ -2274,8 +2276,11 @@ class SettingsTab extends StatelessWidget {
   /// Tên hiển thị của người dùng ở đầu hồ sơ (trống: chữ thay thế).
   final String userName;
 
-  /// Ảnh đại diện của người dùng; trống thì hiện chữ cái tên.
+  /// Ảnh đại diện của người dùng; trống thì hiện hình người theo [userGender].
   final String? userAvatarUrl;
+
+  /// `male`, `female`, `unspecified`; trống = hình người trung tính.
+  final String? userGender;
 
   /// Email dưới tên; trống thì ghi "Hồ sơ cá nhân".
   final String? userEmail;
@@ -2329,6 +2334,7 @@ class SettingsTab extends StatelessWidget {
             name: displayName,
             subtitle: email.isEmpty ? strings.profileTitle : email,
             avatarUrl: userAvatarUrl,
+            gender: userGender,
             onTap: onProfileTap,
           ),
           const WebTuiGroupGap(),
@@ -2423,12 +2429,16 @@ class _SettingsProfileHeader extends StatelessWidget {
     required this.subtitle,
     required this.avatarUrl,
     required this.onTap,
+    this.gender,
   });
 
   final String name;
   final String subtitle;
   final String? avatarUrl;
   final VoidCallback onTap;
+
+  /// Giới tính theo API; trống = hình người trung tính.
+  final String? gender;
 
   @override
   Widget build(BuildContext context) {
@@ -2449,6 +2459,7 @@ class _SettingsProfileHeader extends StatelessWidget {
               WebTuiAvatar(
                 label: name,
                 imageUrl: avatarUrl,
+                gender: WebTuiAvatarGender.parse(gender),
                 size: 92,
                 status: WebTuiPresenceStatus.online,
               ),

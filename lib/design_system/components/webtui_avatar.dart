@@ -60,9 +60,11 @@ enum WebTuiPresenceStatus {
 }
 
 /// Ảnh đại diện tròn, không viền / nền bao: ảnh phủ kín vòng tròn và canh lên
-/// phía trên (nơi thường có mặt); chưa có ảnh thì 2 chữ cái trắng (hoặc biểu
-/// tượng trắng) trên dải màu chéo. Chấm trạng thái nằm trên mép tròn ở góc
-/// 4 giờ 30, viền cùng màu nền để không đè vào mặt.
+/// phía trên (nơi thường có mặt). Chưa có ảnh (hoặc ảnh lỗi): ảnh NGƯỜI
+/// ([gender] có giá trị) vẽ hình người xám theo giới tính kiểu Facebook; nhóm,
+/// kênh, bot vẽ 2 chữ cái trắng (hoặc biểu tượng trắng) trên dải màu chéo.
+/// Chấm trạng thái nằm trên mép tròn ở góc 4 giờ 30, viền cùng màu nền để
+/// không đè vào mặt.
 class WebTuiAvatar extends StatelessWidget {
   const WebTuiAvatar({
     required this.label,
@@ -97,6 +99,11 @@ class WebTuiAvatar extends StatelessWidget {
   /// [webTuiAvatarGradients] theo tên.
   final Color? gradientBase;
   final double size;
+
+  /// Có giá trị = ảnh NGƯỜI: khi chưa có ảnh / ảnh lỗi vẽ hình người theo giới
+  /// tính (thiếu thông tin thì dùng [WebTuiAvatarGender.neutral]). Null = nhóm,
+  /// kênh, bot...: giữ chữ viết tắt / biểu tượng trên dải màu.
+  final WebTuiAvatarGender? gender;
 
   /// Ảnh chân dung: canh dọc ở 32% từ trên xuống (Alignment y = 0,32 × 2 − 1).
   static const imageAlignment = Alignment(0, -0.36);
@@ -189,6 +196,11 @@ class WebTuiAvatar extends StatelessWidget {
   }
 
   Widget get _fallback {
+    final g = gender;
+    if (g != null && icon == null) {
+      // Hình người tự phủ nền xám kín khung, che dải màu phía sau.
+      return SizedBox.expand(child: WebTuiPersonSilhouette(gender: g));
+    }
     final foreground = foregroundColor ?? Colors.white;
     return Center(
       child: icon == null

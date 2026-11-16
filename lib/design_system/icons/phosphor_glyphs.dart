@@ -19,6 +19,8 @@ abstract final class PhosphorRegular {
     0xe6ee,
     fontFamily: 'PhosphorRegular',
   );
+  // Mã lấy từ bảng ghép chữ của phông (gõ "alarm" ra biểu tượng này).
+  static const IconData alarm = IconData(0xe006, fontFamily: 'PhosphorRegular');
   static const IconData arrowBendUpLeft = IconData(
     0xe024,
     fontFamily: 'PhosphorRegular',
