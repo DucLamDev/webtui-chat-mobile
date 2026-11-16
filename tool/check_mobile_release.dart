@@ -299,9 +299,10 @@ void main() {
         'lib/features/settings/presentation/screens/privacy_sessions_screen.dart',
       ),
       mustContain: const [
-        "title: 'Xóa tài khoản'",
+        // Chữ giao diện nay qua tr(tiếng Việt, tiếng Anh) để đổi ngôn ngữ được.
+        "title: tr('Xóa tài khoản', 'Delete account')",
         "hintText: 'DELETE'",
-        "labelText: 'Email thành viên nhận quyền'",
+        "'Email thành viên nhận quyền',",
         'config.privacyPolicyUrl',
       ],
     ),

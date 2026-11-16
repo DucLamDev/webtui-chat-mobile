@@ -318,10 +318,7 @@ void main() {
       'user_id': 'u2',
       'actor_user_id': 'u1',
     });
-    expect(
-      memberAdded?.type,
-      ConversationRealtimeEventType.channelMemberAdded,
-    );
+    expect(memberAdded?.type, ConversationRealtimeEventType.channelMemberAdded);
     expect(memberAdded?.channelId, 'c7');
 
     final typing = map('TypingStarted', {'user_id': 'u2'});

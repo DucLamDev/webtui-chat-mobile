@@ -94,7 +94,9 @@ void main() {
       running--;
       return write(p);
     });
-    final futures = [for (var i = 0; i < 5; i++) cache.posterFor(_video('v$i'))];
+    final futures = [
+      for (var i = 0; i < 5; i++) cache.posterFor(_video('v$i')),
+    ];
     var done = 0;
     while (done < 5) {
       await Future<void>.delayed(const Duration(milliseconds: 5));

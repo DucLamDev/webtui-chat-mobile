@@ -215,26 +215,23 @@ void main() {
   });
 
   group('tách Ogg', () {
-    test(
-      'bỏ OpusHead / OpusTags, ghép nhiều segment thành một gói',
-      () {
-          final bytes = _bytes([
-          ..._oggPage(0, [_opusHead(preSkip: 100)], type: 2),
-          ..._oggPage(1, [
-            [...'OpusTags'.codeUnits, 0, 0, 0, 0],
-          ]),
-          ..._oggPage(2, [
-            List<int>.filled(255, 5),
-            [1, 2],
-            [3],
-          ]),
-            ]);
-          final s = parseOggOpus(bytes);
-        expect(s.preSkip, 100);
-        expect(s.packets.first.length, 257);
-        expect(s.packets[1].toList(), [3]);
-        },
-    );
+    test('bỏ OpusHead / OpusTags, ghép nhiều segment thành một gói', () {
+      final bytes = _bytes([
+        ..._oggPage(0, [_opusHead(preSkip: 100)], type: 2),
+        ..._oggPage(1, [
+          [...'OpusTags'.codeUnits, 0, 0, 0, 0],
+        ]),
+        ..._oggPage(2, [
+          List<int>.filled(255, 5),
+          [1, 2],
+          [3],
+        ]),
+      ]);
+      final s = parseOggOpus(bytes);
+      expect(s.preSkip, 100);
+      expect(s.packets.first.length, 257);
+      expect(s.packets[1].toList(), [3]);
+    });
 
     test('gói nằm vắt qua hai trang', () {
       final bytes = _bytes([

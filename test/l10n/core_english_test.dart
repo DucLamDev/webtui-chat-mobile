@@ -55,9 +55,6 @@ void main() {
       const MaterialApp(home: Scaffold(body: PermissionDeniedView())),
     );
     expect(find.text('Not enough permission'), findsOneWidget);
-    expect(
-      find.text('You do not have permission to do this.'),
-      findsOneWidget,
-    );
+    expect(find.text('You do not have permission to do this.'), findsOneWidget);
   });
 }

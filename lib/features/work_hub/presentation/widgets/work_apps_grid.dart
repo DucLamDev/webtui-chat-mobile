@@ -247,9 +247,10 @@ class _AddTile extends StatelessWidget {
       key: const Key('app_add'),
       onTap: onTap,
       label: tr('Thêm', 'Add'),
-      icon: const CustomPaint(
-        key: Key('app_tile_icon_box'),
-        painter: _DashedBoxPainter(),
+      // Màu chữ phụ đổi theo nền sáng / tối nên không còn là hằng số.
+      icon: CustomPaint(
+        key: const Key('app_tile_icon_box'),
+        painter: const _DashedBoxPainter(),
         child: Center(
           child: Icon(
             WebTuiIcons.add,
