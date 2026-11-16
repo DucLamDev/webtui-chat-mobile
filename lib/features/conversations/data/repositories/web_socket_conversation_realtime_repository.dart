@@ -748,6 +748,7 @@ const _keepsPayload = {
   ConversationRealtimeEventType.deviceApprovalRequested,
   ConversationRealtimeEventType.inboxConversationUpdated,
   ConversationRealtimeEventType.inboxMessageCreated,
+  ConversationRealtimeEventType.meetingUpdated,
 };
 
 /// Sự kiện hộp thư khách: `workspace_id` của payload là nguồn đúng (tin trong
@@ -846,6 +847,7 @@ ConversationRealtimeEventType _eventType(String value) {
     'InboxConversationUpdated' =>
       ConversationRealtimeEventType.inboxConversationUpdated,
     'InboxMessageCreated' => ConversationRealtimeEventType.inboxMessageCreated,
+    'MeetingUpdated' => ConversationRealtimeEventType.meetingUpdated,
     _ => ConversationRealtimeEventType.unknown,
   };
 }

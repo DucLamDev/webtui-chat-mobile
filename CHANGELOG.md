@@ -3,6 +3,27 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.32.0 · 16/11/2026
+### Tính năng
+- Lịch họp đầy đủ: tạo họp, xem theo tuần, sửa / dời / huỷ, nhắc họp, mời và phản hồi, họp định kỳ, biên bản, kiểm
+  trùng lịch, link cho khách
+  - Màn Lịch họp (ô "Lịch họp" trong tab Công việc): dải 7 ngày có chấm ở ngày có họp, chuyển tuần trước / tuần sau,
+    tab Sắp tới / Đã qua; mỗi thẻ có nhãn trạng thái và phản hồi của mình. Nút + ở đầu màn để tạo họp.
+  - Tạo họp: chọn nhóm có sẵn, hoặc chọn từng người thì app tạo một nhóm riêng tư mới cho cuộc họp. Đặt ngày giờ, nội
+    dung, link họp ngoài (chỉ https) nếu không dùng phòng video sẵn có, mốc nhắc, người tham dự (cả nhóm hoặc chọn
+    người). Khi chọn giờ, app báo người nào đã có họp khác trùng giờ.
+  - Nhắc họp: mặc định 15 phút trước và lúc bắt đầu, đổi được (0 / 5 / 10 / 15 / 30 / 60 phút, tối đa 3 mốc). Bấm
+    thông báo nhắc họp hoặc thông báo họp bị đổi là mở thẳng chi tiết cuộc họp.
+  - Họp định kỳ: hằng ngày / hằng tuần (chọn thứ) / hằng tháng, kết thúc theo ngày hoặc số buổi (tối đa 100 buổi, trong
+    1 năm). Sửa hoặc huỷ một buổi lặp lại thì hỏi "Chỉ buổi này" hay "Cả chuỗi"; sửa cả chuỗi thì buổi đã sửa riêng
+    trước đó giữ nguyên.
+  - Chi tiết cuộc họp: "Vào họp" mở từ 10 phút trước giờ họp (link ngoài thì mở link, không thì vào phòng video), "Nhắn
+    vào nhóm", phản hồi Tham gia / Có thể / Từ chối, danh sách người dự.
+  - Biên bản họp: soạn, lưu, gửi vào nhóm; giao việc cho người dự ngay từ cuộc họp.
+  - Link cho khách: người tổ chức bật / tắt link để người ngoài xin vào họp (người tổ chức duyệt); có nút sao chép.
+    Nhóm đang bật một link công khai khác thì app báo cần tắt link đó trước.
+  - Cần máy chủ bản có Lịch họp mới; máy chủ cũ thì màn Lịch họp vẫn liệt kê họp sắp tới như trước.
+
 ## 1.31.2 · 16/11/2026
 ### Sửa lỗi
 - Nút "+ Ghi chú mới" gọn lại, thẻ cuộc gọi nhỡ của bot ghi rõ ai gọi, danh sách chat hiện số tin chưa đọc

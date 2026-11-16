@@ -1799,6 +1799,10 @@ CollaborationDocument _collaborationDocumentFromMap(JsonMap map) {
   );
 }
 
+/// Đọc một việc nhóm từ JSON máy chủ (dùng chung với Lịch họp).
+CollaborationTask collaborationTaskFromJson(JsonMap map) =>
+    _collaborationTaskFromMap(map);
+
 CollaborationTask _collaborationTaskFromMap(JsonMap map) {
   return CollaborationTask(
     id: stringField(map, const ['id']),

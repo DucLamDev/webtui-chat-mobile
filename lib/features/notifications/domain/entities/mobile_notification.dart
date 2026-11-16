@@ -212,6 +212,7 @@ final class NotificationTarget {
     final isInbox =
         type == _inboxConversationType ||
         linkTarget?.inboxConversationId != null;
+    final isMeetingPayload = _meetingTypes.contains(type);
     return NotificationTarget(
       inboxConversationId: isInbox
           ? _firstString(data, const [
@@ -248,7 +249,7 @@ final class NotificationTarget {
         'callId',
       ], fallback: isGroupCallPayload ? groupCallId : null),
       groupCallId: isGroupCallPayload ? groupCallId : null,
-      meetingId: isGroupCallPayload
+      meetingId: isGroupCallPayload || isMeetingPayload
           ? _firstString(data, const ['meeting_id', 'meetingId'])
           : null,
       channelName: isGroupCallPayload
@@ -416,6 +417,13 @@ final class NotificationTarget {
     return matches && sessionId?.trim().isNotEmpty == true;
   }
 
+  /// Nhắc họp / họp đổi (`meeting_reminder`, `meeting_updated`): bấm thì mở chi
+  /// tiết cuộc họp.
+  bool get isMeeting =>
+      _meetingTypes.contains(notificationType?.trim().toLowerCase()) &&
+      meetingId?.trim().isNotEmpty == true &&
+      canOpenConversation;
+
   /// Bấm thông báo giao việc / đổi hạn thì mở tab Task của phòng.
   bool get opensTasks => targetType == 'task';
 
@@ -458,6 +466,14 @@ final class NotificationTarget {
 }
 
 const _inboxConversationType = 'inbox_conversation';
+
+/// Loại thông báo của Lịch họp.
+const meetingReminderNotificationType = 'meeting_reminder';
+const meetingUpdatedNotificationType = 'meeting_updated';
+const _meetingTypes = {
+  meetingReminderNotificationType,
+  meetingUpdatedNotificationType,
+};
 
 /// `webtui://inbox/<workspace>/<hội thoại>`.
 ({String workspaceId, String conversationId})? _inboxLink(Uri uri) {

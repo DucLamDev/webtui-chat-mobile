@@ -5,6 +5,7 @@ import 'package:webtui_chat/design_system/components/webtui_mobile_scaffold.dart
 import 'package:webtui_chat/design_system/icons/webtui_icons.dart';
 import 'package:webtui_chat/features/conversations/domain/entities/collaboration_room.dart';
 import 'package:webtui_chat/features/conversations/presentation/screens/workspace_tools_screen.dart';
+import 'package:webtui_chat/features/meeting_calendar/domain/entities/calendar_meeting.dart';
 import 'package:webtui_chat/features/work_hub/domain/entities/work_hub.dart';
 import 'package:webtui_chat/features/work_hub/presentation/screens/meetings_screen.dart';
 import 'package:webtui_chat/features/work_hub/presentation/screens/my_tasks_screen.dart';
@@ -12,6 +13,7 @@ import 'package:webtui_chat/features/work_hub/presentation/screens/shared_files_
 import 'package:webtui_chat/features/work_hub/presentation/screens/shortcuts_manage_screen.dart';
 import 'package:webtui_chat/features/work_hub/presentation/widgets/shared_file_widgets.dart';
 
+import '../../meeting_calendar/meeting_calendar_fakes.dart';
 import '../work_hub_fakes.dart';
 import 'work_hub_harness.dart';
 
@@ -248,57 +250,58 @@ void main() {
   group('màn Lịch họp', () {
     final now = DateTime(2026, 11, 14, 8);
 
-    testWidgets('nhóm theo ngày: Hôm nay, Ngày mai, dd/MM; nhãn Đang diễn ra', (
-      tester,
-    ) async {
-      phone(tester);
-      final repository = FakeWorkHubRepository(
-        meetings: [
-          UpcomingMeeting(
-            id: 'm1',
-            channelId: 'c1',
-            channelName: 'Nhóm Kỹ thuật',
-            title: 'Họp tuần',
-            startsAt: DateTime(2026, 11, 14, 9),
-            endsAt: DateTime(2026, 11, 14, 10, 30),
-            status: 'active',
+    testWidgets(
+      'nhóm theo ngày: Hôm nay, Ngày mai, thứ + ngày; nhãn trạng thái',
+      (tester) async {
+        phone(tester);
+        final calendar = FakeMeetingCalendarRepository(
+          meetings: [
+            fakeMeeting(
+              'm1',
+              title: 'Họp tuần',
+              startsAt: DateTime(2026, 11, 14, 9),
+              endsAt: DateTime(2026, 11, 14, 10, 30),
+              status: 'active',
+            ),
+            fakeMeeting(
+              'm2',
+              channelId: 'c2',
+              channelName: 'Kinh doanh',
+              title: 'Chốt bảng giá',
+              startsAt: DateTime(2026, 11, 15, 14),
+              endsAt: DateTime(2026, 11, 15, 15),
+            ),
+            CalendarMeeting(
+              id: 'm3',
+              workspaceId: 'ws',
+              channelId: 'c1',
+              channelName: 'Nhóm Kỹ thuật',
+              title: 'Tổng kết',
+              startsAt: DateTime(2026, 11, 20, 16),
+            ),
+          ],
+        );
+        await tester.pumpWidget(
+          workHubApp(
+            repository: FakeWorkHubRepository(),
+            tasks: FakeTaskRepository([]),
+            calendar: calendar,
+            home: MeetingsScreen(workspaceId: 'ws', now: now),
           ),
-          UpcomingMeeting(
-            id: 'm2',
-            channelId: 'c2',
-            channelName: 'Kinh doanh',
-            title: 'Chốt bảng giá',
-            startsAt: DateTime(2026, 11, 15, 14),
-            endsAt: DateTime(2026, 11, 15, 15),
-          ),
-          UpcomingMeeting(
-            id: 'm3',
-            channelId: 'c1',
-            channelName: 'Nhóm Kỹ thuật',
-            title: 'Tổng kết',
-            startsAt: DateTime(2026, 11, 20, 16),
-            endsAt: null,
-          ),
-        ],
-      );
-      await tester.pumpWidget(
-        workHubApp(
-          repository: repository,
-          tasks: FakeTaskRepository([]),
-          home: MeetingsScreen(workspaceId: 'ws', now: now),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.text('Hôm nay'), findsOneWidget);
-      expect(find.text('Ngày mai'), findsOneWidget);
-      expect(find.text('20/11'), findsOneWidget);
-      expect(find.text('09:00 – 10:30'), findsOneWidget);
-      expect(find.text('16:00'), findsOneWidget);
-      expect(find.text('Đang diễn ra'), findsOneWidget);
-      expect(find.text('Họp tuần'), findsOneWidget);
-      expect(find.text('Kinh doanh'), findsOneWidget);
-    });
+        expect(find.text('Hôm nay'), findsOneWidget);
+        expect(find.text('Ngày mai'), findsOneWidget);
+        expect(find.text('Thứ Sáu, 20/11'), findsOneWidget);
+        expect(find.text('09:00 – 10:30'), findsOneWidget);
+        expect(find.text('16:00'), findsOneWidget);
+        expect(find.text('Đang diễn ra'), findsOneWidget);
+        expect(find.text('Sắp bắt đầu'), findsNWidgets(2));
+        expect(find.text('Họp tuần'), findsOneWidget);
+        expect(find.text('Kinh doanh'), findsOneWidget);
+      },
+    );
 
     testWidgets('không có cuộc họp: báo rỗng', (tester) async {
       phone(tester);
@@ -313,28 +316,26 @@ void main() {
       expect(find.text('Chưa có cuộc họp sắp tới'), findsOneWidget);
     });
 
-    test('groupMeetingsByDay sắp xếp theo giờ trong ngày', () {
-      final groups = groupMeetingsByDay([
-        UpcomingMeeting(
-          id: 'b',
-          channelId: 'c',
-          channelName: '',
-          title: 'Sau',
-          startsAt: DateTime(2026, 11, 14, 15),
-          endsAt: null,
-        ),
-        UpcomingMeeting(
-          id: 'a',
-          channelId: 'c',
-          channelName: '',
-          title: 'Trước',
-          startsAt: DateTime(2026, 11, 14, 9),
-          endsAt: null,
-        ),
-      ], DateTime(2026, 11, 14, 8));
-      expect(groups.single.$1, 'Hôm nay');
-      expect(groups.single.$2.map((m) => m.id), ['a', 'b']);
-    });
+    test(
+      'meetingsForTab: Sắp tới theo giờ tăng dần, Đã qua mới nhất trước',
+      () {
+        final now = DateTime(2026, 11, 14, 12);
+        final meetings = [
+          fakeMeeting('b', startsAt: DateTime(2026, 11, 14, 15)),
+          fakeMeeting('a', startsAt: DateTime(2026, 11, 14, 13)),
+          fakeMeeting('old1', startsAt: DateTime(2026, 11, 10, 9)),
+          fakeMeeting('old2', startsAt: DateTime(2026, 11, 12, 9)),
+        ];
+        expect(
+          meetingsForTab(meetings, past: false, now: now).map((m) => m.id),
+          ['a', 'b'],
+        );
+        expect(
+          meetingsForTab(meetings, past: true, now: now).map((m) => m.id),
+          ['old2', 'old1'],
+        );
+      },
+    );
   });
 
   group('màn Tệp chia sẻ', () {

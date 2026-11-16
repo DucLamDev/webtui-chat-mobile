@@ -1,5 +1,6 @@
 import '../../features/conversations/domain/entities/message_card.dart';
 import '../../features/inbox/presentation/screens/inbox_list_screen.dart';
+import '../../features/meeting_calendar/presentation/meeting_calendar_routes.dart';
 import '../../features/notifications/domain/entities/mobile_notification.dart';
 import '../../l10n/app_strings.dart';
 
@@ -17,6 +18,13 @@ String? locationForNotificationTarget(NotificationTarget target) {
       path: '/approvals/${Uri.encodeComponent(target.approvalId!.trim())}',
       queryParameters: <String, String>{'workspaceId': target.workspaceId},
     ).toString();
+  }
+  if (target.isMeeting) {
+    return meetingDetailLocation(
+      workspaceId: target.workspaceId,
+      channelId: target.channelId!.trim(),
+      meetingId: target.meetingId!.trim(),
+    );
   }
   if (target.canOpenContacts) {
     return Uri(

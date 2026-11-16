@@ -90,6 +90,11 @@ enum ConversationRealtimeEventType {
   inboxConversationUpdated,
   inboxMessageCreated,
 
+  /// Lịch họp đổi (`MeetingUpdated`, gửi vào room nhóm và room riêng của người
+  /// tham dự): `payload` có `workspace_id`, `channel_id`, `meeting_id`,
+  /// `series_id`, `change`. Tải lại danh sách / chi tiết họp đang mở.
+  meetingUpdated,
+
   /// Kết nối realtime vừa nối lại sau khi rớt: tin trong lúc mất kết nối không
   /// được đẩy lại nên màn hình phải tự tải lại.
   reconnected,
