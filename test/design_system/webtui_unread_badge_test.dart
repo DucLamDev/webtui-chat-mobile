@@ -56,6 +56,51 @@ void main() {
     expect(find.text('12'), findsOneWidget);
   });
 
+  testWidgets('dòng còn tin chưa đọc in đậm, đọc rồi trở về chữ thường', (
+    tester,
+  ) async {
+    TextStyle style(String text) => tester.widget<Text>(find.text(text)).style!;
+    Widget list(int unread) => MaterialApp(
+      home: Scaffold(
+        body: Column(
+          children: [
+            WebTuiConversationListItem(
+              title: 'An',
+              preview: 'Chào',
+              timeLabel: '09:00',
+              avatarLabel: 'An',
+              unreadCount: unread,
+            ),
+            WebTuiChannelBotListItem(
+              title: 'Bot',
+              subtitle: 'Cuộc gọi đã kết thúc',
+              icon: Icons.smart_toy_outlined,
+              color: Colors.blue,
+              unreadCount: unread,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(list(2));
+    final unreadPreview = style('Chào');
+    final unreadTime = style('09:00');
+    final unreadBot = style('Cuộc gọi đã kết thúc');
+    expect(unreadPreview.fontWeight, FontWeight.w700);
+    expect(unreadTime.fontWeight, FontWeight.w700);
+    expect(unreadBot.fontWeight, FontWeight.w700);
+
+    await tester.pumpWidget(list(0));
+    expect(style('Chào').fontWeight, isNot(FontWeight.w700));
+    expect(style('09:00').fontWeight, isNot(FontWeight.w700));
+    expect(style('Cuộc gọi đã kết thúc').fontWeight, isNot(FontWeight.w700));
+    // Đổi cả màu, không chỉ độ đậm: chưa đọc thì chữ đậm màu hơn.
+    expect(style('Chào').color, isNot(unreadPreview.color));
+    expect(style('09:00').color, isNot(unreadTime.color));
+    expect(style('Cuộc gọi đã kết thúc').color, isNot(unreadBot.color));
+  });
+
   testWidgets('nút nổi có chữ là viên thuốc, chữ nằm trọn trong nút', (
     tester,
   ) async {

@@ -37,8 +37,8 @@ final class SetChannelNotificationMutedUseCase {
         Failure(
           kind: FailureKind.validation,
           message: tr(
-            'Không xác định được kênh cần đổi cài đặt thông báo.',
-            'Could not identify the channel whose notification setting should change.',
+            'Không xác định được nhóm cần đổi cài đặt thông báo.',
+            'Could not identify the group whose notification setting should change.',
           ),
           code: 'CHANNEL_REQUIRED',
         ),

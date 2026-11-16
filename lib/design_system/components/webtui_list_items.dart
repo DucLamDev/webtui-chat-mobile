@@ -183,7 +183,7 @@ class WebTuiConversationListItem extends StatelessWidget {
                                           ? WebTuiColors.primary
                                           : WebTuiColors.textMuted,
                                       fontWeight: unread
-                                          ? FontWeight.w500
+                                          ? FontWeight.w700
                                           : FontWeight.w400,
                                     ),
                                   ),
@@ -198,6 +198,8 @@ class WebTuiConversationListItem extends StatelessWidget {
                                     preview,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
+                                    // Còn tin chưa đọc: dòng tin đậm, màu chữ
+                                    // chính để nhận ra ngay (không chỉ nhờ số).
                                     style: WebTuiTypography.bodyMedium.copyWith(
                                       fontSize: 14.5,
                                       height: 1.35,
@@ -205,7 +207,7 @@ class WebTuiConversationListItem extends StatelessWidget {
                                           ? WebTuiColors.textPrimary
                                           : WebTuiColors.textSecondary,
                                       fontWeight: unread
-                                          ? FontWeight.w500
+                                          ? FontWeight.w700
                                           : FontWeight.w400,
                                     ),
                                   ),
@@ -328,7 +330,10 @@ class WebTuiChannelBotListItem extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: WebTuiTypography.bodySmall.copyWith(
-                          color: WebTuiColors.textMuted,
+                          color: unreadCount > 0
+                              ? WebTuiColors.textPrimary
+                              : WebTuiColors.textMuted,
+                          fontWeight: unreadCount > 0 ? FontWeight.w700 : null,
                         ),
                       ),
                     ],

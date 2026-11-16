@@ -71,6 +71,16 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('Phòng dự án'), findsWidgets);
       expect(find.text(expectedText), findsWidgets);
+
+      // Chip có biểu tượng: dấu tích lúc chọn phủ vòng tối lên biểu tượng
+      // (trông như lỗi hover). Chip có biểu tượng không được bật dấu tích.
+      final chips = tester
+          .widgetList<ChoiceChip>(find.byType(ChoiceChip))
+          .where((chip) => chip.avatar != null);
+      expect(chips, isNotEmpty);
+      for (final chip in chips) {
+        expect(chip.showCheckmark, isFalse);
+      }
     });
   }
 }

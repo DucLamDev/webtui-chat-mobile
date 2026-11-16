@@ -192,7 +192,7 @@ class AppStringsVi extends AppStrings {
   String get notificationsTitle => 'Thông báo';
 
   @override
-  String get notificationsSubtitle => 'Nhận tin nhắn và cảnh báo kênh';
+  String get notificationsSubtitle => 'Nhận tin nhắn và cảnh báo nhóm';
 
   @override
   String get compactListTitle => 'Danh sách gọn';
@@ -296,7 +296,7 @@ class AppStringsVi extends AppStrings {
 
   @override
   String get receiveNotificationsSubtitle =>
-      'Tin nhắn, kênh và cảnh báo workspace';
+      'Tin nhắn, nhóm và cảnh báo workspace';
 
   @override
   String get hideSensitivePreview => 'Ẩn xem trước nhạy cảm';
@@ -515,7 +515,7 @@ class AppStringsEn extends AppStrings {
   String get notificationsTitle => 'Notifications';
 
   @override
-  String get notificationsSubtitle => 'Receive messages and channel alerts';
+  String get notificationsSubtitle => 'Receive messages and group alerts';
 
   @override
   String get compactListTitle => 'Compact list';
@@ -619,7 +619,7 @@ class AppStringsEn extends AppStrings {
 
   @override
   String get receiveNotificationsSubtitle =>
-      'Messages, channels and workspace alerts';
+      'Messages, groups and workspace alerts';
 
   @override
   String get hideSensitivePreview => 'Hide sensitive previews';

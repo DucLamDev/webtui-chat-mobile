@@ -336,7 +336,7 @@ final class ChannelDetailController extends StateNotifier<ChannelDetailState> {
         await load();
         state = state.copyWith(
           noticeMessage: tr(
-            'Đã gửi yêu cầu tham gia kênh.',
+            'Đã gửi yêu cầu tham gia nhóm.',
             'Join request sent.',
           ),
         );
@@ -369,7 +369,7 @@ final class ChannelDetailController extends StateNotifier<ChannelDetailState> {
         state = state.copyWith(
           isSubmitting: false,
           members: [...state.members, member],
-          noticeMessage: tr('Đã mời thành viên vào kênh.', 'Member invited.'),
+          noticeMessage: tr('Đã mời thành viên vào nhóm.', 'Member invited.'),
         );
       case FailureResult<ChannelMember>(failure: final failure):
         state = state.copyWith(

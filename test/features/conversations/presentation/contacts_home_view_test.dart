@@ -134,7 +134,7 @@ void main() {
     final tabs = tabsBar(tester);
     expect(
       [for (final chip in tabs.chips) chip.label],
-      ['Đồng nghiệp', 'Kênh'],
+      ['Đồng nghiệp', 'Nhóm'],
     );
     // Kèm số: 1 đồng nghiệp (ẩn chính mình), 1 kênh.
     expect([for (final chip in tabs.chips) chip.count], [1, 1]);
@@ -174,11 +174,11 @@ void main() {
     await openChannelsTab(tester);
 
     expect(find.text('Lan'), findsNothing);
-    expect(find.text('Kênh đã tham gia'), findsOneWidget);
+    expect(find.text('Nhóm đã tham gia'), findsOneWidget);
     expect(find.text('Chung'), findsOneWidget);
     expect(find.text('Dự án A'), findsOneWidget);
     expect(find.text('Nhóm im lặng'), findsOneWidget);
-    expect(find.text('Kênh có thể tham gia'), findsOneWidget);
+    expect(find.text('Nhóm có thể tham gia'), findsOneWidget);
     expect(find.text('Kênh mở'), findsOneWidget);
     // Kênh bot nghiệp vụ ở tab Nghiệp vụ của Tin nhắn, không lặp ở đây.
     expect(find.text('Đơn hàng'), findsNothing);
@@ -194,11 +194,11 @@ void main() {
     expect(find.text('Phòng im-lang'), findsOneWidget);
   });
 
-  testWidgets('tab Kênh: rỗng thì báo "Chưa có kênh nào"', (tester) async {
+  testWidgets('tab Kênh: rỗng thì báo "Chưa có nhóm nào"', (tester) async {
     await pump(tester, members: [_member('u-lan', 'Lan')]);
     await openChannelsTab(tester);
 
-    expect(find.text('Chưa có kênh nào'), findsOneWidget);
+    expect(find.text('Chưa có nhóm nào'), findsOneWidget);
   });
 
   testWidgets('tab Kênh: đang tải rồi lỗi có nút Thử lại', (tester) async {
@@ -224,7 +224,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Không tải được danh sách kênh'), findsOneWidget);
+    expect(find.text('Không tải được danh sách nhóm'), findsOneWidget);
 
     await tester.tap(find.text('Thử lại'));
     await tester.pumpAndSettle();

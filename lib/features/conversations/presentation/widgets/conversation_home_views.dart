@@ -235,7 +235,7 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
           delegate: _PinnedSearchHeader(
             search: WebTuiSearchBar(
               hintText: channelsTab
-                  ? tr('Tìm kênh theo tên...', 'Search channels by name...')
+                  ? tr('Tìm nhóm theo tên...', 'Search groups by name...')
                   : tr('Tìm đồng nghiệp...', 'Search colleagues...'),
               onChanged: controller.setSearchQuery,
             ),
@@ -250,7 +250,7 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
                 ),
                 WebTuiFilterChipData(
                   key: const ValueKey('contacts-tab-channels'),
-                  label: tr('Kênh', 'Channels'),
+                  label: tr('Nhóm', 'Groups'),
                   count: channelCount,
                 ),
               ],
@@ -368,7 +368,7 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
       return [
         SliverToBoxAdapter(
           child: WebTuiLoadingState(
-            message: tr('Đang tải kênh...', 'Loading channels...'),
+            message: tr('Đang tải nhóm...', 'Loading groups...'),
           ),
         ),
       ];
@@ -377,10 +377,7 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
       return [
         SliverToBoxAdapter(
           child: WebTuiErrorState(
-            title: tr(
-              'Không tải được danh sách kênh',
-              'Couldn\'t load channels',
-            ),
+            title: tr('Không tải được danh sách nhóm', 'Couldn\'t load groups'),
             message: state.errorMessage!,
             onRetry: controller.load,
           ),
@@ -393,13 +390,13 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
         SliverToBoxAdapter(
           child: WebTuiEmptyState(
             title: searching
-                ? tr('Không tìm thấy kênh', 'No channels found')
-                : tr('Chưa có kênh nào', 'No channels yet'),
+                ? tr('Không tìm thấy nhóm', 'No groups found')
+                : tr('Chưa có nhóm nào', 'No groups yet'),
             message: searching
                 ? tr('Thử tìm bằng tên khác.', 'Try a different name.')
                 : tr(
-                    'Kênh bạn tham gia trong workspace sẽ hiện ở đây.',
-                    'Channels you join in the workspace will show up here.',
+                    'Nhóm bạn tham gia trong workspace sẽ hiện ở đây.',
+                    'Groups you join in the workspace will show up here.',
                   ),
             icon: Icons.tag_outlined,
           ),
@@ -409,7 +406,7 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
     return [
       if (joined.isNotEmpty) ...[
         SliverToBoxAdapter(
-          child: WebTuiSectionLabel(tr('Kênh đã tham gia', 'Joined channels')),
+          child: WebTuiSectionLabel(tr('Nhóm đã tham gia', 'Joined groups')),
         ),
         WebTuiSliverListSurface(
           itemCount: joined.length,
@@ -432,7 +429,7 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
       if (joinable.isNotEmpty) ...[
         SliverToBoxAdapter(
           child: WebTuiSectionLabel(
-            tr('Kênh có thể tham gia', 'Channels you can join'),
+            tr('Nhóm có thể tham gia', 'Groups you can join'),
           ),
         ),
         WebTuiSliverListSurface(

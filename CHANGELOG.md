@@ -17,6 +17,27 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   - Bốn tab Tin nhắn, Bạn bè, Công việc, Cài đặt có tiêu đề lớn kiểu iOS; nội dung nằm thẳng trên nền trắng, các nhóm
     tách nhau bằng dải xám mảnh, đường kẻ giữa dòng thụt vào tới chữ (bỏ thẻ bo góc, viền, bóng).
   - Màu xanh nhấn đậm hơn một bậc và chữ xám phụ đậm hơn để chữ đạt tương phản tối thiểu 4,5:1.
+  - Tin nhắn: tiêu đề lớn có nút soạn tin và chuông; ô tìm + thanh lọc (Tất cả, Nhóm, Cá nhân, Chưa đọc kèm số) dính
+    trên cùng khi cuộn. Dòng hội thoại: tên, giờ, ghim ở hàng trên; tin cuối và số chưa đọc ở hàng dưới; nhóm tắt
+    thông báo có chuông gạch cạnh tên và số chưa đọc màu xám.
+  - Bạn bè: hai chip Đồng nghiệp / Nhóm kèm số; dòng đồng nghiệp chỉ còn ảnh, tên, email. Bỏ nút khiên cuối dòng, báo
+    cáo / chặn vẫn mở bằng nhấn giữ (trình đọc màn hình có hành động riêng).
+  - Công việc: Việc của tôi (3 cột số + việc gần hạn), lưới Ứng dụng dùng icon hai tông màu không ô nền, thêm nhóm
+    Họp sắp tới (3 cuộc họp gần nhất chưa huỷ, bấm mở chi tiết). Bỏ dòng "Chưa có lối tắt".
+  - Cài đặt: đầu màn có ảnh đại diện lớn, tên, email và nút Sửa hồ sơ; dòng cài đặt chữ thường, giá trị xám bên phải,
+    công tắc kiểu iOS. Đổi tên "Thiết lập nâng cao" thành "Quyền riêng tư và bảo mật", "Danh sách dày" thành "Danh sách
+    gọn".
+
+## 1.32.1 · 16/11/2026
+### Sửa lỗi
+- Tin chưa đọc dễ nhận ra hơn: trong danh sách Tin nhắn, dòng xem trước của hội thoại còn tin chưa đọc in đậm, màu chữ
+  đậm; giờ gửi tô xanh. Đọc xong thì trở về chữ xám thường. Áp dụng cả dòng bot thông báo.
+- Bảng Công việc của nhóm: chip đang chọn (Tổng quan, Họp, Đã chia sẻ, Biên bản...) không còn vòng tròn xám đè lên
+  biểu tượng (trông như lỗi hover); chip đang chọn chỉ đổi nền xanh.
+- Đổi cách gọi "kênh" thành "nhóm" trên giao diện app (Xoá nhóm, Chi tiết nhóm, tab Nhóm trong Bạn bè, Nhóm đã tham
+  gia / có thể tham gia, thông báo lỗi, cài đặt thông báo...), cả bản tiếng Anh (channel → group). Thanh dưới chat bot
+  thông báo ghi "Bot thông báo, không trả lời được". Giữ chữ "kênh" ở phần nghiệp vụ (kênh bán hàng của hộp thư khách,
+  bot tạo phiên riêng).
 
 ## 1.32.0 · 16/11/2026
 ### Tính năng

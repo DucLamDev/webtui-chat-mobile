@@ -33,9 +33,9 @@ void main() {
       const MaterialApp(home: Scaffold(body: NoticeBotReadOnlyBar())),
     );
     expect(
-      find.text('Notification channel, replies are not allowed'),
+      find.text('Notification bot, replies are not allowed'),
       findsOneWidget,
     );
-    expect(find.text('Kênh thông báo, không trả lời được'), findsNothing);
+    expect(find.text('Bot thông báo, không trả lời được'), findsNothing);
   });
 }

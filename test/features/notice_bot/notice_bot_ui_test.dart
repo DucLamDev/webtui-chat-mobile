@@ -42,7 +42,7 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(home: Scaffold(body: NoticeBotReadOnlyBar())),
     );
-    expect(find.text('Kênh thông báo, không trả lời được'), findsOneWidget);
+    expect(find.text('Bot thông báo, không trả lời được'), findsOneWidget);
     expect(find.byType(TextField), findsNothing);
   });
 

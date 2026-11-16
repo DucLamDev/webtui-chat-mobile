@@ -104,10 +104,10 @@ void main() {
       expect(deleteRow, findsNothing);
     });
 
-    testWidgets('kênh công khai (quản trị): ghi "Xoá kênh"', (tester) async {
+    testWidgets('kênh công khai (quản trị): ghi "Xoá nhóm"', (tester) async {
       await pump(tester, _group(visibility: ChannelVisibility.public));
       expect(leaveRow, findsNothing);
-      expect(find.text('Xoá kênh'), findsOneWidget);
+      expect(find.text('Xoá nhóm'), findsOneWidget);
     });
   });
 
@@ -181,7 +181,7 @@ void main() {
       await pumpBar(tester);
       await tester.tap(find.byKey(const Key('chat_room_more_menu')));
       await tester.pumpAndSettle();
-      expect(find.text('Chi tiết kênh'), findsOneWidget);
+      expect(find.text('Chi tiết nhóm'), findsOneWidget);
       expect(find.text('Rời nhóm'), findsNothing);
       expect(find.text('Xoá nhóm'), findsNothing);
     });
