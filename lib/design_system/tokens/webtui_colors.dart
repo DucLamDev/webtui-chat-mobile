@@ -24,12 +24,20 @@ final class WebTuiPalette {
     required this.textSecondary,
     required this.textMuted,
     required this.textOnPrimary,
+    required this.page,
+    required this.groupBackground,
+    required this.chipBackground,
+    required this.hairline,
+    required this.primaryFill,
+    required this.badge,
   });
 
   static const light = WebTuiPalette(
-    primary: Color(0xFF0877F2),
-    primaryPressed: Color(0xFF0561C7),
-    primarySoft: Color(0xFFE8F2FF),
+    // Xanh thương hiệu đậm hơn một bậc (#0877F2 → #0A6CDE): chữ / biểu tượng xanh
+    // trên nền trắng và chữ trắng trên nền xanh đều đạt 4,5:1.
+    primary: Color(0xFF0A6CDE),
+    primaryPressed: Color(0xFF0858B8),
+    primarySoft: Color(0xFFE8F1FD),
     chatHeader: Color(0xFF13A8F7),
     accentGreen: Color(0xFF21A875),
     accentAmber: Color(0xFFE2A12C),
@@ -45,12 +53,19 @@ final class WebTuiPalette {
     border: Color(0xFFDDE6F1),
     textPrimary: Color(0xFF172033),
     textSecondary: Color(0xFF536074),
-    textMuted: Color(0xFF8A96A8),
+    // Chữ mờ (giờ, dòng phụ) đạt 4,7:1 trên nền trắng.
+    textMuted: Color(0xFF6A7386),
     textOnPrimary: Color(0xFFFFFFFF),
+    page: Color(0xFFFFFFFF),
+    groupBackground: Color(0xFFF2F4F7),
+    chipBackground: Color(0xFFEEF1F5),
+    hairline: Color(0xFFE4E8EE),
+    primaryFill: Color(0xFF0A6CDE),
+    badge: Color(0xFFD92D33),
   );
 
   static const dark = WebTuiPalette(
-    primary: Color(0xFF3D96FF),
+    primary: Color(0xFF4C9DFF),
     primaryPressed: Color(0xFF2B82E6),
     primarySoft: Color(0xFF14304F),
     chatHeader: Color(0xFF0E5C8C),
@@ -68,8 +83,15 @@ final class WebTuiPalette {
     border: Color(0xFF2A3850),
     textPrimary: Color(0xFFE6ECF5),
     textSecondary: Color(0xFFA7B3C6),
-    textMuted: Color(0xFF7A879B),
+    textMuted: Color(0xFF8D99AD),
     textOnPrimary: Color(0xFFFFFFFF),
+    page: Color(0xFF0F1623),
+    groupBackground: Color(0xFF080D15),
+    chipBackground: Color(0xFF1C2636),
+    hairline: Color(0xFF222E40),
+    // Nền có chữ trắng ở nền tối (chip đang chọn, số đếm): đạt 4,6:1.
+    primaryFill: Color(0xFF2A74D6),
+    badge: Color(0xFFD92D33),
   );
 
   final Color primary;
@@ -92,6 +114,24 @@ final class WebTuiPalette {
   final Color textSecondary;
   final Color textMuted;
   final Color textOnPrimary;
+
+  /// Nền màn liền mạch (danh sách, cài đặt): trắng ở nền sáng.
+  final Color page;
+
+  /// Dải ngăn giữa các nhóm dòng (8px), thay cho thẻ bo góc.
+  final Color groupBackground;
+
+  /// Nền chip lọc chưa chọn, ô tìm.
+  final Color chipBackground;
+
+  /// Đường kẻ mảnh 0,5px giữa các dòng.
+  final Color hairline;
+
+  /// Nền có chữ trắng (chip đang chọn, số chưa đọc, nút chính).
+  final Color primaryFill;
+
+  /// Đỏ của số chưa đọc trên biểu tượng tab.
+  final Color badge;
 }
 
 /// Màu của app. Tên giữ nguyên; giá trị đổi theo bảng đang áp dụng
@@ -131,4 +171,10 @@ final class WebTuiColors {
   static Color get textSecondary => _palette.textSecondary;
   static Color get textMuted => _palette.textMuted;
   static Color get textOnPrimary => _palette.textOnPrimary;
+  static Color get page => _palette.page;
+  static Color get groupBackground => _palette.groupBackground;
+  static Color get chipBackground => _palette.chipBackground;
+  static Color get hairline => _palette.hairline;
+  static Color get primaryFill => _palette.primaryFill;
+  static Color get badge => _palette.badge;
 }

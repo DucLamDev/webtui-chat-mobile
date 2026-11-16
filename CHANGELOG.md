@@ -3,6 +3,21 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.33.0 · 16/11/2026
+### Tính năng
+- Giao diện mới liền mạch kiểu Zalo / Telegram: icon không khung, ảnh đại diện to và rõ mặt, thanh lọc trượt ngang kiểu
+  YouTube
+  - Icon: đổi sang bộ Phosphor (giấy phép MIT, đóng gói sẵn trong app). Bỏ mọi ô nền bao quanh icon; thanh tab dưới
+    dùng icon nét màu xám khi chưa chọn, icon đặc màu xanh khi chọn; icon to hơn (tab 28px, nút đầu màn 26px).
+  - Thanh tab dính sát đáy màn hình, nền kính mờ, thay cho viên thuốc nổi có nền bao mục đang chọn.
+  - Ảnh đại diện: 56px ở danh sách hội thoại, 48px ở danh bạ, 92px ở đầu Cài đặt; ảnh canh lên phía mặt; chấm trạng
+    thái nằm sát mép tròn, không đè vào mặt; người chưa có ảnh hiện 2 chữ cái trắng trên dải màu.
+  - Thanh lọc ở Tin nhắn và Bạn bè: chip phẳng không viền, trượt ngang tràn mép, mờ dần ở mép phải khi còn chip; bấm
+    chip thì rung nhẹ và tự cuộn chip đó vào giữa.
+  - Bốn tab Tin nhắn, Bạn bè, Công việc, Cài đặt có tiêu đề lớn kiểu iOS; nội dung nằm thẳng trên nền trắng, các nhóm
+    tách nhau bằng dải xám mảnh, đường kẻ giữa dòng thụt vào tới chữ (bỏ thẻ bo góc, viền, bóng).
+  - Màu xanh nhấn đậm hơn một bậc và chữ xám phụ đậm hơn để chữ đạt tương phản tối thiểu 4,5:1.
+
 ## 1.32.0 · 16/11/2026
 ### Tính năng
 - Lịch họp đầy đủ: tạo họp, xem theo tuần, sửa / dời / huỷ, nhắc họp, mời và phản hồi, họp định kỳ, biên bản, kiểm

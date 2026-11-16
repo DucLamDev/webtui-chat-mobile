@@ -7,6 +7,7 @@ import 'package:webtui_chat/design_system/components/webtui_components.dart';
 import 'package:webtui_chat/design_system/icons/webtui_icons.dart';
 import 'package:webtui_chat/design_system/theme/webtui_theme.dart';
 import 'package:webtui_chat/design_system/tokens/webtui_colors.dart';
+import 'package:webtui_chat/design_system/tokens/webtui_density.dart';
 import 'package:webtui_chat/features/approvals/application/approval_access_policy.dart';
 import 'package:webtui_chat/features/approvals/presentation/controllers/approval_access_provider.dart';
 import 'package:webtui_chat/features/conversations/application/use_cases/channel_use_cases.dart';
@@ -35,8 +36,11 @@ void main() {
     VoidCallback? onCompose,
     List<BlockedUser> blocked = const [],
     bool showTabBadge = false,
+    // Rộng đủ để cả hàng chip nằm gọn (không cần cuộn ngang); < 720 để
+    // không vào bố cục chia đôi.
+    double width = 390,
   }) async {
-    tester.view.physicalSize = const Size(390, 844);
+    tester.view.physicalSize = Size(width, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final repository = _Repository(directs: directs, channels: channels);
@@ -117,10 +121,32 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  WebTuiFilterChipBar chipBar(WidgetTester tester) =>
+      tester.widget<WebTuiFilterChipBar>(
+        find.byKey(const ValueKey('inbox-filter-chips')),
+      );
+
   List<String> chipLabels(WidgetTester tester) => [
-    for (final chip in tester.widgetList<ChoiceChip>(find.byType(ChoiceChip)))
-      (chip.label as Text).data!,
+    for (final chip in chipBar(tester).chips) chip.label,
   ];
+
+  Future<void> tapChip(WidgetTester tester, String filter) async {
+    final chip = find.byKey(ValueKey('inbox-filter-$filter'));
+    // Hàng chip cuộn ngang và dựng dần: cuộn tới chip trước khi bấm.
+    if (chip.hitTestable().evaluate().isEmpty) {
+      await tester.scrollUntilVisible(
+        chip.hitTestable(),
+        80,
+        scrollable: find.descendant(
+          of: find.byKey(const ValueKey('inbox-filter-chips')),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+    await tester.tap(chip);
+    await tester.pumpAndSettle();
+  }
 
   testWidgets('bộ lọc đúng 5 chip khi bật nghiệp vụ, không dải kênh nhanh', (
     tester,
@@ -183,16 +209,14 @@ void main() {
   ) async {
     await pump(
       tester,
+      width: 700,
       automation: true,
       channels: [
         _item('orders', 'Đơn hàng', automation: true, slug: 'orders'),
         _item('renew', 'Gia hạn', automation: true, slug: 'gia-han'),
       ],
     );
-    await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'Nghiệp vụ'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Nghiệp vụ'));
-    await tester.pumpAndSettle();
+    await tapChip(tester, 'bot');
 
     expect(find.byType(GridView), findsNothing);
     for (final key in [
@@ -217,9 +241,8 @@ void main() {
     );
   });
 
-  testWidgets('bỏ tiêu đề lớn; nút soạn bên trái ô tìm, cùng một hàng', (
-    tester,
-  ) async {
+  testWidgets('tiêu đề lớn "Tin nhắn", nút soạn trơn bên phải tiêu đề, '
+      'ô tìm ngay dưới', (tester) async {
     var composed = 0;
     await pump(
       tester,
@@ -227,24 +250,83 @@ void main() {
       channels: [_item('team', 'Nhóm team')],
       onCompose: () => composed++,
     );
-    expect(find.text('Tin nhắn'), findsNothing);
     expect(find.byType(AppBar), findsNothing);
+    final title = find.widgetWithText(WebTuiLargeTitleBar, 'Tin nhắn');
+    expect(title, findsOneWidget);
     final compose = find.byKey(const Key('compose_button'));
+    expect(
+      find.descendant(of: title, matching: compose),
+      findsOneWidget,
+      reason: 'nút soạn nằm trên dòng tiêu đề lớn',
+    );
+    expect(tester.widget(compose), isA<WebTuiHeaderIconButton>());
+    expect(
+      tester.widget<WebTuiHeaderIconButton>(compose).tooltip,
+      'Tin nhắn mới hoặc tạo nhóm',
+    );
+    // Không còn ô vuông nền quanh nút soạn.
+    expect(
+      find.descendant(
+        of: compose,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Material && widget.color == WebTuiColors.primarySoft,
+        ),
+      ),
+      findsNothing,
+    );
     final search = find.byType(WebTuiSearchBar);
     expect(find.text('Tìm tin nhắn, nhóm...'), findsOneWidget);
     expect(
       tester.getCenter(compose).dx,
-      lessThan(tester.getTopLeft(search).dx),
-      reason: 'nút soạn nằm bên trái ô tìm',
+      greaterThan(tester.getCenter(find.text('Tin nhắn')).dx),
+      reason: 'nút soạn bên phải tiêu đề',
     );
     expect(
-      (tester.getCenter(compose).dy - tester.getCenter(search).dy).abs(),
-      lessThan(2),
-      reason: 'cùng một hàng',
+      tester.getTopLeft(search).dy,
+      greaterThanOrEqualTo(tester.getBottomLeft(title).dy),
+      reason: 'ô tìm nằm dưới tiêu đề',
+    );
+    final chips = find.byKey(const ValueKey('inbox-filter-chips'));
+    expect(
+      tester.getTopLeft(chips).dy,
+      greaterThanOrEqualTo(tester.getBottomLeft(search).dy),
+      reason: 'thanh lọc nằm dưới ô tìm',
     );
     expect(find.byIcon(WebTuiIcons.compose), findsOneWidget);
     await tester.tap(compose);
     expect(composed, 1);
+  });
+
+  testWidgets('cuộn: tiêu đề lớn trôi đi, ô tìm + thanh lọc dính trên cùng', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      automation: false,
+      directs: [
+        for (var i = 0; i < 20; i++)
+          _item('dm$i', 'Người $i', channel: false, peer: 'u$i'),
+      ],
+    );
+    final title = find.widgetWithText(WebTuiLargeTitleBar, 'Tin nhắn');
+    final searchTop = tester.getTopLeft(find.byType(WebTuiSearchBar)).dy;
+    expect(tester.getTopLeft(title).dy, 0);
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
+    await tester.pumpAndSettle();
+    expect(
+      title.hitTestable(),
+      findsNothing,
+      reason: 'tiêu đề lớn đã cuộn khỏi màn',
+    );
+    final pinnedTop = tester.getTopLeft(find.byType(WebTuiSearchBar)).dy;
+    expect(pinnedTop, lessThan(searchTop));
+    expect(pinnedTop, greaterThanOrEqualTo(0));
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('inbox-filter-chips'))).dy,
+      greaterThan(pinnedTop),
+    );
+    expect(find.byKey(const ValueKey('inbox-filter-chips')), findsOneWidget);
   });
 
   testWidgets('không truyền onCompose thì không có nút soạn', (tester) async {
@@ -252,32 +334,71 @@ void main() {
     expect(find.byKey(const Key('compose_button')), findsNothing);
   });
 
-  testWidgets('chip lọc: chọn = nền xanh chữ trắng, chưa chọn = viền xám', (
+  testWidgets('bấm chip đổi bộ lọc của controller và danh sách', (
     tester,
   ) async {
-    await pump(tester, automation: true, channels: [_item('t', 'Nhóm')]);
-    final chips = tester
-        .widgetList<ChoiceChip>(find.byType(ChoiceChip))
-        .toList();
-    expect(chips.first.selected, isTrue);
-    expect(chips.first.selectedColor, WebTuiColors.primary);
-    expect(chips.first.labelStyle!.color, WebTuiColors.textOnPrimary);
-    expect(chips[1].selected, isFalse);
-    expect(chips[1].backgroundColor, WebTuiColors.surface);
-    expect(chips[1].side!.color, isNot(WebTuiColors.primary));
+    await pump(
+      tester,
+      width: 700,
+      automation: true,
+      directs: [_item('dm', 'Lan', channel: false, unread: 2)],
+      channels: [_item('t', 'Nhóm team')],
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(MessagesHomeView)),
+    );
+    ConversationListFilter current() =>
+        container.read(conversationHomeControllerProvider('ws')).messageFilter;
 
-    await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'Chưa đọc'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Chưa đọc'));
-    await tester.pumpAndSettle();
-    final after = tester
-        .widgetList<ChoiceChip>(find.byType(ChoiceChip))
-        .toList();
-    expect(after[0].selected, isFalse);
-    expect(after.last.selected, isTrue);
+    expect(chipBar(tester).selectedIndex, 0);
+    expect(current(), ConversationListFilter.all);
+    expect(find.text('Lan'), findsOneWidget);
+    expect(find.text('Nhóm team'), findsOneWidget);
+
+    await tapChip(tester, 'group');
+    expect(current(), ConversationListFilter.group);
+    expect(chipBar(tester).selectedIndex, 1);
+    expect(find.text('Lan'), findsNothing);
+    expect(find.text('Nhóm team'), findsOneWidget);
+
+    await tapChip(tester, 'unread');
+    expect(current(), ConversationListFilter.unread);
+    expect(chipBar(tester).selectedIndex, 4);
+    expect(find.text('Lan'), findsOneWidget);
+    expect(find.text('Nhóm team'), findsNothing);
+
+    await tapChip(tester, 'all');
+    expect(current(), ConversationListFilter.all);
+    expect(find.text('Nhóm team'), findsOneWidget);
   });
 
-  testWidgets('chip lọc: vùng bấm cao ≥ 48dp, thiếu chỗ thì cuộn ngang', (
+  testWidgets('chip lọc: chỉ "Chưa đọc" hiện số, nhãn không kèm số', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      automation: false,
+      directs: [_item('dm', 'Lan', channel: false, unread: 12)],
+      channels: [_item('t', 'Nhóm', unread: 3)],
+    );
+    final chips = chipBar(tester).chips;
+    expect(
+      [for (final chip in chips) chip.label],
+      ['Tất cả', 'Nhóm', 'Cá nhân', 'Chưa đọc'],
+    );
+    expect([for (final chip in chips) chip.count], [null, null, null, 2]);
+    expect(
+      [for (final chip in chips) chip.key],
+      [
+        const ValueKey('inbox-filter-all'),
+        const ValueKey('inbox-filter-group'),
+        const ValueKey('inbox-filter-direct'),
+        const ValueKey('inbox-filter-unread'),
+      ],
+    );
+  });
+
+  testWidgets('chip lọc: vùng bấm cao ≥ 44dp, thiếu chỗ thì cuộn ngang', (
     tester,
   ) async {
     await pump(
@@ -297,10 +418,10 @@ void main() {
       find.descendant(of: row, matching: find.byType(FittedBox)),
       findsNothing,
     );
-    for (final chip in find.byType(ChoiceChip).evaluate()) {
+    for (final filter in ['all', 'group', 'direct']) {
       expect(
-        tester.getSize(find.byWidget(chip.widget)).height,
-        greaterThanOrEqualTo(48),
+        tester.getSize(find.byKey(ValueKey('inbox-filter-$filter'))).height,
+        greaterThanOrEqualTo(44),
       );
     }
     final scrollable = tester.state<ScrollableState>(
@@ -309,15 +430,27 @@ void main() {
     expect(scrollable.position.maxScrollExtent, greaterThan(0));
 
     // Chip cuối nằm ngoài màn vẫn cuộn tới và bấm được.
-    final last = find.byType(ChoiceChip).last;
-    await tester.ensureVisible(last);
-    await tester.pumpAndSettle();
-    await tester.tap(last);
-    await tester.pumpAndSettle();
-    expect(
-      tester.widget<ChoiceChip>(find.byType(ChoiceChip).last).selected,
-      isTrue,
+    await tapChip(tester, 'unread');
+    expect(chipBar(tester).selectedIndex, 4);
+  });
+
+  testWidgets('danh sách hội thoại: nền trang, kẻ mảnh thụt tới chữ', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      automation: false,
+      directs: [
+        _item('a', 'An', channel: false),
+        _item('b', 'Bình', channel: false),
+      ],
     );
+    final surface = tester.widget<WebTuiSliverListSurface>(
+      find.byType(WebTuiSliverListSurface),
+    );
+    expect(surface.dividerIndent, WebTuiListDensity.conversationDividerIndent);
+    expect(find.byType(WebTuiHairline), findsWidgets);
+    expect(find.byType(Card), findsNothing);
   });
 
   testWidgets('dòng chat: kênh = ô vuông + biểu tượng, người = ảnh tròn', (
@@ -386,11 +519,11 @@ void main() {
       'Kênh thường',
     );
     expect(
-      find.descendant(of: pinned, matching: find.byIcon(WebTuiIcons.pin)),
+      find.descendant(of: pinned, matching: find.byIcon(WebTuiIcons.pinFilled)),
       findsOneWidget,
     );
     expect(
-      find.descendant(of: plain, matching: find.byIcon(WebTuiIcons.pin)),
+      find.descendant(of: plain, matching: find.byIcon(WebTuiIcons.pinFilled)),
       findsNothing,
     );
     expect(
@@ -431,6 +564,7 @@ void main() {
     (tester) async {
       await pump(
         tester,
+        width: 700,
         automation: true,
         showTabBadge: true,
         blocked: [
@@ -460,18 +594,14 @@ void main() {
 
       // An 2 + Nhóm team 3 + Đơn hàng 4; Bình bị chặn, Chi tắt tiếng.
       expect(badge(), 'badge 9');
-      // Nhãn chip có kèm số (vd. "Nhóm 1") nên bấm theo vị trí: Chưa đọc,
-      // Nghiệp vụ, Cá nhân, Nhóm rồi về Tất cả.
+      // Bấm lần lượt Chưa đọc, Nghiệp vụ, Cá nhân, Nhóm rồi về Tất cả.
       expect(chipLabels(tester).length, 5);
+      const order = ['all', 'group', 'direct', 'bot', 'unread'];
       for (final index in [4, 3, 2, 1, 0]) {
-        // Hàng chip cuộn ngang: cuộn tới chip trước khi bấm.
-        await tester.ensureVisible(find.byType(ChoiceChip).at(index));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byType(ChoiceChip).at(index));
-        await tester.pumpAndSettle();
+        await tapChip(tester, order[index]);
         expect(
-          tester.widget<ChoiceChip>(find.byType(ChoiceChip).at(index)).selected,
-          isTrue,
+          chipBar(tester).selectedIndex,
+          index,
           reason: 'đã chọn ${chipLabels(tester)[index]}',
         );
         expect(badge(), 'badge 9', reason: chipLabels(tester)[index]);

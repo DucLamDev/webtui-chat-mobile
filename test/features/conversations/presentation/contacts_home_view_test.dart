@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +10,7 @@ import 'package:webtui_chat/core/error/failure.dart';
 import 'package:webtui_chat/core/result/result.dart';
 import 'package:webtui_chat/design_system/components/webtui_components.dart';
 import 'package:webtui_chat/design_system/theme/webtui_theme.dart';
+import 'package:webtui_chat/design_system/tokens/webtui_density.dart';
 import 'package:webtui_chat/features/conversations/application/use_cases/channel_use_cases.dart';
 import 'package:webtui_chat/features/conversations/application/use_cases/load_conversation_home_use_case.dart';
 import 'package:webtui_chat/features/conversations/application/use_cases/open_direct_conversation_use_case.dart';
@@ -113,9 +115,12 @@ void main() {
   }
 
   Future<void> openChannelsTab(WidgetTester tester) async {
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Kênh'));
+    await tester.tap(find.byKey(const ValueKey('contacts-tab-channels')));
     await tester.pumpAndSettle();
   }
+
+  WebTuiFilterChipBar tabsBar(WidgetTester tester) => tester
+      .widget<WebTuiFilterChipBar>(find.byKey(const ValueKey('contacts-tabs')));
 
   testWidgets('hai tab Đồng nghiệp / Kênh, mặc định Đồng nghiệp', (
     tester,
@@ -126,20 +131,22 @@ void main() {
       channels: [_channel('du-an', 'Dự án A')],
     );
 
-    final tabs = tester
-        .widgetList<ChoiceChip>(find.byType(ChoiceChip))
-        .toList();
+    final tabs = tabsBar(tester);
     expect(
-      [for (final chip in tabs) (chip.label as Text).data],
+      [for (final chip in tabs.chips) chip.label],
       ['Đồng nghiệp', 'Kênh'],
     );
-    expect(tabs.first.selected, isTrue);
-    for (final chip in find.byType(ChoiceChip).evaluate()) {
+    // Kèm số: 1 đồng nghiệp (ẩn chính mình), 1 kênh.
+    expect([for (final chip in tabs.chips) chip.count], [1, 1]);
+    expect(tabs.selectedIndex, 0);
+    for (final key in ['contacts-tab-colleagues', 'contacts-tab-channels']) {
       expect(
-        tester.getSize(find.byWidget(chip.widget)).height,
+        tester.getSize(find.byKey(ValueKey(key))).height,
         greaterThanOrEqualTo(44),
       );
     }
+    expect(find.widgetWithText(WebTuiLargeTitleBar, 'Bạn bè'), findsOneWidget);
+    expect(find.byType(WebTuiSegmentedTabs), findsNothing);
     expect(find.text('Bạn bè trong workspace'), findsNothing);
     expect(find.text('Lan'), findsOneWidget);
     expect(find.text('Dự án A'), findsNothing);
@@ -207,7 +214,7 @@ void main() {
       },
     );
     await tester.pump();
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Kênh'));
+    await tester.tap(find.byKey(const ValueKey('contacts-tab-channels')));
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byType(WebTuiLoadingState), findsOneWidget);
 
@@ -223,6 +230,65 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Dự án A'), findsOneWidget);
     expect(calls, 2);
+  });
+
+  testWidgets('dòng đồng nghiệp: ảnh 48, cao 64, không nút khiên; nhấn giữ '
+      'mở báo cáo / chặn', (tester) async {
+    await pump(tester, members: [_member('u-lan', 'Lan')]);
+    final row = find.byKey(const ValueKey('contact-u-lan'));
+    expect(row, findsOneWidget);
+    expect(tester.getSize(row).height, 64);
+    final avatar = tester.widget<WebTuiAvatar>(
+      find.descendant(of: row, matching: find.byType(WebTuiAvatar)),
+    );
+    expect(avatar.size, WebTuiListDensity.avatarSize);
+    expect(find.text('u-lan@example.com'), findsOneWidget);
+    expect(
+      find.descendant(of: row, matching: find.byType(IconButton)),
+      findsNothing,
+      reason: 'bỏ nút khiên cuối dòng',
+    );
+    expect(find.byTooltip('Báo cáo hoặc chặn Lan'), findsNothing);
+    expect(
+      tester
+          .widget<WebTuiSliverListSurface>(find.byType(WebTuiSliverListSurface))
+          .dividerIndent,
+      WebTuiListDensity.contactDividerIndent,
+    );
+
+    // Trình đọc màn hình: có gợi ý nhấn giữ và hành động riêng.
+    final handle = tester.ensureSemantics();
+    final node = tester.getSemantics(find.text('Lan'));
+    expect(
+      node.getSemanticsData().hasAction(SemanticsAction.longPress),
+      isTrue,
+    );
+    final actions = [
+      for (final id in node.getSemanticsData().customSemanticsActionIds ?? [])
+        CustomSemanticsAction.getAction(id),
+    ];
+    expect(
+      actions.map((action) => action?.label),
+      contains('Báo cáo hoặc chặn Lan'),
+    );
+    expect(
+      actions.map((action) => action?.hint),
+      contains('Báo cáo hoặc chặn Lan'),
+      reason: 'gợi ý nhấn giữ cho trình đọc màn hình',
+    );
+    handle.dispose();
+
+    await tester.longPress(find.text('Lan'));
+    await tester.pumpAndSettle();
+    expect(find.text('Báo cáo người dùng'), findsOneWidget);
+    expect(find.text('Chặn người dùng'), findsOneWidget);
+  });
+
+  testWidgets('bấm dòng đồng nghiệp vẫn mở chat riêng', (tester) async {
+    await pump(tester, members: [_member('u-lan', 'Lan')]);
+    await tester.tap(find.text('Lan'));
+    await tester.pumpAndSettle();
+    expect(find.text('Phòng dm-u-lan'), findsOneWidget);
   });
 }
 
@@ -298,6 +364,24 @@ final class _Repository implements ConversationRepository {
   Future<Result<List<PresenceSummary>>> listPresence({
     required String workspaceId,
   }) async => const Success([]);
+
+  @override
+  Future<Result<ConversationSummary>> createDirectConversation({
+    required String workspaceId,
+    required List<String> participantIds,
+  }) async => Success(
+    ConversationSummary(
+      id: 'dm-${participantIds.first}',
+      workspaceId: workspaceId,
+      channelId: 'dm-${participantIds.first}',
+      kind: ConversationKind.direct,
+      title: 'Lan',
+      preview: '',
+      updatedAt: DateTime.utc(2026, 11, 15),
+      channelVisibility: ChannelVisibility.direct,
+      participantIds: participantIds,
+    ),
+  );
 
   @override
   dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();

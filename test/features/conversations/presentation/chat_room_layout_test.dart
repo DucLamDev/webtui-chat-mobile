@@ -518,7 +518,8 @@ void main() {
           .color;
     }
 
-    expect(bubbleColor('tin mình'), const Color(0xFF0877F2));
+    // Màu nhấn thương hiệu (đậm hơn một bậc từ 1.33.0 để đạt tương phản 4,5:1).
+    expect(bubbleColor('tin mình'), const Color(0xFF0A6CDE));
     expect(bubbleColor('tin người kia'), const Color(0xFFFFFFFF));
   });
 }

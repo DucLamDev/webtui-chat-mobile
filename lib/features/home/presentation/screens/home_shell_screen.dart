@@ -19,7 +19,6 @@ import '../../../../core/security/instance_scope.dart';
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
-import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
@@ -337,9 +336,9 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         title: organization == null
             ? titles[_tabIndex]
             : '${organization.name} · ${titles[_tabIndex]}',
-        // Tab Tin nhắn và Công việc bỏ thanh tiêu đề cho rộng chỗ (nút soạn
-        // tin nằm cạnh ô tìm kiếm; Công việc có tiêu đề lớn riêng).
-        showAppBar: _tabIndex != 0 && _tabIndex != 2,
+        // Mọi tab tự dựng tiêu đề lớn kiểu iOS (WebTuiLargeTitleBar) ngay trong
+        // thân: không còn thanh tiêu đề "Tổ chức · Tab".
+        showAppBar: false,
         tabBadges: {if (messagesUnread > 0) 0: messagesUnread},
         selectedTab: _tabIndex,
         onTabSelected: (index) {
@@ -393,6 +392,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
                       workspaceName: activeWorkspace.name,
                       userName: userProfile?.displayName ?? '',
                       userAvatarUrl: userProfile?.avatarUrl,
+                      userEmail: userProfile?.email,
                       notificationEnabled: _notificationEnabled,
                       compactMode: _compactMode,
                       soundLevel: _soundLevel,
@@ -2254,6 +2254,7 @@ class SettingsTab extends StatelessWidget {
     required this.onTextScaleChanged,
     this.canSwitchWorkspace = false,
     this.userAvatarUrl,
+    this.userEmail,
     this.onQrLoginTap,
     super.key,
   });
@@ -2268,11 +2269,14 @@ class SettingsTab extends StatelessWidget {
   final VoidCallback? onQrLoginTap;
   final String workspaceName;
 
-  /// Tên hiển thị của người dùng ở thẻ đầu trang (trống: chữ thay thế).
+  /// Tên hiển thị của người dùng ở đầu hồ sơ (trống: chữ thay thế).
   final String userName;
 
-  /// Ảnh đại diện của người dùng; trống thì thẻ hiện chữ cái tên.
+  /// Ảnh đại diện của người dùng; trống thì hiện chữ cái tên.
   final String? userAvatarUrl;
+
+  /// Email dưới tên; trống thì ghi "Hồ sơ cá nhân".
+  final String? userEmail;
   final bool notificationEnabled;
   final bool compactMode;
   final double soundLevel;
@@ -2291,154 +2295,192 @@ class SettingsTab extends StatelessWidget {
     final displayName = userName.trim().isEmpty
         ? strings.accountFallbackName
         : userName.trim();
-    return ListView(
-      // Đệm đáy gồm chỗ của thanh tab nổi: mục cuối không bị che.
-      padding: EdgeInsets.only(
-        bottom:
-            WebTuiSpacing.lg +
-            WebTuiFloatingTabBar.contentBottomPadding(context),
-      ),
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            WebTuiSpacing.lg,
-            WebTuiSpacing.md,
-            WebTuiSpacing.lg,
-            WebTuiSpacing.lg,
-          ),
-          child: Material(
-            color: WebTuiColors.primarySoft,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(WebTuiRadii.lg),
-              side: BorderSide(
-                color: WebTuiColors.primary.withValues(alpha: 0.12),
-              ),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              key: const Key('settings_profile_card'),
-              onTap: onProfileTap,
-              child: Padding(
-                padding: const EdgeInsets.all(WebTuiSpacing.lg),
-                child: Row(
-                  children: [
-                    WebTuiAvatar(
-                      label: displayName,
-                      imageUrl: userAvatarUrl,
-                      size: 68,
-                      status: WebTuiPresenceStatus.online,
-                    ),
-                    const SizedBox(width: WebTuiSpacing.md),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            displayName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: WebTuiTypography.titleMedium.copyWith(
-                              color: WebTuiColors.textPrimary,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: WebTuiSpacing.xs),
-                          Text(
-                            strings.profileTitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: WebTuiTypography.bodySmall.copyWith(
-                              color: WebTuiColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: WebTuiColors.textMuted,
-                    ),
-                  ],
+    final email = userEmail?.trim() ?? '';
+    // Kẻ trong nhóm: phần thụt bên trái vẫn nền trắng (nền ngoài là xám).
+    final divider = ColoredBox(
+      color: WebTuiColors.page,
+      child: const WebTuiHairline(indent: webTuiSettingDividerIndent),
+    );
+    // Nền ngoài xám như dải ngăn nhóm: dưới Đăng xuất là vùng xám tới đáy.
+    return ColoredBox(
+      color: WebTuiColors.groupBackground,
+      child: ListView(
+        // Đệm đáy gồm chỗ của thanh tab nổi: mục cuối không bị che.
+        padding: EdgeInsets.only(
+          bottom: WebTuiFloatingTabBar.contentBottomPadding(context),
+        ),
+        children: [
+          ColoredBox(
+            color: WebTuiColors.page,
+            child: WebTuiLargeTitleBar(
+              title: strings.tabSettings,
+              actions: [
+                WebTuiHeaderTextButton(
+                  key: const Key('settings_edit_profile_button'),
+                  label: strings.isEnglish ? 'Edit profile' : 'Sửa hồ sơ',
+                  onPressed: onProfileTap,
                 ),
-              ),
+              ],
             ),
           ),
-        ),
-        WebTuiListSurface(
-          children: [
+          _SettingsProfileHeader(
+            name: displayName,
+            subtitle: email.isEmpty ? strings.profileTitle : email,
+            avatarUrl: userAvatarUrl,
+            onTap: onProfileTap,
+          ),
+          const WebTuiGroupGap(),
+          WebTuiSettingRow(
+            key: const Key('settings_workspace_row'),
+            title: canSwitchWorkspace
+                ? strings.switchWorkspace
+                : strings.workspace,
+            icon: WebTuiIcons.workspace,
+            onTap: onWorkspaceTap,
+            // Giá trị sát mũi tên (ô `value` của dòng chia đôi chỗ với tiêu
+            // đề nên để hở bên phải mũi tên).
+            value: workspaceName,
+          ),
+          if (onQrLoginTap != null) ...[
+            divider,
             WebTuiSettingRow(
-              key: const Key('settings_workspace_row'),
-              title: canSwitchWorkspace
-                  ? strings.switchWorkspace
-                  : strings.workspace,
-              subtitle: workspaceName,
-              icon: Icons.business_rounded,
-              onTap: onWorkspaceTap,
-              trailing: canSwitchWorkspace
-                  ? const Icon(Icons.swap_horiz_rounded)
-                  : null,
-            ),
-            if (onQrLoginTap != null)
-              WebTuiSettingRow(
-                key: const Key('settings_qr_login_row'),
-                title: strings.qrLoginTitle,
-                subtitle: strings.qrLoginSubtitle,
-                icon: Icons.qr_code_scanner_rounded,
-                onTap: onQrLoginTap,
-              ),
-            WebTuiSettingRow(
-              title: strings.advancedTitle,
-              subtitle: strings.advancedSubtitle,
-              icon: Icons.tune_rounded,
-              onTap: onAdvancedTap,
-            ),
-            WebTuiSettingRow(
-              title: strings.notificationsTitle,
-              subtitle: strings.notificationsSubtitle,
-              icon: Icons.notifications_none_rounded,
-              trailing: WebTuiToggle(
-                value: notificationEnabled,
-                onChanged: onNotificationChanged,
-              ),
-            ),
-            WebTuiSettingRow(
-              title: strings.compactListTitle,
-              subtitle: strings.compactListSubtitle,
-              icon: Icons.format_line_spacing_rounded,
-              trailing: WebTuiToggle(
-                value: compactMode,
-                onChanged: onCompactChanged,
-              ),
+              key: const Key('settings_qr_login_row'),
+              title: strings.qrLoginTitle,
+              icon: WebTuiIcons.qrScan,
+              onTap: onQrLoginTap,
             ),
           ],
-        ),
-        WebTuiSectionLabel(strings.soundSettings),
-        WebTuiListSurface(
-          children: [
-            WebTuiSliderRow(
-              icon: Icons.volume_up_outlined,
-              value: soundLevel,
-              onChanged: onSoundChanged,
+          divider,
+          WebTuiSettingRow(
+            key: const Key('settings_advanced_row'),
+            title: strings.advancedTitle,
+            icon: WebTuiIcons.privacy,
+            onTap: onAdvancedTap,
+          ),
+          const WebTuiGroupGap(),
+          WebTuiSettingRow(
+            key: const Key('settings_notification_row'),
+            title: strings.notificationsTitle,
+            icon: WebTuiIcons.bell,
+            // Cả dòng bấm được để đổi, không chỉ công tắc.
+            onTap: () => onNotificationChanged(!notificationEnabled),
+            trailing: WebTuiToggle(
+              key: const Key('settings_notification_toggle'),
+              value: notificationEnabled,
+              onChanged: onNotificationChanged,
             ),
-            WebTuiSliderRow(
-              icon: Icons.text_fields_rounded,
-              value: textScalePreview,
-              onChanged: onTextScaleChanged,
+          ),
+          divider,
+          WebTuiSettingRow(
+            key: const Key('settings_compact_row'),
+            title: strings.compactListTitle,
+            icon: WebTuiIcons.compactList,
+            onTap: () => onCompactChanged(!compactMode),
+            trailing: WebTuiToggle(
+              key: const Key('settings_compact_toggle'),
+              value: compactMode,
+              onChanged: onCompactChanged,
             ),
-          ],
-        ),
-        const SizedBox(height: WebTuiSpacing.md),
-        WebTuiListSurface(
-          children: [
-            WebTuiSettingRow(
-              title: strings.logout,
-              icon: Icons.logout_rounded,
-              destructive: true,
-              onTap: onLogoutTap,
-            ),
-          ],
-        ),
-      ],
+          ),
+          divider,
+          WebTuiSliderRow(
+            key: const Key('settings_sound_slider'),
+            icon: WebTuiIcons.volume,
+            label: strings.isEnglish ? 'Volume' : 'Âm lượng',
+            value: soundLevel,
+            onChanged: onSoundChanged,
+          ),
+          divider,
+          WebTuiSliderRow(
+            key: const Key('settings_text_scale_slider'),
+            icon: WebTuiIcons.textSize,
+            label: strings.isEnglish ? 'Text size' : 'Cỡ chữ',
+            value: textScalePreview,
+            onChanged: onTextScaleChanged,
+          ),
+          const WebTuiGroupGap(),
+          WebTuiSettingRow(
+            key: const Key('settings_logout_row'),
+            title: strings.logout,
+            icon: WebTuiIcons.logout,
+            destructive: true,
+            showChevron: false,
+            onTap: onLogoutTap,
+          ),
+        ],
+      ),
     );
   }
 }
+
+/// Đầu hồ sơ kiểu Telegram: ảnh 92 ở giữa, tên đậm, dòng phụ xám; cả khối bấm
+/// được để mở hồ sơ.
+class _SettingsProfileHeader extends StatelessWidget {
+  const _SettingsProfileHeader({
+    required this.name,
+    required this.subtitle,
+    required this.avatarUrl,
+    required this.onTap,
+  });
+
+  final String name;
+  final String subtitle;
+  final String? avatarUrl;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: WebTuiColors.page,
+      child: InkWell(
+        key: const Key('settings_profile_card'),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            WebTuiSpacing.lg,
+            WebTuiSpacing.sm,
+            WebTuiSpacing.lg,
+            20,
+          ),
+          child: Column(
+            children: [
+              WebTuiAvatar(
+                label: name,
+                imageUrl: avatarUrl,
+                size: 92,
+                status: WebTuiPresenceStatus.online,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: WebTuiTypography.titleLarge.copyWith(
+                  fontSize: 23,
+                  height: 1.25,
+                  letterSpacing: -0.3,
+                  fontWeight: FontWeight.w700,
+                  color: WebTuiColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: WebTuiTypography.bodyMedium.copyWith(
+                  fontSize: 15,
+                  color: WebTuiColors.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Giá trị xám + mũi tên ở cuối dòng (vd tên workspace); tên dài thì cắt.

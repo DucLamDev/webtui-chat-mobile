@@ -183,7 +183,7 @@ class AppStringsVi extends AppStrings {
   String get qrLoginSubtitle => 'Quét mã trên trang đăng nhập của máy tính';
 
   @override
-  String get advancedTitle => 'Thiết lập nâng cao';
+  String get advancedTitle => 'Quyền riêng tư và bảo mật';
 
   @override
   String get advancedSubtitle => 'Quyền riêng tư, bảo mật và thiết bị';
@@ -195,7 +195,7 @@ class AppStringsVi extends AppStrings {
   String get notificationsSubtitle => 'Nhận tin nhắn và cảnh báo kênh';
 
   @override
-  String get compactListTitle => 'Danh sách dày';
+  String get compactListTitle => 'Danh sách gọn';
 
   @override
   String get compactListSubtitle => 'Tăng mật độ thông tin như ảnh reference';
@@ -506,7 +506,7 @@ class AppStringsEn extends AppStrings {
   String get qrLoginSubtitle => 'Scan the code on the computer\'s sign-in page';
 
   @override
-  String get advancedTitle => 'Advanced settings';
+  String get advancedTitle => 'Privacy and security';
 
   @override
   String get advancedSubtitle => 'Privacy, security and devices';
