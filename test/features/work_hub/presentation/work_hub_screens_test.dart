@@ -483,6 +483,52 @@ void main() {
   });
 
   group('màn Việc của tôi', () {
+    testWidgets('ô lọc có số việc, nhóm Quá hạn, trạng thái trống theo mục', (
+      tester,
+    ) async {
+      phone(tester);
+      final tasks = FakeTaskRepository([
+        fakeTask(
+          'q',
+          'Gửi hợp đồng',
+          CollaborationTaskStatus.open,
+          // Màn dùng mốc 14/11 12:00 UTC; hạn tính theo UTC để không phụ
+          // thuộc múi giờ máy chạy test.
+          dueAt: DateTime.utc(2026, 11, 13, 12),
+        ),
+        fakeTask(
+          't',
+          'Họp khách',
+          CollaborationTaskStatus.open,
+          dueAt: DateTime.utc(2026, 11, 14, 15),
+        ),
+      ]);
+      await tester.pumpWidget(
+        workHubApp(
+          repository: FakeWorkHubRepository(),
+          tasks: tasks,
+          home: const _MyTasksOnly(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .getSemantics(find.byKey(const Key('my_tasks_filter_open')))
+            .label,
+        'Chưa nhận 2',
+      );
+      expect(find.text('Quá hạn'), findsOneWidget);
+      expect(find.text('Quá hạn 1 ngày'), findsOneWidget);
+      expect(find.text('Hôm nay'), findsOneWidget);
+      expect(find.textContaining('Hôm nay '), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('my_tasks_filter_in_progress')));
+      await tester.pumpAndSettle();
+      expect(find.text('Bạn chưa nhận việc nào'), findsOneWidget);
+      expect(find.text('Gửi hợp đồng'), findsNothing);
+    });
+
     testWidgets('lọc Chưa nhận / Đã nhận / Hoàn thành và tìm theo tên', (
       tester,
     ) async {

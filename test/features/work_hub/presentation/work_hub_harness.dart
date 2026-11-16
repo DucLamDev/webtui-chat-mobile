@@ -38,6 +38,7 @@ Widget workHubApp({
   bool myNotes = true,
   FakeLauncher? launcher,
   GlobalKey<NavigatorState>? navigatorKey,
+  ThemeData? theme,
   FakeMeetingCalendarRepository? calendar,
   DateTime? now,
 }) {
@@ -104,6 +105,9 @@ Widget workHubApp({
       ),
       meetingTimezoneProvider.overrideWithValue('Asia/Ho_Chi_Minh'),
     ],
-    child: MaterialApp.router(theme: WebTuiTheme.light(), routerConfig: router),
+    child: MaterialApp.router(
+      theme: theme ?? WebTuiTheme.light(),
+      routerConfig: router,
+    ),
   );
 }
