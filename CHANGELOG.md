@@ -3,6 +3,17 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.36.0 · 16/11/2026
+### Tính năng
+- Thanh tab dưới thành viên thuốc nổi, kính trong kiểu Telegram
+  - Thanh tab là khối bo tròn nổi cách hai mép màn hình và đáy (ngay trên thanh home / thanh cử chỉ). Danh sách cuộn ra
+    phía sau và chạy hai bên; lớp kính làm mờ nội dung phía sau nên thấy màu ảnh, tin nhắn ánh qua mà chữ vẫn rõ. Có
+    viền sáng mảnh ở mép trên và bóng đổ mềm.
+  - Mục đang chọn có nền viên thuốc nhỏ trượt mượt sang tab mới, biểu tượng đặc + chữ xanh; mục khác là biểu tượng nét
+    màu chữ chính. Bấm thì biểu tượng nhún nhẹ và máy rung nhẹ khi đổi tab. Máy bật giảm chuyển động thì không trượt.
+  - Nền tối: kính tối sáng hơn nền một bậc, nền mục chọn tối hơn (như Telegram). Số chưa đọc vẫn là viên đỏ ở góc.
+  - Chữ hệ thống rất lớn: nhãn tab giữ tối đa ×1,3 để không tràn khỏi viên thuốc. Máy tính bảng / màn rộng: viên thuốc
+    rộng tối đa 520 điểm, nằm giữa. Vùng trong suốt quanh viên thuốc không chặn chạm vào nội dung phía sau.
 
 ## 1.35.1 · 16/11/2026
 ### Sửa lỗi

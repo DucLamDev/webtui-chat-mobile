@@ -37,7 +37,7 @@ void main() {
     expect(find.text('than'), findsOneWidget);
   });
 
-  testWidgets('thanh tab dính đáy: 4 tab, đổi tab, tràn mép, không che thân', (
+  testWidgets('thanh tab nổi: 4 tab, đổi tab, cách mép, không che thân', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -65,16 +65,18 @@ void main() {
       expect(find.text(label), findsOneWidget);
     }
     final bar = tester.getRect(find.byKey(const ValueKey('bottom-tab-bar')));
-    // Dính sát đáy và tràn hai mép như Zalo / Telegram (không còn viên thuốc nổi).
-    expect(bar.bottom, 844);
-    expect(bar.left, 0);
-    expect(bar.right, 390);
+    // Viên thuốc nổi kiểu Telegram: cách hai mép và cách đáy (máy không có
+    // vùng an toàn đáy thì cách [WebTuiBottomTabTokens.margin]).
+    expect(bar.left, WebTuiBottomTabTokens.sideMargin);
+    expect(bar.right, 390 - WebTuiBottomTabTokens.sideMargin);
+    expect(bar.bottom, 844 - WebTuiBottomTabTokens.margin);
+    expect(bar.height, WebTuiBottomTabTokens.height);
     // Thanh đè lên thân (extendBody): danh sách chạy tới đáy màn hình, nội dung
-    // cuộn ra phía sau lớp kính mờ.
+    // cuộn ra phía sau lớp kính mờ và chạy hai bên viên thuốc.
     final list = tester.getRect(find.byType(ListView));
     expect(list.bottom, 844);
     expect(tester.widget<Scaffold>(find.byType(Scaffold)).extendBody, isTrue);
-    // Cuộn tới cuối: dòng cuối vẫn nằm trên thanh, không bị che.
+    // Cuộn tới cuối: dòng cuối vẫn nằm trên viên thuốc, không bị che.
     await tester.drag(find.byType(ListView), const Offset(0, -5000));
     await tester.pumpAndSettle();
     expect(
@@ -90,7 +92,58 @@ void main() {
     expect(selected, 3);
   });
 
-  testWidgets('chữ lớn 1.3 và nền tối: thanh tab không tràn', (tester) async {
+  testWidgets('vùng trong suốt quanh viên thuốc không chặn chạm nội dung', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    var bodyTaps = 0;
+    var tabTaps = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WebTuiMobileScaffold(
+          title: 't',
+          selectedTab: 0,
+          onTabSelected: (_) => tabTaps++,
+          body: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => bodyTaps++,
+            child: const SizedBox.expand(),
+          ),
+        ),
+      ),
+    );
+    final bar = tester.getRect(find.byKey(const ValueKey('bottom-tab-bar')));
+    // Lề trái cạnh viên thuốc và khoảng trống phía dưới: chạm xuống nội dung.
+    await tester.tapAt(Offset(bar.left / 2, bar.center.dy));
+    await tester.tapAt(Offset(bar.center.dx, (bar.bottom + 844) / 2));
+    expect(bodyTaps, 2);
+    expect(tabTaps, 0);
+  });
+
+  testWidgets('màn rộng: viên thuốc tối đa 520, nằm giữa', (tester) async {
+    tester.view.physicalSize = const Size(1024, 768);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WebTuiMobileScaffold(
+          title: 't',
+          selectedTab: 0,
+          onTabSelected: (_) {},
+          body: const SizedBox.shrink(),
+        ),
+      ),
+    );
+    final bar = tester.getRect(find.byKey(const ValueKey('bottom-tab-bar')));
+    expect(bar.width, WebTuiBottomTabTokens.maxWidth);
+    expect(bar.center.dx, 512);
+  });
+
+  testWidgets('chữ hệ thống ×2 và nền tối: thanh tab không tràn', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(360, 740);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -100,7 +153,7 @@ void main() {
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(
             context,
-          ).copyWith(textScaler: const TextScaler.linear(1.3)),
+          ).copyWith(textScaler: const TextScaler.linear(2)),
           child: child!,
         ),
         home: WebTuiMobileScaffold(
@@ -115,7 +168,8 @@ void main() {
   });
 
   testWidgets(
-    'biểu tượng nét khi chưa chọn, đặc + chữ xanh khi chọn, không nền bao, số đỏ',
+    'biểu tượng nét khi chưa chọn, đặc + chữ xanh khi chọn, nền viên thuốc dưới '
+    'mục chọn, số đỏ',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
@@ -149,13 +203,21 @@ void main() {
       final decoration =
           tester.widget<Container>(badges.first).decoration! as BoxDecoration;
       expect(decoration.color, WebTuiColors.badge);
-      // Mục đang chọn chỉ đổi màu (xanh nhấn), không có nền viên thuốc bao quanh.
+      // Mục đang chọn: chữ xanh nhấn, nền viên thuốc nằm đúng dưới mục đó;
+      // mục khác chữ màu chính (đọc rõ trên lớp kính như Telegram).
       final text = tester.widget<Text>(find.text('Công việc'));
       expect(text.style!.color, WebTuiColors.primary);
       expect(
         tester.widget<Text>(find.text('Cài đặt')).style!.color,
-        WebTuiColors.textMuted,
+        WebTuiColors.textPrimary,
       );
+      await tester.pumpAndSettle();
+      final pill = tester.getRect(
+        find.byKey(const ValueKey('tab-selection-pill')),
+      );
+      final item = tester.getRect(find.byKey(const ValueKey('tab-Công việc')));
+      expect(pill.center.dx, closeTo(item.center.dx, 0.5));
+      expect(pill.height, greaterThanOrEqualTo(48));
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('tab-Công việc')),
@@ -247,6 +309,12 @@ void main() {
         hasEnabledState: false,
       ),
     );
+    // Nền viên thuốc trượt sang tab mới.
+    final pill = tester.getRect(
+      find.byKey(const ValueKey('tab-selection-pill')),
+    );
+    final item = tester.getRect(find.byKey(const ValueKey('tab-Bạn bè')));
+    expect(pill.center.dx, closeTo(item.center.dx, 0.5));
     // Nút cũ về dạng nét màu chưa chọn; nút mới thành dạng đặc màu nhấn.
     final oldIcon = tester.widget<Icon>(find.byIcon(WebTuiIcons.messages));
     final newIcon = tester.widget<Icon>(find.byIcon(WebTuiIcons.friendsActive));
@@ -255,7 +323,7 @@ void main() {
     expect(
       contrast(oldIcon.color!, Colors.white),
       greaterThanOrEqualTo(4.5),
-      reason: 'nhãn chưa chọn đọc rõ trên nền thanh sáng',
+      reason: 'nhãn chưa chọn đọc rõ trên lớp kính sáng',
     );
     // Vùng bấm đủ lớn.
     expect(
@@ -282,8 +350,15 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    // Đo trên nền thanh tối (nền trang tối, phủ 86%).
-    final background = WebTuiColors.page;
+    // Đo trên màu kính thật của viên thuốc (kính phủ lên nền trang tối).
+    final fill =
+        tester
+                .widget<DecoratedBox>(
+                  find.byKey(const ValueKey('bottom-tab-bar')),
+                )
+                .decoration
+            as BoxDecoration;
+    final background = Color.alphaBlend(fill.color!, WebTuiColors.page);
     final idle = tester.widget<Text>(find.text('Bạn bè')).style!.color!;
     expect(contrast(idle, background), greaterThanOrEqualTo(4.5));
     final active = tester.widget<Text>(find.text('Tin nhắn')).style!.color!;
@@ -323,7 +398,7 @@ void main() {
   });
 
   testWidgets(
-    'kiểu Zalo / Telegram: kính mờ dính đáy, kẻ mảnh trên, vùng bấm ≥ 44',
+    'kiểu Telegram: viên thuốc kính mờ bo tròn, có bóng, kính trong, vùng bấm ≥ 44',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
@@ -351,14 +426,27 @@ void main() {
           find.ancestor(of: bar, matching: find.byType(BackdropFilter)),
           findsOneWidget,
         );
+        expect(
+          find.ancestor(of: bar, matching: find.byType(ClipRRect)),
+          findsOneWidget,
+        );
         final fill =
             tester.widget<DecoratedBox>(bar).decoration as BoxDecoration;
-        // Nền trong suốt một phần để thấy nội dung mờ phía sau; kẻ mảnh phía trên,
-        // không bo góc, không bóng.
-        expect(fill.color!.a, lessThan(0.9));
-        expect(fill.borderRadius, isNull);
-        expect(fill.boxShadow, isNull);
-        expect((fill.border! as Border).top.width, 0.5);
+        // Kính trong (thấy nội dung mờ phía sau), bo tròn hết cỡ.
+        expect(fill.color!.a, lessThan(0.8));
+        expect(
+          fill.borderRadius,
+          BorderRadius.circular(WebTuiBottomTabTokens.height / 2),
+        );
+        // Bóng mềm nằm ngoài lớp cắt bo tròn (không bị cắt mất).
+        final shadowed = tester
+            .widgetList<DecoratedBox>(
+              find.ancestor(of: bar, matching: find.byType(DecoratedBox)),
+            )
+            .map((box) => box.decoration)
+            .whereType<BoxDecoration>()
+            .where((decoration) => decoration.boxShadow?.isNotEmpty ?? false);
+        expect(shadowed, isNotEmpty);
         // Mỗi mục bấm được trong ô ≥ 44 điểm.
         for (final label in ['Tin nhắn', 'Bạn bè', 'Công việc', 'Cài đặt']) {
           final size = tester.getSize(find.byKey(ValueKey('tab-$label')));
@@ -370,11 +458,15 @@ void main() {
       }
 
       final light = await pumpTheme(Brightness.light);
-      expect(light.color, WebTuiColors.page.withValues(alpha: 0.86));
+      expect(light.color, WebTuiColors.page.withValues(alpha: 0.62));
       final dark = await pumpTheme(Brightness.dark);
-      // Nền tối: xanh đen mờ, không dùng nền trắng của nền sáng.
-      expect(dark.color!.a, lessThan(0.9));
+      // Nền tối: kính tối (sáng hơn nền trang một bậc), không dùng kính trắng.
+      expect(dark.color!.a, lessThan(0.8));
       expect(dark.color!.computeLuminance(), lessThan(0.05));
+      expect(
+        Color.alphaBlend(dark.color!, WebTuiColors.page).computeLuminance(),
+        greaterThan(WebTuiColors.page.computeLuminance()),
+      );
       final darkLabel = tester.widget<Text>(find.text('Tin nhắn'));
       final darkOther = tester.widget<Text>(find.text('Bạn bè'));
       expect(darkLabel.style!.color, isNot(darkOther.style!.color));
@@ -385,9 +477,9 @@ void main() {
     ('iPhone thanh home 34', TargetPlatform.iOS, 34.0, 22.0),
     ('Android cử chỉ 24', TargetPlatform.android, 24.0, 24.0),
     ('Android 3 nút 48', TargetPlatform.android, 48.0, 48.0),
-    ('không vùng an toàn', TargetPlatform.android, 0.0, 0.0),
+    ('không vùng an toàn', TargetPlatform.android, 0.0, 12.0),
   ]) {
-    testWidgets('$name: thanh nằm trên vùng an toàn, thân đệm đáy đủ', (
+    testWidgets('$name: viên thuốc nổi trên vùng an toàn, thân đệm đáy đủ', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(390, 844);
@@ -415,10 +507,10 @@ void main() {
         ),
       );
       final bar = tester.getRect(find.byKey(const ValueKey('bottom-tab-bar')));
-      // Thanh dính đáy; phần chữ / biểu tượng nằm trên vùng an toàn (iPhone
-      // bớt phần thừa trên thanh home), không đè thanh home / nút hệ thống.
-      expect(bar.bottom, 844);
-      expect(bar.height, WebTuiBottomTabTokens.height + gap);
+      // Viên thuốc nổi ngay trên vùng an toàn (iPhone bớt phần thừa trên thanh
+      // home), không đè thanh home / nút hệ thống.
+      expect(bar.bottom, 844 - gap);
+      expect(bar.height, WebTuiBottomTabTokens.height);
       // Thân biết thanh chiếm bao nhiêu: hằng chiều cao thanh + khoảng dưới.
       expect(bodyBottomPadding, WebTuiBottomTabTokens.reservedHeight(gap));
       expect(bodyBottomPadding, greaterThanOrEqualTo(844 - bar.top));

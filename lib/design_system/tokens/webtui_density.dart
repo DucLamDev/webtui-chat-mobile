@@ -27,25 +27,35 @@ final class WebTuiListDensity {
 final class WebTuiBottomTabTokens {
   const WebTuiBottomTabTokens._();
 
-  /// Chiều cao thanh tab dính đáy (không gồm vùng an toàn đáy).
-  static const double height = 52;
+  /// Chiều cao viên thuốc nổi kiểu Telegram (không gồm khoảng trên / dưới).
+  static const double height = 64;
 
-  /// Thanh dính sát mép màn hình: không lề.
-  static const double margin = 0;
+  /// Lề hai bên viên thuốc: nội dung chạy hai bên và phía dưới như Telegram.
+  static const double sideMargin = 16;
 
-  /// Không chừa khoảng trên thanh.
-  static const double topGap = 0;
+  /// Bề ngang tối đa (máy tính bảng, màn ngang): viên thuốc nằm giữa.
+  static const double maxWidth = 520;
 
-  /// Độ mờ nền phía sau thanh (kiểu kính mờ của Telegram / iOS).
-  static const double blurSigma = 20;
+  /// Khoảng dưới tối thiểu khi máy không có vùng an toàn đáy: viên thuốc vẫn
+  /// nổi cách mép màn hình.
+  static const double margin = 12;
 
-  /// Biểu tượng tab không có khung bao nên to hơn (28).
-  static const double iconSize = 28;
+  /// Khoảng trong suốt phía trên viên thuốc, tính vào phần thân phải chừa để
+  /// mục cuối danh sách không dính sát viên thuốc.
+  static const double topGap = 8;
+
+  /// Độ mờ nền phía sau viên thuốc (kính mờ kiểu Telegram / iOS).
+  static const double blurSigma = 30;
+
+  /// Khoảng giữa mép viên thuốc và nền của mục đang chọn.
+  static const double selectionInset = 4;
+
+  static const double iconSize = 26;
   static const int tabCount = 4;
 
-  /// Chiều cao thanh chiếm ở đáy màn hình khi khoảng dưới thanh là
+  /// Chiều cao thanh chiếm ở đáy màn hình khi khoảng dưới viên thuốc là
   /// [bottomGap] (vùng an toàn đáy hoặc [margin]). Danh sách trong tab chính
-  /// đệm đáy ít nhất bằng số này để mục cuối không bị thanh che.
+  /// đệm đáy ít nhất bằng số này để mục cuối không bị viên thuốc che.
   static double reservedHeight(double bottomGap) => topGap + height + bottomGap;
 }
 
