@@ -55,11 +55,11 @@ class WorkspaceToolsScreen extends ConsumerWidget {
         .toList(growable: false);
     return ListView(
       key: const Key('workspace_tools_list'),
-      padding: const EdgeInsets.fromLTRB(
+      padding: EdgeInsets.fromLTRB(
         WebTuiSpacing.lg,
         WebTuiSpacing.md,
         WebTuiSpacing.lg,
-        WebTuiSpacing.xxl,
+        WebTuiSpacing.xxl + MediaQuery.paddingOf(context).bottom,
       ),
       children: [
         MyTasksCard(workspaceId: id),

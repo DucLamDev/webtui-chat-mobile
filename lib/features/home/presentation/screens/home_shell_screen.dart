@@ -2206,7 +2206,9 @@ class SettingsTab extends StatelessWidget {
         ? strings.accountFallbackName
         : userName.trim();
     return ListView(
-      padding: const EdgeInsets.only(bottom: WebTuiSpacing.lg),
+      padding: EdgeInsets.only(
+        bottom: WebTuiSpacing.lg + MediaQuery.paddingOf(context).bottom,
+      ),
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(

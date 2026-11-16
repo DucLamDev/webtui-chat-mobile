@@ -223,7 +223,11 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
           ..._channelSlivers(context, state, controller)
         else
           ..._colleagueSlivers(context, state, controller),
-        const SliverToBoxAdapter(child: SizedBox(height: WebTuiSpacing.lg)),
+        SliverToBoxAdapter(
+          child: SizedBox(
+            height: WebTuiSpacing.lg + MediaQuery.paddingOf(context).bottom,
+          ),
+        ),
       ],
     );
   }
@@ -513,7 +517,11 @@ class _MessagesList extends StatelessWidget {
               },
             ),
           ],
-          const SliverToBoxAdapter(child: SizedBox(height: WebTuiSpacing.lg)),
+          SliverToBoxAdapter(
+          child: SizedBox(
+            height: WebTuiSpacing.lg + MediaQuery.paddingOf(context).bottom,
+          ),
+        ),
         ],
       ),
     );

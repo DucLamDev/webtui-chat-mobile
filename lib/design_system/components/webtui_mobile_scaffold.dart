@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 
 import '../../l10n/app_strings.dart';
@@ -37,6 +39,9 @@ class WebTuiMobileScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // Thanh tab nổi như viên thuốc: nội dung chạy xuống phía sau, Scaffold
+      // tự cộng chiều cao thanh vào MediaQuery.padding.bottom của thân.
+      extendBody: true,
       appBar: !showAppBar
           ? null
           : AppBar(
@@ -61,7 +66,7 @@ class WebTuiMobileScaffold extends StatelessWidget {
               ),
               actions: actions,
             ),
-      body: SafeArea(top: !showAppBar, child: body),
+      body: SafeArea(top: !showAppBar, bottom: false, child: body),
       floatingActionButton: floatingActionButton,
       bottomNavigationBar: WebTuiFloatingTabBar(
         selectedIndex: selectedTab,
@@ -86,9 +91,10 @@ final _tabs = [
   _TabSpec(WebTuiIcons.settings, (s) => s.tabSettings),
 ];
 
-/// Thanh tab nổi dạng viên thuốc: cách mép dưới, bo tròn, đổ bóng nhẹ. Đặt làm
-/// `bottomNavigationBar` nên phần thân luôn kết thúc phía trên thanh (không bị
-/// che), kể cả vùng an toàn dưới cùng.
+/// Thanh tab nổi dạng viên thuốc kiểu kính mờ: cách mép dưới, bo tròn, viền
+/// mảnh, bóng nhẹ. Đặt làm `bottomNavigationBar` của Scaffold có
+/// `extendBody: true`: nội dung cuộn được xuống phía sau thanh, còn phần cuối
+/// danh sách nhận thêm đệm đáy từ `MediaQuery.padding.bottom`.
 class WebTuiFloatingTabBar extends StatelessWidget {
   const WebTuiFloatingTabBar({
     required this.selectedIndex,
@@ -103,8 +109,8 @@ class WebTuiFloatingTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final radius = BorderRadius.circular(WebTuiBottomTabTokens.height);
     return SafeArea(
       top: false,
       minimum: const EdgeInsets.only(bottom: WebTuiBottomTabTokens.margin),
@@ -116,32 +122,47 @@ class WebTuiFloatingTabBar extends StatelessWidget {
           0,
         ),
         child: DecoratedBox(
+          // Bóng nằm ngoài lớp cắt để không bị ClipRRect xén mất.
           decoration: BoxDecoration(
-            color: scheme.surface.withValues(alpha: 0.96),
-            borderRadius: BorderRadius.circular(WebTuiBottomTabTokens.height),
-            border: Border.all(color: scheme.outlineVariant),
+            borderRadius: radius,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.14),
-                blurRadius: 18,
-                offset: const Offset(0, 6),
+                // Nền sáng: bóng rất nhẹ, không thành vệt xám dưới viên thuốc.
+                color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.07),
+                blurRadius: isDark ? 18 : 22,
+                offset: Offset(0, isDark ? 6 : 3),
               ),
             ],
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(4),
-            child: Row(
-              children: [
-                for (var index = 0; index < _tabs.length; index++)
-                  Expanded(
-                    child: _FloatingTabItem(
-                      spec: _tabs[index],
-                      selected: index == selectedIndex,
-                      badge: badges[index] ?? 0,
-                      onTap: () => onSelected(index),
-                    ),
+          child: ClipRRect(
+            borderRadius: radius,
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: isDark ? _pillDark : _pillLight,
+                  borderRadius: radius,
+                  border: Border.all(
+                    color: isDark ? _pillBorderDark : _pillBorderLight,
                   ),
-              ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Row(
+                    children: [
+                      for (var index = 0; index < _tabs.length; index++)
+                        Expanded(
+                          child: _FloatingTabItem(
+                            spec: _tabs[index],
+                            selected: index == selectedIndex,
+                            badge: badges[index] ?? 0,
+                            onTap: () => onSelected(index),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -149,6 +170,19 @@ class WebTuiFloatingTabBar extends StatelessWidget {
     );
   }
 }
+
+const _pillDark = Color(0xE61C1C1E);
+const _pillLight = Color(0xE6FFFFFF);
+const _pillBorderDark = Color(0x1FFFFFFF);
+const _pillBorderLight = Color(0x14000000);
+const _selectedBgDark = Color(0xFF2C2C2E);
+const _selectedBgLight = Color(0xFFE8F2FF);
+// Xám nhãn chưa chọn: tương phản trên nền viên thuốc ≥ 4.5:1 ở cả hai chế độ.
+const _idleDark = Color(0xFFA1A1A8);
+const _idleLight = Color(0xFF5B6270);
+// Nhãn đang chọn ở nền sáng dùng xanh đậm hơn một bậc để đủ tương phản.
+const _selectedFgLight = Color(0xFF0561C7);
+const _tabAnimation = Duration(milliseconds: 150);
 
 class _FloatingTabItem extends StatelessWidget {
   const _FloatingTabItem({
@@ -166,60 +200,71 @@ class _FloatingTabItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final color = selected ? scheme.primary : scheme.onSurfaceVariant;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final activeColor = isDark ? scheme.primary : _selectedFgLight;
+    final color = selected ? activeColor : (isDark ? _idleDark : _idleLight);
     final label = spec.label(AppStrings.of(context));
+    // Không dùng InkWell: không splash / highlight / hover đọng lại. Nút chỉ
+    // đổi màu theo `selected`.
     return Semantics(
       button: true,
       selected: selected,
       label: label,
+      onTap: onTap,
       excludeSemantics: true,
-      child: InkWell(
+      child: GestureDetector(
         key: ValueKey('tab-${spec.label(const AppStringsVi())}'),
+        behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        borderRadius: BorderRadius.circular(WebTuiBottomTabTokens.height),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration: _tabAnimation,
           constraints: const BoxConstraints(
             minHeight: WebTuiBottomTabTokens.height - 8,
           ),
           padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
           decoration: BoxDecoration(
-            color: selected ? WebTuiColors.primarySoft : Colors.transparent,
+            color: selected
+                ? (isDark ? _selectedBgDark : _selectedBgLight)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(WebTuiBottomTabTokens.height),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Icon(
-                    spec.icon,
-                    size: WebTuiBottomTabTokens.iconSize,
-                    color: color,
-                  ),
-                  if (badge > 0)
-                    Positioned(
-                      left: WebTuiBottomTabTokens.iconSize - 8,
-                      top: -7,
-                      child: _TabBadge(count: badge),
+          child: TweenAnimationBuilder<Color?>(
+            tween: ColorTween(end: color),
+            duration: _tabAnimation,
+            builder: (context, tint, _) => Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Icon(
+                      spec.icon,
+                      size: WebTuiBottomTabTokens.iconSize,
+                      color: tint,
                     ),
-                ],
-              ),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11,
-                  height: 1.2,
-                  color: color,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    if (badge > 0)
+                      Positioned(
+                        left: WebTuiBottomTabTokens.iconSize - 8,
+                        top: -7,
+                        child: _TabBadge(count: badge),
+                      ),
+                  ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    height: 1.2,
+                    color: tint,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

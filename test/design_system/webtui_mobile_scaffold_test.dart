@@ -74,9 +74,12 @@ void main() {
     );
     expect(844 - pill.bottom, greaterThanOrEqualTo(12), reason: 'nổi cách mép');
     expect(pill.left, greaterThanOrEqualTo(12));
-    // Thân kết thúc phía trên thanh: nội dung cuối cuộn tới không bị che.
-    final list = tester.getRect(find.byType(ListView));
-    expect(list.bottom, lessThanOrEqualTo(bar.top + 0.5));
+    // Thân chạy xuống sau thanh, nhưng đệm đáy cho phép cuộn dòng cuối lên
+    // phía trên thanh.
+    await tester.drag(find.byType(ListView), const Offset(0, -5000));
+    await tester.pumpAndSettle();
+    final last = tester.getRect(find.text('dong 39'));
+    expect(last.bottom, lessThanOrEqualTo(bar.top + 0.5));
 
     await tester.tap(find.text('Công việc'));
     await tester.pump();
@@ -144,7 +147,8 @@ void main() {
       final decoration =
           tester.widget<Container>(badges.first).decoration! as BoxDecoration;
       expect(decoration.color, const Color(0xFFE5484D));
-      // Mục đang chọn: nền xanh nhạt, chữ và biểu tượng xanh.
+      // Mục đang chọn: nền xanh nhạt, chữ xanh (bậc đậm hơn ở nền sáng để đủ
+      // tương phản 4.5:1 trên nền xanh nhạt).
       final selected = tester.widget<AnimatedContainer>(
         find.descendant(
           of: find.byKey(const ValueKey('tab-Công việc')),
@@ -156,7 +160,7 @@ void main() {
         WebTuiColors.primarySoft,
       );
       final text = tester.widget<Text>(find.text('Công việc'));
-      expect(text.style!.color, WebTuiColors.primary);
+      expect(text.style!.color, WebTuiColors.primaryPressed);
       // Không có số thì không hiện chấm.
       await tester.pumpWidget(
         MaterialApp(
@@ -171,4 +175,148 @@ void main() {
       expect(find.byKey(const ValueKey('tab-badge')), findsNothing);
     },
   );
+
+  double contrast(Color a, Color b) {
+    final la = a.computeLuminance();
+    final lb = b.computeLuminance();
+    final hi = la > lb ? la : lb;
+    final lo = la > lb ? lb : la;
+    return (hi + 0.05) / (lo + 0.05);
+  }
+
+  testWidgets('đổi tab: chỉ nút mới có màu, không còn mực / splash', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final handle = tester.ensureSemantics();
+    var selected = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: WebTuiTheme.light(),
+        home: StatefulBuilder(
+          builder: (context, setState) => WebTuiMobileScaffold(
+            title: 't',
+            selectedTab: selected,
+            onTabSelected: (index) => setState(() => selected = index),
+            body: const SizedBox.shrink(),
+          ),
+        ),
+      ),
+    );
+    final bar = find.byType(WebTuiFloatingTabBar);
+    expect(
+      find.descendant(of: bar, matching: find.byType(InkWell)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: bar, matching: find.byType(InkResponse)),
+      findsNothing,
+    );
+    await tester.tap(find.byKey(const ValueKey('tab-Tin nhắn')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('tab-Bạn bè')));
+    await tester.pumpAndSettle();
+    expect(selected, 1);
+    expect(
+      tester.getSemantics(find.byKey(const ValueKey('tab-Bạn bè'))),
+      matchesSemantics(
+        label: 'Bạn bè',
+        isButton: true,
+        isSelected: true,
+        hasSelectedState: true,
+        hasTapAction: true,
+        hasEnabledState: false,
+      ),
+    );
+    expect(
+      tester.getSemantics(find.byKey(const ValueKey('tab-Tin nhắn'))),
+      matchesSemantics(
+        label: 'Tin nhắn',
+        isButton: true,
+        isSelected: false,
+        hasSelectedState: true,
+        hasTapAction: true,
+        hasEnabledState: false,
+      ),
+    );
+    // Nút cũ: biểu tượng và chữ về màu chưa chọn, nền trong suốt.
+    final oldIcon = tester.widget<Icon>(find.byIcon(WebTuiIcons.messages));
+    final newIcon = tester.widget<Icon>(find.byIcon(WebTuiIcons.friends));
+    expect(oldIcon.color, isNot(newIcon.color));
+    expect(
+      contrast(oldIcon.color!, Colors.white),
+      greaterThanOrEqualTo(4.5),
+      reason: 'nhãn chưa chọn đọc rõ trên nền viên thuốc sáng',
+    );
+    final oldBg = tester.widget<AnimatedContainer>(
+      find.descendant(
+        of: find.byKey(const ValueKey('tab-Tin nhắn')),
+        matching: find.byType(AnimatedContainer),
+      ),
+    );
+    expect((oldBg.decoration! as BoxDecoration).color, Colors.transparent);
+    // Vùng bấm đủ lớn.
+    expect(
+      tester.getSize(find.byKey(const ValueKey('tab-Bạn bè'))).height,
+      greaterThanOrEqualTo(48),
+    );
+    handle.dispose();
+  });
+
+  testWidgets('nền tối: nhãn chưa chọn đủ tương phản trên viên thuốc', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: WebTuiTheme.dark(),
+        home: WebTuiMobileScaffold(
+          title: 't',
+          selectedTab: 0,
+          onTabSelected: (_) {},
+          body: const SizedBox.shrink(),
+        ),
+      ),
+    );
+    final idle = tester.widget<Text>(find.text('Bạn bè')).style!.color!;
+    expect(contrast(idle, const Color(0xFF1C1C1E)), greaterThanOrEqualTo(4.5));
+    final active = tester.widget<Text>(find.text('Tin nhắn')).style!.color!;
+    expect(
+      contrast(active, const Color(0xFF2C2C2E)),
+      greaterThanOrEqualTo(4.5),
+    );
+  });
+
+  testWidgets('extendBody: thân chạy xuống sau thanh và nhận đệm đáy', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    late EdgeInsets bodyPadding;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WebTuiMobileScaffold(
+          title: 't',
+          selectedTab: 0,
+          onTabSelected: (_) {},
+          body: Builder(
+            builder: (context) {
+              bodyPadding = MediaQuery.paddingOf(context);
+              return const SizedBox.expand();
+            },
+          ),
+        ),
+      ),
+    );
+    final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+    expect(scaffold.extendBody, isTrue);
+    final bar = tester.getRect(find.byType(WebTuiFloatingTabBar));
+    expect(bodyPadding.bottom, greaterThanOrEqualTo(bar.height));
+    // Thân phủ tới mép dưới màn hình (không có dải đáy riêng).
+    final body = tester.getRect(find.byType(SizedBox).first);
+    expect(body.bottom, 844);
+    expect(find.byType(BackdropFilter), findsOneWidget);
+  });
 }
