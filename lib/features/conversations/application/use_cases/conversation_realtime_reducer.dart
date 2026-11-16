@@ -11,8 +11,44 @@ final class ConversationRealtimeState {
   final Set<String> typingUserIds;
 }
 
+/// Nhóm đổi thành viên / bị xoá theo sự kiện realtime.
+enum ChannelMembershipChange {
+  /// `ChannelArchived`: nhóm bị xoá cho mọi người → bỏ khỏi danh sách, đang mở
+  /// thì đóng.
+  archived,
+
+  /// `ChannelMemberLeft` của chính mình (rời ở máy khác) → bỏ khỏi danh sách.
+  leftByMe,
+
+  /// `ChannelMemberLeft` của người khác → làm mới số thành viên / thông tin.
+  memberLeft,
+}
+
 final class ConversationRealtimeReducer {
   const ConversationRealtimeReducer();
+
+  /// Sự kiện rời / xoá nhóm ảnh hưởng thế nào tới danh sách nhóm của người
+  /// đang dùng. `null` = không phải sự kiện loại này hoặc thiếu `channel_id`.
+  /// Không biết người dùng hiện tại thì coi người rời là người khác (chỉ làm
+  /// mới), không tự bỏ nhóm.
+  ChannelMembershipChange? membershipChange(
+    ConversationRealtimeEvent event, {
+    required String? currentUserId,
+  }) {
+    if (event.channelId.trim().isEmpty) return null;
+    switch (event.type) {
+      case ConversationRealtimeEventType.channelArchived:
+        return ChannelMembershipChange.archived;
+      case ConversationRealtimeEventType.channelMemberLeft:
+        final leaver = event.userId?.trim() ?? '';
+        final me = currentUserId?.trim() ?? '';
+        return leaver.isNotEmpty && leaver == me
+            ? ChannelMembershipChange.leftByMe
+            : ChannelMembershipChange.memberLeft;
+      default:
+        return null;
+    }
+  }
 
   /// Khung thread đang mở nhận cùng sự kiện: trả lời mới của luồng [rootId],
   /// sửa / thu hồi / reaction của tin đã có trong luồng. `null` = không đổi.
@@ -118,6 +154,8 @@ final class ConversationRealtimeReducer {
       ConversationRealtimeEventType.noticeChannelCreated ||
       ConversationRealtimeEventType.channelMemberAdded ||
       ConversationRealtimeEventType.channelUpdated ||
+      ConversationRealtimeEventType.channelMemberLeft ||
+      ConversationRealtimeEventType.channelArchived ||
       ConversationRealtimeEventType.groupCallStarted ||
       ConversationRealtimeEventType.groupCallRingStopped ||
       ConversationRealtimeEventType.groupCallEnded => state,

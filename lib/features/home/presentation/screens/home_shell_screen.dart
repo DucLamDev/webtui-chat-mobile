@@ -35,6 +35,7 @@ import '../../../conversations/domain/entities/call_session.dart';
 import '../../../conversations/domain/entities/conversation_realtime_event.dart';
 import '../../../conversations/domain/entities/conversation_summary.dart';
 import '../../../conversations/presentation/controllers/channel_detail_controller.dart';
+import '../../../conversations/presentation/controllers/channel_membership_events.dart';
 import '../../../conversations/presentation/controllers/chat_room_controller.dart';
 import '../../../conversations/presentation/controllers/conversation_home_controller.dart';
 import '../../../conversations/presentation/controllers/messages_tab_unread.dart';
@@ -1475,6 +1476,16 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
               );
               tick.state = tick.state + 1;
             }
+            return;
+          }
+          // Nhóm bị xoá / mình rời nhóm ở máy khác: bỏ nhóm khỏi danh sách,
+          // phòng chat / màn thông tin đang mở nhóm đó tự đóng.
+          if (handleChannelMembershipEvent(
+            read: ref.read,
+            exists: ref.exists,
+            event: event,
+            currentUserId: ref.read(profileControllerProvider).profile?.id,
+          )) {
             return;
           }
           // Chat bot thông báo vừa được tạo, hoặc vừa được thêm vào nhóm: tải

@@ -15,6 +15,8 @@ final class ChannelDto {
     required this.membershipStatus,
     required this.isMember,
     required this.canManage,
+    this.canLeave = false,
+    this.canDelete = false,
     required this.memberCount,
     required this.privateSessionMode,
     this.isAutomation = false,
@@ -33,6 +35,8 @@ final class ChannelDto {
   final String membershipStatus;
   final bool isMember;
   final bool canManage;
+  final bool canLeave;
+  final bool canDelete;
   final int memberCount;
   final bool privateSessionMode;
   final bool isAutomation;
@@ -52,6 +56,8 @@ final class ChannelDto {
       membershipStatus: _string(json['membership_status'], fallback: 'none'),
       isMember: json['is_member'] == true,
       canManage: json['can_manage'] == true,
+      canLeave: json['can_leave'] == true,
+      canDelete: json['can_delete'] == true,
       memberCount: _int(json['member_count']),
       privateSessionMode: json['private_session_mode'] == true,
       isAutomation: json['is_automation'] == true,
@@ -77,6 +83,8 @@ final class ChannelDto {
       channelVisibility: visibility,
       membershipStatus: _membershipFrom(membershipStatus),
       canManage: canManage,
+      canLeave: canLeave,
+      canDelete: canDelete,
       privateSessionMode: privateSessionMode,
       isAutomation: isAutomation,
       noticeBot: noticeBot,

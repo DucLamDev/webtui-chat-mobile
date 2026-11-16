@@ -56,6 +56,16 @@ enum ConversationRealtimeEventType {
   /// sách hội thoại / màn thông tin kênh.
   channelUpdated,
 
+  /// Một thành viên vừa rời nhóm (`ChannelMemberLeft`, gửi vào room kênh và
+  /// room cá nhân của người rời): `userId` là người rời. Là mình thì bỏ nhóm
+  /// khỏi danh sách; người khác thì làm mới số thành viên / thông tin nhóm.
+  channelMemberLeft,
+
+  /// Nhóm vừa bị xoá (lưu trữ) cho mọi thành viên (`ChannelArchived`, gửi vào
+  /// room kênh và room cá nhân của từng thành viên): bỏ nhóm khỏi danh sách,
+  /// đang mở thì đóng.
+  channelArchived,
+
   /// Gọi nhóm có đổ chuông (Lõi 7), gửi vào room cá nhân: bắt đầu đổ chuông
   /// (`payload` là `GroupCall`), ngừng đổ chuông máy này
   /// (`payload.group_call_id`, `payload.reason`), cuộc gọi nhóm kết thúc.

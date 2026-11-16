@@ -628,9 +628,13 @@ final class ConversationRealtimeEventMapper {
           message?.id ??
           nullableStringField(messageMap, const ['id']) ??
           nullableStringField(payload, const ['message_id', 'messageId']),
-      userId:
-          nullableStringField(map, const ['user_id', 'userId']) ??
-          nullableStringField(payload, const ['user_id', 'userId']),
+      // `ChannelMemberLeft`: người rời nằm ở `payload.user_id`, ưu tiên hơn
+      // người gửi sự kiện ở ngoài.
+      userId: type == ConversationRealtimeEventType.channelMemberLeft
+          ? nullableStringField(payload, const ['user_id', 'userId']) ??
+                nullableStringField(map, const ['user_id', 'userId'])
+          : nullableStringField(map, const ['user_id', 'userId']) ??
+                nullableStringField(payload, const ['user_id', 'userId']),
       timestamp: nullableDateTimeField(map, const ['timestamp']),
       callId: nullableStringField(payload, const ['call_id', 'callId']),
       callMode: _callMode(nullableStringField(payload, const ['mode'])),
@@ -775,6 +779,8 @@ ConversationRealtimeEventType _eventType(String value) {
       ConversationRealtimeEventType.noticeChannelCreated,
     'ChannelMemberAdded' => ConversationRealtimeEventType.channelMemberAdded,
     'ChannelUpdated' => ConversationRealtimeEventType.channelUpdated,
+    'ChannelMemberLeft' => ConversationRealtimeEventType.channelMemberLeft,
+    'ChannelArchived' => ConversationRealtimeEventType.channelArchived,
     'OrderTicketUpdated' => ConversationRealtimeEventType.orderTicketUpdated,
     'SessionRevoked' => ConversationRealtimeEventType.sessionRevoked,
     'DeviceApprovalRequested' =>

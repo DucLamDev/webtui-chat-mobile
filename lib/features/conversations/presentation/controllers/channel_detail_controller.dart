@@ -193,7 +193,8 @@ final class ChannelDetailController extends StateNotifier<ChannelDetailState> {
   final ListChannelMediaUseCase _listChannelMediaUseCase;
   final ChangeChannelAvatarUseCase? _changeChannelAvatarUseCase;
 
-  /// Tải lại thông tin kênh (sau `ChannelUpdated`) mà không hiện màn chờ;
+  /// Tải lại thông tin kênh và thành viên (sau `ChannelUpdated` /
+  /// `ChannelMemberLeft`) mà không hiện màn chờ;
   /// đang tải ảnh lên / đang tải lần đầu thì bỏ qua (kết quả đó mới hơn).
   Future<void> reloadChannelSilently() async {
     if (state.isLoading || state.isUpdatingAvatar) return;
@@ -203,7 +204,12 @@ final class ChannelDetailController extends StateNotifier<ChannelDetailState> {
     );
     if (!mounted || state.isUpdatingAvatar) return;
     if (result case Success<ChannelDetailData>(value: final data)) {
-      state = state.copyWith(channel: data.channel);
+      // Danh sách thành viên cũng làm mới (có người vừa rời nhóm); tải lỗi thì
+      // giữ danh sách đang hiện.
+      state = state.copyWith(
+        channel: data.channel,
+        members: data.membersErrorMessage == null ? data.members : null,
+      );
     }
   }
 
@@ -273,6 +279,8 @@ final class ChannelDetailController extends StateNotifier<ChannelDetailState> {
       channelVisibility: current.channelVisibility,
       membershipStatus: current.membershipStatus,
       canManage: current.canManage,
+      canLeave: current.canLeave,
+      canDelete: current.canDelete,
       privateSessionMode: current.privateSessionMode,
       isAutomation: current.isAutomation,
       noticeBot: current.noticeBot,

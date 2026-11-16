@@ -3,6 +3,16 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.31.0 · 16/11/2026
+### Tính năng
+- Rời nhóm và xoá nhóm
+  - Trong phòng chat nhóm, menu ≡ và màn thông tin nhóm có thêm "Rời nhóm" và "Xoá nhóm"; cả hai đều có hộp xác nhận.
+  - Rời nhóm: nhóm biến mất khỏi Tin nhắn của mình, người khác vẫn nhắn tiếp. Người cuối cùng rời thì nhóm tự xoá.
+  - Xoá nhóm: chỉ người tạo nhóm hoặc quản trị làm được; nhóm biến mất ở mọi thành viên và không mở lại được.
+  - Đang mở một nhóm mà nhóm đó bị người khác xoá thì app tự đóng và báo "Nhóm đã bị xoá".
+  - Không có ở chat 1-1 và kênh bot.
+  - Cần máy chủ bản có Rời / Xoá nhóm; máy chủ cũ thì không hiện hai nút này.
+
 ## 1.30.0 · 16/11/2026
 ### Tính năng
 - Cài đặt gọn lại, cả app có tiếng Anh, chọn được giao diện Sáng / Tối; video trong Tệp có ảnh xem trước; iPhone nghe được

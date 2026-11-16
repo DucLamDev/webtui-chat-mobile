@@ -8,10 +8,12 @@ import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/call_session.dart';
 import '../controllers/peer_presence.dart';
+import 'channel_exit_actions.dart';
 
 /// Đầu phòng chat: quay lại, ảnh đại diện (chấm xanh khi 1-1) + tên + dòng phụ,
 /// chỉ hai nút gọi thoại / gọi video và nút ba gạch (≡) gom: tìm tin nhắn, báo
-/// cáo hoặc chặn, công cụ làm việc, chi tiết kênh. Các phần đều gọn (nút 44
+/// cáo hoặc chặn, công cụ làm việc, chi tiết kênh, rời / xoá nhóm (khi máy chủ
+/// cho phép). Các phần đều gọn (nút 44
 /// điểm, ảnh 38 điểm) và chữ tên tự nhỏ dần khi thiếu chỗ để tên người thường
 /// gặp (vd. "Nguyễn Thanh Tiền") hiện đủ trên điện thoại khổ 360–390 điểm.
 ///
@@ -33,6 +35,9 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.publicAvatar = false,
     this.onSafety,
     this.notificationAction,
+    this.onLeaveGroup,
+    this.onDeleteGroup,
+    this.deleteGroupLabel,
     super.key,
   });
 
@@ -54,6 +59,16 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback onTools;
   final VoidCallback onDetails;
   final Widget? notificationAction;
+
+  /// "Rời nhóm" trong menu ≡ (`null`: ẩn — không phải nhóm / máy chủ không
+  /// cho rời).
+  final VoidCallback? onLeaveGroup;
+
+  /// "Xoá nhóm" (đỏ, ghi rõ xoá cho mọi thành viên) (`null`: ẩn).
+  final VoidCallback? onDeleteGroup;
+
+  /// Tên mục xoá ("Xoá nhóm" / "Xoá kênh"); mặc định "Xoá nhóm".
+  final String? deleteGroupLabel;
 
   @override
   Size get preferredSize => const Size.fromHeight(64);
@@ -159,6 +174,10 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 onTools();
               case 'details':
                 onDetails();
+              case 'leave':
+                onLeaveGroup?.call();
+              case 'delete':
+                onDeleteGroup?.call();
             }
           },
           itemBuilder: (_) => [
@@ -195,6 +214,31 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 child: _ChatMenuRow(
                   icon: WebTuiIcons.channel,
                   label: tr('Chi tiết kênh', 'Channel details'),
+                ),
+              ),
+            if (!noticeBot && onLeaveGroup != null)
+              PopupMenuItem(
+                key: const Key('chat_room_leave_group'),
+                value: 'leave',
+                child: _ChatMenuRow(
+                  icon: WebTuiIcons.leaveGroup,
+                  label: tr('Rời nhóm', 'Leave group'),
+                  color: channelExitDangerText,
+                ),
+              ),
+            if (!noticeBot && onDeleteGroup != null)
+              PopupMenuItem(
+                key: const Key('chat_room_delete_group'),
+                value: 'delete',
+                child: _ChatMenuRow(
+                  icon: WebTuiIcons.delete,
+                  label: deleteGroupLabel ?? tr('Xoá nhóm', 'Delete group'),
+                  subtitle: tr(
+                    'Xoá cho mọi thành viên',
+                    'Deletes it for every member',
+                  ),
+                  color: channelExitDangerText,
+                  strong: true,
                 ),
               ),
           ],
@@ -269,18 +313,62 @@ class _ChatRoomTitle extends StatelessWidget {
 }
 
 class _ChatMenuRow extends StatelessWidget {
-  const _ChatMenuRow({required this.icon, required this.label});
+  const _ChatMenuRow({
+    required this.icon,
+    required this.label,
+    this.subtitle,
+    this.color,
+    this.strong = false,
+  });
 
   final IconData icon;
   final String label;
+  final String? subtitle;
+
+  /// Màu chữ và biểu tượng (`null`: màu thường).
+  final Color? color;
+  final bool strong;
 
   @override
   Widget build(BuildContext context) {
+    final subtitle = this.subtitle;
     return Row(
       children: [
-        Icon(icon, size: 20, color: WebTuiColors.textSecondary),
+        Icon(icon, size: 20, color: color ?? WebTuiColors.textSecondary),
         const SizedBox(width: 12),
-        Flexible(child: Text(label)),
+        Flexible(
+          child: subtitle == null
+              ? Text(
+                  label,
+                  style: color == null
+                      ? null
+                      : TextStyle(
+                          color: color,
+                          fontWeight: strong
+                              ? FontWeight.w700
+                              : FontWeight.w600,
+                        ),
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: color,
+                        fontWeight: strong ? FontWeight.w700 : FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: WebTuiTypography.bodySmall.copyWith(
+                        color: WebTuiColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
       ],
     );
   }

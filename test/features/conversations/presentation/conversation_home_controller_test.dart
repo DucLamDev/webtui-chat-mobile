@@ -33,6 +33,43 @@ void main() {
     expect(controller.state.channels.single.unreadCount, 0);
   });
 
+  test('removeChannel bỏ nhóm khỏi danh sách và bỏ chọn nhóm đó', () async {
+    final repository = _FakeConversationRepository(
+      conversations: [_summary(id: 'dm-1', channelId: 'dm-channel')],
+      channels: [
+        _summary(
+          id: 'group-1',
+          channelId: 'group-1',
+          kind: ConversationKind.channel,
+        ),
+        _summary(
+          id: 'group-2',
+          channelId: 'group-2',
+          kind: ConversationKind.channel,
+        ),
+      ],
+    );
+    final controller = _controller(repository);
+    addTearDown(controller.dispose);
+
+    await controller.load();
+    controller.selectConversation(controller.state.channels.first);
+    controller.removeChannel('group-1');
+
+    expect(controller.state.channels.map((item) => item.channelId), [
+      'group-2',
+    ]);
+    expect(controller.state.conversations.map((item) => item.channelId), [
+      'dm-channel',
+    ]);
+    expect(controller.state.selectedConversation, isNull);
+
+    // Nhóm khác đang chọn thì giữ nguyên lựa chọn.
+    controller.selectConversation(controller.state.channels.single);
+    controller.removeChannel('khong-co');
+    expect(controller.state.selectedConversation?.channelId, 'group-2');
+  });
+
   test('selectConversation clears unread badge in conversation list', () async {
     final repository = _FakeConversationRepository(
       conversations: [_summary(id: 'dm-1', channelId: 'dm-channel', unread: 3)],
