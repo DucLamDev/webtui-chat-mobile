@@ -25,8 +25,7 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   - Công việc: Việc của tôi (3 cột số + việc gần hạn), lưới Ứng dụng dùng icon hai tông màu không ô nền, thêm nhóm
     Họp sắp tới (3 cuộc họp gần nhất chưa huỷ, bấm mở chi tiết). Bỏ dòng "Chưa có lối tắt".
   - Cài đặt: đầu màn có ảnh đại diện lớn, tên, email và nút Sửa hồ sơ; dòng cài đặt chữ thường, giá trị xám bên phải,
-    công tắc kiểu iOS. Đổi tên "Thiết lập nâng cao" thành "Quyền riêng tư và bảo mật", "Danh sách dày" thành "Danh sách
-    gọn".
+    công tắc kiểu iOS. Đổi tên "Danh sách dày" thành "Danh sách gọn".
 
 ## 1.32.1 · 16/11/2026
 ### Sửa lỗi

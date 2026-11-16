@@ -2354,7 +2354,7 @@ class SettingsTab extends StatelessWidget {
           WebTuiSettingRow(
             key: const Key('settings_advanced_row'),
             title: strings.advancedTitle,
-            icon: WebTuiIcons.privacy,
+            icon: WebTuiIcons.advancedSettings,
             onTap: onAdvancedTap,
           ),
           const WebTuiGroupGap(),

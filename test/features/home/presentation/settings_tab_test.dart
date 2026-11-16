@@ -112,15 +112,12 @@ void main() {
     expect(find.text('Hồ sơ cá nhân'), findsOneWidget);
   });
 
-  testWidgets('dòng đổi tên: Quyền riêng tư và bảo mật mở thiết lập', (
-    tester,
-  ) async {
+  testWidgets('dòng Thiết lập nâng cao mở màn thiết lập', (tester) async {
     var advancedOpened = 0;
     await tester.pumpWidget(_host(_tab(onAdvancedTap: () => advancedOpened++)));
     await tester.pump();
 
-    expect(find.text('Thiết lập nâng cao'), findsNothing);
-    await tester.tap(find.text('Quyền riêng tư và bảo mật'));
+    await tester.tap(find.text('Thiết lập nâng cao'));
     expect(advancedOpened, 1);
   });
 
@@ -224,7 +221,7 @@ void main() {
     expect(find.text('Edit profile'), findsOneWidget);
     expect(find.text('Profile'), findsOneWidget);
     expect(find.text('Switch workspace'), findsOneWidget);
-    expect(find.text('Privacy and security'), findsOneWidget);
+    expect(find.text('Advanced settings'), findsOneWidget);
     expect(find.text('Compact list'), findsOneWidget);
     expect(find.text('Volume'), findsOneWidget);
     expect(find.text('Text size'), findsOneWidget);

@@ -124,7 +124,7 @@ abstract final class WebTuiIcons {
   static const IconData compactList = PhosphorRegular.rows;
   static const IconData volume = PhosphorRegular.speakerHigh;
   static const IconData textSize = PhosphorRegular.textAa;
-  static const IconData privacy = PhosphorRegular.lockSimple;
+  static const IconData advancedSettings = PhosphorRegular.slidersHorizontal;
   static const IconData logout = PhosphorRegular.signOut;
 
   // Bảo mật / xác thực.
