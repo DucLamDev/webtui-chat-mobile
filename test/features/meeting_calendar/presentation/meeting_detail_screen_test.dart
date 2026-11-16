@@ -314,6 +314,18 @@ void main() {
     expect(find.byKey(const Key('meeting_guest_copy')), findsOneWidget);
   });
 
+  testWidgets('link khách tương đối: ghép tên miền máy chủ đang dùng', (
+    tester,
+  ) async {
+    final calendar = FakeMeetingCalendarRepository(
+      detail: organizerMeeting(
+        guestLink: const MeetingGuestLink(enabled: true, url: '/join?token=t1'),
+      ),
+    );
+    await open(tester, calendar: calendar, now: DateTime(2026, 11, 16, 8));
+    expect(find.text('https://chat.example.com/join?token=t1'), findsOneWidget);
+  });
+
   testWidgets('lỗi tải chi tiết: báo lỗi và Thử lại', (tester) async {
     final calendar = FakeMeetingCalendarRepository(
       detail: organizerMeeting(),

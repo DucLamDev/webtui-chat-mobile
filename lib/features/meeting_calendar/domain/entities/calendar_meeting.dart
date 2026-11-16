@@ -136,6 +136,17 @@ final class MeetingGuestLink {
   final String url;
 }
 
+/// Link khách đầy đủ để hiện / sao chép. Máy chủ chưa đặt `APP_URL` thì trả
+/// đường tương đối (`/join?token=…`): ghép với gốc của máy chủ đang dùng (web
+/// và trang `/join` cùng tên miền). Đường đã đầy đủ thì giữ nguyên. Chỉ hỏi
+/// địa chỉ máy chủ khi thật sự cần ghép.
+String absoluteGuestUrl(String url, Uri Function() server) {
+  final value = url.trim();
+  if (!value.startsWith('/') || value.startsWith('//')) return value;
+  final base = server();
+  return base.hasScheme ? '${base.origin}$value' : value;
+}
+
 /// Một cuộc họp (buổi họp) theo `MeetingDTO` mở rộng. Máy chủ cũ thiếu trường
 /// mới thì dùng giá trị an toàn: không có quyền sửa / huỷ / phản hồi.
 final class CalendarMeeting {

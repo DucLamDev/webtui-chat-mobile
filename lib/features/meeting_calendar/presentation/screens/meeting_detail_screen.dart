@@ -706,6 +706,10 @@ class _MeetingDetailScreenState extends ConsumerState<MeetingDetailScreen> {
   List<Widget> _guestSection(CalendarMeeting meeting) {
     final link = meeting.guestLink;
     final enabled = link?.enabled == true;
+    final guestUrl = absoluteGuestUrl(
+      link?.url ?? '',
+      () => ref.read(activeServerUriProvider),
+    );
     return [
       MeetingSectionTitle(tr('Link cho khách', 'Guest link')),
       SwitchListTile(
@@ -725,7 +729,7 @@ class _MeetingDetailScreenState extends ConsumerState<MeetingDetailScreen> {
           style: TextStyle(color: WebTuiColors.textSecondary),
         ),
       ),
-      if (enabled && link!.url.isNotEmpty)
+      if (enabled && guestUrl.isNotEmpty)
         WorkCard(
           radius: 14,
           padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
@@ -733,7 +737,7 @@ class _MeetingDetailScreenState extends ConsumerState<MeetingDetailScreen> {
             children: [
               Expanded(
                 child: SelectableText(
-                  link.url,
+                  guestUrl,
                   key: const Key('meeting_guest_url'),
                   maxLines: 2,
                   style: WebTuiTypography.bodySmall.copyWith(
@@ -744,7 +748,7 @@ class _MeetingDetailScreenState extends ConsumerState<MeetingDetailScreen> {
               IconButton(
                 key: const Key('meeting_guest_copy'),
                 tooltip: tr('Sao chép link', 'Copy link'),
-                onPressed: () => _copy(link.url),
+                onPressed: () => _copy(guestUrl),
                 icon: const Icon(WebTuiIcons.copy),
               ),
             ],

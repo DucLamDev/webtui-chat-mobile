@@ -104,6 +104,9 @@ Widget meetingApp({
         launcher ?? FakeUrlLauncher(),
       ),
       meetingTimezoneProvider.overrideWithValue('Asia/Ho_Chi_Minh'),
+      activeServerUriProvider.overrideWithValue(
+        Uri.parse('https://chat.example.com/api'),
+      ),
     ],
     child: MaterialApp.router(
       theme: brightness == Brightness.dark
