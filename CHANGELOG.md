@@ -3,6 +3,29 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.37.0 · 16/11/2026
+### Tính năng
+- Trình soạn Ghi chú làm lại giống app Ghi chú iPhone: một ô soạn, dòng đầu là tiêu đề, tự lưu, định dạng hiện trực tiếp
+  - Mở ghi chú là sửa được ngay: bỏ chế độ xem riêng, nút Sửa, nút Lưu và ô tiêu đề riêng. Dòng đầu tiên tự thành tiêu
+    đề (chữ lớn); trên cùng ghi ngày giờ sửa. Ghi chú tự lưu sau khi ngừng gõ khoảng 1 giây, khi bấm Xong, khi rời màn
+    hoặc chuyển sang app khác. Ghi chú mới chưa gõ gì thì không tạo.
+  - Định dạng hiện thẳng khi gõ, không thấy ký hiệu markdown: tiêu đề / đề mục / đề mục phụ, đậm, nghiêng, gạch ngang,
+    mã, khối đơn cách, danh sách chấm, danh sách số, trích dẫn; liên kết http và #tag tô màu. Ô tick tròn bấm thẳng
+    để đánh dấu xong (lưu ngay). Enter ở dòng danh sách / ô tick tự thêm dòng cùng kiểu, Enter ở dòng trống thì thoát
+    danh sách, xoá lùi ở đầu dòng thì bỏ kiểu danh sách.
+  - Thanh công cụ dưới cùng (nằm trên bàn phím khi đang gõ): Aa mở bảng định dạng, nút ô tick, nút máy ảnh, nút soạn
+    ghi chú mới. Nút Xong trên đầu để ẩn bàn phím.
+  - Gõ #tag trong ghi chú để gắn tag, xoá chữ là bỏ tag. Tag đặt từ trước (không có trong chữ) vẫn giữ, sửa ở menu ⋯
+    → Tag.
+  - Ảnh trong ghi chú: chụp ảnh, chọn ảnh (tối đa 10 ảnh một lần) hoặc chọn tệp. Ảnh hiện thành lưới ngay trong ghi
+    chú, bấm để xem to (vuốt qua lại, phóng to); gỡ khỏi ghi chú bằng nhấn giữ hoặc trong màn xem ảnh (có hỏi lại).
+    Tệp lớn được tải lên từng phần.
+  - Menu ⋯: ghim / bỏ ghim, chuyển thư mục, tag, sao chép nội dung, xoá ghi chú.
+  - Ghi chú vừa được sửa ở thiết bị khác: dừng tự lưu, cho chọn Giữ bản của tôi (ghi đè) hoặc Tải bản mới nhất. Rời
+    màn khi chưa lưu được (mất mạng) thì hỏi ở lại hay bỏ phần chưa lưu. Xoá hết chữ của ghi chú cũ rồi thoát thì hỏi
+    xoá ghi chú hay giữ bản đã lưu.
+  - Nội dung vẫn lưu dạng markdown như trước nên trang web và ghi chú cũ vẫn đọc / sửa bình thường.
+
 ## 1.36.0 · 16/11/2026
 ### Tính năng
 - Thanh tab dưới thành viên thuốc nổi, kính trong kiểu Telegram

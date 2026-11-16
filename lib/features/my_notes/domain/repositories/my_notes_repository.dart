@@ -50,6 +50,14 @@ abstract interface class MyNotesRepository {
     required String fileId,
   });
 
+  /// Tải tệp trên máy lên kho tệp của workspace; trả `file_id` để gắn vào ghi
+  /// chú bằng [addAttachment].
+  Future<Result<String>> uploadFile({
+    required String workspaceId,
+    required MyNoteLocalFile file,
+    void Function(double progress)? onProgress,
+  });
+
   Future<Result<void>> removeAttachment({
     required String workspaceId,
     required String noteId,
