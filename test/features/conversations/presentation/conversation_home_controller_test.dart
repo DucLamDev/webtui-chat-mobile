@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/core/result/result.dart';
 import 'package:webtui_chat/features/conversations/application/use_cases/channel_use_cases.dart';
@@ -5,6 +7,7 @@ import 'package:webtui_chat/features/conversations/application/use_cases/load_co
 import 'package:webtui_chat/features/conversations/application/use_cases/open_direct_conversation_use_case.dart';
 import 'package:webtui_chat/features/conversations/domain/entities/channel_file.dart';
 import 'package:webtui_chat/features/conversations/domain/entities/chat_message.dart';
+import 'package:webtui_chat/features/conversations/domain/entities/conversation_realtime_event.dart';
 import 'package:webtui_chat/features/conversations/domain/entities/conversation_summary.dart';
 import 'package:webtui_chat/features/conversations/domain/repositories/conversation_repository.dart';
 import 'package:webtui_chat/features/conversations/presentation/controllers/conversation_home_controller.dart';
@@ -178,11 +181,341 @@ void main() {
       ]);
     },
   );
+
+  test(
+    'tin mới ở phòng chưa mở: cộng chưa đọc tại chỗ, không gọi lại máy chủ',
+    () async {
+      final repository = _FakeConversationRepository(
+        conversations: [
+          _summary(id: 'dm-1', channelId: 'dm-channel'),
+          _summary(id: 'dm-2', channelId: 'dm-other'),
+        ],
+        channels: [
+          _summary(
+            id: 'group-1',
+            channelId: 'group-1',
+            kind: ConversationKind.channel,
+          ),
+          _summary(
+            id: 'public-not-joined',
+            channelId: 'public-not-joined',
+            kind: ConversationKind.channel,
+            membership: MembershipStatus.none,
+          ),
+        ],
+      );
+      final realtime = _FakeRealtimeRepository();
+      final controller = _controller(repository, realtime: realtime);
+      addTearDown(controller.dispose);
+
+      await controller.load();
+      expect(realtime.watched.last, {'dm-channel', 'dm-other', 'group-1'});
+      final channelLoads = repository.channelLoads;
+      final contactLoads = repository.contactLoads;
+
+      // Tin tới hai lần (cùng mã): chỉ cộng một.
+      realtime.emitMessage('group-1', id: 'm-1');
+      realtime.emitMessage('group-1', id: 'm-1');
+      realtime.emitMessage('group-1', id: 'm-2');
+      // Tin của chính mình (máy khác): không cộng chưa đọc.
+      realtime.emitMessage('group-1', id: 'm-3', senderId: 'me');
+      // Sự kiện khác / nhóm chưa tham gia: bỏ qua.
+      realtime.emit(ConversationRealtimeEventType.typingStarted, 'group-1');
+      realtime.emitMessage('public-not-joined', id: 'm-4');
+      // Chat 1-1: dòng phụ là tin cuối, hội thoại lên đầu danh sách.
+      realtime.emitMessage('dm-other', id: 'm-5', body: 'Hẹn 3 giờ nhé');
+      await Future<void>.delayed(Duration.zero);
+
+      final group = controller.state.channels.firstWhere(
+        (item) => item.channelId == 'group-1',
+      );
+      expect(group.unreadCount, 2);
+      // Nhóm giữ mô tả ở dòng phụ.
+      expect(group.preview, 'Tin nhắn mới');
+      expect(
+        controller.state.channels
+            .firstWhere((item) => item.channelId == 'public-not-joined')
+            .unreadCount,
+        0,
+      );
+      final first = controller.state.conversations.first;
+      expect(first.channelId, 'dm-other');
+      expect(first.unreadCount, 1);
+      expect(first.preview, 'Hẹn 3 giờ nhé');
+      // Không tải lại gì từ máy chủ.
+      expect(repository.channelLoads, channelLoads);
+      expect(repository.contactLoads, contactLoads);
+    },
+  );
+
+  test('đang mở hội thoại (máy tính bảng): không cộng chưa đọc', () async {
+    final dm = _summary(id: 'dm-1', channelId: 'dm-channel');
+    final repository = _FakeConversationRepository(conversations: [dm]);
+    final realtime = _FakeRealtimeRepository();
+    final controller = _controller(repository, realtime: realtime);
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.reportSplitView(true);
+    controller.selectConversation(dm);
+
+    realtime.emitMessage('dm-channel', id: 'm-1');
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.state.conversations.single.unreadCount, 0);
+  });
+
+  test(
+    'điện thoại: hội thoại chọn lần trước (đã rời phòng) vẫn được cộng',
+    () async {
+      final dm = _summary(id: 'dm-1', channelId: 'dm-channel');
+      final repository = _FakeConversationRepository(conversations: [dm]);
+      final realtime = _FakeRealtimeRepository();
+      final controller = _controller(repository, realtime: realtime);
+      addTearDown(controller.dispose);
+      await controller.load();
+      controller.reportSplitView(false);
+      controller.selectConversation(dm);
+
+      realtime.emitMessage('dm-channel', id: 'm-1');
+      await Future<void>.delayed(Duration.zero);
+
+      expect(controller.state.conversations.single.unreadCount, 1);
+    },
+  );
+
+  test('tin vừa cộng bị thu hồi / hết hạn: trừ lại', () async {
+    final repository = _FakeConversationRepository(
+      channels: [
+        _summary(id: 'g', channelId: 'g', kind: ConversationKind.channel),
+      ],
+    );
+    final realtime = _FakeRealtimeRepository();
+    final controller = _controller(repository, realtime: realtime);
+    addTearDown(controller.dispose);
+    await controller.load();
+
+    realtime.emitMessage('g', id: 'm-1');
+    realtime.emitMessage('g', id: 'm-2');
+    realtime.emitDeleted('g', 'm-1');
+    // Xoá lại lần nữa / tin không được cộng: không trừ thêm.
+    realtime.emitDeleted('g', 'm-1');
+    realtime.emitDeleted('g', 'm-cu');
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.state.channels.single.unreadCount, 1);
+  });
+
+  test(
+    'dòng phụ chat 1-1: tin bí mật không lộ nội dung, tin rỗng giữ dòng cũ',
+    () async {
+      final repository = _FakeConversationRepository(
+        conversations: [
+          _summary(id: 'dm-1', channelId: 'dm-a'),
+          _summary(id: 'dm-2', channelId: 'dm-b'),
+        ],
+      );
+      final realtime = _FakeRealtimeRepository();
+      final controller = _controller(repository, realtime: realtime);
+      addTearDown(controller.dispose);
+      await controller.load();
+
+      realtime.emitMessage('dm-a', id: 'm-1', body: 'mật', isSecret: true);
+      realtime.emitMessage('dm-b', id: 'm-2', body: '  ');
+      await Future<void>.delayed(Duration.zero);
+
+      String preview(String channelId) => controller.state.conversations
+          .firstWhere((item) => item.channelId == channelId)
+          .preview;
+      expect(preview('dm-a'), 'Tin nhắn bí mật');
+      expect(preview('dm-b'), 'Tin nhắn mới');
+    },
+  );
+
+  test('chưa biết mình là ai: không cộng chưa đọc, vẫn đưa lên đầu', () async {
+    final repository = _FakeConversationRepository(
+      conversations: [
+        _summary(id: 'dm-1', channelId: 'dm-a'),
+        _summary(id: 'dm-2', channelId: 'dm-b'),
+      ],
+    );
+    final realtime = _FakeRealtimeRepository();
+    final controller = _controller(
+      repository,
+      realtime: realtime,
+      currentUserId: () => null,
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+
+    realtime.emitMessage('dm-b', id: 'm-1');
+    await Future<void>.delayed(Duration.zero);
+
+    final first = controller.state.conversations.first;
+    expect(first.channelId, 'dm-b');
+    expect(first.unreadCount, 0);
+  });
+
+  test('rời / xoá nhóm: rời phòng realtime của nhóm ngay', () async {
+    final repository = _FakeConversationRepository(
+      channels: [
+        _summary(id: 'g1', channelId: 'g1', kind: ConversationKind.channel),
+        _summary(id: 'g2', channelId: 'g2', kind: ConversationKind.channel),
+      ],
+    );
+    final realtime = _FakeRealtimeRepository();
+    final controller = _controller(repository, realtime: realtime);
+    addTearDown(controller.dispose);
+    await controller.load();
+    expect(realtime.watched.last, {'g1', 'g2'});
+
+    controller.removeChannel('g1');
+
+    expect(realtime.watched.last, {'g2'});
+  });
+
+  test('số chưa đọc dừng ở 100 như máy chủ', () async {
+    final repository = _FakeConversationRepository(
+      channels: [
+        _summary(
+          id: 'g',
+          channelId: 'g',
+          kind: ConversationKind.channel,
+          unread: 99,
+        ),
+      ],
+    );
+    final realtime = _FakeRealtimeRepository();
+    final controller = _controller(repository, realtime: realtime);
+    addTearDown(controller.dispose);
+    await controller.load();
+
+    realtime.emitMessage('g', id: 'm-1');
+    realtime.emitMessage('g', id: 'm-2');
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.state.channels.single.unreadCount, 100);
+  });
+
+  test('kết nối nền chưa mở: không theo dõi, lần tải sau thử lại', () async {
+    final repository = _FakeConversationRepository(
+      conversations: [_summary(id: 'dm-1', channelId: 'dm-channel')],
+    );
+    final realtime = _FakeRealtimeRepository()..ready = false;
+    final controller = _controller(repository, realtime: realtime);
+    addTearDown(controller.dispose);
+
+    await controller.load();
+    expect(realtime.watchedOk, isEmpty);
+
+    realtime.ready = true;
+    await controller.syncSilently();
+    expect(realtime.watchedOk.single, {'dm-channel'});
+  });
+
+  test('đóng danh sách: rời các phòng đã theo dõi', () async {
+    final repository = _FakeConversationRepository(
+      conversations: [_summary(id: 'dm-1', channelId: 'dm-channel')],
+    );
+    final realtime = _FakeRealtimeRepository();
+    final controller = _controller(repository, realtime: realtime);
+
+    await controller.load();
+    controller.dispose();
+    expect(realtime.watched.last, isEmpty);
+  });
+}
+
+final class _FakeRealtimeRepository implements ConversationRealtimeRepository {
+  final _events = StreamController<ConversationRealtimeEvent>.broadcast();
+  final watched = <Set<String>>[];
+  final watchedOk = <Set<String>>[];
+  bool ready = true;
+
+  void emitMessage(
+    String channelId, {
+    required String id,
+    String senderId = 'u-2',
+    String body = 'Chào',
+    bool isSecret = false,
+  }) {
+    _events.add(
+      ConversationRealtimeEvent(
+        type: ConversationRealtimeEventType.messageCreated,
+        workspaceId: 'workspace-1',
+        channelId: channelId,
+        message: ChatMessage(
+          id: id,
+          workspaceId: 'workspace-1',
+          channelId: channelId,
+          kind: 'text',
+          body: body,
+          createdAt: DateTime.utc(2026, 11, 16, 9),
+          senderId: senderId,
+          isSecret: isSecret,
+        ),
+      ),
+    );
+  }
+
+  void emitDeleted(String channelId, String messageId) {
+    _events.add(
+      ConversationRealtimeEvent(
+        type: ConversationRealtimeEventType.messageDeleted,
+        workspaceId: 'workspace-1',
+        channelId: channelId,
+        messageId: messageId,
+      ),
+    );
+  }
+
+  void emit(ConversationRealtimeEventType type, String channelId) {
+    _events.add(
+      ConversationRealtimeEvent(
+        type: type,
+        workspaceId: 'workspace-1',
+        channelId: channelId,
+      ),
+    );
+  }
+
+  @override
+  Stream<ConversationRealtimeEvent>? watchChannels({
+    required String workspaceId,
+    required Iterable<String> channelIds,
+  }) {
+    watched.add(channelIds.toSet());
+    if (!ready) return null;
+    watchedOk.add(channelIds.toSet());
+    return _events.stream;
+  }
+
+  @override
+  Stream<ConversationRealtimeEvent> subscribeToUser({
+    required String workspaceId,
+  }) => _events.stream;
+
+  @override
+  Stream<ConversationRealtimeEvent> subscribeToChannel({
+    required String workspaceId,
+    required String channelId,
+  }) => _events.stream;
+
+  @override
+  Future<void> sendTyping({
+    required String workspaceId,
+    required String channelId,
+    required bool isTyping,
+  }) async {}
+
+  @override
+  Future<void> disconnect() async {}
 }
 
 ConversationHomeController _controller(
   _FakeConversationRepository repository, {
   bool automationEnabled = false,
+  ConversationRealtimeRepository? realtime,
+  String? Function()? currentUserId,
 }) {
   return ConversationHomeController(
     workspaceId: 'workspace-1',
@@ -195,6 +528,8 @@ ConversationHomeController _controller(
       repository,
     ),
     automationEnabled: automationEnabled,
+    realtime: realtime,
+    currentUserId: currentUserId ?? () => 'me',
   );
 }
 
@@ -202,6 +537,7 @@ ConversationSummary _summary({
   required String id,
   required String channelId,
   ConversationKind kind = ConversationKind.direct,
+  MembershipStatus membership = MembershipStatus.active,
   int unread = 0,
   bool isAutomation = false,
   String? slug,
@@ -218,7 +554,7 @@ ConversationSummary _summary({
     channelVisibility: kind == ConversationKind.direct
         ? ChannelVisibility.direct
         : ChannelVisibility.public,
-    membershipStatus: MembershipStatus.active,
+    membershipStatus: membership,
     isAutomation: isAutomation,
     slug: slug,
   );
@@ -247,8 +583,10 @@ final class _FakeConversationRepository implements ConversationRepository {
     this.channels = const [],
   });
 
-  final List<ConversationSummary> conversations;
-  final List<ConversationSummary> channels;
+  List<ConversationSummary> conversations;
+  List<ConversationSummary> channels;
+  int channelLoads = 0;
+  int contactLoads = 0;
 
   @override
   Future<Result<List<ConversationSummary>>> listDirectConversations({
@@ -261,11 +599,13 @@ final class _FakeConversationRepository implements ConversationRepository {
   Future<Result<List<ConversationSummary>>> listChannels({
     required String workspaceId,
   }) async {
+    channelLoads++;
     return Success(channels);
   }
 
   @override
   Future<Result<List<ContactSummary>>> listContacts() async {
+    contactLoads++;
     return const Success([]);
   }
 

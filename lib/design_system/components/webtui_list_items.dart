@@ -23,6 +23,7 @@ class WebTuiConversationListItem extends StatelessWidget {
     this.pinned = false,
     this.badgeLabel,
     this.unreadCount = 0,
+    this.unreadMax = webTuiUnreadMaxGroup,
     this.status,
     this.muted = false,
     this.selected = false,
@@ -52,6 +53,10 @@ class WebTuiConversationListItem extends StatelessWidget {
   /// Nhãn nhỏ cạnh tên (ví dụ "BOT").
   final String? badgeLabel;
   final int unreadCount;
+
+  /// Trần số chưa đọc: [webTuiUnreadMaxDirect] cho chat 1-1 / bot, mặc định
+  /// [webTuiUnreadMaxGroup] cho nhóm / kênh.
+  final int unreadMax;
   final WebTuiPresenceStatus? status;
   final bool muted;
   final bool selected;
@@ -204,7 +209,10 @@ class WebTuiConversationListItem extends StatelessWidget {
                                       color: WebTuiColors.textSecondary,
                                     ),
                                   ),
-                                WebTuiUnreadBadge(count: unreadCount),
+                                WebTuiUnreadBadge(
+                                  count: unreadCount,
+                                  max: unreadMax,
+                                ),
                               ],
                             )
                           else

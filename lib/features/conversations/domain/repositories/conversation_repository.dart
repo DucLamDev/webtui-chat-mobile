@@ -217,6 +217,15 @@ abstract interface class ConversationRealtimeRepository {
     required String channelId,
   });
 
+  /// Nghe tin mới của các hội thoại trong danh sách chat (để cập nhật số chưa
+  /// đọc khi chưa mở phòng). Gọi lại với danh sách mới thì rời phòng không còn.
+  /// Trả `null` (không làm gì) khi kết nối chưa mở cho [workspaceId]; không
+  /// tự nối hay đổi workspace.
+  Stream<ConversationRealtimeEvent>? watchChannels({
+    required String workspaceId,
+    required Iterable<String> channelIds,
+  });
+
   Future<void> sendTyping({
     required String workspaceId,
     required String channelId,

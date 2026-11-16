@@ -6,10 +6,29 @@ import '../tokens/webtui_radii.dart';
 import '../tokens/webtui_spacing.dart';
 import '../tokens/webtui_typography.dart';
 
+/// Trần số trên huy hiệu chưa đọc: chat 1-1 / bot hiện 1–5 rồi "5+", nhóm /
+/// kênh hiện 1–99 rồi "99+" (cùng luật với web, model/unread-badge.ts).
+const int webTuiUnreadMaxDirect = 5;
+const int webTuiUnreadMaxGroup = 99;
+
+/// Chữ trên huy hiệu chưa đọc; rỗng khi không có tin chưa đọc.
+String webTuiUnreadLabel(int count, {int max = webTuiUnreadMaxGroup}) {
+  if (count <= 0) return '';
+  final cap = max < 1 ? 1 : max;
+  return count > cap ? '$cap+' : '$count';
+}
+
 class WebTuiUnreadBadge extends StatelessWidget {
-  const WebTuiUnreadBadge({required this.count, super.key});
+  const WebTuiUnreadBadge({
+    required this.count,
+    this.max = webTuiUnreadMaxGroup,
+    super.key,
+  });
 
   final int count;
+
+  /// Quá số này thì hiện `max+` (mặc định 99; chat 1-1 dùng 5).
+  final int max;
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +36,7 @@ class WebTuiUnreadBadge extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final label = count > 99 ? '99+' : '$count';
+    final label = webTuiUnreadLabel(count, max: max);
 
     return ConstrainedBox(
       constraints: const BoxConstraints(

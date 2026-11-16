@@ -40,6 +40,16 @@ final class WebSocketConversationRealtimeRepository
   WebSocket? _socket;
   StreamController<ConversationRealtimeEvent>? _controller;
   final Set<String> _joinedRooms = <String>{};
+
+  /// Phòng của các hội thoại trong danh sách chat ([watchChannels]): chỉ để
+  /// nhận tin mới (cập nhật số chưa đọc), không phát `reconnected` riêng từng
+  /// phòng như [_joinedRooms].
+  final Set<String> _watchedRooms = <String>{};
+  // Sự kiện của phòng chỉ để theo dõi danh sách ([watchChannels]) đi luồng
+  // riêng: luồng người dùng / phòng chat (cuộc gọi đến, đổi thành viên...)
+  // không nhận thêm sự kiện của mọi nhóm, và huỷ nghe luồng này không làm
+  // ngắt kết nối nền.
+  StreamController<ConversationRealtimeEvent>? _watchController;
   String? _activeWorkspaceId;
   bool _disposed = false;
   bool _connecting = false;
@@ -120,6 +130,43 @@ final class WebSocketConversationRealtimeRepository
               ConversationRealtimeEventType.inboxConversationUpdated ||
           event.type == ConversationRealtimeEventType.inboxMessageCreated ||
           event.type == ConversationRealtimeEventType.reconnected,
+    );
+  }
+
+  @override
+  Stream<ConversationRealtimeEvent>? watchChannels({
+    required String workspaceId,
+    required Iterable<String> channelIds,
+  }) {
+    // Chỉ áp cho workspace đang nối, không tự nối / đổi workspace (kết nối này
+    // còn dùng cho cuộc gọi đến của workspace đang mở).
+    final controller = _controller;
+    if (_disposed ||
+        _activeWorkspaceId != workspaceId ||
+        controller == null ||
+        controller.isClosed) {
+      return null;
+    }
+    final next = {
+      for (final id in channelIds)
+        if (id.trim().isNotEmpty) _roomFor(workspaceId, id.trim()),
+    };
+    for (final room in _watchedRooms.difference(next)) {
+      // Phòng cũng đang dùng cho luồng khác trên cùng kết nối thì giữ.
+      if (_joinedRooms.contains(room)) continue;
+      _sendCommand({'type': 'leave', 'room': room});
+    }
+    for (final room in next.difference(_watchedRooms)) {
+      if (_joinedRooms.contains(room)) continue;
+      _joinRoomIfOpen(room);
+    }
+    _watchedRooms
+      ..clear()
+      ..addAll(next);
+    final watchController = _watchController ??=
+        StreamController<ConversationRealtimeEvent>.broadcast();
+    return watchController.stream.where(
+      (event) => event.workspaceId == workspaceId,
     );
   }
 
@@ -264,7 +311,7 @@ final class WebSocketConversationRealtimeRepository
   }
 
   void _handleSocketData(Object? data, String workspaceId) {
-    final socketEventType = _socketEventType(data);
+    final (socketEventType, socketRoom) = _socketEnvelope(data);
     if (socketEventType == 'pong') {
       _lastPongAt = DateTime.now().toUtc();
       return;
@@ -285,6 +332,14 @@ final class WebSocketConversationRealtimeRepository
     // node): máy chủ mới gắn `event_id` duy nhất nên bỏ bản trùng.
     if (!_seenEventIds.markSeen(event.eventId)) {
       return;
+    }
+    if (socketRoom != null && _watchedRooms.contains(socketRoom)) {
+      final watchController = _watchController;
+      if (watchController != null && !watchController.isClosed) {
+        watchController.add(event);
+      }
+      // Phòng chỉ để theo dõi danh sách: không đưa vào luồng chung.
+      if (!_joinedRooms.contains(socketRoom)) return;
     }
     _controller?.add(event);
   }
@@ -338,7 +393,7 @@ final class WebSocketConversationRealtimeRepository
     _heartbeatTimer = null;
     final socket = _socket;
     if (leaveRooms && socket != null && socket.readyState == WebSocket.open) {
-      for (final room in _joinedRooms) {
+      for (final room in {..._joinedRooms, ..._watchedRooms}) {
         try {
           socket.add(jsonEncode({'type': 'leave', 'room': room}));
         } on Object {
@@ -354,6 +409,9 @@ final class WebSocketConversationRealtimeRepository
       unawaited(_controller?.close());
       _controller = null;
       _joinedRooms.clear();
+      _watchedRooms.clear();
+      unawaited(_watchController?.close());
+      _watchController = null;
       _activeWorkspaceId = null;
       _hasConnected = false;
       _seenEventIds.clear();
@@ -365,7 +423,7 @@ final class WebSocketConversationRealtimeRepository
   }
 
   void _joinAllRooms() {
-    for (final room in _joinedRooms) {
+    for (final room in {..._joinedRooms, ..._watchedRooms}) {
       _joinRoomIfOpen(room);
     }
   }
@@ -1007,7 +1065,9 @@ String _channelIdFromRoom(String? room) {
   return '';
 }
 
-String _socketEventType(Object? data) {
+/// Loại sự kiện và phòng phát (máy chủ gắn `room` vào mỗi sự kiện gửi theo
+/// phòng; sự kiện riêng của kết nối như `pong` không có).
+(String, String?) _socketEnvelope(Object? data) {
   try {
     final decoded = switch (data) {
       final String value => jsonDecode(value),
@@ -1015,8 +1075,13 @@ String _socketEventType(Object? data) {
       final Map value => value,
       _ => null,
     };
-    return stringField(jsonMap(decoded), const ['type']);
+    final map = jsonMap(decoded);
+    final room = nullableStringField(map, const ['room'])?.trim();
+    return (
+      stringField(map, const ['type']),
+      room == null || room.isEmpty ? null : room,
+    );
   } on Object {
-    return '';
+    return ('', null);
   }
 }

@@ -5346,6 +5346,13 @@ bool _isMissedCallMessage(ChatMessage message) {
   if (message.isCallEvent) {
     return message.callStatus == 'missed';
   }
+  // Thẻ bot (vd "Cuộc gọi nhỡ từ An" của bot thông báo) tự hiện tên người gọi
+  // và nút Gọi lại mở chat 1-1 với người đó. Không đoán theo chữ ở đây: nếu
+  // không, thẻ thành thẻ cuộc gọi chung, mất tên và "Gọi lại" gọi ngay trong
+  // phòng bot (máy chủ báo chỉ gọi được trong chat 1-1).
+  if (message.kind == 'bot' || message.card != null) {
+    return false;
+  }
   final normalized = _removeVietnameseDiacritics(
     _compactMessageText(message.body),
   );
