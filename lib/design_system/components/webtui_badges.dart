@@ -22,10 +22,14 @@ class WebTuiUnreadBadge extends StatelessWidget {
   const WebTuiUnreadBadge({
     required this.count,
     this.max = webTuiUnreadMaxGroup,
+    this.muted = false,
     super.key,
   });
 
   final int count;
+
+  /// Hội thoại tắt thông báo: huy hiệu xám.
+  final bool muted;
 
   /// Quá số này thì hiện `max+` (mặc định 99; chat 1-1 dùng 5).
   final int max;
@@ -45,11 +49,15 @@ class WebTuiUnreadBadge extends StatelessWidget {
       ),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: WebTuiColors.primary,
+          color: muted
+              ? (WebTuiColors.brightness == Brightness.dark
+                    ? const Color(0xFF4E5A6E)
+                    : WebTuiColors.textMuted)
+              : WebTuiColors.primaryFill,
           borderRadius: BorderRadius.circular(WebTuiRadii.lg),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.xs),
+          padding: const EdgeInsets.symmetric(horizontal: 6),
           // Hệ số 1: không giãn theo chiều cao / rộng chỗ chứa (vd dòng cao cố
           // định), huy hiệu luôn gọn.
           child: Center(
@@ -62,6 +70,7 @@ class WebTuiUnreadBadge extends StatelessWidget {
               softWrap: false,
               style: WebTuiTypography.labelSmall.copyWith(
                 color: WebTuiColors.textOnPrimary,
+                fontSize: 12,
                 fontWeight: FontWeight.w700,
               ),
             ),

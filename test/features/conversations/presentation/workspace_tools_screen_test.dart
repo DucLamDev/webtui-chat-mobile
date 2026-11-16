@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/core/error/failure.dart';
 import 'package:webtui_chat/features/conversations/domain/entities/collaboration_room.dart';
+import 'package:webtui_chat/features/conversations/presentation/screens/workspace_tools_screen.dart';
 import 'package:webtui_chat/features/work_hub/domain/entities/work_hub.dart';
+import 'package:webtui_chat/features/work_hub/presentation/widgets/my_tasks_card.dart';
 
+import '../../meeting_calendar/meeting_calendar_fakes.dart';
 import '../../work_hub/presentation/work_hub_harness.dart';
 import '../../work_hub/work_hub_fakes.dart';
 
@@ -43,6 +46,8 @@ void main() {
     bool workHub = true,
     bool myNotes = true,
     FakeLauncher? launcher,
+    FakeMeetingCalendarRepository? calendar,
+    DateTime? now,
   }) async {
     phone(tester);
     await tester.pumpWidget(
@@ -60,35 +65,49 @@ void main() {
         workHub: workHub,
         myNotes: myNotes,
         launcher: launcher,
+        calendar: calendar,
+        now: now,
+        home: Scaffold(
+          body: WorkspaceToolsScreen(workspaceId: 'ws', now: now),
+        ),
       ),
     );
     await tester.pumpAndSettle();
   }
 
-  testWidgets('thẻ Việc của tôi: 3 ô đếm của máy chủ và 3 việc gần hạn', (
+  testWidgets('Việc của tôi: tiêu đề lớn + tìm, 3 cột số, 2 việc gần hạn', (
     tester,
   ) async {
     await pumpTab(tester);
 
-    // Không còn tiêu đề lớn 'Công việc'; kính lúp nằm trong thẻ Việc của tôi.
-    expect(find.text('Công việc'), findsNothing);
+    // Tiêu đề lớn 'Công việc' với nút tìm ở đầu màn (ngoài nhóm Việc của tôi).
+    expect(find.text('Công việc'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byKey(const Key('my_tasks_card')),
         matching: find.byKey(const Key('work_search')),
       ),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       tester.getSize(find.byKey(const Key('work_search'))).width,
       inInclusiveRange(44, 48),
     );
     expect(find.text('Việc của tôi'), findsOneWidget);
-    expect(
-      find.text('Tự gom từ bảng việc trong các cuộc trò chuyện'),
-      findsOne,
-    );
     expect(find.text('Xem tất cả'), findsOneWidget);
+    // Không còn thẻ bo góc / ô nền: số liệu nằm thẳng trên nền trang.
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('my_tasks_card')),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is DecoratedBox &&
+              widget.decoration is BoxDecoration &&
+              (widget.decoration as BoxDecoration).borderRadius != null,
+        ),
+      ),
+      findsNothing,
+    );
     for (final (key, number, label) in [
       ('count_open', '1', 'Chưa nhận'),
       ('count_in_progress', '2', 'Đã nhận'),
@@ -98,19 +117,40 @@ void main() {
       expect(find.descendant(of: tile, matching: find.text(number)), findsOne);
       expect(find.descendant(of: tile, matching: find.text(label)), findsOne);
     }
-    // Hạn gần nhất lên trước.
-    final titles = [
-      'Kiểm tra cụm lưu trữ',
-      'Cập nhật bảng giá',
-      'Viết tài liệu API',
-    ];
+    // Hạn gần nhất lên trước, chỉ 2 việc; phụ đề "Hạn dd/MM, HH:mm – nhóm".
+    final titles = ['Kiểm tra cụm lưu trữ', 'Cập nhật bảng giá'];
     final tops = [for (final t in titles) tester.getTopLeft(find.text(t)).dy];
     expect(tops, orderedEquals([...tops]..sort()));
-    expect(find.text('Nhóm Kỹ thuật · Hạn 16/11'), findsOneWidget);
-    expect(find.text('Nhóm Kinh doanh · Hạn 17/11'), findsOneWidget);
+    expect(find.text('Viết tài liệu API'), findsNothing);
+    expect(find.text('Hạn 16/11, 09:00 – Nhóm Kỹ thuật'), findsOneWidget);
+    expect(find.text('Hạn 17/11, 09:00 – Nhóm Kinh doanh'), findsOneWidget);
   });
 
-  testWidgets('chỉ lấy tối đa 3 việc dù có nhiều hơn', (tester) async {
+  test('phụ đề việc: hạn không giờ bỏ giờ, không hạn chỉ tên nhóm', () {
+    expect(
+      workTabTaskSubtitle(
+        fakeTask(
+          'x',
+          'X',
+          CollaborationTaskStatus.open,
+          dueAt: DateTime(2026, 11, 18),
+        ),
+      ),
+      'Hạn 18/11 – Nhóm Kỹ thuật',
+    );
+    expect(
+      workTabTaskSubtitle(fakeTask('y', 'Y', CollaborationTaskStatus.open)),
+      'Nhóm Kỹ thuật',
+    );
+    expect(
+      workTabTaskSubtitle(
+        fakeTask('z', 'Z', CollaborationTaskStatus.open, channelName: ' '),
+      ),
+      'Không có hạn',
+    );
+  });
+
+  testWidgets('chỉ hiện tối đa 2 việc dù có nhiều hơn', (tester) async {
     await pumpTab(
       tester,
       tasks: FakeTaskRepository([
@@ -119,7 +159,9 @@ void main() {
       ]),
     );
     expect(find.text('Việc thứ tư'), findsNothing);
-    expect(find.byKey(const Key('task_row_a')), findsOneWidget);
+    expect(find.byKey(const Key('task_row_a')), findsNothing);
+    expect(find.byKey(const Key('task_row_b')), findsOneWidget);
+    expect(find.byKey(const Key('task_row_c')), findsOneWidget);
   });
 
   testWidgets('chưa có việc: báo rỗng', (tester) async {
@@ -153,8 +195,13 @@ void main() {
   testWidgets('bấm ô: chưa nhận → đã nhận, có Hoàn tác trả về như cũ', (
     tester,
   ) async {
-    final tasks = FakeTaskRepository(threeTasks);
+    // Chỉ 2 việc hiện: bỏ việc c để việc a (chưa nhận) lọt vào danh sách.
+    final tasks = FakeTaskRepository([threeTasks[0], threeTasks[1]]);
     await pumpTab(tester, tasks: tasks);
+    expect(
+      tester.getSize(find.byKey(const Key('task_box_a'))).width,
+      greaterThanOrEqualTo(44),
+    );
 
     await tester.tap(find.byKey(const Key('task_box_a')));
     await tester.pumpAndSettle();
@@ -199,19 +246,39 @@ void main() {
     expect(find.byKey(const Key('my_tasks_search')), findsOneWidget);
   });
 
-  testWidgets('My Note: mở /my-notes; tắt theo máy chủ thì ẩn', (tester) async {
+  testWidgets('lưới Ứng dụng có ô Ghi chú mở /my-notes; tắt thì ẩn', (
+    tester,
+  ) async {
     await pumpTab(tester);
-    expect(find.text('My Note'), findsOneWidget);
-    expect(find.text('Ghi chú riêng, chỉ mình bạn xem'), findsOneWidget);
-    await tester.ensureVisible(
-      find.byKey(const Key('workspace_module_my_notes')),
+    // My Note không còn thẻ riêng: thành ô "Ghi chú" trong lưới Ứng dụng.
+    expect(find.text('My Note'), findsNothing);
+    expect(find.text('Ghi chú riêng, chỉ mình bạn xem'), findsNothing);
+    final tile = find.byKey(const Key('workspace_module_my_notes'));
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('work_apps_section')),
+        matching: tile,
+      ),
+      findsOneWidget,
     );
-    await tester.tap(find.byKey(const Key('workspace_module_my_notes')));
+    expect(
+      find.descendant(of: tile, matching: find.text('Ghi chú')),
+      findsOneWidget,
+    );
+    // Cùng hàng với Tệp chia sẻ, sau Tệp chia sẻ.
+    final files = tester.getRect(find.byKey(const Key('app_shared_files')));
+    final notes = tester.getRect(tile);
+    expect(notes.top, moreOrLessEquals(files.top));
+    expect(notes.left, greaterThan(files.left));
+
+    await tester.ensureVisible(tile);
+    await tester.tap(tile);
     await tester.pumpAndSettle();
     expect(find.text('màn My Note'), findsOneWidget);
 
     await pumpTab(tester, myNotes: false);
-    expect(find.text('My Note'), findsNothing);
+    expect(find.byKey(const Key('workspace_module_my_notes')), findsNothing);
+    expect(find.text('Ghi chú'), findsNothing);
   });
 
   testWidgets(
@@ -241,8 +308,12 @@ void main() {
       );
       expect(find.text('Ứng dụng'), findsOneWidget);
       expect(find.text('Quản lý'), findsOneWidget);
+      final section = find.byKey(const Key('work_apps_section'));
       for (final text in ['Lịch họp', 'Tệp chia sẻ', 'Máy chủ', 'Thêm']) {
-        expect(find.text(text), findsOneWidget);
+        expect(
+          find.descendant(of: section, matching: find.text(text)),
+          findsOneWidget,
+        );
       }
 
       await tester.tap(find.byKey(const Key('app_shortcut_s1')));
@@ -287,10 +358,26 @@ void main() {
     expect(find.text('Quản lý'), findsNothing);
   });
 
-  testWidgets('chưa có lối tắt: báo "Chưa có lối tắt"', (tester) async {
+  testWidgets('chưa có lối tắt: lưới chỉ có ô sẵn có, không câu báo thừa', (
+    tester,
+  ) async {
     await pumpTab(tester);
     await tester.ensureVisible(find.byKey(const Key('app_shared_files')));
-    expect(find.text('Chưa có lối tắt'), findsOneWidget);
+    expect(find.byKey(const Key('app_meetings')), findsOneWidget);
+    expect(find.byKey(const Key('workspace_module_my_notes')), findsOneWidget);
+    expect(find.text('Chưa có lối tắt'), findsNothing);
+  });
+
+  testWidgets('lỗi tải lối tắt: câu báo gọn + Thử lại', (tester) async {
+    final repository = FakeWorkHubRepository(
+      shortcutsFailure: const Failure(
+        kind: FailureKind.network,
+        message: 'Không thể kết nối máy chủ.',
+      ),
+    );
+    await pumpTab(tester, repository: repository);
+    expect(find.text('Không thể kết nối máy chủ.'), findsOneWidget);
+    expect(find.byKey(const Key('app_shared_files')), findsOneWidget);
   });
 
   testWidgets('máy chủ cũ (không work_hub): ẩn Lịch họp và lối tắt, tự đếm', (
@@ -310,6 +397,9 @@ void main() {
     expect(find.text('Thêm'), findsNothing);
     expect(find.text('Quản lý'), findsNothing);
     expect(find.text('Tệp chia sẻ'), findsOneWidget);
+    // Không có Lịch họp thì cũng không có nhóm Họp sắp tới.
+    expect(find.byKey(const Key('upcoming_meetings')), findsNothing);
+    expect(find.text('Họp sắp tới'), findsNothing);
     expect(repository.calls, isEmpty);
     // Tự đếm từ danh sách việc: 1 chưa nhận, 2 đã nhận.
     expect(
@@ -326,5 +416,140 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  group('Họp sắp tới', () {
+    final now = DateTime(2026, 11, 16, 8);
+
+    testWidgets('tối đa 3 họp chưa qua, chưa huỷ; giờ + Hôm nay / Ngày mai', (
+      tester,
+    ) async {
+      final calendar = FakeMeetingCalendarRepository(
+        meetings: [
+          fakeMeeting(
+            'm3',
+            title: 'Tổng kết',
+            startsAt: DateTime(2026, 11, 20, 16),
+          ),
+          fakeMeeting(
+            'm1',
+            title: 'Họp giao ban tuần',
+            channelName: 'Nhóm dự án',
+            startsAt: DateTime(2026, 11, 16, 16, 15),
+          ),
+          fakeMeeting(
+            'huy',
+            title: 'Họp đã huỷ',
+            startsAt: DateTime(2026, 11, 16, 10),
+            status: 'cancelled',
+          ),
+          fakeMeeting(
+            'qua',
+            title: 'Họp sáng sớm',
+            startsAt: DateTime(2026, 11, 16, 6),
+            endsAt: DateTime(2026, 11, 16, 7),
+          ),
+          fakeMeeting(
+            'm2',
+            channelId: 'c2',
+            title: 'Demo sản phẩm',
+            channelName: 'Kinh doanh',
+            startsAt: DateTime(2026, 11, 17, 14),
+          ),
+          fakeMeeting(
+            'm4',
+            title: 'Họp thứ tư',
+            startsAt: DateTime(2026, 11, 25, 9),
+          ),
+        ],
+      );
+      await pumpTab(tester, calendar: calendar, now: now);
+      final section = find.byKey(const Key('upcoming_meetings'));
+      await tester.ensureVisible(section);
+      expect(
+        find.descendant(of: section, matching: find.text('Họp sắp tới')),
+        findsOneWidget,
+      );
+
+      final ids = ['m1', 'm2', 'm3'];
+      for (final id in ids) {
+        expect(find.byKey(Key('upcoming_meeting_$id')), findsOneWidget);
+      }
+      final tops = [
+        for (final id in ids)
+          tester.getTopLeft(find.byKey(Key('upcoming_meeting_$id'))).dy,
+      ];
+      expect(tops, orderedEquals([...tops]..sort()));
+      for (final id in ['m4', 'huy', 'qua']) {
+        expect(find.byKey(Key('upcoming_meeting_$id')), findsNothing);
+      }
+      Finder inRow(String id, String text) => find.descendant(
+        of: find.byKey(Key('upcoming_meeting_$id')),
+        matching: find.text(text),
+      );
+      expect(inRow('m1', '16:15'), findsOneWidget);
+      expect(inRow('m1', 'Hôm nay'), findsOneWidget);
+      expect(inRow('m1', 'Nhóm dự án'), findsOneWidget);
+      expect(inRow('m2', '14:00'), findsOneWidget);
+      expect(inRow('m2', 'Ngày mai'), findsOneWidget);
+      expect(inRow('m3', '20/11'), findsOneWidget);
+      // Cột giờ rộng 66, phần chữ thẳng hàng giữa các dòng.
+      expect(
+        tester.getTopLeft(inRow('m1', 'Họp giao ban tuần')).dx,
+        moreOrLessEquals(tester.getTopLeft(inRow('m2', 'Demo sản phẩm')).dx),
+      );
+
+      await tester.tap(find.byKey(const Key('upcoming_meeting_m2')));
+      await tester.pumpAndSettle();
+      expect(calendar.calls, contains('get:c2/m2'));
+    });
+
+    testWidgets('không có họp: báo rỗng; "Lịch họp" mở màn Lịch họp', (
+      tester,
+    ) async {
+      await pumpTab(tester, now: now);
+      final empty = find.byKey(const Key('upcoming_meetings_empty'));
+      await tester.ensureVisible(empty);
+      expect(
+        find.descendant(
+          of: empty,
+          matching: find.text('Chưa có cuộc họp sắp tới'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('upcoming_meetings_all')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('meetings_list')), findsOneWidget);
+    });
+
+    testWidgets('lỗi tải họp: một dòng báo + Thử lại tải lại được', (
+      tester,
+    ) async {
+      final calendar = FakeMeetingCalendarRepository(
+        meetings: [
+          fakeMeeting(
+            'm1',
+            title: 'Họp giao ban tuần',
+            startsAt: DateTime(2026, 11, 16, 16),
+          ),
+        ],
+        listFailure: const Failure(
+          kind: FailureKind.network,
+          message: 'Không thể kết nối máy chủ.',
+        ),
+      );
+      await pumpTab(tester, calendar: calendar, now: now);
+      final error = find.byKey(const Key('upcoming_meetings_error'));
+      await tester.ensureVisible(error);
+      expect(error, findsOneWidget);
+
+      calendar.listFailure = null;
+      await tester.tap(
+        find.descendant(of: error, matching: find.text('Thử lại')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('upcoming_meeting_m1')), findsOneWidget);
+    });
   });
 }

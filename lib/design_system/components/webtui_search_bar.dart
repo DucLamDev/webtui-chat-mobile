@@ -9,7 +9,7 @@ import '../tokens/webtui_spacing.dart';
 import '../tokens/webtui_typography.dart';
 
 /// Ô tìm bo tròn hẳn (nền xanh nhạt, không viền khi chưa focus).
-const _radius = 23.0;
+const _radius = 10.0;
 
 class WebTuiSearchBar extends StatefulWidget {
   const WebTuiSearchBar({
@@ -65,25 +65,12 @@ class _WebTuiSearchBarState extends State<WebTuiSearchBar> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 160),
       curve: Curves.easeOutCubic,
-      height: 46,
+      // Kiểu iOS: nền xám nhạt bo 10, không viền, không bóng; đang gõ chỉ đổi
+      // màu biểu tượng.
+      height: 40,
       decoration: BoxDecoration(
-        color: focused ? WebTuiColors.surface : WebTuiColors.primarySoft,
+        color: WebTuiColors.chipBackground,
         borderRadius: BorderRadius.circular(_radius),
-        border: Border.all(
-          color: focused
-              ? WebTuiColors.primary.withValues(alpha: 0.72)
-              : Colors.transparent,
-          width: focused ? 1.2 : 1,
-        ),
-        boxShadow: focused
-            ? [
-                BoxShadow(
-                  color: WebTuiColors.primary.withValues(alpha: 0.09),
-                  blurRadius: 14,
-                  offset: const Offset(0, 6),
-                ),
-              ]
-            : null,
       ),
       child: Material(
         color: Colors.transparent,
@@ -101,12 +88,12 @@ class _WebTuiSearchBarState extends State<WebTuiSearchBar> {
               children: [
                 Icon(
                   WebTuiIcons.search,
-                  size: 22,
+                  size: 19,
                   color: focused
                       ? WebTuiColors.primary
-                      : WebTuiColors.textSecondary,
+                      : WebTuiColors.textMuted,
                 ),
-                const SizedBox(width: WebTuiSpacing.md),
+                const SizedBox(width: WebTuiSpacing.sm),
                 Expanded(
                   child: interactive
                       ? TextField(
@@ -132,7 +119,7 @@ class _WebTuiSearchBarState extends State<WebTuiSearchBar> {
                             contentPadding: EdgeInsets.zero,
                             hintText: widget.hintText,
                             hintStyle: WebTuiTypography.bodyMedium.copyWith(
-                              color: WebTuiColors.textMuted,
+                              color: WebTuiColors.textSecondary,
                             ),
                           ),
                           style: WebTuiTypography.bodyMedium.copyWith(
@@ -145,7 +132,7 @@ class _WebTuiSearchBarState extends State<WebTuiSearchBar> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: WebTuiTypography.bodyMedium.copyWith(
-                            color: WebTuiColors.textMuted,
+                            color: WebTuiColors.textSecondary,
                           ),
                         ),
                 ),

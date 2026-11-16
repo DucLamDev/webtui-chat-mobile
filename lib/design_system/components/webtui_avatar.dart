@@ -59,6 +59,10 @@ enum WebTuiPresenceStatus {
   }
 }
 
+/// Ảnh đại diện tròn, không viền / nền bao: ảnh phủ kín vòng tròn và canh lên
+/// phía trên (nơi thường có mặt); chưa có ảnh thì 2 chữ cái trắng (hoặc biểu
+/// tượng trắng) trên dải màu chéo. Chấm trạng thái nằm trên mép tròn ở góc
+/// 4 giờ 30, viền cùng màu nền để không đè vào mặt.
 class WebTuiAvatar extends StatelessWidget {
   const WebTuiAvatar({
     required this.label,
@@ -67,6 +71,7 @@ class WebTuiAvatar extends StatelessWidget {
     this.status,
     this.color,
     this.foregroundColor,
+    this.gradientBase,
     this.size = WebTuiListDensity.avatarSize,
     this.allowPublicRequest = false,
     this.square = false,
@@ -74,12 +79,7 @@ class WebTuiAvatar extends StatelessWidget {
     super.key,
   });
 
-  /// Có giá trị = ảnh NGƯỜI: khi chưa có ảnh / ảnh lỗi vẽ hình người theo giới
-  /// tính (thiếu thông tin thì dùng [WebTuiAvatarGender.neutral]). Null = nhóm,
-  /// kênh, bot...: giữ chữ viết tắt / biểu tượng.
-  final WebTuiAvatarGender? gender;
-
-  /// Ô vuông bo góc (kênh) thay vì ảnh tròn (người).
+  /// Ô vuông bo góc thay vì ảnh tròn (logo tổ chức, ảnh xem trước tệp).
   final bool square;
 
   /// Ảnh công khai (logo tổ chức), không cần đăng nhập để tải.
@@ -88,12 +88,24 @@ class WebTuiAvatar extends StatelessWidget {
   final IconData? icon;
   final String? imageUrl;
   final WebTuiPresenceStatus? status;
+
+  /// Nền đặc thay cho dải màu (giữ cho chỗ cần nền riêng).
   final Color? color;
   final Color? foregroundColor;
+
+  /// Màu gốc của dải màu (kênh theo loại biểu tượng); trống thì chọn một trong
+  /// [webTuiAvatarGradients] theo tên.
+  final Color? gradientBase;
   final double size;
+
+  /// Ảnh chân dung: canh dọc ở 32% từ trên xuống (Alignment y = 0,32 × 2 − 1).
+  static const imageAlignment = Alignment(0, -0.36);
 
   @override
   Widget build(BuildContext context) {
+    final dot = webTuiPresenceDotSize(size);
+    // Tâm chấm nằm trên mép tròn ở góc 45°: cách mép hộp size × (1 − cos45°) / 2.
+    final inset = size * 0.1464 - dot / 2;
     return SizedBox.square(
       dimension: size,
       child: Stack(
@@ -103,7 +115,8 @@ class WebTuiAvatar extends StatelessWidget {
             child: _clip(
               DecoratedBox(
                 decoration: BoxDecoration(
-                  color: color ?? WebTuiColors.primarySoft,
+                  color: color,
+                  gradient: color == null ? _gradient : null,
                 ),
                 child: WebTuiBoundedNetworkImage(
                   imageUrl: imageUrl,
@@ -112,6 +125,7 @@ class WebTuiAvatar extends StatelessWidget {
                   maxBytes: webTuiMaxAvatarImageBytes,
                   allowPublicRequest: allowPublicRequest,
                   fit: BoxFit.cover,
+                  alignment: square ? Alignment.center : imageAlignment,
                   fallback: _fallback,
                 ),
               ),
@@ -119,15 +133,18 @@ class WebTuiAvatar extends StatelessWidget {
           ),
           if (status != null)
             Positioned(
-              right: -1,
-              bottom: -1,
+              right: inset,
+              bottom: inset,
               child: Container(
-                width: 12,
-                height: 12,
+                width: dot,
+                height: dot,
                 decoration: BoxDecoration(
                   color: status!.color,
                   shape: BoxShape.circle,
-                  border: Border.all(color: WebTuiColors.surface, width: 2),
+                  border: Border.all(
+                    color: WebTuiColors.page,
+                    width: dot >= 14 ? 2.5 : 2,
+                  ),
                 ),
               ),
             ),
@@ -142,6 +159,18 @@ class WebTuiAvatar extends StatelessWidget {
       borderRadius: BorderRadius.circular(size * 0.3),
       child: child,
     );
+  }
+
+  LinearGradient get _gradient {
+    final base = gradientBase;
+    if (base != null) {
+      return LinearGradient(
+        begin: const Alignment(-0.35, -1),
+        end: const Alignment(0.35, 1),
+        colors: [Color.lerp(base, Colors.white, 0.16)!, base],
+      );
+    }
+    return webTuiAvatarGradientFor(label);
   }
 
   String get _initials {
@@ -160,10 +189,7 @@ class WebTuiAvatar extends StatelessWidget {
   }
 
   Widget get _fallback {
-    final g = gender;
-    if (g != null && icon == null) {
-      return SizedBox.expand(child: WebTuiPersonSilhouette(gender: g));
-    }
+    final foreground = foregroundColor ?? Colors.white;
     return Center(
       child: icon == null
           ? Text(
@@ -171,17 +197,50 @@ class WebTuiAvatar extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.clip,
               style: WebTuiTypography.bodyMedium.copyWith(
-                color: foregroundColor ?? WebTuiColors.primary,
-                fontWeight: FontWeight.w800,
+                color: foreground,
+                fontSize: (size * 0.36).clamp(11, 34).toDouble(),
+                height: 1,
+                letterSpacing: 0.3,
+                fontWeight: FontWeight.w700,
               ),
             )
-          : Icon(
-              icon,
-              color: foregroundColor ?? WebTuiColors.primary,
-              size: size * 0.5,
-            ),
+          : Icon(icon, color: foreground, size: size * 0.48),
     );
   }
+}
+
+/// Cỡ chấm trạng thái theo cỡ ảnh đại diện.
+double webTuiPresenceDotSize(double avatarSize) {
+  if (avatarSize >= 80) return 20;
+  if (avatarSize >= 48) return 14;
+  if (avatarSize >= 36) return 12;
+  return 10;
+}
+
+/// 8 dải màu cho ảnh chưa có hình: giữa dải đạt từ 4,9:1 với chữ trắng.
+const webTuiAvatarGradients = <List<Color>>[
+  [Color(0xFFE5454D), Color(0xFFBF1E29)],
+  [Color(0xFFCC5F1C), Color(0xFFA04008)],
+  [Color(0xFF1E9152), Color(0xFF0E6836)],
+  [Color(0xFF169290), Color(0xFF09625F)],
+  [Color(0xFF3277E0), Color(0xFF1653B8)],
+  [Color(0xFF6E5BD8), Color(0xFF4834B3)],
+  [Color(0xFFC24A93), Color(0xFF922766)],
+  [Color(0xFF1F82B5), Color(0xFF0D5A84)],
+];
+
+/// Dải màu cố định theo tên (cùng một người luôn cùng một màu).
+LinearGradient webTuiAvatarGradientFor(String label) {
+  var hash = 0;
+  for (final unit in label.trim().toLowerCase().codeUnits) {
+    hash = (hash * 31 + unit) & 0x7fffffff;
+  }
+  final colors = webTuiAvatarGradients[hash % webTuiAvatarGradients.length];
+  return LinearGradient(
+    begin: const Alignment(-0.35, -1),
+    end: const Alignment(0.35, 1),
+    colors: colors,
+  );
 }
 
 class WebTuiBoundedNetworkImage extends StatelessWidget {
@@ -191,6 +250,7 @@ class WebTuiBoundedNetworkImage extends StatelessWidget {
     required this.height,
     required this.fallback,
     this.fit = BoxFit.contain,
+    this.alignment = Alignment.center,
     this.maxBytes = webTuiMaxBrandImageBytes,
     this.allowPublicRequest = false,
     this.semanticLabel,
@@ -202,6 +262,7 @@ class WebTuiBoundedNetworkImage extends StatelessWidget {
   final double height;
   final Widget fallback;
   final BoxFit fit;
+  final AlignmentGeometry alignment;
   final int maxBytes;
   final bool allowPublicRequest;
   final String? semanticLabel;
@@ -233,6 +294,7 @@ class WebTuiBoundedNetworkImage extends StatelessWidget {
       decodeTargetWidth: (width * 3).ceil().clamp(1, 1024),
       decodeTargetHeight: (height * 3).ceil().clamp(1, 1024),
       fit: fit,
+      alignment: alignment,
       width: width,
       height: height,
       semanticLabel: semanticLabel,

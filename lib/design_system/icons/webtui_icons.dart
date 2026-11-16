@@ -1,122 +1,188 @@
 import 'package:flutter/widgets.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-/// Bộ biểu tượng của app: nét mảnh bo tròn, cùng họ Lucide với bản web.
+import 'phosphor_glyphs.dart';
+
+export 'phosphor_glyphs.dart' show PhosphorDuotoneGlyph;
+
+/// Bộ biểu tượng của app: Phosphor (giấy phép MIT), nét mảnh bo tròn; mỗi
+/// biểu tượng có dạng nét (mặc định), dạng đặc (đang chọn) và dạng hai lớp màu
+/// cùng một hình.
 ///
 /// Mọi màn gọi biểu tượng theo tên ở đây, không gọi thẳng thư viện, để khi đổi
-/// bộ biểu tượng chỉ cần sửa một chỗ.
+/// bộ biểu tượng chỉ cần sửa một chỗ. Không bọc biểu tượng trong ô nền: trạng
+/// thái chọn thể hiện bằng dạng đặc + màu nhấn.
 abstract final class WebTuiIcons {
-  // Thanh dưới.
-  static const IconData messages = LucideIcons.messageCircle;
-  static const IconData friends = LucideIcons.users;
-  // Cặp da có khoá (briefcase-business); `briefcase` thường trông như vali.
-  static const IconData work = LucideIcons.briefcaseBusiness;
-  static const IconData settings = LucideIcons.settings;
+  // Thanh dưới: dạng nét khi chưa chọn, dạng đặc khi đang chọn.
+  static const IconData messages = PhosphorRegular.chatCircleDots;
+  static const IconData messagesActive = PhosphorFill.chatCircleDots;
+  static const IconData friends = PhosphorRegular.users;
+  static const IconData friendsActive = PhosphorFill.users;
+  static const IconData work = PhosphorRegular.briefcase;
+  static const IconData workActive = PhosphorFill.briefcase;
+  static const IconData settings = PhosphorRegular.gearSix;
+  static const IconData settingsActive = PhosphorFill.gearSix;
 
   // Đầu màn và nút chung.
-  static const IconData compose = LucideIcons.squarePen;
-  static const IconData search = LucideIcons.search;
-  static const IconData back = LucideIcons.chevronLeft;
-  static const IconData forward = LucideIcons.chevronRight;
-  static const IconData more = LucideIcons.ellipsis;
+  static const IconData compose = PhosphorRegular.notePencil;
+  static const IconData search = PhosphorRegular.magnifyingGlass;
+  static const IconData back = PhosphorRegular.caretLeft;
+  static const IconData forward = PhosphorRegular.caretRight;
+  static const IconData more = PhosphorRegular.dotsThree;
 
   /// Nút ba gạch (≡): menu gom các việc phụ ở đầu phòng chat.
-  static const IconData menu = LucideIcons.menu;
-  static const IconData moreVertical = LucideIcons.ellipsisVertical;
-  static const IconData add = LucideIcons.plus;
-  static const IconData close = LucideIcons.x;
-  static const IconData edit = LucideIcons.pencil;
-  static const IconData delete = LucideIcons.trash2;
-  static const IconData dragHandle = LucideIcons.gripVertical;
-  static const IconData moveUp = LucideIcons.arrowUp;
-  static const IconData moveDown = LucideIcons.arrowDown;
-  static const IconData externalLink = LucideIcons.externalLink;
-  static const IconData download = LucideIcons.download;
-  static const IconData view = LucideIcons.eye;
-  static const IconData newMessage = LucideIcons.messageSquarePlus;
-  static const IconData newGroup = LucideIcons.usersRound;
-  static const IconData addFriend = LucideIcons.userPlus;
+  static const IconData menu = PhosphorRegular.list;
+  static const IconData moreVertical = PhosphorRegular.dotsThreeVertical;
+  static const IconData add = PhosphorRegular.plus;
+  static const IconData close = PhosphorRegular.x;
+  static const IconData edit = PhosphorRegular.pencilSimple;
+  static const IconData delete = PhosphorRegular.trash;
+  static const IconData dragHandle = PhosphorRegular.dotsSixVertical;
+  static const IconData moveUp = PhosphorRegular.arrowUp;
+  static const IconData moveDown = PhosphorRegular.arrowDown;
+  static const IconData externalLink = PhosphorRegular.arrowSquareOut;
+  static const IconData download = PhosphorRegular.downloadSimple;
+  static const IconData view = PhosphorRegular.eye;
+  static const IconData newMessage = PhosphorRegular.chatCircleText;
+  static const IconData newGroup = PhosphorRegular.usersThree;
+  static const IconData addFriend = PhosphorRegular.userPlus;
 
   // Kênh và hội thoại.
-  static const IconData channel = LucideIcons.hash;
-  static const IconData channelPrivate = LucideIcons.lock;
-  static const IconData announcement = LucideIcons.megaphone;
-  static const IconData orders = LucideIcons.shoppingBag;
-  static const IconData ticket = LucideIcons.ticket;
-  static const IconData chitchat = LucideIcons.coffee;
-  static const IconData accounting = LucideIcons.calculator;
-  static const IconData bell = LucideIcons.bell;
-  static const IconData bellOff = LucideIcons.bellOff;
-  static const IconData bot = LucideIcons.bot;
-  static const IconData pin = LucideIcons.pin;
+  static const IconData channel = PhosphorRegular.hash;
+  static const IconData channelPrivate = PhosphorRegular.lockSimple;
+  static const IconData announcement = PhosphorRegular.megaphone;
+  static const IconData orders = PhosphorRegular.shoppingBag;
+  static const IconData ticket = PhosphorRegular.ticket;
+  static const IconData chitchat = PhosphorRegular.coffee;
+  static const IconData accounting = PhosphorRegular.calculator;
+  static const IconData bell = PhosphorRegular.bell;
+  static const IconData bellOff = PhosphorRegular.bellSlash;
+  static const IconData bellOffFilled = PhosphorFill.bellSlash;
+  static const IconData bot = PhosphorRegular.robot;
+  static const IconData pin = PhosphorRegular.pushPin;
+  static const IconData pinFilled = PhosphorFill.pushPin;
 
   // Phòng chat.
-  static const IconData phone = LucideIcons.phone;
-  static const IconData phoneCall = LucideIcons.phoneCall;
-  static const IconData phoneMissed = LucideIcons.phoneMissed;
-  static const IconData video = LucideIcons.video;
-  static const IconData mic = LucideIcons.mic;
-  static const IconData send = LucideIcons.sendHorizontal;
-  static const IconData emoji = LucideIcons.smile;
-  static const IconData play = LucideIcons.play;
-  static const IconData pause = LucideIcons.pause;
-  static const IconData seen = LucideIcons.checkCheck;
-  static const IconData image = LucideIcons.image;
-  static const IconData camera = LucideIcons.camera;
-  static const IconData gallery = LucideIcons.images;
-  static const IconData documentScan = LucideIcons.scanText;
-  static const IconData qrScan = LucideIcons.scanQrCode;
-  static const IconData attach = LucideIcons.paperclip;
-  static const IconData scheduleSend = LucideIcons.calendarClock;
-  static const IconData copy = LucideIcons.copy;
-  static const IconData like = LucideIcons.thumbsUp;
-  static const IconData reply = LucideIcons.reply;
-  static const IconData tapAction = LucideIcons.mousePointerClick;
+  static const IconData phone = PhosphorRegular.phone;
+  static const IconData phoneCall = PhosphorRegular.phoneCall;
+  static const IconData phoneMissed = PhosphorRegular.phoneX;
+  static const IconData video = PhosphorRegular.videoCamera;
+  static const IconData mic = PhosphorRegular.microphone;
+  static const IconData send = PhosphorRegular.paperPlaneRight;
+  static const IconData emoji = PhosphorRegular.smiley;
+  static const IconData play = PhosphorRegular.play;
+  static const IconData pause = PhosphorRegular.pause;
+  static const IconData seen = PhosphorRegular.checks;
+  static const IconData image = PhosphorRegular.image;
+  static const IconData camera = PhosphorRegular.camera;
+  static const IconData gallery = PhosphorRegular.images;
+  static const IconData documentScan = PhosphorRegular.scan;
+  static const IconData qrScan = PhosphorRegular.qrCode;
+  static const IconData attach = PhosphorRegular.paperclip;
+  static const IconData scheduleSend = PhosphorRegular.clockCountdown;
+  static const IconData copy = PhosphorRegular.copy;
+  static const IconData like = PhosphorRegular.thumbsUp;
+  static const IconData reply = PhosphorRegular.arrowBendUpLeft;
+  static const IconData tapAction = PhosphorRegular.cursorClick;
 
   // Công việc.
-  static const IconData tasks = LucideIcons.listChecks;
-  static const IconData taskDone = LucideIcons.check;
-  static const IconData overdue = LucideIcons.alarmClock;
-  static const IconData note = LucideIcons.notebookPen;
-  static const IconData meetings = LucideIcons.calendarDays;
-  static const IconData sharedFiles = LucideIcons.folder;
-  static const IconData file = LucideIcons.fileText;
-  static const IconData audioFile = LucideIcons.fileAudio;
-  static const IconData videoFile = LucideIcons.fileVideo;
+  static const IconData tasks = PhosphorRegular.listChecks;
+  static const IconData taskDone = PhosphorRegular.check;
+  static const IconData note = PhosphorRegular.notepad;
+  static const IconData meetings = PhosphorRegular.calendarDots;
+  static const IconData sharedFiles = PhosphorRegular.folderSimple;
+  static const IconData file = PhosphorRegular.fileText;
+  static const IconData audioFile = PhosphorRegular.fileAudio;
+  static const IconData videoFile = PhosphorRegular.fileVideo;
 
   // Cuộc gọi trong lịch sử chat (hướng gọi).
-  static const IconData phoneIncoming = LucideIcons.phoneIncoming;
-  static const IconData phoneOutgoing = LucideIcons.phoneOutgoing;
-  static const IconData videoOff = LucideIcons.videoOff;
-  static const IconData poll = LucideIcons.chartColumn;
+  static const IconData phoneIncoming = PhosphorRegular.phoneIncoming;
+  static const IconData phoneOutgoing = PhosphorRegular.phoneOutgoing;
+  static const IconData videoOff = PhosphorRegular.videoCameraSlash;
+  static const IconData poll = PhosphorRegular.chartBar;
 
   // Nhóm và thành viên.
-  static const IconData group = LucideIcons.usersRound;
-  static const IconData addMember = LucideIcons.userRoundPlus;
-  static const IconData leaveGroup = LucideIcons.logOut;
-  static const IconData selected = LucideIcons.circleCheck;
-  static const IconData unselected = LucideIcons.circle;
-  static const IconData check = LucideIcons.check;
+  static const IconData group = PhosphorRegular.usersThree;
+  static const IconData addMember = PhosphorRegular.userPlus;
+  static const IconData leaveGroup = PhosphorRegular.signOut;
+  static const IconData selected = PhosphorRegular.checkCircle;
+  static const IconData unselected = PhosphorRegular.circle;
+  static const IconData check = PhosphorRegular.check;
 
   // Tệp, thư mục, ghi chú.
-  static const IconData imageFile = LucideIcons.fileImage;
-  static const IconData spreadsheetFile = LucideIcons.fileSpreadsheet;
-  static const IconData share = LucideIcons.share2;
-  static const IconData refresh = LucideIcons.refreshCw;
-  static const IconData folderPlus = LucideIcons.folderPlus;
-  static const IconData folderOpen = LucideIcons.folderOpen;
-  static const IconData folderEdit = LucideIcons.folderPen;
-  static const IconData tag = LucideIcons.tag;
-  static const IconData filter = LucideIcons.slidersHorizontal;
+  static const IconData imageFile = PhosphorRegular.fileImage;
+  static const IconData spreadsheetFile = PhosphorRegular.fileXls;
+  static const IconData share = PhosphorRegular.shareNetwork;
+  static const IconData refresh = PhosphorRegular.arrowClockwise;
+  static const IconData folderPlus = PhosphorRegular.folderPlus;
+  static const IconData folderOpen = PhosphorRegular.folderOpen;
+  static const IconData folderEdit = PhosphorRegular.pencilSimpleLine;
+  static const IconData tag = PhosphorRegular.tag;
+  static const IconData filter = PhosphorRegular.slidersHorizontal;
+
+  // Cài đặt.
+  static const IconData workspace = PhosphorRegular.buildings;
+  static const IconData compactList = PhosphorRegular.rows;
+  static const IconData volume = PhosphorRegular.speakerHigh;
+  static const IconData textSize = PhosphorRegular.textAa;
+  static const IconData advancedSettings = PhosphorRegular.slidersHorizontal;
+  static const IconData logout = PhosphorRegular.signOut;
 
   // Bảo mật / xác thực.
-  static const IconData lock = LucideIcons.lockKeyhole;
-  static const IconData fingerprint = LucideIcons.fingerprint;
-  static const IconData key = LucideIcons.keyRound;
-  static const IconData shieldCheck = LucideIcons.shieldCheck;
-  static const IconData report = LucideIcons.flag;
-  static const IconData block = LucideIcons.ban;
-  static const IconData unblock = LucideIcons.userRoundCheck;
+  static const IconData lock = PhosphorRegular.lockKey;
+  static const IconData fingerprint = PhosphorRegular.fingerprint;
+  static const IconData key = PhosphorRegular.key;
+  static const IconData shieldCheck = PhosphorRegular.shieldCheck;
+  static const IconData report = PhosphorRegular.flag;
+  static const IconData block = PhosphorRegular.prohibit;
+  static const IconData unblock = PhosphorRegular.userCheck;
+}
+
+/// Biểu tượng hai lớp màu (nét đậm + nền nhạt cùng màu) cho lưới Ứng dụng ở tab
+/// Công việc: thay cho ô vuông màu bao quanh biểu tượng. Vẽ bằng
+/// [WebTuiDuotoneIcon] (widget `Icon` thường chỉ vẽ được một lớp).
+abstract final class WebTuiDuotoneIcons {
+  static const PhosphorDuotoneGlyph meetings = PhosphorDuotone.calendarDots;
+  static const PhosphorDuotoneGlyph sharedFiles = PhosphorDuotone.folderSimple;
+  static const PhosphorDuotoneGlyph note = PhosphorDuotone.notepad;
+  static const PhosphorDuotoneGlyph tasks = PhosphorDuotone.checkSquareOffset;
+  static const PhosphorDuotoneGlyph add = PhosphorDuotone.plusCircle;
+}
+
+/// Vẽ biểu tượng hai lớp: lớp nền cùng màu, độ đậm 22%, nét đậm phía trên.
+class WebTuiDuotoneIcon extends StatelessWidget {
+  const WebTuiDuotoneIcon(
+    this.glyph, {
+    required this.color,
+    this.size = 36,
+    this.semanticLabel,
+    super.key,
+  });
+
+  final PhosphorDuotoneGlyph glyph;
+  final Color color;
+  final double size;
+  final String? semanticLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: semanticLabel,
+      excludeSemantics: true,
+      child: SizedBox.square(
+        dimension: size,
+        child: Stack(
+          children: [
+            Icon(
+              glyph.secondary,
+              size: size,
+              color: color.withValues(alpha: 0.22),
+            ),
+            Icon(glyph.primary, size: size, color: color),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// Khoá biểu tượng lối tắt ứng dụng do máy chủ trả về (danh sách cố định, cùng
@@ -146,26 +212,52 @@ const webTuiShortcutIconKeys = <String>[
 
 IconData webTuiShortcutIcon(String? key) {
   return switch (key?.trim()) {
-    'globe' => LucideIcons.globe,
-    'server' => LucideIcons.server,
-    'cloud' => LucideIcons.cloud,
-    'code' => LucideIcons.code,
-    'terminal' => LucideIcons.terminal,
-    'database' => LucideIcons.database,
-    'calendar' => LucideIcons.calendar,
-    'folder' => LucideIcons.folder,
-    'file-text' => LucideIcons.fileText,
-    'chart' => LucideIcons.chartColumn,
-    'shield' => LucideIcons.shield,
-    'shopping-bag' => LucideIcons.shoppingBag,
-    'ticket' => LucideIcons.ticket,
-    'headphones' => LucideIcons.headphones,
-    'mail' => LucideIcons.mail,
-    'book-open' => LucideIcons.bookOpen,
-    'briefcase' => LucideIcons.briefcase,
-    'wallet' => LucideIcons.wallet,
-    'settings' => LucideIcons.settings,
-    _ => LucideIcons.link,
+    'globe' => PhosphorRegular.globe,
+    'server' => PhosphorRegular.hardDrives,
+    'cloud' => PhosphorRegular.cloud,
+    'code' => PhosphorRegular.code,
+    'terminal' => PhosphorRegular.terminalWindow,
+    'database' => PhosphorRegular.database,
+    'calendar' => PhosphorRegular.calendarBlank,
+    'folder' => PhosphorRegular.folderSimple,
+    'file-text' => PhosphorRegular.fileText,
+    'chart' => PhosphorRegular.chartBar,
+    'shield' => PhosphorRegular.shield,
+    'shopping-bag' => PhosphorRegular.shoppingBag,
+    'ticket' => PhosphorRegular.ticket,
+    'headphones' => PhosphorRegular.headphones,
+    'mail' => PhosphorRegular.envelopeSimple,
+    'book-open' => PhosphorRegular.bookOpen,
+    'briefcase' => PhosphorRegular.briefcase,
+    'wallet' => PhosphorRegular.wallet,
+    'settings' => PhosphorRegular.gearSix,
+    _ => PhosphorRegular.link,
+  };
+}
+
+/// Biểu tượng hai lớp của lối tắt (lưới Ứng dụng); khoá lạ là liên kết.
+PhosphorDuotoneGlyph webTuiShortcutDuotoneIcon(String? key) {
+  return switch (key?.trim()) {
+    'globe' => PhosphorDuotone.globe,
+    'server' => PhosphorDuotone.hardDrives,
+    'cloud' => PhosphorDuotone.cloud,
+    'code' => PhosphorDuotone.code,
+    'terminal' => PhosphorDuotone.terminalWindow,
+    'database' => PhosphorDuotone.database,
+    'calendar' => PhosphorDuotone.calendarBlank,
+    'folder' => PhosphorDuotone.folderSimple,
+    'file-text' => PhosphorDuotone.fileText,
+    'chart' => PhosphorDuotone.chartBar,
+    'shield' => PhosphorDuotone.shield,
+    'shopping-bag' => PhosphorDuotone.shoppingBag,
+    'ticket' => PhosphorDuotone.ticket,
+    'headphones' => PhosphorDuotone.headphones,
+    'mail' => PhosphorDuotone.envelopeSimple,
+    'book-open' => PhosphorDuotone.bookOpen,
+    'briefcase' => PhosphorDuotone.briefcase,
+    'wallet' => PhosphorDuotone.wallet,
+    'settings' => PhosphorDuotone.gearSix,
+    _ => PhosphorDuotone.link,
   };
 }
 

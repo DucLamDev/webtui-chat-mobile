@@ -75,11 +75,9 @@ dependencies:
   mobile_scanner: ^7.4.0
   receive_sharing_intent: 1.8.1
   livekit_client: ^2.13.2
-  lucide_icons_flutter: ^4.0.3
   pdfx: ^2.11.0
   opus_dart: ^3.0.1
   opus_flutter: ^3.0.3
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -129,6 +127,16 @@ flutter:
           weight: 500
         - asset: assets/fonts/roboto-bold.ttf
           weight: 700
+    # Bộ biểu tượng Phosphor (MIT, assets/fonts/phosphor_license.txt).
+    - family: PhosphorRegular
+      fonts:
+        - asset: assets/fonts/phosphor-regular.ttf
+    - family: PhosphorFill
+      fonts:
+        - asset: assets/fonts/phosphor-fill.ttf
+    - family: PhosphorDuotone
+      fonts:
+        - asset: assets/fonts/phosphor-duotone.ttf
 
   # To add assets to your application, add an assets section, like this:
   # assets:

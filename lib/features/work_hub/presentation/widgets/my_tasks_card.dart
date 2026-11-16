@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:webtui_chat/l10n/app_strings.dart';
 
+import '../../../../design_system/components/webtui_seamless.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
@@ -12,12 +13,6 @@ import '../controllers/task_status_actions.dart';
 import '../controllers/work_hub_providers.dart';
 import 'work_common.dart';
 
-Color get _grayTile => WebTuiColors.brightness == Brightness.dark
-    ? const Color(0xFF222D3D)
-    : const Color(0xFFF0F2F5);
-Color get _grayTileText => WebTuiColors.brightness == Brightness.dark
-    ? const Color(0xFFA7B3C6)
-    : const Color(0xFF5B6675);
 Color get _greenTile => WebTuiColors.brightness == Brightness.dark
     ? const Color(0xFF14382C)
     : const Color(0xFFE7F7EE);
@@ -50,7 +45,39 @@ String assignedTaskSubtitle(CollaborationTask task) {
   return parts.isEmpty ? tr('Không có hạn', 'No due date') : parts.join(' · ');
 }
 
-/// Thẻ "Việc của tôi" ở tab Công việc.
+/// Phụ đề một việc ở tab Công việc: "Hạn dd/MM, HH:mm – tên kênh" (hạn không
+/// có giờ thì bỏ giờ; không hạn thì chỉ tên kênh).
+String workTabTaskSubtitle(CollaborationTask task) {
+  final channel = task.channelName?.trim();
+  final due = task.dueAt?.toLocal();
+  final parts = <String>[
+    if (due != null)
+      tr(
+        'Hạn ${workShortDate(due)}${_dueClock(due)}',
+        'Due ${workShortDate(due)}${_dueClock(due)}',
+      ),
+    if (channel != null && channel.isNotEmpty) channel,
+  ];
+  return parts.isEmpty ? tr('Không có hạn', 'No due date') : parts.join(' – ');
+}
+
+String _dueClock(DateTime local) {
+  if (local.hour == 0 && local.minute == 0) return '';
+  return ', ${local.hour.toString().padLeft(2, '0')}:'
+      '${local.minute.toString().padLeft(2, '0')}';
+}
+
+/// Màu số "Hoàn thành": xanh lá đậm đủ tương phản trên nền trang.
+Color get _doneCountColor => WebTuiColors.brightness == Brightness.dark
+    ? const Color(0xFF3CCF89)
+    : const Color(0xFF178A4C);
+
+/// Số việc gần hạn hiện ở tab Công việc (danh sách đủ ở "Xem tất cả").
+const myTasksPreviewLimit = 2;
+
+/// Nhóm "Việc của tôi" ở tab Công việc: tiêu đề nhóm + "Xem tất cả", 3 cột số
+/// liệu (không ô nền, ngăn bằng kẻ dọc mảnh) và tối đa [myTasksPreviewLimit]
+/// việc gần hạn dạng dòng liền mạch.
 class MyTasksCard extends ConsumerWidget {
   const MyTasksCard({required this.workspaceId, super.key});
 
@@ -59,114 +86,33 @@ class MyTasksCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final overview = ref.watch(myTasksOverviewProvider(workspaceId));
-    return WorkCard(
+    return Column(
       key: const Key('my_tasks_card'),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const WorkIconBox(icon: WebTuiIcons.tasks, size: 52, radius: 16),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            tr('Việc của tôi', 'My tasks'),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: WebTuiTypography.titleLarge.copyWith(
-                              fontSize: 21,
-                              fontWeight: FontWeight.w800,
-                              color: WebTuiColors.textPrimary,
-                            ),
-                          ),
-                        ),
-                        InkWell(
-                          key: const Key('my_tasks_see_all'),
-                          borderRadius: BorderRadius.circular(8),
-                          onTap: () => context.push(
-                            Uri(
-                              path: '/my-tasks',
-                              queryParameters: {'workspaceId': workspaceId},
-                            ).toString(),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 4,
-                              horizontal: 2,
-                            ),
-                            child: Text(
-                              tr('Xem tất cả', 'See all'),
-                              style: WebTuiTypography.bodyMedium.copyWith(
-                                color: WebTuiColors.primary,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ),
-                        // Kính lúp nhỏ cạnh "Xem tất cả": mở Việc của tôi ở
-                        // chế độ tìm (vùng bấm 44).
-                        IconButton(
-                          key: const Key('work_search'),
-                          tooltip: tr('Tìm việc của tôi', 'Search my tasks'),
-                          iconSize: 22,
-                          color: WebTuiColors.textSecondary,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints.tightFor(
-                            width: 44,
-                            height: 44,
-                          ),
-                          icon: const Icon(WebTuiIcons.search),
-                          onPressed: () => context.push(
-                            Uri(
-                              path: '/my-tasks',
-                              queryParameters: {
-                                'workspaceId': workspaceId,
-                                'search': '1',
-                              },
-                            ).toString(),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      tr(
-                        'Tự gom từ bảng việc trong các cuộc trò chuyện',
-                        'Collected automatically from task boards in your conversations',
-                      ),
-                      style: WebTuiTypography.bodySmall.copyWith(
-                        fontSize: 12.5,
-                        color: WebTuiColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        WebTuiGroupHeader(
+          title: tr('Việc của tôi', 'My tasks'),
+          actionLabel: tr('Xem tất cả', 'See all'),
+          actionKey: const Key('my_tasks_see_all'),
+          onAction: () => context.push(
+            Uri(
+              path: '/my-tasks',
+              queryParameters: {'workspaceId': workspaceId},
+            ).toString(),
           ),
-          const SizedBox(height: 14),
-          overview.when(
-            loading: () => const _TasksLoading(),
-            error: (error, _) => WorkErrorBox(
-              message: workHubErrorText(error),
-              onRetry: () => ref.invalidate(myTasksOverviewProvider),
-            ),
-            data: (data) => _TasksLoaded(
-              workspaceId: workspaceId,
-              overview: data,
-              onChanged: () => ref.invalidate(myTasksOverviewProvider),
-            ),
+        ),
+        overview.when(
+          loading: () => const _TasksLoading(),
+          error: (error, _) => WorkSeamlessError(
+            message: workHubErrorText(error),
+            onRetry: () => ref.invalidate(myTasksOverviewProvider),
           ),
-        ],
-      ),
+          data: (data) => _TasksLoaded(
+            overview: data,
+            onChanged: () => ref.invalidate(myTasksOverviewProvider),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -176,36 +122,33 @@ class _TasksLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return const Padding(
       key: Key('my_tasks_loading'),
-      children: [
-        Row(
-          children: [
-            Expanded(child: WorkSkeleton(height: 66, radius: 16)),
-            SizedBox(width: 10),
-            Expanded(child: WorkSkeleton(height: 66, radius: 16)),
-            SizedBox(width: 10),
-            Expanded(child: WorkSkeleton(height: 66, radius: 16)),
-          ],
-        ),
-        SizedBox(height: 14),
-        WorkSkeleton(height: 40),
-        SizedBox(height: 12),
-        WorkSkeleton(height: 40),
-        SizedBox(height: 12),
-      ],
+      padding: EdgeInsets.fromLTRB(16, 4, 16, 16),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(child: WorkSkeleton(height: 48)),
+              SizedBox(width: 16),
+              Expanded(child: WorkSkeleton(height: 48)),
+              SizedBox(width: 16),
+              Expanded(child: WorkSkeleton(height: 48)),
+            ],
+          ),
+          SizedBox(height: 18),
+          WorkSkeleton(height: 36),
+          SizedBox(height: 14),
+          WorkSkeleton(height: 36),
+        ],
+      ),
     );
   }
 }
 
 class _TasksLoaded extends StatelessWidget {
-  const _TasksLoaded({
-    required this.workspaceId,
-    required this.overview,
-    required this.onChanged,
-  });
+  const _TasksLoaded({required this.overview, required this.onChanged});
 
-  final String workspaceId;
   final MyTasksOverview overview;
   final VoidCallback onChanged;
 
@@ -214,127 +157,188 @@ class _TasksLoaded extends StatelessWidget {
     final summary = overview.summary;
     final empty =
         summary.open + summary.inProgress + summary.doneLast7Days == 0;
+    final tasks = overview.upcoming.take(myTasksPreviewLimit).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _CountTile(
-                key: const Key('count_open'),
-                count: summary.open,
-                label: tr('Chưa nhận', 'Unclaimed'),
-                background: _grayTile,
-                foreground: _grayTileText,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _CountTile(
-                key: const Key('count_in_progress'),
-                count: summary.inProgress,
-                label: tr('Đã nhận', 'Claimed'),
-                background: WebTuiColors.primarySoft,
-                foreground: WebTuiColors.primary,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _CountTile(
-                key: const Key('count_done'),
-                count: summary.doneLast7Days,
-                label: tr('Hoàn thành', 'Done'),
-                background: _greenTile,
-                foreground: _greenTileText,
-              ),
-            ),
-          ],
-        ),
-        if (overview.upcoming.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 18),
-            child: Text(
-              empty
-                  ? tr(
-                      'Chưa có việc nào được giao cho bạn',
-                      'No tasks assigned to you yet',
-                    )
-                  : tr('Không còn việc nào chưa xong', 'No unfinished tasks'),
-              key: const Key('my_tasks_empty'),
-              textAlign: TextAlign.center,
-              style: WebTuiTypography.bodyMedium.copyWith(
-                color: WebTuiColors.textSecondary,
-              ),
-            ),
-          )
-        else
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Column(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (var i = 0; i < overview.upcoming.length; i++) ...[
-                  if (i > 0)
-                    Divider(
-                      height: 1,
-                      indent: 52,
-                      color: WebTuiColors.border.withValues(alpha: 0.7),
-                    ),
-                  AssignedTaskRow(
-                    task: overview.upcoming[i],
-                    onChanged: onChanged,
+                Expanded(
+                  child: _CountColumn(
+                    key: const Key('count_open'),
+                    count: summary.open,
+                    label: tr('Chưa nhận', 'Unclaimed'),
+                    color: WebTuiColors.textPrimary,
                   ),
-                ],
+                ),
+                const _CountDivider(),
+                Expanded(
+                  child: _CountColumn(
+                    key: const Key('count_in_progress'),
+                    count: summary.inProgress,
+                    label: tr('Đã nhận', 'Claimed'),
+                    color: WebTuiColors.primary,
+                  ),
+                ),
+                const _CountDivider(),
+                Expanded(
+                  child: _CountColumn(
+                    key: const Key('count_done'),
+                    count: summary.doneLast7Days,
+                    label: tr('Hoàn thành', 'Done'),
+                    color: _doneCountColor,
+                  ),
+                ),
               ],
             ),
           ),
+        ),
+        if (tasks.isEmpty)
+          WorkSeamlessNote(
+            key: const Key('my_tasks_empty'),
+            message: empty
+                ? tr(
+                    'Chưa có việc nào được giao cho bạn',
+                    'No tasks assigned to you yet',
+                  )
+                : tr('Không còn việc nào chưa xong', 'No unfinished tasks'),
+          )
+        else
+          for (var i = 0; i < tasks.length; i++)
+            _WorkTabTaskRow(
+              task: tasks[i],
+              divider: i < tasks.length - 1,
+              onChanged: onChanged,
+            ),
       ],
     );
   }
 }
 
-class _CountTile extends StatelessWidget {
-  const _CountTile({
+class _CountColumn extends StatelessWidget {
+  const _CountColumn({
     required this.count,
     required this.label,
-    required this.background,
-    required this.foreground,
+    required this.color,
     super.key,
   });
 
   final int count;
   final String label;
-  final Color background;
-  final Color foreground;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 68,
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            '$count',
-            style: WebTuiTypography.titleLarge.copyWith(
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              color: foreground,
-              height: 1.1,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '$count',
+          style: WebTuiTypography.titleLarge.copyWith(
+            fontSize: 26,
+            height: 1.2,
+            letterSpacing: -0.5,
+            fontWeight: FontWeight.w700,
+            color: color,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: WebTuiTypography.bodySmall.copyWith(
+            fontSize: 13,
+            color: WebTuiColors.textMuted,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CountDivider extends StatelessWidget {
+  const _CountDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 0.5,
+      child: ColoredBox(color: WebTuiColors.hairline),
+    );
+  }
+}
+
+/// Một việc ở tab Công việc: biểu tượng việc (bấm để nhận / hoàn thành như ô
+/// trạng thái), tiêu đề, "Hạn … – nhóm", mũi tên; bấm dòng mở việc trong kênh.
+class _WorkTabTaskRow extends ConsumerWidget {
+  const _WorkTabTaskRow({
+    required this.task,
+    required this.divider,
+    required this.onChanged,
+  });
+
+  final CollaborationTask task;
+  final bool divider;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = task.taskStatus;
+    final canAdvance = nextAssignedTaskStatus(status) != null;
+    return WorkSeamlessRow(
+      key: Key('task_row_${task.id}'),
+      divider: divider,
+      title: task.title,
+      subtitle: workTabTaskSubtitle(task),
+      onTap: () => context.push(assignedTaskLocation(task)),
+      leadingStart: 6,
+      leadingWidth: 44,
+      leadingGap: 4,
+      leading: Semantics(
+        button: canAdvance,
+        label: switch (status) {
+          CollaborationTaskStatus.open => tr(
+            'Nhận việc ${task.title}',
+            'Claim task ${task.title}',
+          ),
+          CollaborationTaskStatus.inProgress => tr(
+            'Hoàn thành việc ${task.title}',
+            'Complete task ${task.title}',
+          ),
+          _ => tr('Việc ${task.title}', 'Task ${task.title}'),
+        },
+        excludeSemantics: true,
+        // Vùng bấm 44 × 52 quanh biểu tượng 24.
+        child: InkResponse(
+          key: Key('task_box_${task.id}'),
+          radius: 22,
+          onTap: canAdvance
+              ? () => advanceAssignedTask(
+                  context,
+                  ref,
+                  task,
+                  onChanged: onChanged,
+                )
+              : null,
+          child: SizedBox(
+            width: 44,
+            height: 52,
+            child: Center(
+              child: Icon(
+                WebTuiDuotoneIcons.tasks.primary,
+                size: 24,
+                color: status == CollaborationTaskStatus.inProgress
+                    ? WebTuiColors.primary
+                    : WebTuiColors.textSecondary,
+              ),
             ),
           ),
-          Text(
-            label,
-            maxLines: 1,
-            style: WebTuiTypography.bodySmall.copyWith(
-              color: foreground,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

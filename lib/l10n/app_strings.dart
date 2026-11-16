@@ -195,7 +195,7 @@ class AppStringsVi extends AppStrings {
   String get notificationsSubtitle => 'Nhận tin nhắn và cảnh báo nhóm';
 
   @override
-  String get compactListTitle => 'Danh sách dày';
+  String get compactListTitle => 'Danh sách gọn';
 
   @override
   String get compactListSubtitle => 'Tăng mật độ thông tin như ảnh reference';

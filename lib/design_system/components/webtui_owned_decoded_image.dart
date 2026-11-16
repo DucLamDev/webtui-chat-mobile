@@ -23,6 +23,7 @@ class WebTuiOwnedDecodedImage extends StatefulWidget {
     this.width,
     this.height,
     this.fit = BoxFit.contain,
+    this.alignment = Alignment.center,
     this.semanticLabel,
     this.onImageSize,
     @visibleForTesting this.onImageCreated,
@@ -41,6 +42,9 @@ class WebTuiOwnedDecodedImage extends StatefulWidget {
   final double? width;
   final double? height;
   final BoxFit fit;
+
+  /// Vị trí canh khi [fit] cắt bớt ảnh (ảnh đại diện canh lên phía mặt).
+  final AlignmentGeometry alignment;
   final String? semanticLabel;
 
   /// Báo kích thước ảnh gốc (điểm ảnh) sau khi giải mã xong, để bố cục lấy tỉ
@@ -186,6 +190,7 @@ class _WebTuiOwnedDecodedImageState extends State<WebTuiOwnedDecodedImage> {
       width: widget.width,
       height: widget.height,
       fit: widget.fit,
+      alignment: widget.alignment,
       filterQuality: FilterQuality.medium,
     );
     final label = widget.semanticLabel?.trim();
