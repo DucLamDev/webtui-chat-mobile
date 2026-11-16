@@ -3,6 +3,15 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.31.1 · 16/11/2026
+### Sửa lỗi
+- Bản Android dựng được trở lại, thư viện giải mã ghi âm đạt căn lề 16 KB
+  - Từ bản 1.30.0, CI không dựng được app Android, báo lỗi CXX1110. Nguyên nhân là thư viện giải mã ghi âm WebM / Ogg
+    (opus_flutter_android) khai Android tối thiểu API 19, mà bộ dịch NDK của Flutter chỉ nhận từ API 21. App vốn chỉ
+    cài được từ API 24 nên nay cho phần này dịch ở mức 21.
+  - Thư viện đó cũng được dịch bằng NDK cũ nên libopus chỉ căn lề 4 KB, không qua bước kiểm 16 KB của bản phát hành
+    (Google Play đòi cho Android 15+). Nay nó được dịch bằng cùng NDK với app và đạt 16 KB.
+
 ## 1.31.0 · 16/11/2026
 ### Tính năng
 - Rời nhóm và xoá nhóm
