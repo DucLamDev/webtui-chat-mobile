@@ -24,6 +24,20 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
     Nhóm đang bật một link công khai khác thì app báo cần tắt link đó trước.
   - Cần máy chủ bản có Lịch họp mới; máy chủ cũ thì màn Lịch họp vẫn liệt kê họp sắp tới như trước.
 
+## 1.31.2 · 16/11/2026
+### Sửa lỗi
+- Nút "+ Ghi chú mới" gọn lại, thẻ cuộc gọi nhỡ của bot ghi rõ ai gọi, danh sách chat hiện số tin chưa đọc
+  - Nút nổi "Ghi chú mới" trước là hình tròn xanh, chữ tràn ra ngoài; nay là nút dạng viên thuốc, chữ nằm gọn bên trong.
+    Áp dụng chung cho mọi nút nổi có chữ trong app.
+  - Tin "cuộc gọi nhỡ" của bot thông báo nay hiện đúng thẻ của bot: ghi "<tên> đã gọi cho bạn", có nút "Gọi lại" (gọi
+    thẳng người đó) và "Mở cuộc trò chuyện". Trước đây app coi nó như tin cuộc gọi nhỡ trong phòng bot, không ghi tên
+    người gọi, bấm "Gọi lại" bị báo "Cuộc gọi chỉ thực hiện trong tin nhắn 1-1".
+  - Danh sách Tin nhắn hiện huy hiệu đỏ số tin chưa đọc bên cạnh từng chat: chat 1-1 hiện 1–5, quá 5 ghi "5+"; nhóm hiện
+    1–99, quá 99 ghi "99+".
+  - Có tin mới thì số này tự tăng ngay và hội thoại lên đầu danh sách, không phải kéo để tải lại. App cộng tại chỗ từ
+    tin vừa đến, không gọi lại máy chủ; tin của chính mình và hội thoại đang mở (máy tính bảng) không được cộng.
+  - Cần máy chủ bản 1.44.1 trở lên mới có số chưa đọc của nhóm; máy chủ cũ chỉ có ở chat 1-1.
+
 ## 1.31.1 · 16/11/2026
 ### Sửa lỗi
 - Bản Android dựng được trở lại, thư viện giải mã ghi âm đạt căn lề 16 KB

@@ -79,6 +79,7 @@ class MessagesHomeView extends ConsumerWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= 720;
+        controller.reportSplitView(wide);
         final selected = _safeSelectedConversation(
           state.selectedConversation,
           conversations,
@@ -683,6 +684,10 @@ class _ConversationTile extends ConsumerWidget {
       pinned: conversation.favorite,
       badgeLabel: bot != null ? 'BOT' : null,
       unreadCount: privacy.isBlocked ? 0 : conversation.unreadCount,
+      // Chat 1-1 và bot thông báo: 1–5 rồi "5+"; nhóm / kênh: 1–99 rồi "99+".
+      unreadMax: conversation.kind == ConversationKind.channel
+          ? webTuiUnreadMaxGroup
+          : webTuiUnreadMaxDirect,
       muted: conversation.muted,
       status:
           conversation.kind == ConversationKind.direct &&
