@@ -4,6 +4,13 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
+## 1.35.2 · 16/11/2026
+### Sửa lỗi
+- Ảnh đại diện của bot (logo có góc trong suốt) không còn lộ nền xanh lá ở các góc. Từ giao diện mới, ảnh đại diện luôn
+  vẽ một dải màu chọn theo tên nằm dưới ảnh, nên logo nào có phần trong suốt cũng bị lộ màu đó. Nay dải màu chỉ hiện
+  khi chưa có ảnh (đi kèm chữ viết tắt hoặc biểu tượng nhóm / kênh); ảnh đã tải hiển thị đúng như ảnh gốc. Áp dụng mọi
+  nơi có ảnh đại diện: danh sách Tin nhắn, đầu phòng chat, ảnh cạnh tin nhắn, danh bạ.
+
 ## 1.35.1 · 16/11/2026
 ### Sửa lỗi
 - App không dựng được sau khi gộp giao diện liền mạch (1.35.0) với ảnh đại diện theo giới tính (1.33.0) và màn Việc của

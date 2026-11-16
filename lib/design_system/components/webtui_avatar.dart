@@ -109,9 +109,6 @@ class WebTuiAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dot = webTuiPresenceDotSize(size);
-    // Ảnh người (có giới tính): nền do hình người tự vẽ. Không vẽ dải màu bên
-    // dưới, nếu không mép tròn khử răng cưa sẽ lộ một viền màu mảnh.
-    final personFallback = gender != null && icon == null;
     // Tâm chấm nằm trên mép tròn ở góc 45°: cách mép hộp size × (1 − cos45°) / 2.
     final inset = size * 0.1464 - dot / 2;
     return SizedBox.square(
@@ -119,23 +116,20 @@ class WebTuiAvatar extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
+          // Không vẽ nền dưới ảnh: logo có góc / nền trong suốt (vd logo bot)
+          // giữ nguyên như ảnh gốc, không lộ dải màu theo tên. Nền màu chỉ đi
+          // kèm chữ viết tắt / biểu tượng khi chưa có ảnh (xem [_fallback]).
           Positioned.fill(
             child: _clip(
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: color,
-                  gradient: color == null && !personFallback ? _gradient : null,
-                ),
-                child: WebTuiBoundedNetworkImage(
-                  imageUrl: imageUrl,
-                  width: size,
-                  height: size,
-                  maxBytes: webTuiMaxAvatarImageBytes,
-                  allowPublicRequest: allowPublicRequest,
-                  fit: BoxFit.cover,
-                  alignment: square ? Alignment.center : imageAlignment,
-                  fallback: _fallback,
-                ),
+              WebTuiBoundedNetworkImage(
+                imageUrl: imageUrl,
+                width: size,
+                height: size,
+                maxBytes: webTuiMaxAvatarImageBytes,
+                allowPublicRequest: allowPublicRequest,
+                fit: BoxFit.cover,
+                alignment: square ? Alignment.center : imageAlignment,
+                fallback: _fallback,
               ),
             ),
           ),
@@ -196,12 +190,25 @@ class WebTuiAvatar extends StatelessWidget {
         .toUpperCase();
   }
 
+  /// Chưa có ảnh / đang tải / ảnh lỗi. Người (có giới tính): hình người tự vẽ
+  /// nền. Nhóm, kênh, bot: chữ viết tắt / biểu tượng trên dải màu (hoặc nền đặc
+  /// [color]).
   Widget get _fallback {
     final g = gender;
     if (g != null && icon == null) {
       return SizedBox.expand(child: WebTuiPersonSilhouette(gender: g));
     }
     final foreground = foregroundColor ?? Colors.white;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color,
+        gradient: color == null ? _gradient : null,
+      ),
+      child: _fallbackMark(foreground),
+    );
+  }
+
+  Widget _fallbackMark(Color foreground) {
     return Center(
       child: icon == null
           ? Text(
