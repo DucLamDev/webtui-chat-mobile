@@ -3,6 +3,16 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.38.1 · 16/11/2026
+### Sửa lỗi
+- Trang đăng nhập / đăng ký ở giao diện tối không còn mất chữ
+  - Trước đây nền, ô nhập, nút và các hộp cảnh báo cố định màu sáng, còn chữ tự đổi sang màu sáng khi bật nền tối nên
+    chữ chìm vào nền. Nay mọi màu theo giao diện sáng / tối; thanh cảnh báo điều khoản cũng sửa theo.
+  - Chữ phụ ở nền sáng đậm hơn một chút cho đủ độ tương phản 4,5:1.
+- Mở bàn phím trong phòng chat không còn che tin nhắn cuối
+  - Đang ở cuối cuộc trò chuyện thì khi bàn phím mở (hoặc đóng), danh sách tự đẩy lên để tin cuối nằm ngay trên ô soạn.
+    Đang kéo lên đọc tin cũ thì danh sách giữ nguyên chỗ đang đọc.
+
 ## 1.36.0 · 16/11/2026
 ### Tính năng
 - Thanh tab dưới thành viên thuốc nổi, kính trong kiểu Telegram
