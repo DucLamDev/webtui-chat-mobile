@@ -23,7 +23,7 @@ Color get channelExitDangerText => WebTuiColors.brightness == Brightness.dark
 /// Tên nút xoá: "Xoá nhóm" cho nhóm, "Xoá kênh" khi quản trị xoá kênh công khai.
 String deleteGroupLabel(ConversationSummary? channel) =>
     channel?.channelVisibility == ChannelVisibility.public
-    ? tr('Xoá kênh', 'Delete channel')
+    ? tr('Xoá nhóm', 'Delete group')
     : tr('Xoá nhóm', 'Delete group');
 
 String get deleteGroupHint =>
@@ -217,7 +217,7 @@ Future<void> confirmAndDeleteGroup(
     context: context,
     builder: (_) => _ChannelExitDialog(
       title: isPublic
-          ? tr('Xoá kênh cho mọi thành viên?', 'Delete channel for everyone?')
+          ? tr('Xoá nhóm cho mọi thành viên?', 'Delete group for everyone?')
           : tr('Xoá nhóm cho mọi thành viên?', 'Delete group for everyone?'),
       message: tr(
         '"${channel.title}" sẽ biến mất ở máy của tất cả thành viên và không '
@@ -243,7 +243,7 @@ Future<void> confirmAndDeleteGroup(
     channelId: channel.channelId,
     reason: ChannelRemovalReason.deleted,
     notice: isPublic
-        ? tr('Đã xoá kênh', 'Channel deleted')
+        ? tr('Đã xoá nhóm', 'Group deleted')
         : tr('Đã xoá nhóm', 'Group deleted'),
   );
 }

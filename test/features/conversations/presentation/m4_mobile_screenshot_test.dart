@@ -1103,7 +1103,7 @@ class _PhoneChannelsPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return WebTuiMobileScaffold(
-      title: 'Kênh',
+      title: 'Nhóm',
       selectedTab: 0,
       onTabSelected: (_) {},
       actions: const [
@@ -1123,7 +1123,7 @@ class _PhoneChannelsPreview extends StatelessWidget {
               WebTuiSpacing.lg,
               WebTuiSpacing.sm,
             ),
-            child: WebTuiSearchBar(hintText: 'Tìm kênh...'),
+            child: WebTuiSearchBar(hintText: 'Tìm nhóm...'),
           ),
           WebTuiSectionLabel('WORKSPACE'),
           WebTuiListSurface(

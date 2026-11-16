@@ -213,7 +213,7 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 value: 'details',
                 child: _ChatMenuRow(
                   icon: WebTuiIcons.channel,
-                  label: tr('Chi tiết kênh', 'Channel details'),
+                  label: tr('Chi tiết nhóm', 'Group details'),
                 ),
               ),
             if (!noticeBot && onLeaveGroup != null)

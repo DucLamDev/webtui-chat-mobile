@@ -440,7 +440,7 @@ void main() {
         expect(find.text('Tìm tin nhắn'), findsOneWidget);
         expect(find.text('Báo cáo hoặc chặn người dùng'), findsOneWidget);
         expect(find.text('Công cụ làm việc'), findsOneWidget);
-        expect(find.text('Chi tiết kênh'), findsOneWidget);
+        expect(find.text('Chi tiết nhóm'), findsOneWidget);
       },
     );
 
@@ -485,7 +485,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Tìm tin nhắn'), findsOneWidget);
       expect(find.text('Công cụ làm việc'), findsNothing);
-      expect(find.text('Chi tiết kênh'), findsNothing);
+      expect(find.text('Chi tiết nhóm'), findsNothing);
     });
   });
 
