@@ -77,6 +77,8 @@ dependencies:
   livekit_client: ^2.13.2
   lucide_icons_flutter: ^4.0.3
   pdfx: ^2.11.0
+  opus_dart: ^3.0.1
+  opus_flutter: ^3.0.3
 
 dev_dependencies:
   flutter_test:

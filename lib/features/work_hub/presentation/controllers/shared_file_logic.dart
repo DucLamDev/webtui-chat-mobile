@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 
 import '../../domain/entities/work_hub.dart';
 
@@ -59,34 +58,11 @@ enum SharedFileTapAction {
   openSheet,
 }
 
-/// Ghi âm có phát ngay trong app được không. Trình phát của iPhone / iPad
-/// (AVPlayer) không đọc được WebM / Ogg / Opus; ghi âm gửi từ web cũ thường là
-/// `.webm`, bấm phát sẽ im lặng. Các tệp đó mở bằng ứng dụng khác thay vì phát.
-bool sharedAudioPlaysInline(SharedFile file, TargetPlatform platform) {
-  if (platform != TargetPlatform.iOS && platform != TargetPlatform.macOS) {
-    return true;
-  }
-  final mime = file.mimeType.trim().toLowerCase();
-  final name = file.name.trim().toLowerCase();
-  final dot = name.lastIndexOf('.');
-  final ext = dot < 0 ? '' : name.substring(dot + 1);
-  const unsupported = {'webm', 'ogg', 'oga', 'opus', 'weba', 'mka'};
-  if (unsupported.contains(ext)) return false;
-  return !(mime.contains('webm') ||
-      mime.contains('ogg') ||
-      mime.contains('opus') ||
-      mime.contains('matroska'));
-}
-
-SharedFileTapAction sharedFileTapAction(
-  SharedFile file, {
-  TargetPlatform? platform,
-}) {
+/// Ghi âm luôn phát ngay trong app: WebM / Ogg trên iPhone được giải mã ra
+/// WAV trước khi phát (xem `SharedAudioController`).
+SharedFileTapAction sharedFileTapAction(SharedFile file) {
   return switch (file.kind) {
-    SharedFileKind.audio =>
-      sharedAudioPlaysInline(file, platform ?? defaultTargetPlatform)
-          ? SharedFileTapAction.playInline
-          : SharedFileTapAction.openSheet,
+    SharedFileKind.audio => SharedFileTapAction.playInline,
     SharedFileKind.image => SharedFileTapAction.openImage,
     SharedFileKind.video => SharedFileTapAction.videoSheet,
     SharedFileKind.document =>

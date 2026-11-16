@@ -90,7 +90,10 @@ class _SharedFilesScreenState extends ConsumerState<SharedFilesScreen> {
     switch (action) {
       case SharedFileTapAction.playInline:
         await _audio.toggle(file);
-        if (_audio.failed && mounted) {
+        if (_audio.failed && _audio.decodeFailed && mounted) {
+          // Giải mã WebM / Ogg lỗi: lùi về bảng "Mở bằng ứng dụng khác".
+          await _showFileSheet(file, SharedFileTapAction.openSheet, apiBase);
+        } else if (_audio.failed && mounted) {
           ScaffoldMessenger.of(context)
             ..hideCurrentSnackBar()
             ..showSnackBar(
@@ -124,16 +127,24 @@ class _SharedFilesScreenState extends ConsumerState<SharedFilesScreen> {
       case SharedFileTapAction.pdfSheet:
       case SharedFileTapAction.openSheet:
         await _audio.stop();
-        if (!mounted) return;
-        final choice = await showSharedFileActionSheet(
-          context,
-          workspaceId: widget.workspaceId,
-          file: file,
-          apiBaseUri: apiBase,
-          action: action,
-        );
-        if (choice != null) await _run(choice, file);
+        await _showFileSheet(file, action, apiBase);
     }
+  }
+
+  Future<void> _showFileSheet(
+    SharedFile file,
+    SharedFileTapAction action,
+    Uri apiBase,
+  ) async {
+    if (!mounted) return;
+    final choice = await showSharedFileActionSheet(
+      context,
+      workspaceId: widget.workspaceId,
+      file: file,
+      apiBaseUri: apiBase,
+      action: action,
+    );
+    if (choice != null) await _run(choice, file);
   }
 
   Future<void> _run(SharedFileSheetChoice choice, SharedFile file) async {

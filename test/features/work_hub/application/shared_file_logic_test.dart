@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/features/work_hub/domain/entities/work_hub.dart';
 import 'package:webtui_chat/features/work_hub/presentation/controllers/shared_audio_controller.dart';
@@ -75,24 +74,16 @@ void main() {
     expect(a('a.docx', 'x/y'), SharedFileTapAction.openSheet);
   });
 
-  test('ghi âm WebM / Ogg trên iPhone mở bằng ứng dụng khác, máy khác phát '
-      'ngay', () {
-    SharedFileTapAction a(String n, String m, TargetPlatform p) =>
-        sharedFileTapAction(_file(n, m), platform: p);
-    const ios = TargetPlatform.iOS;
-    const android = TargetPlatform.android;
-    expect(a('voice-1.webm', 'audio/webm', ios), SharedFileTapAction.openSheet);
+  test('ghi âm WebM / Ogg phát ngay trong app trên mọi máy', () {
+    SharedFileTapAction a(String n, String m) =>
+        sharedFileTapAction(_file(n, m));
+    expect(a('voice-1.webm', 'audio/webm'), SharedFileTapAction.playInline);
     expect(
-      a('voice-1', 'audio/webm;codecs=opus', ios),
-      SharedFileTapAction.openSheet,
-    );
-    expect(a('ghi-am.ogg', 'audio/ogg', ios), SharedFileTapAction.openSheet);
-    expect(a('a.m4a', 'audio/mp4', ios), SharedFileTapAction.playInline);
-    expect(a('a.mp3', 'audio/mpeg', ios), SharedFileTapAction.playInline);
-    expect(
-      a('voice-1.webm', 'audio/webm', android),
+      a('voice-1', 'audio/webm;codecs=opus'),
       SharedFileTapAction.playInline,
     );
+    expect(a('ghi-am.ogg', 'audio/ogg'), SharedFileTapAction.playInline);
+    expect(a('a.m4a', 'audio/mp4'), SharedFileTapAction.playInline);
   });
 
   test('tên tệp gọn: cắt giữa, giữ đuôi', () {
@@ -215,6 +206,45 @@ void main() {
     await controller.toggle(file);
     expect(engine.played.last, 'file');
     expect(log, ['download']);
+    controller.dispose();
+  });
+
+  test('WebM cần đổi: tải về, đổi sang WAV rồi phát tệp WAV, không phát '
+      'dần', () async {
+    final engine = _FakeEngine();
+    final log = <String>[];
+    final converted = <String>[];
+    final controller = SharedAudioController(
+      engineFactory: () => engine,
+      resolver: () => resolver(streamOk: true, log: log),
+      needsTranscode: (_) => true,
+      transcode: (local, file) async {
+        converted.add(file.id);
+        return local;
+      },
+    );
+    await controller.toggle(_file('v.webm', 'audio/webm'));
+    expect(engine.played.single, 'file');
+    expect(log, ['download']);
+    expect(converted, ['f1']);
+    expect(controller.loading, isFalse);
+    expect(controller.failed, isFalse);
+    controller.dispose();
+  });
+
+  test('WebM giải mã lỗi: báo lỗi giải mã để màn hình lùi về mở bằng ứng dụng '
+      'khác', () async {
+    final engine = _FakeEngine();
+    final controller = SharedAudioController(
+      engineFactory: () => engine,
+      resolver: () => resolver(streamOk: true, log: []),
+      needsTranscode: (_) => true,
+      transcode: (_, _) async => throw StateError('hỏng'),
+    );
+    await controller.toggle(_file('v.webm', 'audio/webm'));
+    expect(controller.failed, isTrue);
+    expect(controller.decodeFailed, isTrue);
+    expect(engine.played, isEmpty);
     controller.dispose();
   });
 }

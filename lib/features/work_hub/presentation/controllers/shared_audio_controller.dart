@@ -5,6 +5,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/audio/playable_audio.dart';
 import '../../domain/entities/work_hub.dart';
 import 'shared_file_logic.dart';
 
@@ -56,8 +57,21 @@ final class SharedAudioController extends ChangeNotifier {
   SharedAudioController({
     required SharedAudioEngine Function() engineFactory,
     required SharedFileMediaResolver Function() resolver,
+    bool Function(SharedFile file)? needsTranscode,
+    Future<File> Function(File local, SharedFile file)? transcode,
   }) : _engineFactory = engineFactory,
-       _resolver = resolver;
+       _resolver = resolver,
+       _needsTranscode =
+           needsTranscode ??
+           ((file) =>
+               audioNeedsTranscode(name: file.name, mimeType: file.mimeType)),
+       _transcode =
+           transcode ??
+           ((local, file) =>
+               playableAudioFile(source: local, cacheKey: file.id));
+
+  final bool Function(SharedFile file) _needsTranscode;
+  final Future<File> Function(File local, SharedFile file) _transcode;
 
   final SharedAudioEngine Function() _engineFactory;
   final SharedFileMediaResolver Function() _resolver;
@@ -69,6 +83,10 @@ final class SharedAudioController extends ChangeNotifier {
   String? activeId;
   bool loading = false;
   bool failed = false;
+
+  /// Lỗi do không giải mã được WebM / Ogg: màn hình lùi về "Mở bằng ứng dụng
+  /// khác".
+  bool decodeFailed = false;
   Duration position = Duration.zero;
   Duration duration = Duration.zero;
 
@@ -119,11 +137,30 @@ final class SharedAudioController extends ChangeNotifier {
     activeId = file.id;
     loading = true;
     failed = false;
+    decodeFailed = false;
     position = Duration.zero;
     duration = Duration.zero;
     _notify();
     try {
       final resolver = _resolver();
+      if (_needsTranscode(file)) {
+        // AVPlayer không đọc được WebM / Ogg: tải về, giải mã ra WAV rồi phát.
+        final local = await resolver.localFile(file);
+        if (generation != _generation) return;
+        File playable;
+        try {
+          playable = await _transcode(local, file);
+        } on Object {
+          decodeFailed = true;
+          rethrow;
+        }
+        if (generation != _generation) return;
+        await engine.playFile(playable);
+        if (generation != _generation) return;
+        loading = false;
+        _notify();
+        return;
+      }
       final stream = await resolver.streamUri(file);
       if (generation != _generation) return;
       var started = false;

@@ -11,6 +11,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
+import '../../../../core/audio/playable_audio.dart';
 import '../../../../core/network/redirect_safe_file_downloader.dart';
 import '../../../../core/security/instance_scope.dart';
 import '../../../../design_system/components/webtui_owned_decoded_image.dart';
@@ -572,6 +573,7 @@ class _MessageVoiceAttachmentViewState
   final GlobalKey _waveformKey = GlobalKey();
   final List<StreamSubscription<dynamic>> _subscriptions = [];
   File? _audioFile;
+  String? _playablePath;
   _AttachmentDownloadBinding? _binding;
   int _loadGeneration = 0;
   Duration _duration = Duration.zero;
@@ -642,6 +644,7 @@ class _MessageVoiceAttachmentViewState
       _loadGeneration += 1;
       final previousFile = _audioFile;
       _audioFile = null;
+      _playablePath = null;
       _binding = null;
       _loading = false;
       _failed = false;
@@ -669,8 +672,10 @@ class _MessageVoiceAttachmentViewState
     if (_playerState == PlayerState.completed) {
       await _player.play(
         DeviceFileSource(
-          _audioFile!.path,
-          mimeType: widget.attachment.file.mimeType,
+          _playablePath ?? _audioFile!.path,
+          mimeType: _playablePath == null
+              ? widget.attachment.file.mimeType
+              : 'audio/wav',
         ),
       );
       return;
@@ -737,14 +742,34 @@ class _MessageVoiceAttachmentViewState
           !await operationIsCurrent()) {
         throw StateError('instance binding changed');
       }
+      // iPhone: AVPlayer không đọc được WebM / Ogg, đổi sang WAV trước khi phát.
+      String? playablePath;
+      if (audioNeedsTranscode(
+        name: widget.attachment.file.name,
+        mimeType: widget.attachment.file.mimeType,
+      )) {
+        final playable = await playableAudioFile(
+          source: readyFile,
+          cacheKey: 'chat-${widget.attachment.fileId}',
+        );
+        if (playable.path != readyFile.path) playablePath = playable.path;
+        if (!mounted ||
+            generation != _loadGeneration ||
+            !await operationIsCurrent()) {
+          throw StateError('instance binding changed');
+        }
+      }
       final previousFile = _audioFile;
       _audioFile = readyFile;
+      _playablePath = playablePath;
       _binding = binding;
       setState(() => _loading = false);
       await _player.play(
         DeviceFileSource(
-          readyFile.path,
-          mimeType: widget.attachment.file.mimeType,
+          playablePath ?? readyFile.path,
+          mimeType: playablePath == null
+              ? widget.attachment.file.mimeType
+              : 'audio/wav',
         ),
       );
       if (previousFile != null && previousFile.path != readyFile.path) {

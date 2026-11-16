@@ -5,13 +5,19 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
 
 ## 1.29.0 · 15/11/2026
 ### Tính năng
-- Cài đặt gọn lại, có tiếng Anh, chọn được giao diện Sáng / Tối; video trong Tệp có ảnh xem trước; ghi âm WebM trên
-  iPhone mở được bằng ứng dụng khác
+- Cài đặt gọn lại, có tiếng Anh, chọn được giao diện Sáng / Tối; video trong Tệp có ảnh xem trước; iPhone nghe được
+  mọi ghi âm; thanh tab dưới dạng nổi; tạo nhóm hiện đủ thành viên
   Đầu tab Cài đặt nay là một thẻ có ảnh đại diện, tên và dòng "Hồ sơ cá nhân"; bấm vào mở màn Hồ sơ, trong đó có mục
   "Tài khoản và bảo mật". Bỏ hai dòng "Hồ sơ cá nhân" và "Tài khoản" bị trùng ở dưới. Chọn "English" trong Thiết lập
   ứng dụng thì tab Cài đặt, Thiết lập ứng dụng, màn Hồ sơ và thanh tab dưới đổi sang tiếng Anh ngay; các màn khác sẽ
-  dịch dần ở bản sau. Ở mục Tệp, ghi âm dạng WebM / Ogg (thường gửi từ web) iPhone không phát trực tiếp được: bấm vào
-  sẽ mở bảng "Mở bằng ứng dụng khác" hoặc lưu về máy; ghi âm khác phát lỗi thì có nút "Mở bằng ứng dụng khác".
+  dịch dần ở bản sau. Ghi âm dạng WebM / Ogg (thường gửi từ web) trước đây iPhone không phát được; nay app tự đổi
+  sang dạng iPhone đọc được ngay trên máy (lần đầu chờ một chút, lần sau phát ngay), nên ở mục Tệp và trong phòng chat
+  đều nghe được mọi ghi âm. Nếu một tệp vẫn không đổi được thì app mở bảng "Mở bằng ứng dụng khác".
+  Thanh tab dưới nay là viên bo tròn nổi trên nội dung (không còn dải nền ở đáy), nút đang chọn có nền riêng và chữ
+  xanh; bấm sang tab khác thì chỉ tab đó đổi màu, tab cũ không còn vệt xám đọng lại.
+  Tạo nhóm: nhóm mới mở ra hiện đúng số thành viên vừa chọn (trước đây hiện chỉ có mình người tạo) và nhóm riêng tư
+  vừa tạo hoặc vừa được thêm vào hiện ngay trong mục Tin nhắn, không phải chờ có tin đầu tiên. Thêm người nào lỗi thì
+  app báo "Không thêm được N người".
   Thiết lập ứng dụng → Giao diện: chọn "Tối" thì cả app đổi sang nền tối ngay (không phải mở lại app, không mất màn
   đang mở); "Hệ thống" thì theo chế độ sáng / tối của điện thoại. Màn đăng nhập vẫn giữ nền sáng. Tệp chia sẻ → Video:
   video cũ chưa có ảnh xem trước nay được app tự lấy một khung hình làm ảnh bìa (lấy ngay trên máy, lưu lại cho lần
