@@ -76,6 +76,7 @@ abstract final class WebTuiIcons {
   // Công việc.
   static const IconData tasks = LucideIcons.listChecks;
   static const IconData taskDone = LucideIcons.check;
+  static const IconData overdue = LucideIcons.alarmClock;
   static const IconData note = LucideIcons.notebookPen;
   static const IconData meetings = LucideIcons.calendarDays;
   static const IconData sharedFiles = LucideIcons.folder;

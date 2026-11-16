@@ -3,6 +3,16 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.32.0 · 16/11/2026
+### Tính năng
+- Màn Việc của tôi thiết kế lại rõ ràng, hiện đại
+  Ba ô đếm Chưa nhận / Đã nhận / Hoàn thành (7 ngày qua) làm bộ lọc, cùng màu với thẻ Việc của tôi ở tab Công việc. Việc
+  chưa xong chia nhóm theo hạn: Quá hạn (tô đỏ), Hôm nay, Ngày mai, 7 ngày tới, Sau này, Không có hạn; mỗi việc là một
+  thẻ trong khối bo tròn có ô trạng thái (bấm để nhận / hoàn thành, có Hoàn tác), tên việc tối đa 2 dòng, nhãn hạn màu
+  ("Quá hạn 2 ngày", "Hôm nay 17:00", "Hạn 20/11") và tên nhóm. Việc đã xong chia Hôm nay / Hôm qua / Trước đó với nhãn
+  "Xong 09:05". Tìm theo tên chia kết quả theo trạng thái. Khi trống có lời hướng dẫn theo từng mục; hỗ trợ nền tối và
+  tiếng Anh.
+
 ## 1.31.1 · 16/11/2026
 ### Sửa lỗi
 - Bản Android dựng được trở lại, thư viện giải mã ghi âm đạt căn lề 16 KB

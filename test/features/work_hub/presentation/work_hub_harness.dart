@@ -34,6 +34,7 @@ Widget workHubApp({
   bool myNotes = true,
   FakeLauncher? launcher,
   GlobalKey<NavigatorState>? navigatorKey,
+  ThemeData? theme,
 }) {
   final router = GoRouter(
     navigatorKey: navigatorKey,
@@ -85,6 +86,9 @@ Widget workHubApp({
       myNotesEnabledProvider.overrideWithValue(myNotes),
       externalUrlLauncherProvider.overrideWithValue(launcher ?? FakeLauncher()),
     ],
-    child: MaterialApp.router(theme: WebTuiTheme.light(), routerConfig: router),
+    child: MaterialApp.router(
+      theme: theme ?? WebTuiTheme.light(),
+      routerConfig: router,
+    ),
   );
 }
