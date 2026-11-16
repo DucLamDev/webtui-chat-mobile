@@ -3,10 +3,10 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
-## 1.29.0 · 15/11/2026
+## 1.30.0 · 16/11/2026
 ### Tính năng
 - Cài đặt gọn lại, cả app có tiếng Anh, chọn được giao diện Sáng / Tối; video trong Tệp có ảnh xem trước; iPhone nghe được
-  mọi ghi âm; thanh tab dưới dạng nổi; tạo nhóm hiện đủ thành viên
+  mọi ghi âm; thanh tab không còn vệt xám ở tab cũ; tạo nhóm hiện đủ thành viên
   Đầu tab Cài đặt nay là một thẻ có ảnh đại diện, tên và dòng "Hồ sơ cá nhân"; bấm vào mở màn Hồ sơ, trong đó có mục
   "Tài khoản và bảo mật". Bỏ hai dòng "Hồ sơ cá nhân" và "Tài khoản" bị trùng ở dưới. Chọn "English" trong Thiết lập
   ứng dụng thì cả app đổi sang tiếng Anh ngay (Tin nhắn, phòng chat, gọi điện, Công việc, Nghiệp vụ, Ticket khách,
@@ -14,8 +14,8 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   kênh và thông báo do máy chủ gửi về, màn chọn máy chủ trước khi đăng nhập. Ghi âm dạng WebM / Ogg (thường gửi từ web) trước đây iPhone không phát được; nay app tự đổi
   sang dạng iPhone đọc được ngay trên máy (lần đầu chờ một chút, lần sau phát ngay), nên ở mục Tệp và trong phòng chat
   đều nghe được mọi ghi âm. Nếu một tệp vẫn không đổi được thì app mở bảng "Mở bằng ứng dụng khác".
-  Thanh tab dưới nay là viên bo tròn nổi trên nội dung (không còn dải nền ở đáy), nút đang chọn có nền riêng và chữ
-  xanh; bấm sang tab khác thì chỉ tab đó đổi màu, tab cũ không còn vệt xám đọng lại.
+  Thanh tab nổi (có từ 1.29.0): bấm sang tab khác thì chỉ tab đó đổi màu, tab cũ không còn vệt xám đọng lại; chữ tab
+  đang chọn xanh đậm hơn cho dễ đọc, bóng dưới thanh nhẹ hơn; tên tab đổi theo ngôn ngữ đang chọn.
   Tạo nhóm: nhóm mới mở ra hiện đúng số thành viên vừa chọn (trước đây hiện chỉ có mình người tạo) và nhóm riêng tư
   vừa tạo hoặc vừa được thêm vào hiện ngay trong mục Tin nhắn, không phải chờ có tin đầu tiên. Thêm người nào lỗi thì
   app báo "Không thêm được N người". Đang mở app mà bị người khác thêm vào nhóm thì nhóm hiện ngay trong Tin nhắn
@@ -26,6 +26,26 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   sau), không còn ô đen. Trên iPhone, video dạng WebM không lấy được ảnh nên vẫn hiện biểu tượng video.
   Số tin chưa đọc (danh sách tin, thanh tab dưới, lối tắt Ticket khách) luôn là viên tròn gọn 18px, giãn ngang theo
   số ("99+"), không còn bị kéo dài thành hình bầu dục.
+
+## 1.29.1 · 15/11/2026
+### Sửa lỗi
+- Chạy thử app trên Dev VPS bằng `vpsttt-app run` không còn báo lỗi
+  Trước đây lệnh báo "No Linux desktop project configured" vì app chưa có phần dựng cho Linux (công cụ chạy thử mở bản
+  Linux của app trong khung điện thoại). Thêm phần đó xong thì máy dev lại thiếu thư viện cho hai gói: âm thanh và kho
+  lưu phiên đăng nhập. Nay app có thư mục Linux, và riêng bản chạy thử dùng hai gói thay thế: không phát âm thanh, phiên
+  đăng nhập chỉ giữ tới khi tắt app. Bản Android / iOS phát hành không đổi gì. Cách chạy thử ghi ở README, mục "Chạy
+  Thử Trên Dev VPS".
+
+## 1.29.0 · 15/11/2026
+### Tính năng
+- Thanh điều hướng dưới dạng nổi như Telegram; ô nhập tin sát đáy; ô Ứng dụng đều nhau
+  - Thanh Tin nhắn / Bạn bè / Công việc / Cài đặt giờ là thanh nổi hình viên thuốc, nền kính mờ, cách hai mép màn
+    hình. Mục đang chọn có nền viên thuốc phía sau. Danh sách cuộn ra phía sau thanh, cuộn hết thì mục cuối vẫn nằm
+    trên thanh.
+  - Phòng chat: bỏ dải trống thừa dưới ô nhập tin. Nền trắng của ô nhập chạy tới mép màn hình, hàng nhập nằm sát ngay
+    trên thanh home của iPhone (Android giữ đúng chỗ thanh điều hướng). Khi bàn phím mở, ô nhập sát bàn phím.
+  - Khu Ứng dụng ở tab Công việc: ô biểu tượng Lịch họp, Tệp chia sẻ, Thêm cùng kích thước và cùng bo góc; chữ bên
+    dưới thẳng hàng.
 
 ## 1.27.2 · 15/11/2026
 ### Sửa lỗi

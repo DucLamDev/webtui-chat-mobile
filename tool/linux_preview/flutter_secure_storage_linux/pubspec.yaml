@@ -1,0 +1,28 @@
+name: flutter_secure_storage_linux
+description: >-
+  Bản thay thế flutter_secure_storage_linux chỉ cho bản Linux chạy thử trên
+  Dev VPS (vpsttt-app). Máy dev thiếu libsecret và không có dịch vụ kho khoá
+  nên gói thật không dựng / không chạy được. Không có tác dụng với bản
+  Android / iOS.
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ^3.3.0
+  flutter: '>=3.19.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_secure_storage_platform_interface: ^2.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  plugin:
+    implements: flutter_secure_storage
+    platforms:
+      linux:
+        dartPluginClass: FlutterSecureStorageLinuxPreview

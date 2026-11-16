@@ -235,9 +235,12 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
           ..._channelSlivers(context, state, controller)
         else
           ..._colleagueSlivers(context, state, controller),
+        // Đệm đáy: mục cuối cuộn lên được trên thanh tab nổi.
         SliverToBoxAdapter(
           child: SizedBox(
-            height: WebTuiSpacing.lg + MediaQuery.paddingOf(context).bottom,
+            height:
+                WebTuiSpacing.lg +
+                WebTuiFloatingTabBar.contentBottomPadding(context),
           ),
         ),
       ],
@@ -557,9 +560,12 @@ class _MessagesList extends StatelessWidget {
               },
             ),
           ],
+          // Đệm đáy: hội thoại cuối cuộn lên được trên thanh tab nổi.
           SliverToBoxAdapter(
             child: SizedBox(
-              height: WebTuiSpacing.lg + MediaQuery.paddingOf(context).bottom,
+              height:
+                  WebTuiSpacing.lg +
+                  WebTuiFloatingTabBar.contentBottomPadding(context),
             ),
           ),
         ],

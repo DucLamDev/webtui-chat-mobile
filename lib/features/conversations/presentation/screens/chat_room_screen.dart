@@ -837,7 +837,10 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         },
         onDetails: () => _openDetails(context),
       ),
-      body: SafeArea(top: false, child: body),
+      // Không chừa đáy ở đây: thanh cuối thân (ô nhập, thanh chặn, thanh chỉ
+      // đọc) tự lo vùng an toàn đáy để nền trắng chạy tới mép màn hình, không
+      // còn dải trống dưới ô nhập.
+      body: SafeArea(top: false, bottom: false, child: body),
     );
   }
 
@@ -2458,9 +2461,14 @@ class _ComposerState extends State<_Composer> {
 
   @override
   Widget build(BuildContext context) {
+    // Nền trắng chạy tới mép đáy màn hình; hàng nhập chỉ chừa đáy vừa đủ:
+    // iPhone nằm sát ngay trên thanh home, Android đúng vùng thanh điều hướng,
+    // bàn phím mở thì sát bàn phím (không cộng thêm khoảng an toàn).
     return SafeArea(
       top: false,
+      bottom: false,
       child: DecoratedBox(
+        key: const Key('chat_composer_surface'),
         decoration: BoxDecoration(
           color: WebTuiColors.surface,
           border: Border(
@@ -2468,11 +2476,11 @@ class _ComposerState extends State<_Composer> {
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(
+          padding: EdgeInsets.fromLTRB(
             WebTuiSpacing.md,
             WebTuiSpacing.sm,
             WebTuiSpacing.md,
-            WebTuiSpacing.sm,
+            webTuiBottomInset(context, minimum: WebTuiSpacing.sm),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,

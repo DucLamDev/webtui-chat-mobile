@@ -2275,8 +2275,11 @@ class SettingsTab extends StatelessWidget {
         ? strings.accountFallbackName
         : userName.trim();
     return ListView(
+      // Đệm đáy gồm chỗ của thanh tab nổi: mục cuối không bị che.
       padding: EdgeInsets.only(
-        bottom: WebTuiSpacing.lg + MediaQuery.paddingOf(context).bottom,
+        bottom:
+            WebTuiSpacing.lg +
+            WebTuiFloatingTabBar.contentBottomPadding(context),
       ),
       children: [
         Padding(
