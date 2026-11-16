@@ -123,17 +123,8 @@ void main() {
   testWidgets('hình người không có dải màu bên dưới (mép tròn không lộ viền)', (
     tester,
   ) async {
-    Gradient? gradientOf(Widget avatar) {
-      final box = tester.widget<DecoratedBox>(
-        find
-            .descendant(
-              of: find.byWidget(avatar),
-              matching: find.byType(DecoratedBox),
-            )
-            .first,
-      );
-      return (box.decoration as BoxDecoration).gradient;
-    }
+    Gradient? gradientOf(Widget avatar) =>
+        _gradients(tester, find.byWidget(avatar)).firstOrNull;
 
     const person = WebTuiAvatar(
       label: 'Lan Anh',
@@ -146,6 +137,47 @@ void main() {
     expect(gradientOf(person), isNull);
     // Nhóm / kênh vẫn giữ dải màu sau chữ viết tắt.
     expect(gradientOf(group), isNotNull);
+  });
+
+  testWidgets('logo có góc trong suốt (bot): không vẽ dải màu dưới ảnh', (
+    tester,
+  ) async {
+    Widget build(Future<Uint8List?> Function() load) {
+      return MaterialApp(
+        home: WebTuiAvatarNetworkScope(
+          apiBaseUri: Uri.parse('https://chat.example.test'),
+          cacheKey: 'bot${load.hashCode}',
+          loadBytes: (uri, {required maxBytes, required allowPublicRequest}) =>
+              load(),
+          child: const WebTuiAvatar(
+            label: 'Webtui Chat Bot',
+            imageUrl: '/logo.png',
+            square: true,
+            allowPublicRequest: true,
+          ),
+        ),
+      );
+    }
+
+    final avatar = find.byType(WebTuiAvatar);
+    await tester.runAsync(() async {
+      await tester.pumpWidget(build(() async => _png));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+    await tester.pump();
+    expect(find.byType(RawImage), findsOneWidget);
+    // Ảnh đã tải: chỉ có ảnh, không dải màu theo tên lộ ra ở góc trong suốt.
+    expect(_gradients(tester, avatar), isEmpty);
+    expect(find.text('WB'), findsNothing);
+
+    // Ảnh lỗi: chữ viết tắt trên dải màu như cũ.
+    await tester.runAsync(() async {
+      await tester.pumpWidget(build(() async => null));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
+    await tester.pump();
+    expect(find.text('WB'), findsOneWidget);
+    expect(_gradients(tester, avatar), isNotEmpty);
   });
 
   testWidgets('ảnh lỗi thì rơi về hình người; có ảnh thì dùng ảnh', (
@@ -183,6 +215,14 @@ void main() {
     expect(find.byType(WebTuiPersonSilhouette), findsNothing);
   });
 }
+
+/// Mọi dải màu vẽ trong [of] (nền chữ viết tắt / biểu tượng).
+List<Gradient> _gradients(WidgetTester tester, Finder of) => [
+  for (final box in tester.widgetList<DecoratedBox>(
+    find.descendant(of: of, matching: find.byType(DecoratedBox)),
+  ))
+    if (box.decoration case BoxDecoration(:final Gradient gradient)) gradient,
+];
 
 // PNG 1x1 hợp lệ.
 final _png = Uint8List.fromList(const [
