@@ -393,6 +393,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
                       workspaceName: activeWorkspace.name,
                       userName: userProfile?.displayName ?? '',
                       userAvatarUrl: userProfile?.avatarUrl,
+                      userGender: userProfile?.gender,
                       notificationEnabled: _notificationEnabled,
                       compactMode: _compactMode,
                       soundLevel: _soundLevel,
@@ -552,6 +553,8 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         'title': conversation.title,
         if (conversation.avatarUrl?.trim().isNotEmpty == true)
           'avatarUrl': conversation.avatarUrl!.trim(),
+        if (conversation.gender?.trim().isNotEmpty == true)
+          'gender': conversation.gender!.trim(),
         if (conversation.peerUserId?.trim().isNotEmpty == true)
           'peerUserId': conversation.peerUserId!.trim(),
         if (conversation.participantIds.isNotEmpty)
@@ -2254,6 +2257,7 @@ class SettingsTab extends StatelessWidget {
     required this.onTextScaleChanged,
     this.canSwitchWorkspace = false,
     this.userAvatarUrl,
+    this.userGender,
     this.onQrLoginTap,
     super.key,
   });
@@ -2273,6 +2277,7 @@ class SettingsTab extends StatelessWidget {
 
   /// Ảnh đại diện của người dùng; trống thì thẻ hiện chữ cái tên.
   final String? userAvatarUrl;
+  final String? userGender;
   final bool notificationEnabled;
   final bool compactMode;
   final double soundLevel;
@@ -2325,6 +2330,7 @@ class SettingsTab extends StatelessWidget {
                     WebTuiAvatar(
                       label: displayName,
                       imageUrl: userAvatarUrl,
+                      gender: WebTuiAvatarGender.parse(userGender),
                       size: 68,
                       status: WebTuiPresenceStatus.online,
                     ),

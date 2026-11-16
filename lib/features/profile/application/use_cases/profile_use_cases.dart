@@ -15,6 +15,9 @@ final class LoadProfileUseCase {
   Future<Result<UserProfile>> execute() => _repository.me();
 }
 
+/// Giá trị giới tính máy chủ chấp nhận khi người dùng tự chọn.
+const profileGenders = {'male', 'female', 'unspecified'};
+
 final class UpdateProfileUseCase {
   const UpdateProfileUseCase(this._repository);
 
@@ -32,6 +35,18 @@ final class UpdateProfileUseCase {
               'The display name cannot be empty.',
             ),
             code: 'PROFILE_NAME_REQUIRED',
+          ),
+        ),
+      );
+    }
+    final gender = command.gender;
+    if (gender != null && !profileGenders.contains(gender)) {
+      return Future.value(
+        FailureResult(
+          Failure(
+            kind: FailureKind.validation,
+            message: tr('Giới tính không hợp lệ.', 'Invalid gender.'),
+            code: 'PROFILE_GENDER_INVALID',
           ),
         ),
       );
@@ -61,6 +76,7 @@ final class UpdateProfileUseCase {
               locale: command.locale,
               timezone: command.timezone,
               title: title,
+              gender: command.gender,
             ),
     );
   }

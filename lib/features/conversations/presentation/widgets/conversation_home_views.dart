@@ -671,6 +671,8 @@ class _ConversationTile extends ConsumerWidget {
       avatarLabel:
           bot?.avatarLabel ?? conversation.avatarLabel ?? conversation.title,
       avatarUrl: bot != null ? bot.logoUrl : conversation.avatarUrl,
+      personAvatar: bot == null && conversation.kind == ConversationKind.direct,
+      avatarGender: conversation.gender,
       avatarPublicImage: bot != null,
       // Kênh: ô vuông bo góc + biểu tượng theo loại; người: ảnh tròn. Chat bot
       // thông báo giữ logo tổ chức nhưng cũng là ô vuông.
@@ -752,6 +754,8 @@ class _ContactTile extends StatelessWidget {
       timeLabel: canOpenChat ? _presenceLabel(presence) : '',
       avatarLabel: contact.displayName,
       avatarUrl: contact.avatarUrl,
+      personAvatar: true,
+      avatarGender: contact.gender,
       status: canOpenChat ? _presenceStatus(presence) : null,
       onTap: canOpenChat ? onTap : null,
       onLongPress: onSafety,
@@ -958,6 +962,10 @@ void _openChat(
   final avatarUrl = conversation.avatarUrl?.trim();
   if (avatarUrl != null && avatarUrl.isNotEmpty) {
     queryParameters['avatarUrl'] = avatarUrl;
+  }
+  final gender = conversation.gender?.trim();
+  if (gender != null && gender.isNotEmpty) {
+    queryParameters['gender'] = gender;
   }
   final peerUserId = conversation.peerUserId?.trim();
   if (peerUserId != null && peerUserId.isNotEmpty) {

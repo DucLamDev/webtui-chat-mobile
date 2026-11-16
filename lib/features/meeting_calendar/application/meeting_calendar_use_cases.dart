@@ -712,6 +712,7 @@ final class LoadMeetingPeopleUseCase {
                   ? member.displayName
                   : member.username,
               avatarUrl: member.avatarUrl,
+              gender: member.gender,
             ),
       ]),
       FailureResult(failure: final failure) => FailureResult(failure),
@@ -736,6 +737,7 @@ final class LoadMeetingPeopleUseCase {
                     ? person.displayName
                     : person.username,
                 avatarUrl: person.avatarUrl,
+                gender: person.gender,
               ),
         ]..sort(
           (a, b) => a.displayName.toLowerCase().compareTo(

@@ -120,6 +120,7 @@ final appRouterProvider = Provider<GoRouter>((_) {
             channelId: state.pathParameters['channel_id'] ?? '',
             workspaceId: state.uri.queryParameters['workspaceId'],
             avatarUrl: state.uri.queryParameters['avatarUrl'],
+            avatarGender: state.uri.queryParameters['gender'],
             title:
                 state.uri.queryParameters['title'] ??
                 tr('Hội thoại', 'Conversation'),

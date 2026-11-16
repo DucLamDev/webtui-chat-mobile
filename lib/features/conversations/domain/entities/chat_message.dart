@@ -355,6 +355,7 @@ final class ChannelMember {
     required this.status,
     required this.joinedAt,
     this.avatarUrl,
+    this.gender,
     this.lastReadMessageId,
     this.lastReadAt,
   });
@@ -367,6 +368,7 @@ final class ChannelMember {
   final String status;
   final DateTime joinedAt;
   final String? avatarUrl;
+  final String? gender;
   final String? lastReadMessageId;
 
   /// Thời điểm thành viên đọc tới (máy chủ cũ không trả thì `null`).

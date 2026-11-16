@@ -52,6 +52,7 @@ final class AuthUserDto {
     required this.displayName,
     required this.status,
     this.avatarUrl,
+    this.gender,
     this.locale,
     this.timezone,
   });
@@ -62,6 +63,7 @@ final class AuthUserDto {
   final String displayName;
   final String status;
   final String? avatarUrl;
+  final String? gender;
   final String? locale;
   final String? timezone;
 
@@ -73,6 +75,7 @@ final class AuthUserDto {
       displayName: _string(json['display_name']),
       status: _string(json['status'], fallback: 'active'),
       avatarUrl: _nullableString(json['avatar_url']),
+      gender: _nullableString(json['gender']),
       locale: _nullableString(json['locale']),
       timezone: _nullableString(json['timezone']),
     );
@@ -86,6 +89,7 @@ final class AuthUserDto {
       displayName: displayName,
       status: status,
       avatarUrl: avatarUrl,
+      gender: gender,
       locale: locale,
       timezone: timezone,
     );

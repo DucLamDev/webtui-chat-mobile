@@ -383,6 +383,7 @@ class _PersonTile extends StatelessWidget {
                 WebTuiAvatar(
                   label: _personName(person),
                   imageUrl: person.avatarUrl,
+                  gender: WebTuiAvatarGender.parse(person.gender),
                   size: 40,
                 ),
                 const SizedBox(width: WebTuiSpacing.md),
@@ -458,6 +459,7 @@ class _SelectedChip extends StatelessWidget {
               WebTuiAvatar(
                 label: _personName(person),
                 imageUrl: person.avatarUrl,
+                gender: WebTuiAvatarGender.parse(person.gender),
                 size: 32,
               ),
               const SizedBox(width: WebTuiSpacing.sm),

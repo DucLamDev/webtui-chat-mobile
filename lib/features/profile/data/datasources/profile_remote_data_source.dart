@@ -29,6 +29,7 @@ final class ProfileRemoteDataSource {
       data: compactMap({
         'display_name': command.displayName,
         'avatar_url': command.avatarUrl,
+        'gender': command.gender,
         'phone_number': command.phoneNumber,
         'locale': command.locale,
         'timezone': command.timezone,
@@ -81,6 +82,7 @@ UserProfile userProfileFromMap(JsonMap map) {
     locale: stringField(map, const ['locale'], fallback: 'vi'),
     timezone: stringField(map, const ['timezone'], fallback: 'Asia/Saigon'),
     avatarUrl: nullableStringField(map, const ['avatar_url', 'avatarUrl']),
+    gender: nullableStringField(map, const ['gender']),
     phoneNumber: nullableStringField(map, const [
       'phone_number',
       'phoneNumber',

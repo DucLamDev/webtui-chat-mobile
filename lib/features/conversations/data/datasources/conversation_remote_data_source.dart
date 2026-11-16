@@ -1345,6 +1345,9 @@ ConversationSummary _channelFromMap(JsonMap map) {
     preview: stringField(map, const ['description', 'preview']),
     avatarLabel: _avatarLabel(stringField(map, const ['name', 'title'])),
     avatarUrl: nullableStringField(map, const ['avatar_url', 'avatarUrl']),
+    gender: visibility == ChannelVisibility.direct
+        ? nullableStringField(map, const ['peer_gender', 'peerGender'])
+        : null,
     // Có thời điểm tin cuối thì xếp / hiện giờ theo tin cuối như chat 1-1.
     updatedAt:
         lastMessageAt ?? dateTimeField(map, const ['updated_at', 'updatedAt']),
@@ -1420,6 +1423,9 @@ ConversationSummary _directConversationFromMap(JsonMap map) {
       'avatar_url',
       'avatarUrl',
     ]),
+    gender:
+        nullableStringField(displaySource, const ['gender']) ??
+        nullableStringField(map, const ['peer_gender', 'peerGender']),
     peerUserId: nullableStringField(displaySource, const [
       'user_id',
       'userId',
@@ -1472,6 +1478,7 @@ ContactSummary _contactFromMap(JsonMap map) {
     email: stringField(source, const ['email']),
     status: stringField(source, const ['status'], fallback: 'active'),
     avatarUrl: nullableStringField(source, const ['avatar_url', 'avatarUrl']),
+    gender: nullableStringField(source, const ['gender']),
     title: nullableStringField(source, const ['title', 'role']),
     contactRequestId: nullableStringField(map, const ['id']),
     contactStatus: contactStatus.isEmpty ? null : contactStatus,
@@ -1494,6 +1501,7 @@ ContactSummary _workspaceMemberFromMap(JsonMap map) {
     email: stringField(source, const ['email']),
     status: stringField(source, const ['status'], fallback: 'active'),
     avatarUrl: nullableStringField(source, const ['avatar_url', 'avatarUrl']),
+    gender: nullableStringField(source, const ['gender']),
     title: nullableStringField(source, const ['title', 'role']),
   );
 }
@@ -1518,6 +1526,7 @@ ChannelMember _channelMemberFromMap(JsonMap map, {required String channelId}) {
     status: stringField(source, const ['status'], fallback: 'active'),
     joinedAt: dateTimeField(source, const ['joined_at', 'joinedAt']),
     avatarUrl: nullableStringField(source, const ['avatar_url', 'avatarUrl']),
+    gender: nullableStringField(source, const ['gender']),
     lastReadMessageId: nullableStringField(source, const [
       'last_read_message_id',
       'lastReadMessageId',
@@ -1835,6 +1844,7 @@ CollaborationRole _collaborationRoleFromMap(JsonMap map) {
     username: stringField(map, const ['username']),
     role: role,
     avatarUrl: nullableStringField(map, const ['avatar_url']),
+    gender: nullableStringField(map, const ['gender']),
   );
 }
 

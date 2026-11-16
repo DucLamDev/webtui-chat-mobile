@@ -102,6 +102,20 @@ final class ProfileController extends StateNotifier<ProfileState> {
     );
   }
 
+  /// Lưu giới tính ngay (`male`, `female`, `unspecified`); lỗi thì giữ giá trị
+  /// cũ và báo lỗi.
+  Future<void> changeGender(String gender) async {
+    if (state.isSaving || state.profile?.gender == gender) return;
+    state = state.copyWith(isSaving: true, clearMessages: true);
+    final result = await updateProfileUseCase.execute(
+      UpdateProfileCommand(gender: gender),
+    );
+    _applyProfileResult(
+      result,
+      success: tr('Đã cập nhật giới tính.', 'Gender updated.'),
+    );
+  }
+
   Future<void> changeAvatar(AvatarPickerSource source) async {
     state = state.copyWith(isSaving: true, clearMessages: true);
     final result = await changeAvatarUseCase.execute(source);
