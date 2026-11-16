@@ -106,16 +106,29 @@ final class CreateGroupUseCase {
     }
     final channel = created.valueOrNull!;
     final failed = <String>[];
-    for (final userId in memberIds.toSet()) {
+    var addedCount = 0;
+    for (final userId in memberIds.map((id) => id.trim()).toSet()) {
+      if (userId.isEmpty) continue;
       final added = await _repository.addMember(
         workspaceId: workspaceId,
         channelId: channel.channelId,
         userId: userId,
       );
-      if (added is FailureResult<ChannelMember>) failed.add(userId);
+      if (added is FailureResult<ChannelMember>) {
+        failed.add(userId);
+      } else {
+        addedCount++;
+      }
     }
+    // Máy chủ trả `member_count` lúc vừa tạo (chỉ có người tạo). Màn chat mở
+    // ngay bằng bản này nên phải cộng người vừa thêm, nếu không đầu phòng chat
+    // hiện "1 thành viên" như thể không ai được thêm.
+    final creatorCount = channel.memberCount > 0 ? channel.memberCount : 1;
     return Success(
-      CreateGroupResult(channel: channel, failedMemberIds: failed),
+      CreateGroupResult(
+        channel: channel.copyWith(memberCount: creatorCount + addedCount),
+        failedMemberIds: failed,
+      ),
     );
   }
 }

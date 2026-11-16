@@ -25,6 +25,8 @@ bool isDefaultInternalChannel(String? slug) {
 ///   (luật ẩn / tab Nghiệp vụ xử lý riêng);
 /// - kênh chưa tham gia: không (chỉ thấy ở Danh bạ > Kênh);
 /// - kênh nội bộ mặc định đã tham gia: luôn có;
+/// - nhóm riêng tư đã tham gia: luôn có, kể cả chưa có tin (vừa tạo / vừa được
+///   thêm vào nhóm thì phải thấy nhóm ngay, như Zalo);
 /// - kênh khác đã tham gia: khi đã có tin ([ConversationSummary.lastMessageAt]),
 ///   còn tin chưa đọc, hoặc đang mở ([openChannelId]). Máy chủ cũ chưa trả
 ///   `last_message_at` thì kênh khác coi như chưa có tin.
@@ -37,6 +39,7 @@ bool shouldShowChannelInInbox(
   if (!channel.isMember) return false;
   if (channel.isAutomation || channel.noticeBot) return true;
   if (isDefaultInternalChannel(channel.slug)) return true;
+  if (channel.channelVisibility == ChannelVisibility.private) return true;
   if (channel.hasMessages || channel.isUnread) return true;
   return openChannelId != null && channel.channelId == openChannelId;
 }

@@ -58,6 +58,19 @@ void main() {
       expect(result.valueOrNull!.failedMemberIds, isEmpty);
     });
 
+    test('nhóm trả về đếm cả người tạo và người vừa thêm', () async {
+      // Máy chủ trả member_count lúc vừa tạo (0 / 1); màn chat mở bằng bản
+      // này nên không được hiện "1 thành viên" sau khi đã thêm người.
+      final repo = _Repo(failFor: {'u3'});
+      final result = await CreateGroupUseCase(repo).execute(
+        workspaceId: 'ws',
+        name: 'Nhóm C',
+        memberIds: const ['u1', 'u2', 'u3', ' '],
+      );
+      expect(result.valueOrNull!.channel.memberCount, 3);
+      expect(repo.added, ['u1', 'u2', 'u3']);
+    });
+
     test('lỗi một phần: nhóm vẫn được tạo, trả danh sách người lỗi', () async {
       final repo = _Repo(failFor: {'u2', 'u3'});
       final result = await CreateGroupUseCase(repo).execute(
