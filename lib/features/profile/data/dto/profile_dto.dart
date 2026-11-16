@@ -10,6 +10,7 @@ final class UserProfileDto {
     required this.locale,
     required this.timezone,
     this.avatarUrl,
+    this.gender,
     this.phoneNumber,
   });
 
@@ -21,6 +22,7 @@ final class UserProfileDto {
   final String locale;
   final String timezone;
   final String? avatarUrl;
+  final String? gender;
   final String? phoneNumber;
 
   factory UserProfileDto.fromEnvelope(Object? envelope) {
@@ -37,6 +39,7 @@ final class UserProfileDto {
       locale: _string(json['locale'], fallback: 'vi'),
       timezone: _string(json['timezone'], fallback: 'Asia/Ho_Chi_Minh'),
       avatarUrl: _nullableString(json['avatar_url']),
+      gender: _nullableString(json['gender']),
       phoneNumber: _nullableString(json['phone_number']),
     );
   }
@@ -51,6 +54,7 @@ final class UserProfileDto {
       locale: locale,
       timezone: timezone,
       avatarUrl: avatarUrl,
+      gender: gender,
       phoneNumber: phoneNumber,
     );
   }

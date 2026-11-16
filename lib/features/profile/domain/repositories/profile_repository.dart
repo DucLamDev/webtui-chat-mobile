@@ -9,6 +9,7 @@ final class UpdateProfileCommand {
     this.locale,
     this.timezone,
     this.title,
+    this.gender,
   });
 
   final String? displayName;
@@ -19,6 +20,9 @@ final class UpdateProfileCommand {
 
   /// Chức danh trong workspace hiện tại (Lõi 2.7); null = không đổi.
   final String? title;
+
+  /// `male`, `female` hoặc `unspecified`; null = không đổi.
+  final String? gender;
 }
 
 abstract interface class ProfileRepository {

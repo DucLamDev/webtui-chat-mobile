@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/design_system/components/webtui_avatar.dart';
+import 'package:webtui_chat/design_system/components/webtui_person_silhouette.dart';
 import 'package:webtui_chat/features/home/presentation/screens/home_shell_screen.dart';
 import 'package:webtui_chat/l10n/app_strings.dart';
 
@@ -48,8 +49,9 @@ void main() {
     expect(find.text('Lan Anh'), findsOneWidget);
     expect(find.text('Hồ sơ cá nhân'), findsOneWidget);
     expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
-    // Chữ cái tên khi chưa có ảnh; không còn nút tròn trong thẻ.
-    expect(find.text('LA'), findsOneWidget);
+    // Chưa có ảnh: hình người mặc định (thay chữ cái tên); không còn nút tròn
+    // trong thẻ.
+    expect(find.byType(WebTuiPersonSilhouette), findsOneWidget);
     expect(find.byType(IconButton), findsNothing);
 
     await tester.tap(find.byKey(const Key('settings_profile_card')));

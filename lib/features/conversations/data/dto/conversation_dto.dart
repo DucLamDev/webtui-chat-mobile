@@ -415,6 +415,7 @@ final class ContactUserDto {
     required this.displayName,
     required this.status,
     this.avatarUrl,
+    this.gender,
     this.title,
   });
 
@@ -424,6 +425,7 @@ final class ContactUserDto {
   final String displayName;
   final String status;
   final String? avatarUrl;
+  final String? gender;
   final String? title;
 
   factory ContactUserDto.fromJson(Map<String, dynamic> json) {
@@ -434,6 +436,7 @@ final class ContactUserDto {
       displayName: _string(json['display_name']),
       status: _string(json['status'], fallback: 'active'),
       avatarUrl: _nullableString(json['avatar_url']),
+      gender: _nullableString(json['gender']),
       title: _nullableString(json['title']),
     );
   }
@@ -446,6 +449,7 @@ final class ContactUserDto {
       email: email,
       status: statusOverride ?? status,
       avatarUrl: avatarUrl,
+      gender: gender,
       title: title,
     );
   }

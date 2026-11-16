@@ -423,6 +423,9 @@ class TaskTile extends StatelessWidget {
                                 WebTuiAvatar(
                                   label: assignee.name,
                                   imageUrl: assignee.avatarUrl,
+                                  gender: WebTuiAvatarGender.parse(
+                                    assignee.gender,
+                                  ),
                                   size: 20,
                                 ),
                               const SizedBox(width: WebTuiSpacing.xs),

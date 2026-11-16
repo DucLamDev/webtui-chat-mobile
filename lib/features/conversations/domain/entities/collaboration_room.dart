@@ -174,6 +174,7 @@ final class CollaborationRole {
     required this.username,
     required this.role,
     this.avatarUrl,
+    this.gender,
   });
 
   final String userId;
@@ -181,6 +182,7 @@ final class CollaborationRole {
   final String username;
   final CollaborationParticipantRole role;
   final String? avatarUrl;
+  final String? gender;
 }
 
 final class BreakoutRoom {

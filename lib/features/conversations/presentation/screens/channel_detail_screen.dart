@@ -603,6 +603,8 @@ class _MembersTab extends StatelessWidget {
                 timeLabel: member.status,
                 avatarLabel: member.displayName,
                 avatarUrl: member.avatarUrl,
+                personAvatar: true,
+                avatarGender: member.gender,
                 status: member.status == 'active'
                     ? WebTuiPresenceStatus.online
                     : null,
@@ -651,7 +653,11 @@ class _JoinRequestTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.lg),
         child: Row(
           children: [
-            WebTuiAvatar(label: member.displayName, imageUrl: member.avatarUrl),
+            WebTuiAvatar(
+              label: member.displayName,
+              imageUrl: member.avatarUrl,
+              gender: WebTuiAvatarGender.parse(member.gender),
+            ),
             const SizedBox(width: WebTuiSpacing.md),
             Expanded(
               child: Text(

@@ -129,6 +129,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         WebTuiAvatar(
                           label: profile?.displayName ?? 'WebTui',
                           imageUrl: profile?.avatarUrl,
+                          gender: WebTuiAvatarGender.parse(profile?.gender),
                           size: 68,
                           status: WebTuiPresenceStatus.online,
                         ),
@@ -194,6 +195,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   controller: _titleController,
                   icon: Icons.work_outline_rounded,
                 ),
+                if (profile != null)
+                  _GenderField(
+                    value: profile.gender,
+                    enabled: !state.isSaving,
+                    onChanged: controller.changeGender,
+                  ),
                 _ProfileField(
                   label: strings.fieldPhone,
                   controller: _phoneController,
@@ -295,6 +302,78 @@ class _ProfileField extends StatelessWidget {
           fillColor: WebTuiColors.surface,
           border: const OutlineInputBorder(),
         ),
+      ),
+    );
+  }
+}
+
+class _GenderField extends StatelessWidget {
+  const _GenderField({
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final String? value;
+  final bool enabled;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected =
+        value == 'male' || value == 'female' || value == 'unspecified'
+        ? value
+        : null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: WebTuiSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: WebTuiSpacing.xs),
+            child: Text(
+              tr('Giới tính', 'Gender'),
+              style: WebTuiTypography.bodySmall.copyWith(
+                color: WebTuiColors.textMuted,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<String>(
+              key: const Key('profile_gender_field'),
+              emptySelectionAllowed: true,
+              showSelectedIcon: false,
+              segments: [
+                ButtonSegment(
+                  value: 'male',
+                  label: Text(tr('Nam', 'Male'), maxLines: 1),
+                ),
+                ButtonSegment(
+                  value: 'female',
+                  label: Text(tr('Nữ', 'Female'), maxLines: 1),
+                ),
+                ButtonSegment(
+                  value: 'unspecified',
+                  label: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      tr('Không muốn nói', 'Prefer not to say'),
+                      maxLines: 1,
+                    ),
+                  ),
+                ),
+              ],
+              selected: {?selected},
+              onSelectionChanged: enabled
+                  ? (values) {
+                      if (values.isNotEmpty) onChanged(values.first);
+                    }
+                  : null,
+            ),
+          ),
+        ],
       ),
     );
   }

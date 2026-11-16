@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/design_system/components/webtui_avatar.dart';
+import 'package:webtui_chat/design_system/components/webtui_person_silhouette.dart';
 import 'package:webtui_chat/features/conversations/domain/entities/chat_message.dart';
 import 'package:webtui_chat/features/conversations/presentation/controllers/message_sender_directory.dart';
 
@@ -53,4 +54,53 @@ void main() {
     expect(find.text('An Nguyễn'), findsNWidgets(2));
     expect(find.byType(WebTuiAvatar), findsNWidgets(2));
   });
+
+  testWidgets(
+    'nhóm: người chưa có ảnh hiện hình người theo giới tính, tin bot giữ chữ viết tắt',
+    (tester) async {
+      final directory = MessageSenderDirectory.fromMembers([
+        ChannelMember(
+          channelId: 'ch',
+          userId: 'peer',
+          email: '',
+          username: '',
+          displayName: 'Lan Anh',
+          status: 'active',
+          joinedAt: DateTime.utc(2026),
+          gender: 'female',
+        ),
+      ]);
+      await pumpChatRoom(
+        tester,
+        directChat: false,
+        showSenderNames: true,
+        senderDirectory: directory,
+        messages: [
+          harnessText('t1', 'Chào cả nhóm', mine: false, at: harnessTime(9, 0)),
+          ChatMessage(
+            id: 'b1',
+            workspaceId: 'ws',
+            channelId: 'ch',
+            kind: 'bot',
+            body: 'Thông báo tự động',
+            createdAt: harnessTime(9, 30),
+            isMine: false,
+          ),
+        ],
+      );
+      final silhouettes = tester
+          .widgetList<WebTuiPersonSilhouette>(
+            find.byType(WebTuiPersonSilhouette),
+          )
+          .toList();
+      expect(silhouettes, hasLength(1));
+      expect(silhouettes.single.gender, WebTuiAvatarGender.female);
+      // Tin bot không có người gửi: vẫn là ô chữ viết tắt, không vẽ hình người.
+      final avatars = tester
+          .widgetList<WebTuiAvatar>(find.byType(WebTuiAvatar))
+          .toList();
+      expect(avatars, hasLength(2));
+      expect(avatars.where((avatar) => avatar.gender == null), hasLength(1));
+    },
+  );
 }

@@ -17,6 +17,8 @@ class WebTuiConversationListItem extends StatelessWidget {
     required this.timeLabel,
     required this.avatarLabel,
     this.avatarUrl,
+    this.personAvatar = false,
+    this.avatarGender,
     this.avatarPublicImage = false,
     this.avatarIcon,
     this.squareAvatar = false,
@@ -38,6 +40,13 @@ class WebTuiConversationListItem extends StatelessWidget {
   final String timeLabel;
   final String avatarLabel;
   final String? avatarUrl;
+
+  /// Dòng là NGƯỜI (chat 1-1, thành viên): chưa có ảnh thì vẽ hình người theo
+  /// [avatarGender]; false = nhóm / kênh / bot (giữ chữ viết tắt hoặc biểu tượng).
+  final bool personAvatar;
+
+  /// Giới tính theo API (`male`, `female`, `unspecified`, thiếu = trung tính).
+  final String? avatarGender;
   final bool avatarPublicImage;
 
   /// Biểu tượng thay chữ cái đầu (kênh, mục nghiệp vụ như Phê duyệt, Ticket).
@@ -119,6 +128,10 @@ class WebTuiConversationListItem extends StatelessWidget {
                       foregroundColor:
                           channelTone?.icon ?? WebTuiColors.primary,
                       imageUrl: avatarUrl,
+                      gender:
+                          personAvatar && avatarIcon == null && !squareAvatar
+                          ? WebTuiAvatarGender.parse(avatarGender)
+                          : null,
                       allowPublicRequest: avatarPublicImage,
                       status: status,
                       square: square,
