@@ -28,7 +28,7 @@ final class WebTuiBottomTabTokens {
   const WebTuiBottomTabTokens._();
 
   /// Chiều cao viên thuốc nổi kiểu Telegram (không gồm khoảng trên / dưới).
-  static const double height = 64;
+  static const double height = 56;
 
   /// Lề hai bên viên thuốc: nội dung chạy hai bên và phía dưới như Telegram.
   static const double sideMargin = 16;
@@ -50,7 +50,7 @@ final class WebTuiBottomTabTokens {
   /// Khoảng giữa mép viên thuốc và nền của mục đang chọn.
   static const double selectionInset = 4;
 
-  static const double iconSize = 26;
+  static const double iconSize = 24;
   static const int tabCount = 4;
 
   /// Chiều cao thanh chiếm ở đáy màn hình khi khoảng dưới viên thuốc là

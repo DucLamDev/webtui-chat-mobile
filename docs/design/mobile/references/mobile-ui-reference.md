@@ -17,10 +17,11 @@ Các màn hình chính trong reference:
 | Màn | Ý nghĩa thiết kế | Điểm cần bám |
 |---|---|---|
 | Splash/Login | Nhận diện WebTui, đăng nhập nhanh | Logo nổi ở giữa, nền sáng, nút đăng nhập gọn |
-| Tin nhắn | Màn mặc định sau đăng nhập | Header "Tin nhắn", icon nhỏ, segmented tabs, search, danh sách hội thoại |
+| Tin nhắn | Màn mặc định sau đăng nhập | Không có tiêu đề: hàng [nút soạn (bút)][ô tìm] ngay dưới thanh trạng thái, hàng chip lọc kiểu Messenger, danh sách hội thoại |
 | Bạn bè | Danh bạ và kênh/bot tích hợp | Tab "Hội thoại" và "Kênh & Bot", list item dày, trạng thái chưa đọc |
 | Kênh | Danh sách channel theo workspace | Search/settings, channel category, badge trạng thái tham gia/mở kênh |
-| Cài đặt | Profile và thiết lập WebTui nâng cao | Avatar lớn, tên user, card setting, toggle, slider, bottom tab active |
+| Công việc | Việc của tôi, ứng dụng, họp sắp tới | Không có tiêu đề: ô tìm giả (chỉ bấm, mở tìm việc) ở đầu nội dung |
+| Cài đặt | Profile và thiết lập WebTui nâng cao | Không có tiêu đề: thẻ hồ sơ (avatar lớn, tên) bắt đầu ngay dưới thanh trạng thái, card setting, toggle, slider |
 
 ## Design tokens định hướng
 
@@ -34,7 +35,9 @@ Các màn hình chính trong reference:
 | Typography | Rõ, gọn, ưu tiên scan nhanh; tên người/kênh đậm vừa |
 | List density | Dày hơn landing page, mỗi item đủ avatar, tên, preview, thời gian/badge |
 | Bottom navigation | 4 tab chính: Tin nhắn, Danh bạ, Khám phá/Kênh, Thêm/Cài đặt |
+| Thanh tab dưới | Viên thuốc nổi kính trong cao 56 (viên chọn cao 48), biểu tượng 24, chữ 10.5; mỗi mục bấm ≥ 44; danh sách chừa đáy theo `WebTuiFloatingTabBar.contentBottomPadding` |
 | Segmented tabs | Dùng cho Hội thoại/Kênh & Bot, Tất cả/Chưa đọc/Yêu thích |
+| Chip lọc (`WebTuiFilterChipBar`) | Kiểu Messenger: viên thuốc cao 32, không viền, nền xám nhạt (`chipBackground`), chữ đậm 600 màu phụ; chip chọn nền primary trong suốt 14% (tối 20%), chữ primary đậm; số đếm nhỏ nằm trong chip |
 | Icon | Dùng icon mềm, quen thuộc, không dùng icon cứng/AI-looking |
 | Nút nổi (FAB) | Theme dùng `StadiumBorder`: nút chỉ icon vẫn tròn 56×56; nút có chữ (`FloatingActionButton.extended`, vd "Ghi chú mới") là viên thuốc, lề trái 16 / phải 20, icon cách chữ 8, chữ `labelLarge` đậm 600. Không đặt lại `CircleBorder` ở theme hay từng màn (nút có chữ sẽ thành hình tròn, chữ tràn ra ngoài) |
 | Số tin chưa đọc | `WebTuiUnreadBadge` / `webTuiUnreadLabel`: chat 1-1 (cả bot thông báo) hiện 1–5 rồi `5+`; nhóm / kênh hiện 1–99 rồi `99+`. Web dùng cùng trần (`unread-badge.ts`) |

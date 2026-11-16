@@ -241,64 +241,84 @@ void main() {
     );
   });
 
-  testWidgets('tiêu đề lớn "Tin nhắn", nút soạn trơn bên phải tiêu đề, '
-      'ô tìm ngay dưới', (tester) async {
-    var composed = 0;
-    await pump(
-      tester,
-      automation: true,
-      channels: [_item('team', 'Nhóm team')],
-      onCompose: () => composed++,
-    );
-    expect(find.byType(AppBar), findsNothing);
-    final title = find.widgetWithText(WebTuiLargeTitleBar, 'Tin nhắn');
-    expect(title, findsOneWidget);
-    final compose = find.byKey(const Key('compose_button'));
-    expect(
-      find.descendant(of: title, matching: compose),
-      findsOneWidget,
-      reason: 'nút soạn nằm trên dòng tiêu đề lớn',
-    );
-    expect(tester.widget(compose), isA<WebTuiHeaderIconButton>());
-    expect(
-      tester.widget<WebTuiHeaderIconButton>(compose).tooltip,
-      'Tin nhắn mới hoặc tạo nhóm',
-    );
-    // Không còn ô vuông nền quanh nút soạn.
-    expect(
-      find.descendant(
-        of: compose,
-        matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is Material && widget.color == WebTuiColors.primarySoft,
-        ),
-      ),
-      findsNothing,
-    );
-    final search = find.byType(WebTuiSearchBar);
-    expect(find.text('Tìm tin nhắn, nhóm...'), findsOneWidget);
-    expect(
-      tester.getCenter(compose).dx,
-      greaterThan(tester.getCenter(find.text('Tin nhắn')).dx),
-      reason: 'nút soạn bên phải tiêu đề',
-    );
-    expect(
-      tester.getTopLeft(search).dy,
-      greaterThanOrEqualTo(tester.getBottomLeft(title).dy),
-      reason: 'ô tìm nằm dưới tiêu đề',
-    );
-    final chips = find.byKey(const ValueKey('inbox-filter-chips'));
-    expect(
-      tester.getTopLeft(chips).dy,
-      greaterThanOrEqualTo(tester.getBottomLeft(search).dy),
-      reason: 'thanh lọc nằm dưới ô tìm',
-    );
-    expect(find.byIcon(WebTuiIcons.compose), findsOneWidget);
-    await tester.tap(compose);
-    expect(composed, 1);
-  });
+  testWidgets(
+    'không có tiêu đề "Tin nhắn": nút soạn bên trái ô tìm, cùng hàng',
+    (tester) async {
+      var composed = 0;
+      await pump(
+        tester,
+        automation: true,
+        channels: [_item('team', 'Nhóm team')],
+        onCompose: () => composed++,
+      );
+      expect(find.byType(AppBar), findsNothing);
+      expect(find.byType(WebTuiLargeTitleBar), findsNothing);
+      expect(find.text('Tin nhắn'), findsNothing);
+      final compose = find.byKey(const Key('compose_button'));
+      expect(tester.widget(compose), isA<WebTuiHeaderIconButton>());
+      expect(
+        tester.widget<WebTuiHeaderIconButton>(compose).tooltip,
+        'Tin nhắn mới hoặc tạo nhóm',
+      );
+      final search = find.byType(WebTuiSearchBar);
+      expect(find.text('Tìm tin nhắn, nhóm...'), findsOneWidget);
+      final composeRect = tester.getRect(compose);
+      final searchRect = tester.getRect(search);
+      expect(composeRect.right, lessThanOrEqualTo(searchRect.left));
+      expect(composeRect.center.dy, closeTo(searchRect.center.dy, 1));
+      expect(composeRect.width, greaterThanOrEqualTo(44));
+      expect(composeRect.top, lessThan(12), reason: 'hàng sát đầu thân tab');
+      final chips = find.byKey(const ValueKey('inbox-filter-chips'));
+      expect(
+        tester.getTopLeft(chips).dy,
+        greaterThanOrEqualTo(searchRect.bottom),
+        reason: 'thanh lọc nằm dưới ô tìm',
+      );
+      expect(find.byIcon(WebTuiIcons.compose), findsOneWidget);
+      await tester.tap(compose);
+      expect(composed, 1);
+    },
+  );
 
-  testWidgets('cuộn: tiêu đề lớn trôi đi, ô tìm + thanh lọc dính trên cùng', (
+  testWidgets(
+    'chip lọc kiểu Messenger: chọn / chưa chọn khác màu nền, cao 32',
+    (tester) async {
+      await pump(
+        tester,
+        automation: true,
+        channels: [_item('team', 'Nhóm team')],
+      );
+      Color? fill(String key) =>
+          (tester
+                      .widget<AnimatedContainer>(
+                        find.descendant(
+                          of: find.byKey(ValueKey(key)),
+                          matching: find.byType(AnimatedContainer),
+                        ),
+                      )
+                      .decoration!
+                  as BoxDecoration)
+              .color;
+      final selected = fill('inbox-filter-all');
+      final other = fill('inbox-filter-group');
+      expect(selected, isNot(other));
+      expect(other, WebTuiColors.chipBackground);
+      expect(selected!.a, lessThan(0.3), reason: 'nền xanh trong suốt');
+      expect(
+        tester
+            .getSize(
+              find.descendant(
+                of: find.byKey(const ValueKey('inbox-filter-all')),
+                matching: find.byType(AnimatedContainer),
+              ),
+            )
+            .height,
+        32,
+      );
+    },
+  );
+
+  testWidgets('cuộn: hàng nút soạn + ô tìm và thanh lọc dính trên cùng', (
     tester,
   ) async {
     await pump(
@@ -309,19 +329,11 @@ void main() {
           _item('dm$i', 'Người $i', channel: false, peer: 'u$i'),
       ],
     );
-    final title = find.widgetWithText(WebTuiLargeTitleBar, 'Tin nhắn');
     final searchTop = tester.getTopLeft(find.byType(WebTuiSearchBar)).dy;
-    expect(tester.getTopLeft(title).dy, 0);
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
     await tester.pumpAndSettle();
-    expect(
-      title.hitTestable(),
-      findsNothing,
-      reason: 'tiêu đề lớn đã cuộn khỏi màn',
-    );
     final pinnedTop = tester.getTopLeft(find.byType(WebTuiSearchBar)).dy;
-    expect(pinnedTop, lessThan(searchTop));
-    expect(pinnedTop, greaterThanOrEqualTo(0));
+    expect(pinnedTop, searchTop, reason: 'ô tìm dính, không trôi đi');
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('inbox-filter-chips'))).dy,
       greaterThan(pinnedTop),

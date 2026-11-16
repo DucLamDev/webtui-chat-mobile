@@ -81,21 +81,29 @@ class WorkspaceToolsScreen extends ConsumerWidget {
               WebTuiFloatingTabBar.contentBottomPadding(context),
         ),
         children: [
-          WebTuiLargeTitleBar(
-            title: context.strings.tabWork,
-            actions: [
-              WebTuiHeaderIconButton(
+          // Ô tìm giả (chỉ bấm): mở màn Việc của tôi với ô tìm đã bật.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              WebTuiSpacing.lg,
+              WebTuiSpacing.xs,
+              WebTuiSpacing.lg,
+              WebTuiSpacing.sm,
+            ),
+            child: Semantics(
+              button: true,
+              label: tr('Tìm việc của tôi', 'Search my tasks'),
+              excludeSemantics: true,
+              child: WebTuiSearchBar(
                 key: const Key('work_search'),
-                icon: WebTuiIcons.search,
-                tooltip: tr('Tìm việc của tôi', 'Search my tasks'),
-                onPressed: () => context.push(
+                hintText: tr('Tìm việc của tôi', 'Search my tasks'),
+                onTap: () => context.push(
                   Uri(
                     path: '/my-tasks',
                     queryParameters: {'workspaceId': id, 'search': '1'},
                   ).toString(),
                 ),
               ),
-            ],
+            ),
           ),
           MyTasksCard(workspaceId: id),
           const WebTuiGroupGap(),
