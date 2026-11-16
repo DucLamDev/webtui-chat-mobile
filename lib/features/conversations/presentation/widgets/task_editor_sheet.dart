@@ -179,6 +179,7 @@ class _TaskEditorSheetState extends ConsumerState<TaskEditorSheet> {
                   : WebTuiAvatar(
                       label: assignee.name,
                       imageUrl: assignee.avatarUrl,
+                      gender: WebTuiAvatarGender.parse(assignee.gender),
                       size: 32,
                     ),
               title: Text(
@@ -540,6 +541,7 @@ class _AssigneePickerState extends State<_AssigneePicker> {
                     leading: WebTuiAvatar(
                       label: member.name,
                       imageUrl: member.avatarUrl,
+                      gender: WebTuiAvatarGender.parse(member.gender),
                       size: 36,
                     ),
                     title: Text(member.name),

@@ -6,6 +6,7 @@ final class AuthUser {
     required this.displayName,
     required this.status,
     this.avatarUrl,
+    this.gender,
     this.locale,
     this.timezone,
   });
@@ -16,6 +17,7 @@ final class AuthUser {
   final String displayName;
   final String status;
   final String? avatarUrl;
+  final String? gender;
   final String? locale;
   final String? timezone;
 }

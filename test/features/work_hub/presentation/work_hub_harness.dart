@@ -5,6 +5,9 @@ import 'package:webtui_chat/app/providers/foundation_providers.dart';
 import 'package:webtui_chat/core/platform/external_url_launcher.dart';
 import 'package:webtui_chat/design_system/theme/webtui_theme.dart';
 import 'package:webtui_chat/features/conversations/presentation/screens/workspace_tools_screen.dart';
+import 'package:webtui_chat/features/meeting_calendar/application/meeting_calendar_providers.dart';
+import 'package:webtui_chat/features/meeting_calendar/presentation/controllers/meeting_calendar_controllers.dart';
+import 'package:webtui_chat/features/meeting_calendar/presentation/screens/meeting_detail_screen.dart';
 import 'package:webtui_chat/features/my_notes/presentation/controllers/my_notes_access_provider.dart';
 import 'package:webtui_chat/features/work_hub/presentation/controllers/work_hub_providers.dart';
 import 'package:webtui_chat/features/work_hub/presentation/screens/meetings_screen.dart';
@@ -12,6 +15,7 @@ import 'package:webtui_chat/features/work_hub/presentation/screens/my_tasks_scre
 import 'package:webtui_chat/features/work_hub/presentation/screens/shared_files_screen.dart';
 import 'package:webtui_chat/features/work_hub/presentation/screens/shortcuts_manage_screen.dart';
 
+import '../../meeting_calendar/meeting_calendar_fakes.dart';
 import '../work_hub_fakes.dart';
 
 final class FakeLauncher implements ExternalUrlLauncher {
@@ -35,6 +39,8 @@ Widget workHubApp({
   FakeLauncher? launcher,
   GlobalKey<NavigatorState>? navigatorKey,
   ThemeData? theme,
+  FakeMeetingCalendarRepository? calendar,
+  DateTime? now,
 }) {
   final router = GoRouter(
     navigatorKey: navigatorKey,
@@ -50,6 +56,15 @@ Widget workHubApp({
       GoRoute(
         path: '/meetings',
         builder: (_, _) => const MeetingsScreen(workspaceId: 'ws'),
+      ),
+      GoRoute(
+        path: '/meetings/:id',
+        builder: (_, state) => MeetingDetailScreen(
+          workspaceId: 'ws',
+          channelId: state.uri.queryParameters['channelId'] ?? '',
+          meetingId: state.pathParameters['id'] ?? '',
+          now: now,
+        ),
       ),
       GoRoute(
         path: '/files',
@@ -85,6 +100,10 @@ Widget workHubApp({
       workHubEnabledProvider.overrideWithValue(workHub),
       myNotesEnabledProvider.overrideWithValue(myNotes),
       externalUrlLauncherProvider.overrideWithValue(launcher ?? FakeLauncher()),
+      meetingCalendarRepositoryProvider.overrideWithValue(
+        calendar ?? FakeMeetingCalendarRepository(),
+      ),
+      meetingTimezoneProvider.overrideWithValue('Asia/Ho_Chi_Minh'),
     ],
     child: MaterialApp.router(
       theme: theme ?? WebTuiTheme.light(),

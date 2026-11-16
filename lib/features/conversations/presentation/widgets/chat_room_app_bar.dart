@@ -32,6 +32,7 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onTools,
     required this.onDetails,
     this.avatarUrl,
+    this.avatarGender,
     this.publicAvatar = false,
     this.onSafety,
     this.notificationAction,
@@ -43,6 +44,9 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   final String title;
   final String? avatarUrl;
+
+  /// Giới tính người đối diện (chat 1-1 với người); null cho nhóm / bot.
+  final WebTuiAvatarGender? avatarGender;
 
   /// Ảnh đại diện công khai (logo chat bot), không cần đăng nhập để tải.
   final bool publicAvatar;
@@ -112,6 +116,7 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
           WebTuiAvatar(
             label: title,
             imageUrl: avatarUrl,
+            gender: avatarGender,
             allowPublicRequest: publicAvatar,
             status: presence?.online == true
                 ? WebTuiPresenceStatus.online
@@ -213,7 +218,7 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 value: 'details',
                 child: _ChatMenuRow(
                   icon: WebTuiIcons.channel,
-                  label: tr('Chi tiết kênh', 'Channel details'),
+                  label: tr('Chi tiết nhóm', 'Group details'),
                 ),
               ),
             if (!noticeBot && onLeaveGroup != null)

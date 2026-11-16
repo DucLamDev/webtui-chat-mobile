@@ -190,8 +190,8 @@ final class ForwardMessageUseCase {
           Failure(
             kind: FailureKind.validation,
             message: tr(
-              'Bạn cần chọn kênh nhận tin nhắn chuyển tiếp.',
-              'Select a channel to forward the message to.',
+              'Bạn cần chọn nhóm nhận tin nhắn chuyển tiếp.',
+              'Select a group to forward the message to.',
             ),
             code: 'FORWARD_TARGET_REQUIRED',
           ),

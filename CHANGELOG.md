@@ -3,7 +3,7 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
-## 1.32.0 · 16/11/2026
+## 1.34.0 · 16/11/2026
 ### Tính năng
 - Màn Việc của tôi thiết kế lại rõ ràng, hiện đại
   Ba ô đếm Chưa nhận / Đã nhận / Hoàn thành (7 ngày qua) làm bộ lọc, cùng màu với thẻ Việc của tôi ở tab Công việc. Việc
@@ -12,6 +12,63 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   ("Quá hạn 2 ngày", "Hôm nay 17:00", "Hạn 20/11") và tên nhóm. Việc đã xong chia Hôm nay / Hôm qua / Trước đó với nhãn
   "Xong 09:05". Tìm theo tên chia kết quả theo trạng thái. Khi trống có lời hướng dẫn theo từng mục; hỗ trợ nền tối và
   tiếng Anh.
+
+## 1.33.0 · 16/11/2026
+### Tính năng
+- Ảnh đại diện mặc định theo giới tính (kiểu Facebook): người chưa đặt ảnh đại diện (hoặc ảnh không tải được) hiện
+  hình người màu xám thay cho nền màu + chữ viết tắt. Nam → hình nam, nữ → hình nữ, chưa chọn hoặc "Không muốn nói" →
+  hình người trung tính. Có cả bản nền tối. Áp dụng ở danh sách tin nhắn 1-1, đầu phòng chat, ảnh cạnh tin nhắn (cả
+  trong nhóm), danh bạ, thành viên nhóm, chọn thành viên khi tạo nhóm, hồ sơ cá nhân, người được giao việc. Ảnh nhóm,
+  kênh, bot, chat bot thông báo và tin do bot gửi giữ như cũ.
+- Hồ sơ cá nhân có thêm mục "Giới tính" (Nam / Nữ / Không muốn nói): chọn là lưu ngay, ảnh đại diện mặc định đổi theo;
+  lưu lỗi thì báo và giữ lựa chọn cũ. Cần máy chủ đã cập nhật bản có giới tính; máy chủ cũ thì mọi người hiện hình
+  trung tính.
+
+## 1.32.1 · 16/11/2026
+### Sửa lỗi
+- Tin chưa đọc dễ nhận ra hơn: trong danh sách Tin nhắn, dòng xem trước của hội thoại còn tin chưa đọc in đậm, màu chữ
+  đậm; giờ gửi tô xanh. Đọc xong thì trở về chữ xám thường. Áp dụng cả dòng bot thông báo.
+- Bảng Công việc của nhóm: chip đang chọn (Tổng quan, Họp, Đã chia sẻ, Biên bản...) không còn vòng tròn xám đè lên
+  biểu tượng (trông như lỗi hover); chip đang chọn chỉ đổi nền xanh.
+- Đổi cách gọi "kênh" thành "nhóm" trên giao diện app (Xoá nhóm, Chi tiết nhóm, tab Nhóm trong Bạn bè, Nhóm đã tham
+  gia / có thể tham gia, thông báo lỗi, cài đặt thông báo...), cả bản tiếng Anh (channel → group). Thanh dưới chat bot
+  thông báo ghi "Bot thông báo, không trả lời được". Giữ chữ "kênh" ở phần nghiệp vụ (kênh bán hàng của hộp thư khách,
+  bot tạo phiên riêng).
+
+## 1.32.0 · 16/11/2026
+### Tính năng
+- Lịch họp đầy đủ: tạo họp, xem theo tuần, sửa / dời / huỷ, nhắc họp, mời và phản hồi, họp định kỳ, biên bản, kiểm
+  trùng lịch, link cho khách
+  - Màn Lịch họp (ô "Lịch họp" trong tab Công việc): dải 7 ngày có chấm ở ngày có họp, chuyển tuần trước / tuần sau,
+    tab Sắp tới / Đã qua; mỗi thẻ có nhãn trạng thái và phản hồi của mình. Nút + ở đầu màn để tạo họp.
+  - Tạo họp: chọn nhóm có sẵn, hoặc chọn từng người thì app tạo một nhóm riêng tư mới cho cuộc họp. Đặt ngày giờ, nội
+    dung, link họp ngoài (chỉ https) nếu không dùng phòng video sẵn có, mốc nhắc, người tham dự (cả nhóm hoặc chọn
+    người). Khi chọn giờ, app báo người nào đã có họp khác trùng giờ.
+  - Nhắc họp: mặc định 15 phút trước và lúc bắt đầu, đổi được (0 / 5 / 10 / 15 / 30 / 60 phút, tối đa 3 mốc). Bấm
+    thông báo nhắc họp hoặc thông báo họp bị đổi là mở thẳng chi tiết cuộc họp.
+  - Họp định kỳ: hằng ngày / hằng tuần (chọn thứ) / hằng tháng, kết thúc theo ngày hoặc số buổi (tối đa 100 buổi, trong
+    1 năm). Sửa hoặc huỷ một buổi lặp lại thì hỏi "Chỉ buổi này" hay "Cả chuỗi"; sửa cả chuỗi thì buổi đã sửa riêng
+    trước đó giữ nguyên.
+  - Chi tiết cuộc họp: "Vào họp" mở từ 10 phút trước giờ họp (link ngoài thì mở link, không thì vào phòng video), "Nhắn
+    vào nhóm", phản hồi Tham gia / Có thể / Từ chối, danh sách người dự.
+  - Biên bản họp: soạn, lưu, gửi vào nhóm; giao việc cho người dự ngay từ cuộc họp.
+  - Link cho khách: người tổ chức bật / tắt link để người ngoài xin vào họp (người tổ chức duyệt); có nút sao chép.
+    Nhóm đang bật một link công khai khác thì app báo cần tắt link đó trước.
+  - Cần máy chủ bản có Lịch họp mới; máy chủ cũ thì màn Lịch họp vẫn liệt kê họp sắp tới như trước.
+
+## 1.31.2 · 16/11/2026
+### Sửa lỗi
+- Nút "+ Ghi chú mới" gọn lại, thẻ cuộc gọi nhỡ của bot ghi rõ ai gọi, danh sách chat hiện số tin chưa đọc
+  - Nút nổi "Ghi chú mới" trước là hình tròn xanh, chữ tràn ra ngoài; nay là nút dạng viên thuốc, chữ nằm gọn bên trong.
+    Áp dụng chung cho mọi nút nổi có chữ trong app.
+  - Tin "cuộc gọi nhỡ" của bot thông báo nay hiện đúng thẻ của bot: ghi "<tên> đã gọi cho bạn", có nút "Gọi lại" (gọi
+    thẳng người đó) và "Mở cuộc trò chuyện". Trước đây app coi nó như tin cuộc gọi nhỡ trong phòng bot, không ghi tên
+    người gọi, bấm "Gọi lại" bị báo "Cuộc gọi chỉ thực hiện trong tin nhắn 1-1".
+  - Danh sách Tin nhắn hiện huy hiệu đỏ số tin chưa đọc bên cạnh từng chat: chat 1-1 hiện 1–5, quá 5 ghi "5+"; nhóm hiện
+    1–99, quá 99 ghi "99+".
+  - Có tin mới thì số này tự tăng ngay và hội thoại lên đầu danh sách, không phải kéo để tải lại. App cộng tại chỗ từ
+    tin vừa đến, không gọi lại máy chủ; tin của chính mình và hội thoại đang mở (máy tính bảng) không được cộng.
+  - Cần máy chủ bản 1.44.1 trở lên mới có số chưa đọc của nhóm; máy chủ cũ chỉ có ở chat 1-1.
 
 ## 1.31.1 · 16/11/2026
 ### Sửa lỗi

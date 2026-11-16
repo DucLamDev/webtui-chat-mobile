@@ -191,8 +191,8 @@ class _DepartmentsSection extends StatelessWidget {
                 WebTuiSettingRow(
                   title: item.name,
                   subtitle: tr(
-                    '${item.memberCount} thành viên, ${item.channelCount} kênh',
-                    '${item.memberCount} members, ${item.channelCount} channels',
+                    '${item.memberCount} thành viên, ${item.channelCount} nhóm',
+                    '${item.memberCount} members, ${item.channelCount} groups',
                   ),
                   icon: Icons.account_tree_outlined,
                   trailing: _StatusPill(label: item.leadCount.toString()),
@@ -484,8 +484,8 @@ class _AdminMobileSection extends StatelessWidget {
         WebTuiSettingRow(
           title: 'Workspace admin',
           subtitle: tr(
-            'Thành viên, role, kênh, bot và automation cơ bản',
-            'Members, roles, channels, bots and basic automation',
+            'Thành viên, role, nhóm, bot và automation cơ bản',
+            'Members, roles, groups, bots and basic automation',
           ),
           icon: Icons.admin_panel_settings_outlined,
           trailing: health == null

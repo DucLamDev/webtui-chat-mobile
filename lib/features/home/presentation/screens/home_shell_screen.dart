@@ -43,6 +43,7 @@ import '../../../conversations/presentation/controllers/pending_chat_share_contr
 import '../../../conversations/presentation/screens/webrtc_call_screen.dart';
 import '../../../conversations/presentation/screens/workspace_tools_screen.dart';
 import '../../../conversations/presentation/widgets/conversation_home_views.dart';
+import '../../../meeting_calendar/presentation/controllers/meeting_calendar_controllers.dart';
 import '../../../meetings/application/group_call_coordinator.dart';
 import '../../../meetings/application/meeting_providers.dart';
 import '../../../meetings/domain/meeting_models.dart';
@@ -392,6 +393,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
                       workspaceName: activeWorkspace.name,
                       userName: userProfile?.displayName ?? '',
                       userAvatarUrl: userProfile?.avatarUrl,
+                      userGender: userProfile?.gender,
                       notificationEnabled: _notificationEnabled,
                       compactMode: _compactMode,
                       soundLevel: _soundLevel,
@@ -551,6 +553,8 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         'title': conversation.title,
         if (conversation.avatarUrl?.trim().isNotEmpty == true)
           'avatarUrl': conversation.avatarUrl!.trim(),
+        if (conversation.gender?.trim().isNotEmpty == true)
+          'gender': conversation.gender!.trim(),
         if (conversation.peerUserId?.trim().isNotEmpty == true)
           'peerUserId': conversation.peerUserId!.trim(),
         if (conversation.participantIds.isNotEmpty)
@@ -1040,6 +1044,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         unawaited(_showIncomingCall(target));
         return;
       }
+      if (target.isMeeting) bumpMeetingCalendar(ref.read);
       final location = locationForNotificationTarget(target);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1476,6 +1481,10 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
               );
               tick.state = tick.state + 1;
             }
+            return;
+          }
+          // Lịch họp đổi: danh sách / chi tiết họp đang mở tự tải lại.
+          if (handleMeetingRealtimeEvent(read: ref.read, event: event)) {
             return;
           }
           // Nhóm bị xoá / mình rời nhóm ở máy khác: bỏ nhóm khỏi danh sách,
@@ -2248,6 +2257,7 @@ class SettingsTab extends StatelessWidget {
     required this.onTextScaleChanged,
     this.canSwitchWorkspace = false,
     this.userAvatarUrl,
+    this.userGender,
     this.onQrLoginTap,
     super.key,
   });
@@ -2267,6 +2277,7 @@ class SettingsTab extends StatelessWidget {
 
   /// Ảnh đại diện của người dùng; trống thì thẻ hiện chữ cái tên.
   final String? userAvatarUrl;
+  final String? userGender;
   final bool notificationEnabled;
   final bool compactMode;
   final double soundLevel;
@@ -2319,6 +2330,7 @@ class SettingsTab extends StatelessWidget {
                     WebTuiAvatar(
                       label: displayName,
                       imageUrl: userAvatarUrl,
+                      gender: WebTuiAvatarGender.parse(userGender),
                       size: 68,
                       status: WebTuiPresenceStatus.online,
                     ),

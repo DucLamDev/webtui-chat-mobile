@@ -10,6 +10,7 @@ final class UserProfile {
     required this.locale,
     required this.timezone,
     this.avatarUrl,
+    this.gender,
     this.phoneNumber,
     this.work = const WorkProfile(),
   });
@@ -22,6 +23,9 @@ final class UserProfile {
   final String locale;
   final String timezone;
   final String? avatarUrl;
+
+  /// `male`, `female`, `unspecified`; null = chưa chọn.
+  final String? gender;
   final String? phoneNumber;
 
   /// `profile {title, department, location, start_date}` theo workspace của

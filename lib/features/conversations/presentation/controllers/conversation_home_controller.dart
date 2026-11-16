@@ -5,12 +5,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
 import '../../../../l10n/app_strings.dart';
+import '../../../profile/presentation/controllers/profile_controller.dart';
 import '../../application/use_cases/channel_use_cases.dart';
 import '../../application/use_cases/load_conversation_home_use_case.dart';
 import '../../application/use_cases/open_direct_conversation_use_case.dart';
 import '../../domain/entities/business_channel_catalog.dart';
+import '../../domain/entities/chat_message.dart';
+import '../../domain/entities/conversation_realtime_event.dart';
 import '../../domain/entities/conversation_summary.dart';
 import '../../domain/entities/inbox_channel_rules.dart';
+import '../../domain/repositories/conversation_repository.dart';
 import '../models/conversation_privacy_projection.dart';
 
 final conversationHomeControllerProvider = StateNotifierProvider.autoDispose
@@ -33,6 +37,9 @@ final conversationHomeControllerProvider = StateNotifierProvider.autoDispose
           openPrivateChannelSessionUseCaseProvider,
         ),
         automationEnabled: automationEnabled,
+        // Cùng kết nối nền với cuộc gọi đến (màn chính đã nối sẵn).
+        realtime: ref.watch(incomingCallRealtimeRepositoryProvider),
+        currentUserId: () => ref.read(profileControllerProvider).profile?.id,
       )..load();
     });
 
@@ -379,9 +386,13 @@ final class ConversationHomeController
     required OpenDirectConversationUseCase openDirectConversationUseCase,
     required OpenPrivateChannelSessionUseCase openPrivateChannelSessionUseCase,
     bool automationEnabled = false,
+    ConversationRealtimeRepository? realtime,
+    String? Function()? currentUserId,
   }) : _loadConversationHomeUseCase = loadConversationHomeUseCase,
        _openDirectConversationUseCase = openDirectConversationUseCase,
        _openPrivateChannelSessionUseCase = openPrivateChannelSessionUseCase,
+       _realtime = realtime,
+       _currentUserId = currentUserId,
        super(
          ConversationHomeState(
            workspaceId: workspaceId,
@@ -392,6 +403,196 @@ final class ConversationHomeController
   final LoadConversationHomeUseCase _loadConversationHomeUseCase;
   final OpenDirectConversationUseCase _openDirectConversationUseCase;
   final OpenPrivateChannelSessionUseCase _openPrivateChannelSessionUseCase;
+  final ConversationRealtimeRepository? _realtime;
+  final String? Function()? _currentUserId;
+  StreamSubscription<ConversationRealtimeEvent>? _realtimeSubscription;
+  Set<String> _watchedChannelIds = const <String>{};
+  // Mã tin realtime đã xử lý (bỏ tin tới trùng), giữ tối đa 200 mã gần nhất.
+  final Set<String> _seenMessageIds = <String>{};
+  // Tin đã cộng vào số chưa đọc (mã tin → kênh): tin đó bị thu hồi / hết hạn
+  // thì trừ lại. Xoá khi tải lại từ máy chủ (số máy chủ là chuẩn).
+  final Map<String, String> _unreadMessageIds = <String, String>{};
+  // Màn rộng (máy tính bảng): danh sách và phòng chat đang chọn hiện cùng lúc.
+  // Trên điện thoại [ConversationHomeState.selectedConversation] có thể còn
+  // giữ hội thoại cũ sau khi rời phòng nên không dùng để biết "đang mở".
+  bool _splitView = false;
+
+  /// Màn danh sách báo bố cục hiện tại (không đổi state, không vẽ lại).
+  void reportSplitView(bool wide) {
+    _splitView = wide;
+  }
+
+  @override
+  void dispose() {
+    unawaited(_realtimeSubscription?.cancel());
+    if (_watchedChannelIds.isNotEmpty) {
+      _realtime?.watchChannels(
+        workspaceId: state.workspaceId,
+        channelIds: const <String>[],
+      );
+    }
+    super.dispose();
+  }
+
+  /// Nghe tin mới của mọi hội thoại trong danh sách (kể cả phòng chưa mở) để
+  /// số chưa đọc / tin cuối cập nhật ngay; trước đây chỉ cập nhật khi quay về
+  /// app hoặc rời phòng chat. Cập nhật tại chỗ từ tin vừa đến, không gọi máy
+  /// chủ: nhóm đông người nhắn liên tục không làm mọi máy cùng tải lại.
+  void _watchListRealtime() {
+    final realtime = _realtime;
+    if (realtime == null || !mounted) return;
+    final ids = {
+      for (final item in [...state.conversations, ...state.channels])
+        if (item.channelId.trim().isNotEmpty &&
+            (item.kind != ConversationKind.channel || item.isMember))
+          item.channelId.trim(),
+    };
+    if (_realtimeSubscription != null &&
+        ids.length == _watchedChannelIds.length &&
+        ids.containsAll(_watchedChannelIds)) {
+      return;
+    }
+    final events = realtime.watchChannels(
+      workspaceId: state.workspaceId,
+      channelIds: ids,
+    );
+    // Kết nối nền chưa mở cho workspace này: thử lại ở lần tải sau.
+    if (events == null) return;
+    _watchedChannelIds = ids;
+    final previous = _realtimeSubscription;
+    late final StreamSubscription<ConversationRealtimeEvent> subscription;
+    subscription = events.listen(
+      (event) {
+        if (!mounted || !_watchedChannelIds.contains(event.channelId.trim())) {
+          return;
+        }
+        switch (event.type) {
+          case ConversationRealtimeEventType.messageCreated:
+            _applyRealtimeMessage(event);
+          case ConversationRealtimeEventType.messageDeleted:
+            _applyRealtimeMessageRemoved(event);
+          default:
+            break;
+        }
+      },
+      // Kết nối đóng hẳn (đăng xuất / đổi workspace): lần tải sau theo dõi lại.
+      onDone: () {
+        if (identical(_realtimeSubscription, subscription)) {
+          _realtimeSubscription = null;
+          _watchedChannelIds = const <String>{};
+        }
+      },
+    );
+    _realtimeSubscription = subscription;
+    // Nghe luồng mới rồi mới huỷ luồng cũ: không có lúc không ai nghe.
+    unawaited(previous?.cancel());
+  }
+
+  /// Tin mới tới hội thoại trong danh sách: đưa lên đầu, cập nhật giờ / tin
+  /// cuối (chat 1-1) và cộng 1 chưa đọc nếu chắc chắn không phải tin của mình
+  /// và hội thoại đó không đang mở cạnh danh sách (máy tính bảng). Máy chủ đếm
+  /// tối đa [_unreadCountCap] nên ở đây cũng dừng ở đó.
+  void _applyRealtimeMessage(ConversationRealtimeEvent event) {
+    final message = event.message;
+    final channelId = event.channelId.trim();
+    if (message == null || channelId.isEmpty || message.isDeleted) return;
+    final messageId = message.id.trim();
+    if (messageId.isNotEmpty) {
+      if (!_seenMessageIds.add(messageId)) return;
+      if (_seenMessageIds.length > 200) {
+        _seenMessageIds.remove(_seenMessageIds.first);
+      }
+    }
+    final me = _currentUserId?.call()?.trim();
+    // Chưa biết mình là ai (hồ sơ chưa tải xong): không cộng, tránh tính tin
+    // mình gửi từ máy khác; lần tải sau lấy số đúng từ máy chủ.
+    final countable =
+        !message.isMine &&
+        me != null &&
+        me.isNotEmpty &&
+        message.senderId?.trim() != me;
+    final selected = state.selectedConversation;
+    final isOpen =
+        _splitView &&
+        selected != null &&
+        selected.channelId.trim() == channelId;
+    final addUnread = countable && !isOpen;
+    final at = message.createdAt;
+
+    ConversationSummary update(ConversationSummary item) {
+      final newer = at.isAfter(item.updatedAt);
+      return item.copyWith(
+        unreadCount: addUnread
+            ? (item.unreadCount + 1).clamp(0, _unreadCountCap).toInt()
+            : null,
+        updatedAt: newer ? at : null,
+        lastMessageAt: newer ? at : null,
+        // Nhóm hiện mô tả nhóm ở dòng phụ (không phải tin cuối); chat 1-1
+        // hiện tin cuối như máy chủ trả về.
+        preview: newer && item.kind != ConversationKind.channel
+            ? _realtimePreview(message)
+            : null,
+      );
+    }
+
+    final changed = _updateConversation(channelId, update, resort: true);
+    if (changed && addUnread && messageId.isNotEmpty) {
+      _unreadMessageIds[messageId] = channelId;
+      if (_unreadMessageIds.length > 200) {
+        _unreadMessageIds.remove(_unreadMessageIds.keys.first);
+      }
+    }
+  }
+
+  /// Tin vừa được cộng chưa đọc bị thu hồi / hết hạn: trừ lại (máy chủ không
+  /// đếm tin đã xoá).
+  void _applyRealtimeMessageRemoved(ConversationRealtimeEvent event) {
+    final messageId = (event.messageId ?? event.message?.id ?? '').trim();
+    if (messageId.isEmpty) return;
+    final channelId = _unreadMessageIds.remove(messageId);
+    if (channelId == null) return;
+    _updateConversation(
+      channelId,
+      (item) => item.copyWith(
+        unreadCount: (item.unreadCount - 1).clamp(0, _unreadCountCap).toInt(),
+      ),
+    );
+  }
+
+  bool _updateConversation(
+    String channelId,
+    ConversationSummary Function(ConversationSummary item) update, {
+    bool resort = false,
+  }) {
+    List<ConversationSummary>? apply(List<ConversationSummary> items) {
+      var hit = false;
+      final next = [
+        for (final item in items)
+          if (item.channelId.trim() == channelId)
+            () {
+              hit = true;
+              return update(item);
+            }()
+          else
+            item,
+      ];
+      if (!hit) return null;
+      if (resort) {
+        next.sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
+      }
+      return List.unmodifiable(next);
+    }
+
+    final conversations = apply(state.conversations);
+    final channels = apply(state.channels);
+    if (conversations == null && channels == null) return false;
+    state = state.copyWith(conversations: conversations, channels: channels);
+    return true;
+  }
+
+  void _forgetUnreadMessages(String channelId) {
+    _unreadMessageIds.removeWhere((_, value) => value == channelId.trim());
+  }
 
   Future<void> load() async {
     state = state.copyWith(
@@ -438,6 +639,8 @@ final class ConversationHomeController
       isLoading: false,
       clearError: true,
     );
+    _unreadMessageIds.clear();
+    _watchListRealtime();
   }
 
   /// Bỏ một nhóm khỏi danh sách ngay (đã rời / đã bị xoá), không chờ tải lại;
@@ -457,6 +660,9 @@ final class ConversationHomeController
           .toList(growable: false),
       clearSelection: selected != null && matches(selected),
     );
+    _forgetUnreadMessages(id);
+    // Rời phòng realtime của nhóm ngay (đã rời / bị xoá): không nhận tiếp tin.
+    _watchListRealtime();
   }
 
   Future<void> refresh() async {
@@ -484,6 +690,7 @@ final class ConversationHomeController
   }
 
   void selectConversation(ConversationSummary conversation) {
+    _forgetUnreadMessages(conversation.channelId);
     final opened = _withoutUnread(conversation);
     state = state.copyWith(
       conversations: _markOpenedInList(state.conversations, opened),
@@ -496,6 +703,7 @@ final class ConversationHomeController
     if (!conversation.isUnread) {
       return;
     }
+    _forgetUnreadMessages(conversation.channelId);
     final opened = _withoutUnread(conversation);
     state = state.copyWith(
       conversations: _markOpenedInList(state.conversations, opened),
@@ -554,6 +762,19 @@ final class ConversationHomeController
     }
   }
 }
+
+/// Dòng phụ chat 1-1 từ tin realtime; `null` = giữ dòng cũ.
+String? _realtimePreview(ChatMessage message) {
+  if (message.isSecret) return tr('Tin nhắn bí mật', 'Secret message');
+  if (message.body.trim().isNotEmpty) return message.body;
+  if (message.attachments.isNotEmpty) {
+    return tr('Đã gửi tệp đính kèm', 'Sent an attachment');
+  }
+  return null;
+}
+
+/// Máy chủ đếm tin chưa đọc tối đa tới số này (`UnreadCountCap`).
+const int _unreadCountCap = 100;
 
 ConversationSummary _withoutUnread(ConversationSummary conversation) {
   return conversation.copyWith(unreadCount: 0);

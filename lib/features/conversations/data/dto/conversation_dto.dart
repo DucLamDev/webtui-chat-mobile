@@ -415,6 +415,7 @@ final class ContactUserDto {
     required this.displayName,
     required this.status,
     this.avatarUrl,
+    this.gender,
     this.title,
   });
 
@@ -424,6 +425,7 @@ final class ContactUserDto {
   final String displayName;
   final String status;
   final String? avatarUrl;
+  final String? gender;
   final String? title;
 
   factory ContactUserDto.fromJson(Map<String, dynamic> json) {
@@ -434,6 +436,7 @@ final class ContactUserDto {
       displayName: _string(json['display_name']),
       status: _string(json['status'], fallback: 'active'),
       avatarUrl: _nullableString(json['avatar_url']),
+      gender: _nullableString(json['gender']),
       title: _nullableString(json['title']),
     );
   }
@@ -446,6 +449,7 @@ final class ContactUserDto {
       email: email,
       status: statusOverride ?? status,
       avatarUrl: avatarUrl,
+      gender: gender,
       title: title,
     );
   }
@@ -680,13 +684,13 @@ String _channelPreview(ChannelVisibility visibility, bool privateSessionMode) {
   }
   return switch (visibility) {
     ChannelVisibility.private => tr(
-      'Kênh riêng tư trong workspace',
-      'Private channel in the workspace',
+      'Nhóm riêng tư trong workspace',
+      'Private group in the workspace',
     ),
     ChannelVisibility.direct => tr('Hội thoại riêng', 'Direct conversation'),
     ChannelVisibility.public => tr(
-      'Kênh công khai trong workspace',
-      'Public channel in the workspace',
+      'Nhóm công khai trong workspace',
+      'Public group in the workspace',
     ),
   };
 }

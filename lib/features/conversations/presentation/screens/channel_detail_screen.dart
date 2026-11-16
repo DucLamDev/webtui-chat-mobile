@@ -64,8 +64,8 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
           child: WebTuiEmptyState(
             title: tr('Chưa chọn workspace', 'No workspace selected'),
             message: tr(
-              'Bạn cần chọn workspace trước khi mở kênh.',
-              'Select a workspace before opening a channel.',
+              'Bạn cần chọn workspace trước khi mở nhóm.',
+              'Select a workspace before opening a group.',
             ),
             icon: Icons.business_rounded,
           ),
@@ -125,8 +125,8 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
         child: state.isLoading
             ? WebTuiLoadingState(
                 message: tr(
-                  'Đang tải chi tiết kênh...',
-                  'Loading channel details...',
+                  'Đang tải chi tiết nhóm...',
+                  'Loading group details...',
                 ),
               )
             : ListView(
@@ -134,10 +134,7 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
                 children: [
                   if (state.errorMessage != null)
                     WebTuiErrorState(
-                      title: tr(
-                        'Không tải được kênh',
-                        'Couldn\'t load channel',
-                      ),
+                      title: tr('Không tải được nhóm', 'Couldn\'t load group'),
                       message: state.errorMessage!,
                       onRetry: controller.load,
                     ),
@@ -374,8 +371,8 @@ class _ChannelHeader extends StatelessWidget {
                     Text(
                       channel?.preview ??
                           tr(
-                            'Kênh trong workspace WebTui',
-                            'Channel in the WebTui workspace',
+                            'Nhóm trong workspace WebTui',
+                            'Group in the WebTui workspace',
                           ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -581,8 +578,8 @@ class _MembersTab extends StatelessWidget {
           WebTuiEmptyState(
             title: tr('Chưa có thành viên', 'No members yet'),
             message: tr(
-              'Thành viên kênh sẽ xuất hiện tại đây.',
-              'Channel members will show up here.',
+              'Thành viên nhóm sẽ xuất hiện tại đây.',
+              'Group members will show up here.',
             ),
             icon: Icons.group_outlined,
           )
@@ -603,6 +600,8 @@ class _MembersTab extends StatelessWidget {
                 timeLabel: member.status,
                 avatarLabel: member.displayName,
                 avatarUrl: member.avatarUrl,
+                personAvatar: true,
+                avatarGender: member.gender,
                 status: member.status == 'active'
                     ? WebTuiPresenceStatus.online
                     : null,
@@ -651,7 +650,11 @@ class _JoinRequestTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.lg),
         child: Row(
           children: [
-            WebTuiAvatar(label: member.displayName, imageUrl: member.avatarUrl),
+            WebTuiAvatar(
+              label: member.displayName,
+              imageUrl: member.avatarUrl,
+              gender: WebTuiAvatarGender.parse(member.gender),
+            ),
             const SizedBox(width: WebTuiSpacing.md),
             Expanded(
               child: Text(
@@ -698,8 +701,8 @@ class _PinnedTab extends StatelessWidget {
       return WebTuiEmptyState(
         title: tr('Chưa có tin ghim', 'No pinned messages'),
         message: tr(
-          'Tin nhắn được ghim trong kênh sẽ xuất hiện tại đây.',
-          'Messages pinned in this channel will show up here.',
+          'Tin nhắn được ghim trong nhóm sẽ xuất hiện tại đây.',
+          'Messages pinned in this group will show up here.',
         ),
         icon: Icons.push_pin_outlined,
       );
@@ -820,7 +823,7 @@ class _SettingsTab extends StatelessWidget {
     return WebTuiListSurface(
       children: [
         WebTuiSettingRow(
-          title: tr('Loại kênh', 'Channel type'),
+          title: tr('Loại nhóm', 'Group type'),
           subtitle: _visibilityLabel(channel?.channelVisibility),
           icon: Icons.tag_outlined,
         ),
@@ -840,8 +843,8 @@ class _SettingsTab extends StatelessWidget {
                   'You can invite and approve members',
                 )
               : tr(
-                  'Bạn không có quyền quản lý kênh này',
-                  'You can\'t manage this channel',
+                  'Bạn không có quyền quản lý nhóm này',
+                  'You can\'t manage this group',
                 ),
           icon: Icons.admin_panel_settings_outlined,
         ),

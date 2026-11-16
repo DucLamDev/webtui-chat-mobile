@@ -17,6 +17,7 @@ final class ConversationSummary {
     required this.updatedAt,
     this.avatarLabel,
     this.avatarUrl,
+    this.gender,
     this.peerUserId,
     this.unreadCount = 0,
     this.favorite = false,
@@ -43,6 +44,10 @@ final class ConversationSummary {
   final String preview;
   final String? avatarLabel;
   final String? avatarUrl;
+
+  /// Giới tính người đối diện (chat 1-1): `male`, `female`, `unspecified`,
+  /// thiếu = chưa chọn.
+  final String? gender;
   final String? peerUserId;
   final DateTime updatedAt;
   final int unreadCount;
@@ -111,6 +116,9 @@ final class ConversationSummary {
     int? unreadCount,
     MembershipStatus? membershipStatus,
     int? memberCount,
+    String? preview,
+    DateTime? updatedAt,
+    DateTime? lastMessageAt,
   }) {
     return ConversationSummary(
       id: id,
@@ -118,10 +126,11 @@ final class ConversationSummary {
       channelId: channelId,
       kind: kind,
       title: title,
-      preview: preview,
-      updatedAt: updatedAt,
+      preview: preview ?? this.preview,
+      updatedAt: updatedAt ?? this.updatedAt,
       avatarLabel: avatarLabel,
       avatarUrl: avatarUrl,
+      gender: gender,
       peerUserId: peerUserId,
       unreadCount: unreadCount ?? this.unreadCount,
       favorite: favorite,
@@ -137,7 +146,7 @@ final class ConversationSummary {
       isAutomation: isAutomation,
       noticeBot: noticeBot,
       slug: slug,
-      lastMessageAt: lastMessageAt,
+      lastMessageAt: lastMessageAt ?? this.lastMessageAt,
     );
   }
 }
@@ -186,6 +195,7 @@ final class ContactSummary {
     required this.email,
     required this.status,
     this.avatarUrl,
+    this.gender,
     this.title,
     this.contactRequestId,
     this.contactStatus,
@@ -198,6 +208,7 @@ final class ContactSummary {
   final String email;
   final String status;
   final String? avatarUrl;
+  final String? gender;
   final String? title;
   final String? contactRequestId;
   final String? contactStatus;

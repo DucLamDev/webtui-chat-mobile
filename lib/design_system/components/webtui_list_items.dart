@@ -17,12 +17,15 @@ class WebTuiConversationListItem extends StatelessWidget {
     required this.timeLabel,
     required this.avatarLabel,
     this.avatarUrl,
+    this.personAvatar = false,
+    this.avatarGender,
     this.avatarPublicImage = false,
     this.avatarIcon,
     this.squareAvatar = false,
     this.pinned = false,
     this.badgeLabel,
     this.unreadCount = 0,
+    this.unreadMax = webTuiUnreadMaxGroup,
     this.status,
     this.muted = false,
     this.selected = false,
@@ -37,6 +40,13 @@ class WebTuiConversationListItem extends StatelessWidget {
   final String timeLabel;
   final String avatarLabel;
   final String? avatarUrl;
+
+  /// Dòng là NGƯỜI (chat 1-1, thành viên): chưa có ảnh thì vẽ hình người theo
+  /// [avatarGender]; false = nhóm / kênh / bot (giữ chữ viết tắt hoặc biểu tượng).
+  final bool personAvatar;
+
+  /// Giới tính theo API (`male`, `female`, `unspecified`, thiếu = trung tính).
+  final String? avatarGender;
   final bool avatarPublicImage;
 
   /// Biểu tượng thay chữ cái đầu (kênh, mục nghiệp vụ như Phê duyệt, Ticket).
@@ -52,6 +62,10 @@ class WebTuiConversationListItem extends StatelessWidget {
   /// Nhãn nhỏ cạnh tên (ví dụ "BOT").
   final String? badgeLabel;
   final int unreadCount;
+
+  /// Trần số chưa đọc: [webTuiUnreadMaxDirect] cho chat 1-1 / bot, mặc định
+  /// [webTuiUnreadMaxGroup] cho nhóm / kênh.
+  final int unreadMax;
   final WebTuiPresenceStatus? status;
   final bool muted;
   final bool selected;
@@ -114,6 +128,10 @@ class WebTuiConversationListItem extends StatelessWidget {
                       foregroundColor:
                           channelTone?.icon ?? WebTuiColors.primary,
                       imageUrl: avatarUrl,
+                      gender:
+                          personAvatar && avatarIcon == null && !squareAvatar
+                          ? WebTuiAvatarGender.parse(avatarGender)
+                          : null,
                       allowPublicRequest: avatarPublicImage,
                       status: status,
                       square: square,
@@ -160,9 +178,15 @@ class WebTuiConversationListItem extends StatelessWidget {
                                   preview,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
+                                  // Còn tin chưa đọc: dòng tin đậm, màu chữ
+                                  // chính để nhận ra ngay (không chỉ nhờ số).
                                   style: WebTuiTypography.bodyMedium.copyWith(
-                                    color: WebTuiColors.textSecondary,
-                                    fontWeight: FontWeight.w400,
+                                    color: unreadCount > 0
+                                        ? WebTuiColors.textPrimary
+                                        : WebTuiColors.textSecondary,
+                                    fontWeight: unreadCount > 0
+                                        ? FontWeight.w700
+                                        : FontWeight.w400,
                                   ),
                                 ),
                               ),
@@ -184,8 +208,12 @@ class WebTuiConversationListItem extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: WebTuiTypography.bodySmall.copyWith(
-                              color: WebTuiColors.textMuted,
-                              fontWeight: FontWeight.w500,
+                              color: unreadCount > 0
+                                  ? WebTuiColors.primary
+                                  : WebTuiColors.textMuted,
+                              fontWeight: unreadCount > 0
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
                             ),
                           ),
                           const SizedBox(height: WebTuiSpacing.xs),
@@ -204,7 +232,10 @@ class WebTuiConversationListItem extends StatelessWidget {
                                       color: WebTuiColors.textSecondary,
                                     ),
                                   ),
-                                WebTuiUnreadBadge(count: unreadCount),
+                                WebTuiUnreadBadge(
+                                  count: unreadCount,
+                                  max: unreadMax,
+                                ),
                               ],
                             )
                           else
@@ -316,7 +347,10 @@ class WebTuiChannelBotListItem extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: WebTuiTypography.bodySmall.copyWith(
-                          color: WebTuiColors.textMuted,
+                          color: unreadCount > 0
+                              ? WebTuiColors.textPrimary
+                              : WebTuiColors.textMuted,
+                          fontWeight: unreadCount > 0 ? FontWeight.w700 : null,
                         ),
                       ),
                     ],

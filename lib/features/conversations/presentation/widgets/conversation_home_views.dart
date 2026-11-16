@@ -79,6 +79,7 @@ class MessagesHomeView extends ConsumerWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= 720;
+        controller.reportSplitView(wide);
         final selected = _safeSelectedConversation(
           state.selectedConversation,
           conversations,
@@ -217,7 +218,7 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
         SliverToBoxAdapter(
           child: _TopSearch(
             hintText: channelsTab
-                ? tr('Tìm kênh theo tên...', 'Search channels by name...')
+                ? tr('Tìm nhóm theo tên...', 'Search groups by name...')
                 : tr('Tìm đồng nghiệp...', 'Search colleagues...'),
             onChanged: controller.setSearchQuery,
           ),
@@ -225,7 +226,7 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
         SliverToBoxAdapter(
           child: _InboxFilterChips(
             chipsKey: const ValueKey('contacts-tabs'),
-            labels: [tr('Đồng nghiệp', 'Colleagues'), tr('Kênh', 'Channels')],
+            labels: [tr('Đồng nghiệp', 'Colleagues'), tr('Nhóm', 'Groups')],
             selectedIndex: _tab,
             onChanged: (index) => setState(() => _tab = index),
           ),
@@ -347,7 +348,7 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
       return [
         SliverToBoxAdapter(
           child: WebTuiLoadingState(
-            message: tr('Đang tải kênh...', 'Loading channels...'),
+            message: tr('Đang tải nhóm...', 'Loading groups...'),
           ),
         ),
       ];
@@ -356,10 +357,7 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
       return [
         SliverToBoxAdapter(
           child: WebTuiErrorState(
-            title: tr(
-              'Không tải được danh sách kênh',
-              'Couldn\'t load channels',
-            ),
+            title: tr('Không tải được danh sách nhóm', 'Couldn\'t load groups'),
             message: state.errorMessage!,
             onRetry: controller.load,
           ),
@@ -372,13 +370,13 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
         SliverToBoxAdapter(
           child: WebTuiEmptyState(
             title: searching
-                ? tr('Không tìm thấy kênh', 'No channels found')
-                : tr('Chưa có kênh nào', 'No channels yet'),
+                ? tr('Không tìm thấy nhóm', 'No groups found')
+                : tr('Chưa có nhóm nào', 'No groups yet'),
             message: searching
                 ? tr('Thử tìm bằng tên khác.', 'Try a different name.')
                 : tr(
-                    'Kênh bạn tham gia trong workspace sẽ hiện ở đây.',
-                    'Channels you join in the workspace will show up here.',
+                    'Nhóm bạn tham gia trong workspace sẽ hiện ở đây.',
+                    'Groups you join in the workspace will show up here.',
                   ),
             icon: Icons.tag_outlined,
           ),
@@ -388,7 +386,7 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
     return [
       if (joined.isNotEmpty) ...[
         SliverToBoxAdapter(
-          child: WebTuiSectionLabel(tr('Kênh đã tham gia', 'Joined channels')),
+          child: WebTuiSectionLabel(tr('Nhóm đã tham gia', 'Joined groups')),
         ),
         WebTuiSliverListSurface(
           itemCount: joined.length,
@@ -414,7 +412,7 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
           child: _ChannelList(
             channels: joinable,
             emptyTitle: '',
-            sectionLabel: tr('Kênh có thể tham gia', 'Channels you can join'),
+            sectionLabel: tr('Nhóm có thể tham gia', 'Groups you can join'),
             onTap: (channel) => _handleChannelTap(context, controller, channel),
           ),
         ),
@@ -673,6 +671,8 @@ class _ConversationTile extends ConsumerWidget {
       avatarLabel:
           bot?.avatarLabel ?? conversation.avatarLabel ?? conversation.title,
       avatarUrl: bot != null ? bot.logoUrl : conversation.avatarUrl,
+      personAvatar: bot == null && conversation.kind == ConversationKind.direct,
+      avatarGender: conversation.gender,
       avatarPublicImage: bot != null,
       // Kênh: ô vuông bo góc + biểu tượng theo loại; người: ảnh tròn. Chat bot
       // thông báo giữ logo tổ chức nhưng cũng là ô vuông.
@@ -683,6 +683,10 @@ class _ConversationTile extends ConsumerWidget {
       pinned: conversation.favorite,
       badgeLabel: bot != null ? 'BOT' : null,
       unreadCount: privacy.isBlocked ? 0 : conversation.unreadCount,
+      // Chat 1-1 và bot thông báo: 1–5 rồi "5+"; nhóm / kênh: 1–99 rồi "99+".
+      unreadMax: conversation.kind == ConversationKind.channel
+          ? webTuiUnreadMaxGroup
+          : webTuiUnreadMaxDirect,
       muted: conversation.muted,
       status:
           conversation.kind == ConversationKind.direct &&
@@ -750,6 +754,8 @@ class _ContactTile extends StatelessWidget {
       timeLabel: canOpenChat ? _presenceLabel(presence) : '',
       avatarLabel: contact.displayName,
       avatarUrl: contact.avatarUrl,
+      personAvatar: true,
+      avatarGender: contact.gender,
       status: canOpenChat ? _presenceStatus(presence) : null,
       onTap: canOpenChat ? onTap : null,
       onLongPress: onSafety,
@@ -956,6 +962,10 @@ void _openChat(
   final avatarUrl = conversation.avatarUrl?.trim();
   if (avatarUrl != null && avatarUrl.isNotEmpty) {
     queryParameters['avatarUrl'] = avatarUrl;
+  }
+  final gender = conversation.gender?.trim();
+  if (gender != null && gender.isNotEmpty) {
+    queryParameters['gender'] = gender;
   }
   final peerUserId = conversation.peerUserId?.trim();
   if (peerUserId != null && peerUserId.isNotEmpty) {

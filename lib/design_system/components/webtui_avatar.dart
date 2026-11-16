@@ -7,6 +7,9 @@ import '../tokens/webtui_colors.dart';
 import '../tokens/webtui_density.dart';
 import '../tokens/webtui_typography.dart';
 import 'webtui_owned_decoded_image.dart';
+import 'webtui_person_silhouette.dart';
+
+export 'webtui_person_silhouette.dart' show WebTuiAvatarGender;
 
 const webTuiMaxAvatarImageBytes = 512 * 1024;
 const webTuiMaxBrandImageBytes = 1024 * 1024;
@@ -67,8 +70,14 @@ class WebTuiAvatar extends StatelessWidget {
     this.size = WebTuiListDensity.avatarSize,
     this.allowPublicRequest = false,
     this.square = false,
+    this.gender,
     super.key,
   });
+
+  /// Có giá trị = ảnh NGƯỜI: khi chưa có ảnh / ảnh lỗi vẽ hình người theo giới
+  /// tính (thiếu thông tin thì dùng [WebTuiAvatarGender.neutral]). Null = nhóm,
+  /// kênh, bot...: giữ chữ viết tắt / biểu tượng.
+  final WebTuiAvatarGender? gender;
 
   /// Ô vuông bo góc (kênh) thay vì ảnh tròn (người).
   final bool square;
@@ -151,6 +160,10 @@ class WebTuiAvatar extends StatelessWidget {
   }
 
   Widget get _fallback {
+    final g = gender;
+    if (g != null && icon == null) {
+      return SizedBox.expand(child: WebTuiPersonSilhouette(gender: g));
+    }
     return Center(
       child: icon == null
           ? Text(

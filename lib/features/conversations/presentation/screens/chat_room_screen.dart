@@ -200,6 +200,7 @@ class ChatRoomScreen extends ConsumerStatefulWidget {
     required this.title,
     this.workspaceId,
     this.avatarUrl,
+    this.avatarGender,
     this.initialMessageId,
     this.conversation,
     this.peerUserId,
@@ -215,6 +216,9 @@ class ChatRoomScreen extends ConsumerStatefulWidget {
   final String channelId;
   final String title;
   final String? avatarUrl;
+
+  /// Giới tính người đối diện (chat 1-1), thiếu = lấy từ [conversation].
+  final String? avatarGender;
   final String? initialMessageId;
   final ConversationSummary? conversation;
   final String? peerUserId;
@@ -657,6 +661,12 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         : _liveChannelAvatarUrl(workspaceId) ??
               widget.avatarUrl ??
               widget.conversation?.avatarUrl;
+    // Chỉ chat 1-1 với người mới vẽ hình người; nhóm / bot giữ nguyên.
+    final roomAvatarGender = isDirectChat && !noticeBot
+        ? WebTuiAvatarGender.parse(
+            widget.avatarGender ?? widget.conversation?.gender,
+          )
+        : null;
     final body = PopScope(
       canPop: true,
       onPopInvokedWithResult: (_, _) {
@@ -672,6 +682,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         directAvatarUrl: botIdentity != null
             ? botIdentity.logoUrl
             : widget.conversation?.avatarUrl,
+        directAvatarGender: roomAvatarGender,
         noticeBot: noticeBot,
         draftController: _draftController,
         draftFocusNode: _draftFocusNode,
@@ -823,6 +834,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
             _EmbeddedChatHeader(
               title: roomTitle,
               avatarUrl: roomAvatarUrl,
+              avatarGender: roomAvatarGender,
               presence: peerPresence,
               onDetails: () => _openDetails(context),
               onSafety: safetyTargetUserId == null
@@ -846,6 +858,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
       appBar: ChatRoomAppBar(
         title: roomTitle,
         avatarUrl: noticeBot ? botIdentity?.logoUrl : roomAvatarUrl,
+        avatarGender: roomAvatarGender,
         publicAvatar: noticeBot,
         noticeBot: noticeBot,
         directChat: isDirectChat,
@@ -908,7 +921,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
             ? () => _deleteGroup(context, workspaceId)
             : null,
         deleteGroupLabel: groupFlags?.isPublic == true
-            ? tr('Xoá kênh', 'Delete channel')
+            ? tr('Xoá nhóm', 'Delete group')
             : null,
       ),
       // Không chừa đáy ở đây: thanh cuối thân (ô nhập, thanh chặn, thanh chỉ
@@ -1488,6 +1501,7 @@ class ChatRoomBody extends StatefulWidget {
     required this.senderDirectory,
     required this.showSenderNames,
     required this.directAvatarUrl,
+    this.directAvatarGender,
     this.directChat = false,
     required this.draftController,
     required this.draftFocusNode,
@@ -1543,6 +1557,7 @@ class ChatRoomBody extends StatefulWidget {
   final MessageSenderDirectory senderDirectory;
   final bool showSenderNames;
   final String? directAvatarUrl;
+  final WebTuiAvatarGender? directAvatarGender;
 
   /// Chat 1-1 với người thật: hiện avatar người kia cạnh tin (giống Zalo),
   /// không hiện tên người gửi.
@@ -1853,6 +1868,12 @@ class _ChatRoomBodyState extends State<ChatRoomBody> {
                                                     .senderId]
                                                 ?.avatarUrl
                                           : widget.directAvatarUrl,
+                                      avatarGender: widget.showSenderNames
+                                          ? _groupSenderAvatarGender(
+                                              message,
+                                              widget.senderDirectory,
+                                            )
+                                          : widget.directAvatarGender,
                                       avatarPublicImage: widget.noticeBot,
                                       senderName: senderNameToShow(
                                         message: message,
@@ -3878,13 +3899,13 @@ class _ForwardChannelPicker extends ConsumerWidget {
           loading: () => SizedBox(
             height: 180,
             child: WebTuiLoadingState(
-              message: tr('Đang tải kênh...', 'Loading channels...'),
+              message: tr('Đang tải nhóm...', 'Loading groups...'),
             ),
           ),
           error: (_, _) => SizedBox(
             height: 180,
             child: WebTuiErrorState(
-              title: tr('Không tải được kênh', "Couldn't load channels"),
+              title: tr('Không tải được nhóm', "Couldn't load groups"),
               message: tr(
                 'Thử mở lại bảng chuyển tiếp sau vài giây.',
                 'Try reopening the forward sheet in a few seconds.',
@@ -3907,12 +3928,12 @@ class _ForwardChannelPicker extends ConsumerWidget {
                 height: 180,
                 child: WebTuiEmptyState(
                   title: tr(
-                    'Chưa có kênh để chuyển tiếp',
-                    'No channels to forward to',
+                    'Chưa có nhóm để chuyển tiếp',
+                    'No groups to forward to',
                   ),
                   message: tr(
-                    'Bạn cần là thành viên của kênh khác trước.',
-                    'You need to be a member of another channel first.',
+                    'Bạn cần là thành viên của nhóm khác trước.',
+                    'You need to be a member of another group first.',
                   ),
                   icon: Icons.shortcut_rounded,
                 ),
@@ -3945,6 +3966,9 @@ class _ForwardChannelPicker extends ConsumerWidget {
                         leading: WebTuiAvatar(
                           label: channel.avatarLabel ?? channel.title,
                           imageUrl: channel.avatarUrl,
+                          gender: channel.kind == ConversationKind.direct
+                              ? WebTuiAvatarGender.parse(channel.gender)
+                              : null,
                           size: 34,
                         ),
                         title: Text(
@@ -4027,6 +4051,7 @@ class _MessageRow extends StatelessWidget {
     required this.message,
     required this.avatarLabel,
     required this.avatarUrl,
+    this.avatarGender,
     required this.senderName,
     required this.showAvatar,
     required this.outgoing,
@@ -4046,6 +4071,9 @@ class _MessageRow extends StatelessWidget {
   final ChatMessage message;
   final String avatarLabel;
   final String? avatarUrl;
+
+  /// Có giá trị = người gửi là người: chưa có ảnh thì vẽ hình người.
+  final WebTuiAvatarGender? avatarGender;
 
   /// Logo tổ chức của chat bot: ảnh công khai.
   final bool avatarPublicImage;
@@ -4081,6 +4109,7 @@ class _MessageRow extends StatelessWidget {
               ? WebTuiAvatar(
                   label: avatarLabel,
                   imageUrl: avatarUrl,
+                  gender: avatarGender,
                   allowPublicRequest: avatarPublicImage,
                   size: 30,
                 )
@@ -4972,6 +5001,7 @@ class _EmbeddedChatHeader extends StatelessWidget {
     required this.title,
     required this.onDetails,
     this.avatarUrl,
+    this.avatarGender,
     this.onSafety,
     this.presence,
   });
@@ -4981,6 +5011,7 @@ class _EmbeddedChatHeader extends StatelessWidget {
   final String title;
   final VoidCallback onDetails;
   final String? avatarUrl;
+  final WebTuiAvatarGender? avatarGender;
   final VoidCallback? onSafety;
 
   @override
@@ -4996,6 +5027,7 @@ class _EmbeddedChatHeader extends StatelessWidget {
               WebTuiAvatar(
                 label: title,
                 imageUrl: avatarUrl,
+                gender: avatarGender,
                 status: presence?.online == true
                     ? WebTuiPresenceStatus.online
                     : null,
@@ -5037,7 +5069,7 @@ class _EmbeddedChatHeader extends StatelessWidget {
                   icon: const Icon(Icons.shield_outlined),
                 ),
               IconButton(
-                tooltip: tr('Chi tiết kênh', 'Channel details'),
+                tooltip: tr('Chi tiết nhóm', 'Group details'),
                 onPressed: onDetails,
                 icon: const Icon(CupertinoIcons.ellipsis),
               ),
@@ -5293,6 +5325,17 @@ class _InlineError extends StatelessWidget {
   }
 }
 
+/// Ảnh người gửi trong nhóm: người thật chưa có ảnh thì vẽ hình người theo giới
+/// tính; tin bot / tích hợp (không có người gửi) giữ chữ viết tắt như cũ.
+WebTuiAvatarGender? _groupSenderAvatarGender(
+  ChatMessage message,
+  MessageSenderDirectory directory,
+) {
+  final senderId = message.senderId?.trim() ?? '';
+  if (message.kind == 'bot' || senderId.isEmpty) return null;
+  return WebTuiAvatarGender.parse(directory[senderId]?.gender);
+}
+
 String _timeLabel(DateTime value) {
   final local = value.toLocal();
   return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
@@ -5345,6 +5388,13 @@ bool _isMissedCallMessage(ChatMessage message) {
   }
   if (message.isCallEvent) {
     return message.callStatus == 'missed';
+  }
+  // Thẻ bot (vd "Cuộc gọi nhỡ từ An" của bot thông báo) tự hiện tên người gọi
+  // và nút Gọi lại mở chat 1-1 với người đó. Không đoán theo chữ ở đây: nếu
+  // không, thẻ thành thẻ cuộc gọi chung, mất tên và "Gọi lại" gọi ngay trong
+  // phòng bot (máy chủ báo chỉ gọi được trong chat 1-1).
+  if (message.kind == 'bot' || message.card != null) {
+    return false;
   }
   final normalized = _removeVietnameseDiacritics(
     _compactMessageText(message.body),

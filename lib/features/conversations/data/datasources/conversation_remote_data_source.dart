@@ -766,8 +766,8 @@ final class ConversationRemoteDataSource {
     if (channel.channelId.isEmpty) {
       throw StateError(
         tr(
-          'Máy chủ không trả thông tin kênh sau khi đổi ảnh.',
-          'The server returned no channel info after the photo change.',
+          'Máy chủ không trả thông tin nhóm sau khi đổi ảnh.',
+          'The server returned no group info after the photo change.',
         ),
       );
     }
@@ -1345,6 +1345,9 @@ ConversationSummary _channelFromMap(JsonMap map) {
     preview: stringField(map, const ['description', 'preview']),
     avatarLabel: _avatarLabel(stringField(map, const ['name', 'title'])),
     avatarUrl: nullableStringField(map, const ['avatar_url', 'avatarUrl']),
+    gender: visibility == ChannelVisibility.direct
+        ? nullableStringField(map, const ['peer_gender', 'peerGender'])
+        : null,
     // Có thời điểm tin cuối thì xếp / hiện giờ theo tin cuối như chat 1-1.
     updatedAt:
         lastMessageAt ?? dateTimeField(map, const ['updated_at', 'updatedAt']),
@@ -1420,6 +1423,9 @@ ConversationSummary _directConversationFromMap(JsonMap map) {
       'avatar_url',
       'avatarUrl',
     ]),
+    gender:
+        nullableStringField(displaySource, const ['gender']) ??
+        nullableStringField(map, const ['peer_gender', 'peerGender']),
     peerUserId: nullableStringField(displaySource, const [
       'user_id',
       'userId',
@@ -1472,6 +1478,7 @@ ContactSummary _contactFromMap(JsonMap map) {
     email: stringField(source, const ['email']),
     status: stringField(source, const ['status'], fallback: 'active'),
     avatarUrl: nullableStringField(source, const ['avatar_url', 'avatarUrl']),
+    gender: nullableStringField(source, const ['gender']),
     title: nullableStringField(source, const ['title', 'role']),
     contactRequestId: nullableStringField(map, const ['id']),
     contactStatus: contactStatus.isEmpty ? null : contactStatus,
@@ -1494,6 +1501,7 @@ ContactSummary _workspaceMemberFromMap(JsonMap map) {
     email: stringField(source, const ['email']),
     status: stringField(source, const ['status'], fallback: 'active'),
     avatarUrl: nullableStringField(source, const ['avatar_url', 'avatarUrl']),
+    gender: nullableStringField(source, const ['gender']),
     title: nullableStringField(source, const ['title', 'role']),
   );
 }
@@ -1518,6 +1526,7 @@ ChannelMember _channelMemberFromMap(JsonMap map, {required String channelId}) {
     status: stringField(source, const ['status'], fallback: 'active'),
     joinedAt: dateTimeField(source, const ['joined_at', 'joinedAt']),
     avatarUrl: nullableStringField(source, const ['avatar_url', 'avatarUrl']),
+    gender: nullableStringField(source, const ['gender']),
     lastReadMessageId: nullableStringField(source, const [
       'last_read_message_id',
       'lastReadMessageId',
@@ -1799,6 +1808,10 @@ CollaborationDocument _collaborationDocumentFromMap(JsonMap map) {
   );
 }
 
+/// Đọc một việc nhóm từ JSON máy chủ (dùng chung với Lịch họp).
+CollaborationTask collaborationTaskFromJson(JsonMap map) =>
+    _collaborationTaskFromMap(map);
+
 CollaborationTask _collaborationTaskFromMap(JsonMap map) {
   return CollaborationTask(
     id: stringField(map, const ['id']),
@@ -1831,6 +1844,7 @@ CollaborationRole _collaborationRoleFromMap(JsonMap map) {
     username: stringField(map, const ['username']),
     role: role,
     avatarUrl: nullableStringField(map, const ['avatar_url']),
+    gender: nullableStringField(map, const ['gender']),
   );
 }
 
