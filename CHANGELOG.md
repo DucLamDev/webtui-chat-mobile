@@ -4,7 +4,18 @@ Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cu�
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
 
-## 1.33.0 · 16/11/2026
+## 1.35.1 · 16/11/2026
+### Sửa lỗi
+- App không dựng được sau khi gộp giao diện liền mạch (1.35.0) với ảnh đại diện theo giới tính (1.33.0) và màn Việc của
+  tôi (1.34.0): báo lỗi `gender` ở ảnh đại diện và `overdue` ở biểu tượng. Đã sửa, kèm trả lại phần bị mất khi gộp:
+  - Người chưa có ảnh đại diện lại hiện hình người xám theo giới tính (kiểu Facebook) thay cho chữ viết tắt, kể cả ở
+    đầu Cài đặt và danh sách Đồng nghiệp trong Bạn bè.
+  - Hình người không còn viền màu mảnh ở mép tròn.
+  - Nhãn "Quá hạn" trong Việc của tôi dùng biểu tượng đồng hồ báo thức cùng bộ biểu tượng mới.
+- Sửa số phiên bản trong nhật ký: mục giao diện liền mạch là 1.35.0 (trước ghi nhầm 1.33.0, trùng số với mục ảnh đại
+  diện theo giới tính).
+
+## 1.35.0 · 16/11/2026
 ### Tính năng
 - Giao diện mới liền mạch kiểu Zalo / Telegram: icon không khung, ảnh đại diện to và rõ mặt, thanh lọc trượt ngang kiểu
   YouTube

@@ -79,6 +79,11 @@ class WebTuiAvatar extends StatelessWidget {
     super.key,
   });
 
+  /// Có giá trị = ảnh NGƯỜI: khi chưa có ảnh / ảnh lỗi vẽ hình người theo giới
+  /// tính (thiếu thông tin thì dùng [WebTuiAvatarGender.neutral]). Null = nhóm,
+  /// kênh, bot...: giữ chữ viết tắt / biểu tượng trên dải màu.
+  final WebTuiAvatarGender? gender;
+
   /// Ô vuông bo góc thay vì ảnh tròn (logo tổ chức, ảnh xem trước tệp).
   final bool square;
 
@@ -104,6 +109,9 @@ class WebTuiAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dot = webTuiPresenceDotSize(size);
+    // Ảnh người (có giới tính): nền do hình người tự vẽ. Không vẽ dải màu bên
+    // dưới, nếu không mép tròn khử răng cưa sẽ lộ một viền màu mảnh.
+    final personFallback = gender != null && icon == null;
     // Tâm chấm nằm trên mép tròn ở góc 45°: cách mép hộp size × (1 − cos45°) / 2.
     final inset = size * 0.1464 - dot / 2;
     return SizedBox.square(
@@ -116,7 +124,7 @@ class WebTuiAvatar extends StatelessWidget {
               DecoratedBox(
                 decoration: BoxDecoration(
                   color: color,
-                  gradient: color == null ? _gradient : null,
+                  gradient: color == null && !personFallback ? _gradient : null,
                 ),
                 child: WebTuiBoundedNetworkImage(
                   imageUrl: imageUrl,
@@ -189,6 +197,10 @@ class WebTuiAvatar extends StatelessWidget {
   }
 
   Widget get _fallback {
+    final g = gender;
+    if (g != null && icon == null) {
+      return SizedBox.expand(child: WebTuiPersonSilhouette(gender: g));
+    }
     final foreground = foregroundColor ?? Colors.white;
     return Center(
       child: icon == null

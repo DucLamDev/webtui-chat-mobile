@@ -824,6 +824,7 @@ class _ContactTile extends StatelessWidget {
       avatar: WebTuiAvatar(
         label: contact.displayName,
         imageUrl: contact.avatarUrl,
+        gender: WebTuiAvatarGender.parse(contact.gender),
         status: canOpenChat ? _contactPresenceStatus(presence) : null,
       ),
       // Đã chặn: bấm mở luôn bảng quản lý (như chữ "Nhấn để quản lý").

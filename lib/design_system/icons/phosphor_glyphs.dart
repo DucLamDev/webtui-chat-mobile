@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 
 /// Dạng nét (mặc định).
 abstract final class PhosphorRegular {
+  static const IconData alarm = IconData(0xe006, fontFamily: 'PhosphorRegular');
   static const IconData buildings = IconData(
     0xe102,
     fontFamily: 'PhosphorRegular',
