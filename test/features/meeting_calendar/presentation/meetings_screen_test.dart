@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/core/error/failure.dart';
 import 'package:webtui_chat/features/meeting_calendar/domain/entities/calendar_meeting.dart';
+import 'package:webtui_chat/features/meeting_calendar/presentation/widgets/meeting_widgets.dart';
 import 'package:webtui_chat/features/work_hub/presentation/screens/meetings_screen.dart';
 
 import '../meeting_calendar_fakes.dart';
@@ -199,5 +200,36 @@ void main() {
       expect(size.height, greaterThanOrEqualTo(48), reason: '$key');
       expect(size.width, greaterThanOrEqualTo(48), reason: '$key');
     }
+  });
+
+  testWidgets('màn đang mở: tới giờ họp thì nhãn tự thành Đang diễn ra', (
+    tester,
+  ) async {
+    var current = DateTime(2026, 11, 16, 8, 59);
+    phoneView(tester);
+    await tester.pumpWidget(
+      meetingApp(
+        calendar: FakeMeetingCalendarRepository(
+          meetings: [
+            fakeMeeting(
+              'sap',
+              title: 'Họp sáng',
+              startsAt: DateTime(2026, 11, 16, 9),
+              myResponse: MeetingResponse.accepted,
+            ),
+          ],
+        ),
+        home: MeetingsScreen(workspaceId: 'ws', clock: () => current),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Sắp bắt đầu'), findsOneWidget);
+    expect(find.text('Đang diễn ra'), findsNothing);
+
+    current = DateTime(2026, 11, 16, 9, 1);
+    await tester.pump(meetingClockTick);
+    await tester.pumpAndSettle();
+    expect(find.text('Đang diễn ra'), findsOneWidget);
+    expect(find.text('Sắp bắt đầu'), findsNothing);
   });
 }

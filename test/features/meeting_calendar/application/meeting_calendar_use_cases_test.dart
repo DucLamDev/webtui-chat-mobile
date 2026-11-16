@@ -354,6 +354,15 @@ void main() {
         content: 'a' * 20001,
       );
       expect(tooLong.failureOrNull!.code, 'MEETING_MINUTES_TOO_LONG');
+      // Đếm theo ký tự như máy chủ: 20 000 emoji (40 000 đơn vị UTF-16) vẫn
+      // trong giới hạn.
+      final emoji = await minutesUseCase.save(
+        workspaceId: 'ws',
+        channelId: 'c1',
+        meetingId: 'm1',
+        content: '😀' * 20000,
+      );
+      expect(emoji.failureOrNull, isNull);
       await minutesUseCase.save(
         workspaceId: 'ws',
         channelId: 'c1',

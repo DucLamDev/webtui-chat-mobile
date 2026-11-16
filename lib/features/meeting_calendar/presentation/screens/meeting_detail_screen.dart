@@ -31,6 +31,7 @@ class MeetingDetailScreen extends ConsumerStatefulWidget {
     required this.channelId,
     required this.meetingId,
     this.now,
+    this.clock,
     super.key,
   });
 
@@ -41,12 +42,16 @@ class MeetingDetailScreen extends ConsumerStatefulWidget {
   /// Chỉ để test cố định "bây giờ".
   final DateTime? now;
 
+  /// Chỉ để test: đồng hồ giả (đổi được giữa chừng) khi không có [now].
+  final DateTime Function()? clock;
+
   @override
   ConsumerState<MeetingDetailScreen> createState() =>
       _MeetingDetailScreenState();
 }
 
-class _MeetingDetailScreenState extends ConsumerState<MeetingDetailScreen> {
+class _MeetingDetailScreenState extends ConsumerState<MeetingDetailScreen>
+    with MeetingClockTicker<MeetingDetailScreen> {
   bool _busy = false;
 
   MeetingKey get _key => (
@@ -55,7 +60,7 @@ class _MeetingDetailScreenState extends ConsumerState<MeetingDetailScreen> {
     meetingId: widget.meetingId,
   );
 
-  DateTime _now() => widget.now ?? DateTime.now();
+  DateTime _now() => widget.now ?? (widget.clock ?? DateTime.now)();
 
   void _notice(String message) {
     if (!mounted) return;

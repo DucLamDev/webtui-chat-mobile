@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../design_system/icons/webtui_icons.dart';
@@ -10,6 +12,30 @@ import '../controllers/meeting_calendar_controllers.dart';
 
 /// Vùng bấm tối thiểu.
 const meetingMinTapSize = 48.0;
+
+/// Nhịp dựng lại màn theo giờ (nút "Vào họp", nhãn trạng thái).
+const meetingClockTick = Duration(seconds: 30);
+
+/// Dựng lại màn mỗi [meetingClockTick] để nút "Vào họp" và nhãn trạng thái tự
+/// đổi theo giờ khi màn đang mở (mở lúc 09:45 thì khoảng 09:50 nút tự bật,
+/// tới giờ họp nhãn thành "Đang diễn ra"), không phải kéo làm mới.
+mixin MeetingClockTicker<T extends StatefulWidget> on State<T> {
+  Timer? _clockTicker;
+
+  @override
+  void initState() {
+    super.initState();
+    _clockTicker = Timer.periodic(meetingClockTick, (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _clockTicker?.cancel();
+    super.dispose();
+  }
+}
 
 /// Màu chữ / nền của Lịch họp, đã kiểm tương phản ≥ 4.5:1 ở cả nền sáng và
 /// tối (chữ nhỏ trên nền thẻ / nền nhãn).

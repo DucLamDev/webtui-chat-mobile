@@ -242,8 +242,51 @@ void main() {
     expect(calendar.calls, contains('update:m1'));
     expect(calendar.lastScope, MeetingScope.series);
     expect(calendar.drafts.single.title, 'Họp tuần (dời)');
-    expect(calendar.drafts.single.recurrence, isNotNull);
+    // Sửa không gửi quy tắc lặp (máy chủ không đổi quy tắc khi sửa).
+    expect(calendar.drafts.single.recurrence, isNull);
   });
+
+  for (final rule in [
+    MeetingRecurrence(
+      frequency: MeetingRecurrenceFrequency.weekly,
+      byWeekday: const [1],
+      until: DateTime(2027, 3, 31),
+    ),
+    const MeetingRecurrence(
+      frequency: MeetingRecurrenceFrequency.weekly,
+      byWeekday: [1],
+      count: 8,
+    ),
+  ]) {
+    testWidgets(
+      'sửa cả chuỗi có điều kiện kết thúc (${rule.until != null ? 'đến ngày' : 'số buổi'}): lưu được, không gửi lại quy tắc lặp',
+      (tester) async {
+        phoneView(tester, height: 2600);
+        final calendar = FakeMeetingCalendarRepository();
+        final existing = fakeMeeting(
+          'm2',
+          channelId: 'c-a',
+          channelName: 'An toàn',
+          title: 'Họp tuần',
+          startsAt: start,
+          seriesId: 's2',
+          recurrence: rule,
+          canEdit: true,
+        );
+        await open(tester, form(calendar: calendar, existing: existing));
+        await tester.enterText(
+          find.byKey(const Key('meeting_title')),
+          'Họp tuần (đổi tên)',
+        );
+        await tapKey(tester, 'meeting_save');
+        await tester.tap(find.byKey(const Key('meeting_scope_series')));
+        await tester.pumpAndSettle();
+        expect(calendar.calls, contains('update:m2'));
+        expect(calendar.drafts.single.title, 'Họp tuần (đổi tên)');
+        expect(calendar.drafts.single.recurrence, isNull);
+      },
+    );
+  }
 }
 
 /// Trang mở biểu mẫu bằng Navigator (biểu mẫu tự đóng khi lưu xong).

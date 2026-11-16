@@ -50,23 +50,32 @@ List<CalendarMeeting> meetingsForTab(
 
 /// Lịch họp: dải tuần có chấm ngày có họp, tab Sắp tới / Đã qua, nút Tạo họp.
 class MeetingsScreen extends ConsumerStatefulWidget {
-  const MeetingsScreen({required this.workspaceId, this.now, super.key});
+  const MeetingsScreen({
+    required this.workspaceId,
+    this.now,
+    this.clock,
+    super.key,
+  });
 
   final String workspaceId;
 
   /// Chỉ để test cố định "bây giờ".
   final DateTime? now;
 
+  /// Chỉ để test: đồng hồ giả (đổi được giữa chừng) khi không có [now].
+  final DateTime Function()? clock;
+
   @override
   ConsumerState<MeetingsScreen> createState() => _MeetingsScreenState();
 }
 
-class _MeetingsScreenState extends ConsumerState<MeetingsScreen> {
+class _MeetingsScreenState extends ConsumerState<MeetingsScreen>
+    with MeetingClockTicker<MeetingsScreen> {
   bool _past = false;
   late DateTime _weekStart = meetingWeekStart(_now());
   DateTime? _selectedDay;
 
-  DateTime _now() => widget.now ?? DateTime.now();
+  DateTime _now() => widget.now ?? (widget.clock ?? DateTime.now)();
 
   MeetingRangeKey _upcomingKey(DateTime today) => (
     workspaceId: widget.workspaceId,

@@ -495,7 +495,8 @@ final class MeetingMinutesUseCase {
     required String content,
   }) async {
     final text = content.trim();
-    if (text.length > maxMeetingMinutesLength) {
+    // Đếm theo ký tự (rune) như máy chủ (char_length), không theo UTF-16.
+    if (text.runes.length > maxMeetingMinutesLength) {
       return FailureResult(
         _validation(
           tr(

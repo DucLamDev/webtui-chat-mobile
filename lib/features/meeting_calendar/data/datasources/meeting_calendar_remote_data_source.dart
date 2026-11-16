@@ -82,7 +82,9 @@ final class MeetingCalendarRemoteDataSource {
     await _api.patch<Object>(
       _meeting(workspaceId, channelId, meetingId),
       data: {
-        ...meetingDraftBody(draft, includeRecurrence: scope.isSeries),
+        // Không gửi quy tắc lặp khi sửa: máy chủ không đổi quy tắc của chuỗi
+        // (gửi khác đi, kể cả thiếu ngày / số buổi kết thúc, là bị từ chối).
+        ...meetingDraftBody(draft, includeRecurrence: false),
         'scope': scope.apiValue,
       },
     );
@@ -234,10 +236,6 @@ final class MeetingCalendarRemoteDataSource {
   }
 }
 
-extension on MeetingScope {
-  bool get isSeries => this == MeetingScope.series;
-}
-
 String _e(String value) => Uri.encodeComponent(value);
 
 List<CalendarMeeting> _meetingList(Object? data, String workspaceId) {
@@ -263,8 +261,8 @@ CalendarMeeting _meetingItem(
   );
 }
 
-/// Thân `POST` / `PATCH` cuộc họp. [includeRecurrence] = false khi chỉ sửa một
-/// buổi (luật lặp thuộc cả chuỗi).
+/// Thân `POST` / `PATCH` cuộc họp. [includeRecurrence] = false khi sửa (luật
+/// lặp chỉ đặt lúc tạo chuỗi).
 Map<String, Object?> meetingDraftBody(
   MeetingDraft draft, {
   bool includeRecurrence = true,

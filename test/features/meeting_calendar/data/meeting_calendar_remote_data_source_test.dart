@@ -256,7 +256,9 @@ void main() {
       expect(onlyThis.containsKey('recurrence'), isFalse);
       final series = transport.calls[3].data! as Map;
       expect(series['scope'], 'series');
-      expect(series['recurrence'], isNotNull);
+      // Sửa cả chuỗi cũng không gửi quy tắc lặp: máy chủ không đổi quy tắc
+      // khi sửa, gửi luật thiếu ngày / số buổi kết thúc là bị từ chối.
+      expect(series.containsKey('recurrence'), isFalse);
       expect(transport.calls[4].data, {'scope': 'series'});
       expect(transport.calls[5].data, {'response': 'declined'});
     });

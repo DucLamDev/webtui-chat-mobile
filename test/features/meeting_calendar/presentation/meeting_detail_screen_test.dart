@@ -4,6 +4,7 @@ import 'package:webtui_chat/core/error/failure.dart';
 import 'package:webtui_chat/features/conversations/domain/entities/collaboration_room.dart';
 import 'package:webtui_chat/features/meeting_calendar/domain/entities/calendar_meeting.dart';
 import 'package:webtui_chat/features/meeting_calendar/presentation/screens/meeting_detail_screen.dart';
+import 'package:webtui_chat/features/meeting_calendar/presentation/widgets/meeting_widgets.dart';
 
 import '../meeting_calendar_fakes.dart';
 import 'meeting_harness.dart';
@@ -157,6 +158,34 @@ void main() {
     await tapKey(tester, 'meeting_join');
     expect(api.tokenRequests, ['c1/m1']);
     expect(launcher.opened, ['https://meet.example.com/phong-1?jwt=jwt-1']);
+  });
+
+  testWidgets('màn đang mở: tới giờ mở phòng thì nút Vào họp tự bật', (
+    tester,
+  ) async {
+    var current = DateTime(2026, 11, 16, 8, 45);
+    phoneView(tester, height: 2600);
+    await tester.pumpWidget(
+      meetingApp(
+        calendar: FakeMeetingCalendarRepository(detail: organizerMeeting()),
+        home: MeetingDetailScreen(
+          workspaceId: 'ws',
+          channelId: 'c1',
+          meetingId: 'm1',
+          clock: () => current,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    ButtonStyleButton join() =>
+        tester.widget<ButtonStyleButton>(find.byKey(const Key('meeting_join')));
+    expect(join().onPressed, isNull);
+    expect(find.text('Vào họp từ 08:50'), findsOneWidget);
+
+    current = DateTime(2026, 11, 16, 8, 51);
+    await tester.pump(meetingClockTick);
+    expect(join().onPressed, isNotNull);
+    expect(find.text('Vào họp'), findsOneWidget);
   });
 
   testWidgets('Vào họp có link ngoài: mở link, không xin token', (

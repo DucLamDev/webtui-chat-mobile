@@ -104,6 +104,16 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
       if (recurrence != null) {
         _frequency = recurrence.frequency;
         _weekdays.addAll(recurrence.byWeekday);
+        // Nạp đủ điều kiện kết thúc để hiển thị đúng chuỗi đang sửa.
+        final until = recurrence.until;
+        final count = recurrence.count;
+        if (until != null) {
+          _repeatEnd = _RepeatEnd.until;
+          _until = until;
+        } else if (count != null) {
+          _repeatEnd = _RepeatEnd.count;
+          _count.text = '$count';
+        }
       }
     } else {
       final now = _now();
@@ -394,9 +404,8 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
       attendeeUserIds: _peopleMode
           ? _people.toList()
           : _groupAttendees?.toList(),
-      recurrence: _isEdit && scope == MeetingScope.occurrence
-          ? null
-          : _recurrence(),
+      // Sửa không đổi quy tắc lặp (máy chủ không hỗ trợ): chỉ gửi lúc tạo.
+      recurrence: _isEdit ? null : _recurrence(),
       timezone: ref.read(meetingTimezoneProvider),
     );
     setState(() => _saving = true);
