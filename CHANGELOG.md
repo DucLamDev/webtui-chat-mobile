@@ -3,6 +3,16 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.36.1 · 16/11/2026
+### Sửa lỗi
+- Cài đặt: thanh Âm lượng và Cỡ chữ nay có tác dụng thật (trước đây kéo chỉ di chuyển nút, không đổi gì, không lưu)
+  - Cỡ chữ: 7 nấc từ 85% tới 130% (mặc định 100%); kéo là chữ cả app đổi ngay, nhân thêm với cỡ chữ của điện thoại, tổng
+    giữ trong 80%–150% để màn hình không vỡ. Được lưu lại, mở lại app vẫn giữ.
+  - Âm lượng: chỉnh độ to nhạc chuông cuộc gọi đến (khi đang mở app) và chuông chờ khi gọi đi, nấc 10%; kéo về 0 thì không
+    đổ chuông (vẫn rung, vẫn hiện cuộc gọi). Thả tay khỏi thanh là phát thử tiếng chuông khoảng 1,5 giây. Âm báo tin nhắn
+    do điện thoại phát theo âm lượng thông báo của máy nên không đổi theo thanh này.
+  - Chữ to không còn làm nhãn "Âm lượng" bị cắt thành "Âm lượ…".
+
 ## 1.36.0 · 16/11/2026
 ### Tính năng
 - Thanh tab dưới thành viên thuốc nổi, kính trong kiểu Telegram

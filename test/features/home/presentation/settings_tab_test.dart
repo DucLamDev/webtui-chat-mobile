@@ -1,11 +1,12 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/design_system/components/webtui_components.dart';
 import 'package:webtui_chat/design_system/components/webtui_person_silhouette.dart';
 import 'package:webtui_chat/design_system/icons/webtui_icons.dart';
 import 'package:webtui_chat/features/home/presentation/screens/home_shell_screen.dart';
+import 'package:webtui_chat/features/settings/domain/entities/app_settings.dart';
 import 'package:webtui_chat/l10n/app_strings.dart';
 
 void main() {
@@ -181,6 +182,93 @@ void main() {
     expect(find.byType(Slider), findsNWidgets(2));
   });
 
+  testWidgets('Âm lượng: kéo theo nấc 10%, thả tay thì phát thử', (
+    tester,
+  ) async {
+    final values = <double>[];
+    final ends = <double>[];
+    await tester.pumpWidget(
+      _host(
+        _tab(
+          soundLevel: 0.8,
+          onSoundChanged: values.add,
+          onSoundChangeEnd: ends.add,
+        ),
+      ),
+    );
+    await tester.pump();
+    final slider = find.descendant(
+      of: find.byKey(const Key('settings_sound_slider')),
+      matching: find.byType(Slider),
+    );
+    expect(tester.widget<Slider>(slider).divisions, appSoundVolumeDivisions);
+    await tester.drag(slider, const Offset(-80, 0));
+    await tester.pump();
+    expect(values, isNotEmpty);
+    for (final value in values) {
+      expect((value * 10 - (value * 10).round()).abs(), lessThan(1e-9));
+    }
+    expect(ends, hasLength(1));
+    expect(ends.single, lessThan(0.8));
+  });
+
+  testWidgets('Cỡ chữ: 7 nấc, trình đọc màn hình đọc cỡ chữ thật', (
+    tester,
+  ) async {
+    final values = <double>[];
+    await tester.pumpWidget(
+      _host(
+        _tab(
+          textScalePreview: appTextScaleToSlider(1.0),
+          onTextScaleChanged: values.add,
+        ),
+      ),
+    );
+    await tester.pump();
+    final slider = find.descendant(
+      of: find.byKey(const Key('settings_text_scale_slider')),
+      matching: find.byType(Slider),
+    );
+    expect(tester.widget<Slider>(slider).divisions, appTextScaleDivisions);
+    // Trình đọc màn hình đọc cỡ chữ thật (85%–130%), không phải vị trí thanh.
+    final format = tester.widget<Slider>(slider).semanticFormatterCallback!;
+    expect(format(appTextScaleToSlider(1.0)), 'Cỡ chữ 100%');
+    expect(format(1), 'Cỡ chữ 130%');
+    expect(format(0), 'Cỡ chữ 85%');
+    await tester.drag(slider, const Offset(120, 0));
+    await tester.pump();
+    expect(values, isNotEmpty);
+    for (final value in values) {
+      final scale = appTextScaleFromSlider(value);
+      expect(appTextScaleToSlider(scale), closeTo(value, 1e-9));
+    }
+    expect(appTextScaleFromSlider(values.last), greaterThan(1.0));
+  });
+
+  testWidgets('chữ 130%: nhãn Âm lượng / Cỡ chữ không bị cắt', (tester) async {
+    // Phông thật của app (phông giả của test rộng 1em mỗi ký tự, đo sai).
+    await tester.runAsync(() async {
+      final loader = FontLoader('WebTuiRoboto');
+      for (final path in const [
+        'assets/fonts/roboto-regular.ttf',
+        'assets/fonts/roboto-medium.ttf',
+        'assets/fonts/roboto-bold.ttf',
+      ]) {
+        loader.addFont(rootBundle.load(path));
+      }
+      await loader.load();
+    });
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await tester.pumpWidget(_host(_tab()));
+    await tester.pump();
+    for (final label in ['Âm lượng', 'Cỡ chữ']) {
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(label));
+      expect(paragraph.textScaler.scale(10), closeTo(13, 1e-9));
+      expect(paragraph.didExceedMaxLines, isFalse, reason: label);
+    }
+  });
+
   testWidgets('dòng QR chỉ hiện khi máy chủ bật', (tester) async {
     var qrOpened = 0;
     await tester.pumpWidget(_host(_tab()));
@@ -283,6 +371,11 @@ SettingsTab _tab({
   VoidCallback? onQrLoginTap,
   ValueChanged<bool>? onNotificationChanged,
   ValueChanged<bool>? onCompactChanged,
+  double soundLevel = 0.6,
+  double textScalePreview = 0.4,
+  ValueChanged<double>? onSoundChanged,
+  ValueChanged<double>? onSoundChangeEnd,
+  ValueChanged<double>? onTextScaleChanged,
 }) {
   return SettingsTab(
     workspaceName: 'Webtui Chat',
@@ -294,15 +387,16 @@ SettingsTab _tab({
     onQrLoginTap: onQrLoginTap,
     notificationEnabled: true,
     compactMode: compactMode,
-    soundLevel: 0.6,
-    textScalePreview: 0.4,
+    soundLevel: soundLevel,
+    textScalePreview: textScalePreview,
     onProfileTap: onProfileTap ?? () {},
     onAdvancedTap: onAdvancedTap ?? () {},
     onLogoutTap: onLogoutTap ?? () {},
     onNotificationChanged: onNotificationChanged ?? (_) {},
     onCompactChanged: onCompactChanged ?? (_) {},
-    onSoundChanged: (_) {},
-    onTextScaleChanged: (_) {},
+    onSoundChanged: onSoundChanged ?? (_) {},
+    onSoundChangeEnd: onSoundChangeEnd,
+    onTextScaleChanged: onTextScaleChanged ?? (_) {},
   );
 }
 

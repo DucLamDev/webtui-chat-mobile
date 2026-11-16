@@ -50,6 +50,8 @@ import '../../../meetings/presentation/group_call_presenter.dart';
 import '../../../notifications/domain/entities/mobile_notification.dart';
 import '../../../notifications/presentation/controllers/notification_center_controller.dart';
 import '../../../profile/presentation/controllers/profile_controller.dart';
+import '../../../settings/domain/entities/app_settings.dart';
+import '../../../settings/presentation/controllers/app_settings_controller.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
 import '../widgets/notification_bell.dart';
 
@@ -143,8 +145,6 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   String? _ringingDialogCallId;
   ValueNotifier<bool>? _ringingDialogDismiss;
   ({String scopeId, String deviceId})? _callDeviceId;
-  double _soundLevel = 0.64;
-  double _textScalePreview = 0.42;
 
   @override
   void initState() {
@@ -215,6 +215,10 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     final workspaceState = ref.watch(workspaceControllerProvider);
     final activeWorkspace = workspaceState.activeWorkspace;
     final organization = ref.watch(activeServerDiscoveryProvider);
+    // Âm lượng / Cỡ chữ ở tab Cài đặt đọc và ghi kho cài đặt thật của app.
+    final appSettings = ref.watch(
+      appSettingsControllerProvider.select((state) => state.settings),
+    );
 
     if (workspaceState.isLoading && activeWorkspace == null) {
       return Scaffold(
@@ -396,8 +400,10 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
                       userEmail: userProfile?.email,
                       notificationEnabled: _notificationEnabled,
                       compactMode: _compactMode,
-                      soundLevel: _soundLevel,
-                      textScalePreview: _textScalePreview,
+                      soundLevel: appSettings.soundVolume,
+                      textScalePreview: appTextScaleToSlider(
+                        appSettings.textScale,
+                      ),
                       onProfileTap: () => context.push('/profile'),
                       onAdvancedTap: () => context.push('/settings'),
                       // Luôn mở được danh sách workspace (kể cả khi chỉ có 1:
@@ -428,11 +434,21 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
                       },
                       onCompactChanged: (value) =>
                           setState(() => _compactMode = value),
-                      onSoundChanged: (value) =>
-                          setState(() => _soundLevel = value),
-                      onTextScaleChanged: (value) {
-                        setState(() => _textScalePreview = value);
-                      },
+                      // Kéo là áp dụng ngay (cỡ chữ cả app đổi theo) và lưu
+                      // lại; thả tay khỏi Âm lượng thì phát thử chuông.
+                      onSoundChanged: (value) => _updateAppSettings(
+                        (current) => current.copyWith(
+                          soundVolume: normalizeAppSoundVolume(value),
+                        ),
+                      ),
+                      onSoundChangeEnd: (value) => unawaited(
+                        CallTonePlayer.preview(normalizeAppSoundVolume(value)),
+                      ),
+                      onTextScaleChanged: (value) => _updateAppSettings(
+                        (current) => current.copyWith(
+                          textScale: appTextScaleFromSlider(value),
+                        ),
+                      ),
                     )
                   else
                     const SizedBox.shrink(),
@@ -443,6 +459,18 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         ),
       ),
     );
+  }
+
+  /// Lưu Âm lượng / Cỡ chữ vào kho cài đặt (app áp dụng ngay). Kéo qua cùng
+  /// một nấc thì không ghi lại.
+  void _updateAppSettings(AppSettings Function(AppSettings current) change) {
+    final current = ref.read(appSettingsControllerProvider).settings;
+    final next = change(current);
+    if (next.soundVolume == current.soundVolume &&
+        next.textScale == current.textScale) {
+      return;
+    }
+    unawaited(ref.read(appSettingsControllerProvider.notifier).update(next));
   }
 
   void _ensureShareIntentListener(String workspaceId) {
@@ -2255,6 +2283,7 @@ class SettingsTab extends StatelessWidget {
     required this.onCompactChanged,
     required this.onSoundChanged,
     required this.onTextScaleChanged,
+    this.onSoundChangeEnd,
     this.canSwitchWorkspace = false,
     this.userAvatarUrl,
     this.userGender,
@@ -2286,7 +2315,11 @@ class SettingsTab extends StatelessWidget {
   final String? userEmail;
   final bool notificationEnabled;
   final bool compactMode;
+
+  /// Âm lượng chuông trong app, 0..1.
   final double soundLevel;
+
+  /// Vị trí thanh Cỡ chữ (0..1), xem [appTextScaleToSlider].
   final double textScalePreview;
   final VoidCallback onProfileTap;
   final VoidCallback onAdvancedTap;
@@ -2295,6 +2328,9 @@ class SettingsTab extends StatelessWidget {
   final ValueChanged<bool> onCompactChanged;
   final ValueChanged<double> onSoundChanged;
   final ValueChanged<double> onTextScaleChanged;
+
+  /// Thả tay khỏi thanh Âm lượng (phát thử chuông ở mức vừa chọn).
+  final ValueChanged<double>? onSoundChangeEnd;
 
   @override
   Widget build(BuildContext context) {
@@ -2396,7 +2432,9 @@ class SettingsTab extends StatelessWidget {
             icon: WebTuiIcons.volume,
             label: strings.isEnglish ? 'Volume' : 'Âm lượng',
             value: soundLevel,
+            divisions: appSoundVolumeDivisions,
             onChanged: onSoundChanged,
+            onChangeEnd: onSoundChangeEnd,
           ),
           divider,
           WebTuiSliderRow(
@@ -2404,6 +2442,10 @@ class SettingsTab extends StatelessWidget {
             icon: WebTuiIcons.textSize,
             label: strings.isEnglish ? 'Text size' : 'Cỡ chữ',
             value: textScalePreview,
+            divisions: appTextScaleDivisions,
+            // Đọc cỡ chữ thật (85%–130%), không phải vị trí thanh.
+            semanticValue: (value) =>
+                '${(appTextScaleFromSlider(value) * 100).round()}%',
             onChanged: onTextScaleChanged,
           ),
           const WebTuiGroupGap(),
