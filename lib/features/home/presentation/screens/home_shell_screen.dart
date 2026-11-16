@@ -43,6 +43,7 @@ import '../../../conversations/presentation/controllers/pending_chat_share_contr
 import '../../../conversations/presentation/screens/webrtc_call_screen.dart';
 import '../../../conversations/presentation/screens/workspace_tools_screen.dart';
 import '../../../conversations/presentation/widgets/conversation_home_views.dart';
+import '../../../meeting_calendar/presentation/controllers/meeting_calendar_controllers.dart';
 import '../../../meetings/application/group_call_coordinator.dart';
 import '../../../meetings/application/meeting_providers.dart';
 import '../../../meetings/domain/meeting_models.dart';
@@ -1040,6 +1041,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         unawaited(_showIncomingCall(target));
         return;
       }
+      if (target.isMeeting) bumpMeetingCalendar(ref.read);
       final location = locationForNotificationTarget(target);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1476,6 +1478,10 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
               );
               tick.state = tick.state + 1;
             }
+            return;
+          }
+          // Lịch họp đổi: danh sách / chi tiết họp đang mở tự tải lại.
+          if (handleMeetingRealtimeEvent(read: ref.read, event: event)) {
             return;
           }
           // Nhóm bị xoá / mình rời nhóm ở máy khác: bỏ nhóm khỏi danh sách,

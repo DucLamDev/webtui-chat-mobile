@@ -81,7 +81,10 @@ final class ScopedLocalNotification {
         'schema': 1,
         'data': routingData,
       }),
-      canQuickReply: routingData['channel_id']?.trim().isNotEmpty == true,
+      // Thông báo họp mở chi tiết cuộc họp, không trả lời nhanh vào nhóm.
+      canQuickReply:
+          routingData['channel_id']?.trim().isNotEmpty == true &&
+          routingData['meeting_id'] == null,
       approvalId: routingData['type'] == _approvalRequestedType
           ? routingData['approval_id']
           : null,
@@ -173,6 +176,9 @@ Map<String, String>? scopedNotificationRoutingData(Map<String, Object?> data) {
     return null;
   }
 
+  final meetingId = target.isMeeting
+      ? _boundedValue(target.meetingId, 256)
+      : null;
   return <String, String>{
     'instance_id': instanceId,
     'workspace_id': workspaceId,
@@ -190,6 +196,10 @@ Map<String, String>? scopedNotificationRoutingData(Map<String, Object?> data) {
     if (target.isApprovalRequest) ...{
       'type': _approvalRequestedType,
       'approval_id': target.approvalId!.trim(),
+    },
+    if (meetingId != null) ...{
+      'type': target.notificationType!.trim().toLowerCase(),
+      'meeting_id': meetingId,
     },
   };
 }

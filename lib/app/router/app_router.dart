@@ -20,6 +20,7 @@ import '../../features/customer_tickets/presentation/screens/customer_ticket_lis
 import '../../features/home/presentation/screens/home_shell_screen.dart';
 import '../../features/inbox/presentation/screens/inbox_conversation_screen.dart';
 import '../../features/inbox/presentation/screens/inbox_list_screen.dart';
+import '../../features/meeting_calendar/presentation/screens/meeting_detail_screen.dart';
 import '../../features/my_notes/presentation/screens/my_note_editor_screen.dart';
 import '../../features/my_notes/presentation/screens/my_notes_screen.dart';
 import '../../features/notifications/presentation/screens/notifications_route_screen.dart';
@@ -270,6 +271,18 @@ final appRouterProvider = Provider<GoRouter>((_) {
         builder: (context, state) => _workspaceScoped(
           state,
           (workspaceId) => MeetingsScreen(workspaceId: workspaceId),
+        ),
+      ),
+      GoRoute(
+        path: '/meetings/:meeting_id',
+        name: 'meeting-detail',
+        builder: (context, state) => _workspaceScoped(
+          state,
+          (workspaceId) => MeetingDetailScreen(
+            workspaceId: workspaceId,
+            channelId: state.uri.queryParameters['channelId'] ?? '',
+            meetingId: state.pathParameters['meeting_id'] ?? '',
+          ),
         ),
       ),
       GoRoute(
