@@ -212,6 +212,16 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
             ),
           );
 
+    // Chữ viết bằng `tr()` đọc ngôn ngữ từ AppStrings.current: đổi ngôn ngữ thì
+    // đặt lại rồi dựng lại mọi widget (như đổi Sáng / Tối), không mất màn đang mở.
+    final strings = AppStrings.forLanguageCode(languageCode);
+    if (AppStrings.current.isEnglish != strings.isEnglish) {
+      AppStrings.current = strings;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _rebuildAllElements();
+      });
+    }
+
     // Chưa chọn máy chủ thì chưa có kho cài đặt: theo Hệ thống.
     final themePreference = activeDiscovery == null
         ? WebTuiThemePreference.system

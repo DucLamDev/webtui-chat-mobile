@@ -19,6 +19,10 @@ abstract class AppStrings {
     return languageCode == 'en' ? const AppStringsEn() : const AppStringsVi();
   }
 
+  /// Ngôn ngữ đang dùng cho [tr]. App đặt lại mỗi khi người dùng đổi ngôn ngữ
+  /// rồi dựng lại mọi widget; test không đặt thì là tiếng Việt.
+  static AppStrings current = const AppStringsVi();
+
   /// Ngôn ngữ đang là tiếng Anh.
   bool get isEnglish;
 
@@ -792,6 +796,11 @@ class _AppStringsDelegate extends LocalizationsDelegate<AppStrings> {
   @override
   bool shouldReload(_AppStringsDelegate old) => false;
 }
+
+/// Chữ giao diện viết tại chỗ bằng hai ngôn ngữ: tiếng Việt trước, tiếng Anh
+/// sau, ví dụ `tr('Tin nhắn', 'Messages')`. Dùng được cả ngoài widget
+/// (controller, định dạng, thông báo lỗi) vì đọc [AppStrings.current].
+String tr(String vi, String en) => AppStrings.current.isEnglish ? en : vi;
 
 extension AppStringsContext on BuildContext {
   AppStrings get strings => AppStrings.of(this);

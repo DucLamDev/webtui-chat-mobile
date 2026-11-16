@@ -18,6 +18,13 @@ void main() {
     );
   });
 
+  test('tr() trả chữ theo ngôn ngữ đang dùng', () {
+    addTearDown(() => AppStrings.current = const AppStringsVi());
+    expect(tr('Tin nhắn', 'Messages'), 'Tin nhắn');
+    AppStrings.current = const AppStringsEn();
+    expect(tr('Tin nhắn', 'Messages'), 'Messages');
+  });
+
   testWidgets('không có delegate trong cây thì dùng tiếng Việt', (
     tester,
   ) async {
