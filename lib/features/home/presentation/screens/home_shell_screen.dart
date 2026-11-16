@@ -552,6 +552,8 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         'title': conversation.title,
         if (conversation.avatarUrl?.trim().isNotEmpty == true)
           'avatarUrl': conversation.avatarUrl!.trim(),
+        if (conversation.gender?.trim().isNotEmpty == true)
+          'gender': conversation.gender!.trim(),
         if (conversation.peerUserId?.trim().isNotEmpty == true)
           'peerUserId': conversation.peerUserId!.trim(),
         if (conversation.participantIds.isNotEmpty)

@@ -26,6 +26,15 @@ void main() {
     },
   );
 
+  test('sửa hồ sơ gửi đúng gender, không gửi khi không đổi', () async {
+    final api = _Api();
+    final remote = ProfileRemoteDataSource(api);
+    await remote.updateMe(const UpdateProfileCommand(gender: 'female'));
+    expect(api.data, {'gender': 'female'});
+    await remote.updateMe(const UpdateProfileCommand(title: 'X'));
+    expect(api.data, {'title': 'X'});
+  });
+
   test('ngày không hợp lệ không tự nhảy sang tháng sau', () {
     final profile = userProfileFromMap({
       'profile': {'start_date': '2026-02-31'},

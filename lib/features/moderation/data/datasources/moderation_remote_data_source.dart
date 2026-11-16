@@ -148,6 +148,9 @@ BlockedUser _blockedUserFromMap(
           'avatarUrl',
         ]) ??
         nullableStringField(user, const ['avatar_url', 'avatarUrl']),
+    gender:
+        nullableStringField(map, const ['blocked_gender', 'gender']) ??
+        nullableStringField(user, const ['gender']),
     reason: nullableStringField(map, const ['reason']) ?? fallbackReason,
     createdAt: dateTimeField(map, const ['created_at', 'createdAt']),
   );

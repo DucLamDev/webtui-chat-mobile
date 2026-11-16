@@ -82,6 +82,7 @@ final class BlockedUser {
     this.displayName,
     this.username,
     this.avatarUrl,
+    this.gender,
     this.reason,
   });
 
@@ -90,6 +91,7 @@ final class BlockedUser {
   final String? displayName;
   final String? username;
   final String? avatarUrl;
+  final String? gender;
   final String? reason;
 
   String get label {

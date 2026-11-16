@@ -99,6 +99,7 @@ final class MeetingAttendee {
     required this.userId,
     required this.displayName,
     this.avatarUrl,
+    this.gender,
     this.isOrganizer = false,
     this.response = MeetingResponse.pending,
     this.respondedAt,
@@ -107,6 +108,7 @@ final class MeetingAttendee {
   final String userId;
   final String displayName;
   final String? avatarUrl;
+  final String? gender;
   final bool isOrganizer;
   final MeetingResponse response;
   final DateTime? respondedAt;
@@ -346,11 +348,13 @@ final class MeetingPerson {
     required this.userId,
     required this.displayName,
     this.avatarUrl,
+    this.gender,
   });
 
   final String userId;
   final String displayName;
   final String? avatarUrl;
+  final String? gender;
 }
 
 /// Nhóm chat có thể gắn cuộc họp.

@@ -66,11 +66,13 @@ final class TaskAssigneeOption {
     required this.userId,
     required this.name,
     this.avatarUrl,
+    this.gender,
   });
 
   final String userId;
   final String name;
   final String? avatarUrl;
+  final String? gender;
 }
 
 final class CollaborationTaskState {
@@ -366,6 +368,7 @@ List<TaskAssigneeOption> _assignees(List<ChannelMember> members) {
         userId: member.userId,
         name: name,
         avatarUrl: avatarUrl == null || avatarUrl.isEmpty ? null : avatarUrl,
+        gender: member.gender,
       ),
     );
   }

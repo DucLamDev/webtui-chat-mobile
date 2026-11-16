@@ -8,10 +8,11 @@ import 'chat_room_controller.dart';
 
 /// Tên và ảnh hiển thị của người gửi tin.
 final class MessageSenderProfile {
-  const MessageSenderProfile({required this.name, this.avatarUrl});
+  const MessageSenderProfile({required this.name, this.avatarUrl, this.gender});
 
   final String name;
   final String? avatarUrl;
+  final String? gender;
 }
 
 /// Tra người gửi theo `sender_id`: máy chủ chỉ gửi mã người gửi kèm tin nhắn,
@@ -30,6 +31,7 @@ final class MessageSenderDirectory {
       byUserId[userId] = MessageSenderProfile(
         name: _displayName(member),
         avatarUrl: avatarUrl == null || avatarUrl.isEmpty ? null : avatarUrl,
+        gender: member.gender,
       );
     }
     return MessageSenderDirectory._(byUserId);

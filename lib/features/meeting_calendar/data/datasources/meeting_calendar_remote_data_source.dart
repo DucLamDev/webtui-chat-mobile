@@ -349,6 +349,7 @@ CalendarMeeting calendarMeetingFromJson(
                 nullableStringField(item, const ['display_name']) ??
                 tr('Thành viên', 'Member'),
             avatarUrl: nullableStringField(item, const ['avatar_url']),
+            gender: nullableStringField(item, const ['gender']),
             isOrganizer:
                 stringField(item, const ['role']).trim().toLowerCase() ==
                 'organizer',

@@ -344,6 +344,7 @@ Map<String, Object?> _conversationToJson(ConversationSummary item) {
     'preview': item.preview,
     'avatarLabel': item.avatarLabel,
     'avatarUrl': item.avatarUrl,
+    'gender': item.gender,
     'peerUserId': item.peerUserId,
     'updatedAt': item.updatedAt.toUtc().toIso8601String(),
     'unreadCount': item.unreadCount,
@@ -378,6 +379,7 @@ ConversationSummary _conversationFromJson(Map<String, Object?> json) {
     preview: _string(json['preview']),
     avatarLabel: _nullableString(json['avatarLabel']),
     avatarUrl: _nullableString(json['avatarUrl']),
+    gender: _nullableString(json['gender']),
     peerUserId: _nullableString(json['peerUserId']),
     updatedAt:
         _dateTime(json['updatedAt']) ??

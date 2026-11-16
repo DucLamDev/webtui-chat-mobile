@@ -336,6 +336,7 @@ AuthUser? _authUserFromMapOrNull(JsonMap map) {
     ], fallback: stringField(map, const ['username', 'email'])),
     status: stringField(map, const ['status'], fallback: 'active'),
     avatarUrl: nullableStringField(map, const ['avatar_url', 'avatarUrl']),
+    gender: nullableStringField(map, const ['gender']),
     locale: nullableStringField(map, const ['locale']),
     timezone: nullableStringField(map, const ['timezone']),
   );
