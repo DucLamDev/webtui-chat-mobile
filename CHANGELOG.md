@@ -3,6 +3,17 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.33.0 · 16/11/2026
+### Tính năng
+- Ảnh đại diện mặc định theo giới tính (kiểu Facebook): người chưa đặt ảnh đại diện (hoặc ảnh không tải được) hiện
+  hình người màu xám thay cho nền màu + chữ viết tắt. Nam → hình nam, nữ → hình nữ, chưa chọn hoặc "Không muốn nói" →
+  hình người trung tính. Có cả bản nền tối. Áp dụng ở danh sách tin nhắn 1-1, đầu phòng chat, ảnh cạnh tin nhắn (cả
+  trong nhóm), danh bạ, thành viên nhóm, chọn thành viên khi tạo nhóm, hồ sơ cá nhân, người được giao việc. Ảnh nhóm,
+  kênh, bot, chat bot thông báo và tin do bot gửi giữ như cũ.
+- Hồ sơ cá nhân có thêm mục "Giới tính" (Nam / Nữ / Không muốn nói): chọn là lưu ngay, ảnh đại diện mặc định đổi theo;
+  lưu lỗi thì báo và giữ lựa chọn cũ. Cần máy chủ đã cập nhật bản có giới tính; máy chủ cũ thì mọi người hiện hình
+  trung tính.
+
 ## 1.32.1 · 16/11/2026
 ### Sửa lỗi
 - Tin chưa đọc dễ nhận ra hơn: trong danh sách Tin nhắn, dòng xem trước của hội thoại còn tin chưa đọc in đậm, màu chữ
