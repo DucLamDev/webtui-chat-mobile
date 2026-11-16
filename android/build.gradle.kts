@@ -38,6 +38,28 @@ subprojects {
     }
 }
 
+// opus_flutter_android 3.x (giải mã ghi âm WebM / Ogg) tự dịch libopus bằng ndkBuild nhưng không khai ndkVersion, nên
+// Gradle dùng NDK 27 mặc định: libopus.so chỉ căn lề 4 KB, không qua kiểm 16 KB (check_android_elf_alignment, Google Play
+// cho Android 15+). Dịch bằng đúng NDK của app (mặc định của Flutter, NDK r28+ tự căn lề 16 KB). Còn minSdkVersion 19
+// của thư viện thì xử lý ở gradle.properties (android.ndk.suppressMinSdkVersionError).
+subprojects {
+    if (name == "opus_flutter_android") {
+        plugins.withId("com.android.library") {
+            val appNdkVersion =
+                rootProject
+                    .project(":app")
+                    .extensions
+                    .getByType<com.android.build.api.dsl.ApplicationExtension>()
+                    .ndkVersion
+            extensions.configure<LibraryExtension>("android") {
+                if (!appNdkVersion.isNullOrBlank()) {
+                    ndkVersion = appNdkVersion
+                }
+            }
+        }
+    }
+}
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
