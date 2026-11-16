@@ -9,6 +9,8 @@ import 'package:webtui_chat/app/providers/foundation_providers.dart';
 import 'package:webtui_chat/core/error/failure.dart';
 import 'package:webtui_chat/core/network/self_hosted_server_discovery.dart';
 import 'package:webtui_chat/core/result/result.dart';
+import 'package:webtui_chat/design_system/theme/webtui_theme.dart';
+import 'package:webtui_chat/design_system/tokens/webtui_colors.dart';
 import 'package:webtui_chat/features/auth/application/use_cases/login_use_case.dart';
 import 'package:webtui_chat/features/auth/application/use_cases/register_use_case.dart';
 import 'package:webtui_chat/features/auth/domain/entities/auth_session.dart';
@@ -272,6 +274,84 @@ void main() {
     expect(find.text('Khôi phục mật khẩu'), findsOneWidget);
     expect(find.textContaining('liên hệ quản trị viên'), findsOneWidget);
   });
+  for (final brightness in Brightness.values) {
+    testWidgets('login keeps text readable on the ${brightness.name} theme', (
+      tester,
+    ) async {
+      WebTuiColors.apply(brightness);
+      addTearDown(() => WebTuiColors.apply(Brightness.light));
+      await _pumpLogin(
+        tester,
+        authRepository: const _WidgetAuthRepository(),
+        initialDiscovery: _discovery(),
+        theme: brightness == Brightness.dark
+            ? WebTuiTheme.dark()
+            : WebTuiTheme.light(),
+      );
+      await tester.pumpAndSettle();
+
+      final background = tester
+          .widget<Scaffold>(find.byType(Scaffold).first)
+          .backgroundColor!;
+      final painted = tester
+          .widgetList<CustomPaint>(find.byType(CustomPaint))
+          .map((paint) => paint.painter)
+          .whereType<CustomPainter>()
+          .where((p) => p.runtimeType.toString() == '_AuthBackgroundPainter');
+      expect((painted.single as dynamic).base, background);
+
+      Color textColor(String text) {
+        final finder = find.descendant(
+          of: find.text(text),
+          matching: find.byType(RichText),
+        );
+        final rich = tester.widget<RichText>(finder.first);
+        return rich.text.style?.color ?? Colors.transparent;
+      }
+
+      for (final text in [
+        'Chào mừng trở lại',
+        'Ghi nhớ đăng nhập',
+        'Chưa có tài khoản?',
+      ]) {
+        expect(
+          _contrast(textColor(text), background),
+          greaterThanOrEqualTo(4.5),
+          reason: '"$text" trên nền ${brightness.name}',
+        );
+      }
+
+      final field = tester.widget<TextField>(
+        find.descendant(
+          of: find.byKey(const Key('login_identifier_field')),
+          matching: find.byType(TextField),
+        ),
+      );
+      final fill = field.decoration!.fillColor!;
+      expect(
+        _contrast(field.style!.color!, fill),
+        greaterThanOrEqualTo(4.5),
+        reason: 'chữ trong ô nhập',
+      );
+      expect(
+        _contrast(field.decoration!.hintStyle!.color!, fill),
+        greaterThanOrEqualTo(4.5),
+        reason: 'chữ gợi ý trong ô nhập',
+      );
+      expect(
+        _contrast(WebTuiColors.textPrimary, fill),
+        greaterThanOrEqualTo(4.5),
+      );
+    });
+  }
+}
+
+double _contrast(Color a, Color b) {
+  final la = a.computeLuminance();
+  final lb = b.computeLuminance();
+  final hi = la > lb ? la : lb;
+  final lo = la > lb ? lb : la;
+  return (hi + 0.05) / (lo + 0.05);
 }
 
 Future<void> _pumpLogin(
@@ -280,6 +360,7 @@ Future<void> _pumpLogin(
   VoidCallback? onLoginSuccess,
   SelfHostedServerDiscovery? initialDiscovery,
   AuthTokenRepository? tokenRepository,
+  ThemeData? theme,
 }) async {
   final tokens = tokenRepository ?? _WidgetTokenRepository();
   await tester.pumpWidget(
@@ -335,7 +416,10 @@ Future<void> _pumpLogin(
           ),
         ),
       ],
-      child: MaterialApp(home: LoginScreen(onLoginSuccess: onLoginSuccess)),
+      child: MaterialApp(
+        theme: theme,
+        home: LoginScreen(onLoginSuccess: onLoginSuccess),
+      ),
     ),
   );
 }

@@ -57,7 +57,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final config = ref.watch(appConfigProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6FAFF),
+      backgroundColor: WebTuiColors.background,
       resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
@@ -185,7 +185,7 @@ class _ServerContent extends StatelessWidget {
           ),
           textAlign: TextAlign.center,
           style: WebTuiTypography.bodySmall.copyWith(
-            color: WebTuiColors.textMuted,
+            color: WebTuiColors.textSecondary,
           ),
         ),
         if (state.recentServers.isNotEmpty) ...[
@@ -338,7 +338,7 @@ class _LoginContent extends StatelessWidget {
               child: Text(
                 tr('Ghi nhớ đăng nhập', 'Remember me'),
                 style: WebTuiTypography.bodySmall.copyWith(
-                  color: WebTuiColors.textMuted,
+                  color: WebTuiColors.textSecondary,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -561,15 +561,15 @@ class _RegisterContent extends StatelessWidget {
             color:
                 legalLinksConfigured &&
                     state.legalDocumentsStatus != LegalDocumentsStatus.error
-                ? const Color(0xFFF2F7FF)
-                : const Color(0xFFFFF4E5),
+                ? WebTuiColors.primarySoft
+                : _AuthWarn.surface,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color:
                   legalLinksConfigured &&
                       state.legalDocumentsStatus != LegalDocumentsStatus.error
-                  ? const Color(0xFFD7E5F7)
-                  : const Color(0xFFF2C97D),
+                  ? WebTuiColors.border
+                  : _AuthWarn.border,
             ),
           ),
           child: Padding(
@@ -636,7 +636,7 @@ class _RegisterContent extends StatelessWidget {
                     ),
                     textAlign: TextAlign.center,
                     style: WebTuiTypography.bodySmall.copyWith(
-                      color: const Color(0xFF8A5A00),
+                      color: _AuthWarn.icon,
                       fontWeight: FontWeight.w700,
                     ),
                   )
@@ -677,7 +677,7 @@ class _RegisterContent extends StatelessWidget {
                         key: const Key('register_legal_versions_error'),
                         textAlign: TextAlign.center,
                         style: WebTuiTypography.bodySmall.copyWith(
-                          color: const Color(0xFF8A5A00),
+                          color: _AuthWarn.icon,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -704,7 +704,7 @@ class _RegisterContent extends StatelessWidget {
                     key: const Key('register_legal_versions_ready'),
                     textAlign: TextAlign.center,
                     style: WebTuiTypography.bodySmall.copyWith(
-                      color: WebTuiColors.textMuted,
+                      color: WebTuiColors.textSecondary,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -732,11 +732,11 @@ class _AuthFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.97),
-        border: const Border(top: BorderSide(color: Color(0xFFE3EBF5))),
+        color: WebTuiColors.surface.withValues(alpha: 0.97),
+        border: Border(top: BorderSide(color: WebTuiColors.border)),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF23466F).withValues(alpha: 0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 22,
             offset: const Offset(0, -8),
           ),
@@ -811,19 +811,53 @@ class _AuthBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(painter: _AuthBackgroundPainter());
+    return CustomPaint(
+      painter: _AuthBackgroundPainter(
+        base: WebTuiColors.background,
+        topBand: WebTuiColors.primarySoft,
+        bottomBand: WebTuiColors.chipBackground,
+        accent: WebTuiColors.accentGreen.withValues(alpha: 0.14),
+      ),
+    );
   }
 }
 
+/// Màu cảnh báo (vàng hổ phách) của màn auth, đổi theo chế độ sáng / tối.
+final class _AuthWarn {
+  const _AuthWarn._();
+
+  static bool get _dark => WebTuiColors.brightness == Brightness.dark;
+  static Color get surface =>
+      _dark ? const Color(0xFF3A2E14) : const Color(0xFFFFF4E5);
+  static Color get border =>
+      _dark ? const Color(0xFF6B5320) : const Color(0xFFF2C97D);
+  static Color get icon =>
+      _dark ? const Color(0xFFEDB04A) : const Color(0xFF8A5A00);
+  static Color get text =>
+      _dark ? const Color(0xFFF4D9A0) : const Color(0xFF5C3D00);
+}
+
 class _AuthBackgroundPainter extends CustomPainter {
+  const _AuthBackgroundPainter({
+    required this.base,
+    required this.topBand,
+    required this.bottomBand,
+    required this.accent,
+  });
+
+  final Color base;
+  final Color topBand;
+  final Color bottomBand;
+  final Color accent;
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..style = PaintingStyle.fill;
-    paint.color = const Color(0xFFF6FAFF);
+    paint.color = base;
     canvas.drawRect(Offset.zero & size, paint);
 
-    paint.color = const Color(0xFFE5F1FF);
-    final topBand = Path()
+    paint.color = topBand;
+    final topPath = Path()
       ..moveTo(size.width * 0.5, 0)
       ..cubicTo(
         size.width * 0.78,
@@ -835,10 +869,10 @@ class _AuthBackgroundPainter extends CustomPainter {
       )
       ..lineTo(size.width, 0)
       ..close();
-    canvas.drawPath(topBand, paint);
+    canvas.drawPath(topPath, paint);
 
-    paint.color = const Color(0xFFDCEEFF);
-    final bottomBand = Path()
+    paint.color = bottomBand;
+    final bottomPath = Path()
       ..moveTo(0, size.height * 0.87)
       ..cubicTo(
         size.width * 0.22,
@@ -859,9 +893,9 @@ class _AuthBackgroundPainter extends CustomPainter {
       ..lineTo(size.width, size.height)
       ..lineTo(0, size.height)
       ..close();
-    canvas.drawPath(bottomBand, paint);
+    canvas.drawPath(bottomPath, paint);
 
-    paint.color = const Color(0xFFE7F7F1);
+    paint.color = accent;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(-52, size.height * 0.18, 90, 210),
@@ -872,7 +906,11 @@ class _AuthBackgroundPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _AuthBackgroundPainter old) =>
+      old.base != base ||
+      old.topBand != topBand ||
+      old.bottomBand != bottomBand ||
+      old.accent != accent;
 }
 
 class _AuthTitle extends StatelessWidget {
@@ -897,7 +935,7 @@ class _AuthTitle extends StatelessWidget {
           title,
           textAlign: center ? TextAlign.center : TextAlign.start,
           style: WebTuiTypography.titleLarge.copyWith(
-            color: const Color(0xFF15213A),
+            color: WebTuiColors.textPrimary,
             fontSize: 27,
             fontWeight: FontWeight.w900,
             height: 1.15,
@@ -908,7 +946,7 @@ class _AuthTitle extends StatelessWidget {
           subtitle,
           textAlign: center ? TextAlign.center : TextAlign.start,
           style: WebTuiTypography.bodyMedium.copyWith(
-            color: WebTuiColors.textMuted,
+            color: WebTuiColors.textSecondary,
             fontSize: 15,
             height: 1.35,
           ),
@@ -1013,9 +1051,9 @@ class _RegisterMark extends StatelessWidget {
             width: 150,
             height: 88,
             decoration: BoxDecoration(
-              color: const Color(0xFFDCEBFF),
+              color: WebTuiColors.primarySoft,
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0xFFC4DCFF)),
+              border: Border.all(color: WebTuiColors.border),
             ),
           ),
           _BrandLogo(size: 84, imageUrl: imageUrl, name: name),
@@ -1054,9 +1092,9 @@ class _BackButton extends StatelessWidget {
       tooltip: tr('Quay lại', 'Back'),
       onPressed: onPressed,
       style: IconButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF15213A),
-        side: const BorderSide(color: Color(0xFFE1E9F3)),
+        backgroundColor: WebTuiColors.surface,
+        foregroundColor: WebTuiColors.textPrimary,
+        side: BorderSide(color: WebTuiColors.border),
       ),
       icon: const Icon(Icons.arrow_back_rounded),
     );
@@ -1073,9 +1111,9 @@ class _SelectedServerBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFEAF3FF),
+        color: WebTuiColors.primarySoft,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFCFE1FA)),
+        border: Border.all(color: WebTuiColors.border),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
@@ -1146,7 +1184,7 @@ class _AuthTextField extends StatelessWidget {
         Text(
           label,
           style: WebTuiTypography.bodySmall.copyWith(
-            color: const Color(0xFF263247),
+            color: WebTuiColors.textSecondary,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -1168,14 +1206,14 @@ class _AuthTextField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: WebTuiTypography.bodyMedium.copyWith(
-              color: const Color(0xFF9AA5B7),
+              color: WebTuiColors.textMuted,
               fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
-            prefixIcon: Icon(icon, color: const Color(0xFF6C788B), size: 21),
+            prefixIcon: Icon(icon, color: WebTuiColors.textSecondary, size: 21),
             suffixIcon: trailing,
             filled: true,
-            fillColor: Colors.white,
+            fillColor: WebTuiColors.surface,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 15,
@@ -1224,7 +1262,7 @@ class _SubmitButton extends StatelessWidget {
         onPressed: enabled ? onPressed : null,
         style: FilledButton.styleFrom(
           backgroundColor: WebTuiColors.primary,
-          disabledBackgroundColor: const Color(0xFFAECFFF),
+          disabledBackgroundColor: WebTuiColors.primary.withValues(alpha: 0.4),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(WebTuiRadii.md),
           ),
@@ -1265,7 +1303,9 @@ class _AuthStatus extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 10),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: isError ? const Color(0xFFFFF1F1) : const Color(0xFFEAF8F1),
+          color: isError
+              ? WebTuiColors.danger.withValues(alpha: 0.12)
+              : WebTuiColors.accentGreen.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isError
@@ -1324,26 +1364,22 @@ class _AuthNotice extends StatelessWidget {
     return DecoratedBox(
       key: const Key('login_notice'),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7E6),
+        color: _AuthWarn.surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFF2C97D)),
+        border: Border.all(color: _AuthWarn.border),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(
-              Icons.info_outline_rounded,
-              color: Color(0xFF8A5A00),
-              size: 18,
-            ),
+            Icon(Icons.info_outline_rounded, color: _AuthWarn.icon, size: 18),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 message,
                 style: WebTuiTypography.bodySmall.copyWith(
-                  color: const Color(0xFF5C3D00),
+                  color: _AuthWarn.text,
                   fontWeight: FontWeight.w700,
                   height: 1.35,
                 ),
@@ -1371,7 +1407,7 @@ class _DividerLabel extends StatelessWidget {
           child: Text(
             label,
             style: WebTuiTypography.bodySmall.copyWith(
-              color: const Color(0xFF8C98AA),
+              color: WebTuiColors.textSecondary,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -1400,8 +1436,8 @@ class _SocialButton extends StatelessWidget {
     return OutlinedButton.icon(
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1D2433),
+        backgroundColor: WebTuiColors.surface,
+        foregroundColor: WebTuiColors.textPrimary,
         minimumSize: const Size.fromHeight(54),
         side: BorderSide(color: WebTuiColors.border),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
@@ -1440,7 +1476,7 @@ class _ModeSwitch extends StatelessWidget {
         Text(
           leading,
           style: WebTuiTypography.bodySmall.copyWith(
-            color: WebTuiColors.textMuted,
+            color: WebTuiColors.textSecondary,
             fontWeight: FontWeight.w600,
           ),
         ),

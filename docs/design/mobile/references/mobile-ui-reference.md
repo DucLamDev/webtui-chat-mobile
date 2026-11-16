@@ -51,6 +51,8 @@ Các màn hình chính trong reference:
 - Không nhồi card trong card.
 - Không để text tràn khỏi chip, tab, list item hoặc button.
 - Không dùng tiếng Việt không dấu trong UI.
+- Màn auth (đăng nhập, đăng ký, xác minh...) không cứng màu: nền, ô nhập, nút, chữ lấy từ `WebTuiColors` / theme để chữ đạt 4,5:1 cả sáng lẫn tối (test `login_screen_test.dart`).
+- Khung chat co theo bàn phím: danh sách đang ở cuối thì giữ ở cuối khi bàn phím mở / đóng, đang đọc tin cũ thì không cuộn (test `chat_room_keyboard_scroll_test.dart`).
 - Screenshot Flutter trên iPhone-like và Android-like viewport phải đặt cạnh ảnh reference để review.
 - Màn chat, danh bạ, kênh/bot và cài đặt phải thể hiện được cùng tinh thần với reference trước khi bước sang polish.
 
