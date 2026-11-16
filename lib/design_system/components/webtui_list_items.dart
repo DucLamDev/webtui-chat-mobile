@@ -165,9 +165,15 @@ class WebTuiConversationListItem extends StatelessWidget {
                                   preview,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
+                                  // Còn tin chưa đọc: dòng tin đậm, màu chữ
+                                  // chính để nhận ra ngay (không chỉ nhờ số).
                                   style: WebTuiTypography.bodyMedium.copyWith(
-                                    color: WebTuiColors.textSecondary,
-                                    fontWeight: FontWeight.w400,
+                                    color: unreadCount > 0
+                                        ? WebTuiColors.textPrimary
+                                        : WebTuiColors.textSecondary,
+                                    fontWeight: unreadCount > 0
+                                        ? FontWeight.w700
+                                        : FontWeight.w400,
                                   ),
                                 ),
                               ),
@@ -189,8 +195,12 @@ class WebTuiConversationListItem extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: WebTuiTypography.bodySmall.copyWith(
-                              color: WebTuiColors.textMuted,
-                              fontWeight: FontWeight.w500,
+                              color: unreadCount > 0
+                                  ? WebTuiColors.primary
+                                  : WebTuiColors.textMuted,
+                              fontWeight: unreadCount > 0
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
                             ),
                           ),
                           const SizedBox(height: WebTuiSpacing.xs),
@@ -324,7 +334,10 @@ class WebTuiChannelBotListItem extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: WebTuiTypography.bodySmall.copyWith(
-                          color: WebTuiColors.textMuted,
+                          color: unreadCount > 0
+                              ? WebTuiColors.textPrimary
+                              : WebTuiColors.textMuted,
+                          fontWeight: unreadCount > 0 ? FontWeight.w700 : null,
                         ),
                       ),
                     ],

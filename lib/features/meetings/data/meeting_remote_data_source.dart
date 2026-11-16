@@ -193,8 +193,8 @@ Failure meetingFailureFrom(Failure failure) {
       'The server has no online meeting service set up. Please tell an administrator.',
     ),
     'GROUP_CALL_ACTIVE' => tr(
-      'Kênh này đang có một cuộc gọi nhóm khác đổ chuông.',
-      'Another group call is already ringing in this channel.',
+      'Nhóm này đang có một cuộc gọi nhóm khác đổ chuông.',
+      'Another group call is already ringing in this group.',
     ),
     'GROUP_CALL_NOT_FOUND' => tr(
       'Không tìm thấy cuộc gọi nhóm này.',

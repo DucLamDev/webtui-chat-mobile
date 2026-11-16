@@ -3,6 +3,17 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.32.1 · 16/11/2026
+### Sửa lỗi
+- Tin chưa đọc dễ nhận ra hơn: trong danh sách Tin nhắn, dòng xem trước của hội thoại còn tin chưa đọc in đậm, màu chữ
+  đậm; giờ gửi tô xanh. Đọc xong thì trở về chữ xám thường. Áp dụng cả dòng bot thông báo.
+- Bảng Công việc của nhóm: chip đang chọn (Tổng quan, Họp, Đã chia sẻ, Biên bản...) không còn vòng tròn xám đè lên
+  biểu tượng (trông như lỗi hover); chip đang chọn chỉ đổi nền xanh.
+- Đổi cách gọi "kênh" thành "nhóm" trên giao diện app (Xoá nhóm, Chi tiết nhóm, tab Nhóm trong Bạn bè, Nhóm đã tham
+  gia / có thể tham gia, thông báo lỗi, cài đặt thông báo...), cả bản tiếng Anh (channel → group). Thanh dưới chat bot
+  thông báo ghi "Bot thông báo, không trả lời được". Giữ chữ "kênh" ở phần nghiệp vụ (kênh bán hàng của hộp thư khách,
+  bot tạo phiên riêng).
+
 ## 1.32.0 · 16/11/2026
 ### Tính năng
 - Lịch họp đầy đủ: tạo họp, xem theo tuần, sửa / dời / huỷ, nhắc họp, mời và phản hồi, họp định kỳ, biên bản, kiểm

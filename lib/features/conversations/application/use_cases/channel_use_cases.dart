@@ -26,8 +26,8 @@ final class CreateChannelUseCase {
           Failure(
             kind: FailureKind.validation,
             message: tr(
-              'Vui lòng nhập tên và slug của kênh.',
-              'Enter the channel name and slug.',
+              'Vui lòng nhập tên và slug của nhóm.',
+              'Enter the group name and slug.',
             ),
             code: 'CHANNEL_INPUT_REQUIRED',
           ),

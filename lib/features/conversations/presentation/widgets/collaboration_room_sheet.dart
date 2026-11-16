@@ -399,6 +399,9 @@ class _CollaborationRoomSheetState
           itemBuilder: (context, index) => ChoiceChip(
             selected: _tab == index,
             avatar: Icon(tabs[index].$1, size: 17),
+            // Có biểu tượng mà để dấu tích thì lúc chọn Flutter phủ vòng tối
+            // lên biểu tượng (trông như lỗi hover). Màu nền đã đủ báo đang chọn.
+            showCheckmark: false,
             label: Text(tabs[index].$2),
             onSelected: (_) => setState(() => _tab = index),
           ),

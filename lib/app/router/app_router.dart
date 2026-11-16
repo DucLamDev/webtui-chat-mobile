@@ -156,7 +156,7 @@ final appRouterProvider = Provider<GoRouter>((_) {
           return ChannelDetailScreen(
             channelId: state.pathParameters['channel_id'] ?? '',
             initialTitle:
-                state.uri.queryParameters['title'] ?? tr('Kênh', 'Channel'),
+                state.uri.queryParameters['title'] ?? tr('Nhóm', 'Group'),
           );
         },
       ),
