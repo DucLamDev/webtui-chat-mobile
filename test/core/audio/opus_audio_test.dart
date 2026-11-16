@@ -322,6 +322,9 @@ void main() {
           cacheDirectory: cache,
         );
         expect(out.path.endsWith('.wav'), isTrue);
+        // WAV chỉ nằm trong thư mục được giao (kho theo phiên), không ra
+        // thư mục tạm chung.
+        expect(out.parent.path, cache.path);
         final wav = out.readAsBytesSync();
         // 0,5 giây, 48 kHz, 16 bit, đơn kênh ≈ 48000 byte (+ sai số khung).
         expect(

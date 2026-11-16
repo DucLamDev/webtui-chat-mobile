@@ -57,6 +57,9 @@ final class SharedAudioController extends ChangeNotifier {
   SharedAudioController({
     required SharedAudioEngine Function() engineFactory,
     required SharedFileMediaResolver Function() resolver,
+    // Thư mục WAV giải mã (iPhone), phải nằm trong kho theo phiên (hàm
+    // scopedPlayableAudioDirectory của shared_file_providers.dart).
+    required Future<Directory> Function() playableDirectory,
     bool Function(SharedFile file)? needsTranscode,
     Future<File> Function(File local, SharedFile file)? transcode,
   }) : _engineFactory = engineFactory,
@@ -67,8 +70,11 @@ final class SharedAudioController extends ChangeNotifier {
                audioNeedsTranscode(name: file.name, mimeType: file.mimeType)),
        _transcode =
            transcode ??
-           ((local, file) =>
-               playableAudioFile(source: local, cacheKey: file.id));
+           ((local, file) async => playableAudioFile(
+             source: local,
+             cacheKey: file.id,
+             cacheDirectory: await playableDirectory(),
+           ));
 
   final bool Function(SharedFile file) _needsTranscode;
   final Future<File> Function(File local, SharedFile file) _transcode;

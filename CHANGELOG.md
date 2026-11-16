@@ -12,7 +12,7 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   ứng dụng thì cả app đổi sang tiếng Anh ngay (Tin nhắn, phòng chat, gọi điện, Công việc, Nghiệp vụ, Ticket khách,
   Ghi chú, Phê duyệt, Cài đặt, thông báo lỗi...), không phải mở lại app. Vẫn còn tiếng Việt: nội dung tin nhắn, tên
   kênh và thông báo do máy chủ gửi về, màn chọn máy chủ trước khi đăng nhập. Ghi âm dạng WebM / Ogg (thường gửi từ web) trước đây iPhone không phát được; nay app tự đổi
-  sang dạng iPhone đọc được ngay trên máy (lần đầu chờ một chút, lần sau phát ngay), nên ở mục Tệp và trong phòng chat
+  sang dạng iPhone đọc được ngay trên máy (lần đầu chờ một chút, lần sau phát ngay; bản đã đổi bị xoá cùng tệp tải về khi đăng xuất), nên ở mục Tệp và trong phòng chat
   đều nghe được mọi ghi âm. Nếu một tệp vẫn không đổi được thì app mở bảng "Mở bằng ứng dụng khác".
   Thanh tab nổi (có từ 1.29.0): bấm sang tab khác thì chỉ tab đó đổi màu, tab cũ không còn vệt xám đọng lại; chữ tab
   đang chọn xanh đậm hơn cho dễ đọc, bóng dưới thanh nhẹ hơn; tên tab đổi theo ngôn ngữ đang chọn.

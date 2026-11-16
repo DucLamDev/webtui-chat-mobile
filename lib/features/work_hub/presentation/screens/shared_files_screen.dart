@@ -68,6 +68,7 @@ class _SharedFilesScreenState extends ConsumerState<SharedFilesScreen> {
       engineFactory: ref.read(sharedAudioEngineFactoryProvider),
       resolver: () =>
           ref.read(sharedFileMediaResolverProvider(widget.workspaceId)),
+      playableDirectory: ref.read(sharedPlayableAudioDirectoryProvider),
     );
   }
 

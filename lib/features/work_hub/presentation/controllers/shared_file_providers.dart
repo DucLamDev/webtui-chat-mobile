@@ -44,6 +44,32 @@ Future<Directory> scopedSharedFileDirectory({
   );
 }
 
+/// Thư mục WAV giải mã từ ghi âm WebM / Ogg để iPhone phát được (mục Tệp):
+/// nằm trong thư mục tệp chia sẻ của phiên nên đăng xuất / đổi máy chủ / thu
+/// hồi phiên xoá luôn; phiên hay máy chủ khác không đọc lại.
+Future<Directory> scopedPlayableAudioDirectory({
+  required InstanceScope? scope,
+  required AuthTokenMutationGuard? guard,
+  ScopedAttachmentFileStore store = const ScopedAttachmentFileStore(),
+}) async {
+  final base = await scopedSharedFileDirectory(
+    scope: scope,
+    guard: guard,
+    store: store,
+  );
+  return Directory('${base.path}/playable-audio');
+}
+
+final sharedPlayableAudioDirectoryProvider =
+    Provider<Future<Directory> Function()>((ref) {
+      return () async => scopedPlayableAudioDirectory(
+        scope: ref.read(activeServerDiscoveryProvider)?.instanceScope,
+        guard: await ref
+            .read(authTokenRepositoryProvider)
+            .captureMutationGuard(),
+      );
+    });
+
 /// Tìm nguồn phát / tệp cục bộ cho tệp chia sẻ của một workspace.
 final sharedFileMediaResolverProvider =
     Provider.family<SharedFileMediaResolver, String>((ref, workspaceId) {

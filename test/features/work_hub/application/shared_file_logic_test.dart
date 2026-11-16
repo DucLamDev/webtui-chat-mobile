@@ -194,6 +194,7 @@ void main() {
     final controller = SharedAudioController(
       engineFactory: () => engine,
       resolver: () => resolver(streamOk: true, log: log),
+      playableDirectory: _noPlayableDirectory,
     );
     final file = _file('a.m4a', 'audio/mp4');
     await controller.toggle(file);
@@ -217,6 +218,7 @@ void main() {
     final controller = SharedAudioController(
       engineFactory: () => engine,
       resolver: () => resolver(streamOk: true, log: log),
+      playableDirectory: _noPlayableDirectory,
       needsTranscode: (_) => true,
       transcode: (local, file) async {
         converted.add(file.id);
@@ -238,6 +240,7 @@ void main() {
     final controller = SharedAudioController(
       engineFactory: () => engine,
       resolver: () => resolver(streamOk: true, log: []),
+      playableDirectory: _noPlayableDirectory,
       needsTranscode: (_) => true,
       transcode: (_, _) async => throw StateError('hỏng'),
     );
@@ -248,3 +251,8 @@ void main() {
     controller.dispose();
   });
 }
+
+/// Các test bộ phát ở đây không giải mã (m4a, hoặc thay bước giải mã):
+/// không được đụng tới thư mục WAV.
+Future<Directory> _noPlayableDirectory() =>
+    Future.error(StateError('không dùng thư mục WAV trong test này'));

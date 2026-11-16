@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
 
 import 'opus_container.dart';
 import 'opus_to_wav.dart';
@@ -34,14 +33,19 @@ String _safeKey(String key) {
 }
 
 /// Trả tệp phát được cho [source]. WebM / Ogg (nhận diện bằng byte đầu) được
-/// giải mã thành WAV và lưu trong bộ nhớ đệm theo [cacheKey] (dùng lại lần
-/// sau); các định dạng khác trả nguyên [source]. Ném lỗi nếu giải mã hỏng.
+/// giải mã thành WAV và lưu trong [cacheDirectory] theo [cacheKey] (dùng lại
+/// lần sau); các định dạng khác trả nguyên [source]. Ném lỗi nếu giải mã hỏng.
+///
+/// [cacheDirectory] bắt buộc và phải nằm trong kho tệp theo máy chủ + phiên
+/// (`ScopedAttachmentFileStore.directoryFor`, `scopedSharedFileDirectory`):
+/// WAV là nội dung ghi âm nên đăng xuất, đổi máy chủ, thu hồi phiên phải xoá
+/// luôn, và tài khoản / máy chủ khác không được dùng lại WAV có cùng mã tệp.
 Future<File> playableAudioFile({
   required File source,
   required String cacheKey,
-  Directory? cacheDirectory,
+  required Directory cacheDirectory,
 }) {
-  final inFlightKey = '${cacheDirectory?.path ?? ''}|$cacheKey';
+  final inFlightKey = '${cacheDirectory.path}|$cacheKey';
   return _inFlight[inFlightKey] ??= _playable(source, cacheKey, cacheDirectory)
       .whenComplete(() {
         _inFlight.remove(inFlightKey);
@@ -51,7 +55,7 @@ Future<File> playableAudioFile({
 Future<File> _playable(
   File source,
   String cacheKey,
-  Directory? cacheDirectory,
+  Directory cacheDirectory,
 ) async {
   final raf = await source.open();
   final Uint8List head;
@@ -62,10 +66,7 @@ Future<File> _playable(
   }
   if (sniffAudioContainer(head) == AudioContainer.other) return source;
 
-  final base = cacheDirectory ?? await getTemporaryDirectory();
-  final dir = cacheDirectory != null
-      ? base
-      : Directory('${base.path}${Platform.pathSeparator}playable_audio');
+  final dir = cacheDirectory;
   await dir.create(recursive: true);
   final target = File(
     '${dir.path}${Platform.pathSeparator}'

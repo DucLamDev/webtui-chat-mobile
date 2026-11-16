@@ -755,6 +755,13 @@ class _MessageVoiceAttachmentViewState
         final playable = await playableAudioFile(
           source: readyFile,
           cacheKey: 'chat-${widget.attachment.fileId}',
+          // WAV nằm trong kho theo máy chủ + phiên: đăng xuất / đổi máy chủ /
+          // thu hồi phiên xoá cùng tệp đính kèm.
+          cacheDirectory: await _fileStore.directoryFor(
+            instanceScope: binding.instanceScope,
+            sessionGeneration: binding.guard.generation,
+            purpose: 'playable-audio',
+          ),
         );
         if (playable.path != readyFile.path) playablePath = playable.path;
         if (!mounted ||
