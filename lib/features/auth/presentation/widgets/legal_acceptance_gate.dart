@@ -304,8 +304,8 @@ class _LegalAcceptancePanel extends ConsumerWidget {
                 const SizedBox(height: WebTuiSpacing.sm),
                 Text(
                   tr(
-                    'Tài khoản cũ cần xác nhận chính sách hiện hành trước khi gửi tin nhắn, tải tệp, tạo kênh hoặc bắt đầu/nhận cuộc gọi. Bạn vẫn có thể đọc, báo cáo, chặn, mở Cài đặt, xóa tài khoản hoặc đăng xuất.',
-                    'Existing accounts need to accept the current policy before sending messages, uploading files, creating channels or starting/receiving calls. You can still read, report, block, open Settings, delete your account or sign out.',
+                    'Tài khoản cũ cần xác nhận chính sách hiện hành trước khi gửi tin nhắn, tải tệp, tạo nhóm hoặc bắt đầu/nhận cuộc gọi. Bạn vẫn có thể đọc, báo cáo, chặn, mở Cài đặt, xóa tài khoản hoặc đăng xuất.',
+                    'Existing accounts need to accept the current policy before sending messages, uploading files, creating groups or starting/receiving calls. You can still read, report, block, open Settings, delete your account or sign out.',
                   ),
                   textAlign: TextAlign.center,
                 ),

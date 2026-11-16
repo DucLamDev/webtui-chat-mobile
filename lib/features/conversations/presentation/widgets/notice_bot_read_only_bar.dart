@@ -9,8 +9,8 @@ class NoticeBotReadOnlyBar extends StatelessWidget {
   const NoticeBotReadOnlyBar({super.key});
 
   static String get message => tr(
-    'Kênh thông báo, không trả lời được',
-    'Notification channel, replies are not allowed',
+    'Bot thông báo, không trả lời được',
+    'Notification bot, replies are not allowed',
   );
 
   @override

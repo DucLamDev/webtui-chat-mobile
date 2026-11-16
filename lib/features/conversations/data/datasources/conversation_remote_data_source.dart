@@ -766,8 +766,8 @@ final class ConversationRemoteDataSource {
     if (channel.channelId.isEmpty) {
       throw StateError(
         tr(
-          'Máy chủ không trả thông tin kênh sau khi đổi ảnh.',
-          'The server returned no channel info after the photo change.',
+          'Máy chủ không trả thông tin nhóm sau khi đổi ảnh.',
+          'The server returned no group info after the photo change.',
         ),
       );
     }

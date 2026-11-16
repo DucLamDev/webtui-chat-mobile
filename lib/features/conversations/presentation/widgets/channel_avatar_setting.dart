@@ -76,8 +76,8 @@ class ChannelAvatarSetting extends StatelessWidget {
                         'Any group member can change it',
                       )
                     : tr(
-                        'Chỉ người quản lý kênh đổi được',
-                        'Only channel managers can change it',
+                        'Chỉ người quản lý nhóm đổi được',
+                        'Only group managers can change it',
                       ),
                 icon: Icons.photo_camera_outlined,
                 trailing: updating

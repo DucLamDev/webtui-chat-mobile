@@ -921,7 +921,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
             ? () => _deleteGroup(context, workspaceId)
             : null,
         deleteGroupLabel: groupFlags?.isPublic == true
-            ? tr('Xoá kênh', 'Delete channel')
+            ? tr('Xoá nhóm', 'Delete group')
             : null,
       ),
       // Không chừa đáy ở đây: thanh cuối thân (ô nhập, thanh chặn, thanh chỉ
@@ -3899,13 +3899,13 @@ class _ForwardChannelPicker extends ConsumerWidget {
           loading: () => SizedBox(
             height: 180,
             child: WebTuiLoadingState(
-              message: tr('Đang tải kênh...', 'Loading channels...'),
+              message: tr('Đang tải nhóm...', 'Loading groups...'),
             ),
           ),
           error: (_, _) => SizedBox(
             height: 180,
             child: WebTuiErrorState(
-              title: tr('Không tải được kênh', "Couldn't load channels"),
+              title: tr('Không tải được nhóm', "Couldn't load groups"),
               message: tr(
                 'Thử mở lại bảng chuyển tiếp sau vài giây.',
                 'Try reopening the forward sheet in a few seconds.',
@@ -3928,12 +3928,12 @@ class _ForwardChannelPicker extends ConsumerWidget {
                 height: 180,
                 child: WebTuiEmptyState(
                   title: tr(
-                    'Chưa có kênh để chuyển tiếp',
-                    'No channels to forward to',
+                    'Chưa có nhóm để chuyển tiếp',
+                    'No groups to forward to',
                   ),
                   message: tr(
-                    'Bạn cần là thành viên của kênh khác trước.',
-                    'You need to be a member of another channel first.',
+                    'Bạn cần là thành viên của nhóm khác trước.',
+                    'You need to be a member of another group first.',
                   ),
                   icon: Icons.shortcut_rounded,
                 ),
@@ -5069,7 +5069,7 @@ class _EmbeddedChatHeader extends StatelessWidget {
                   icon: const Icon(Icons.shield_outlined),
                 ),
               IconButton(
-                tooltip: tr('Chi tiết kênh', 'Channel details'),
+                tooltip: tr('Chi tiết nhóm', 'Group details'),
                 onPressed: onDetails,
                 icon: const Icon(CupertinoIcons.ellipsis),
               ),
