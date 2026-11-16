@@ -236,6 +236,7 @@ void main() {
     );
     await tapKey(tester, 'meeting_save');
     expect(find.text('Chỉ buổi này'), findsOneWidget);
+    expect(find.text('Buổi đã sửa riêng trước đó giữ nguyên.'), findsOneWidget);
     await tester.tap(find.byKey(const Key('meeting_scope_series')));
     await tester.pumpAndSettle();
     expect(calendar.calls, contains('update:m1'));

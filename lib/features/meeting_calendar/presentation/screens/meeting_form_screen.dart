@@ -376,6 +376,10 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
       final picked = await askMeetingScope(
         context,
         title: tr('Lưu thay đổi cho', 'Save changes to'),
+        note: tr(
+          'Buổi đã sửa riêng trước đó giữ nguyên.',
+          'Meetings you changed one by one keep their own changes.',
+        ),
       );
       if (picked == null || !mounted) return;
       scope = picked;

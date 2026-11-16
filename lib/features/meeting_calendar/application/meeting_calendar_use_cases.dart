@@ -195,6 +195,16 @@ Failure friendlyMeetingFailure(Failure failure) {
       ),
     );
   }
+  if (failure.hasCode('PUBLIC_LINK_IN_USE')) {
+    return failure.copyWith(
+      message: tr(
+        'Nhóm đang bật một link công khai khác. Tắt link đó trước rồi bật '
+            'link khách cho cuộc họp này.',
+        'This group already has another public link on. Turn it off first, '
+            'then turn on the guest link for this meeting.',
+      ),
+    );
+  }
   return failure;
 }
 

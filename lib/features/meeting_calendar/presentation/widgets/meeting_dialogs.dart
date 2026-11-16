@@ -7,15 +7,25 @@ import '../../domain/entities/calendar_meeting.dart';
 import 'meeting_widgets.dart';
 
 /// Hỏi "Chỉ buổi này / Cả chuỗi" cho buổi họp lặp lại. `null`: người dùng đóng.
+/// [note]: một dòng giải thích thêm dưới tiêu đề (tuỳ chọn).
 Future<MeetingScope?> askMeetingScope(
   BuildContext context, {
   required String title,
+  String? note,
 }) {
   return showDialog<MeetingScope>(
     context: context,
     builder: (dialogContext) => SimpleDialog(
       title: Text(title),
       children: [
+        if (note != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+            child: Text(
+              note,
+              style: Theme.of(dialogContext).textTheme.bodyMedium,
+            ),
+          ),
         _ScopeOption(
           key: const Key('meeting_scope_this'),
           label: tr('Chỉ buổi này', 'This meeting only'),

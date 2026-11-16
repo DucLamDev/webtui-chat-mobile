@@ -15,11 +15,13 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   - Nhắc họp: mặc định 15 phút trước và lúc bắt đầu, đổi được (0 / 5 / 10 / 15 / 30 / 60 phút, tối đa 3 mốc). Bấm
     thông báo nhắc họp hoặc thông báo họp bị đổi là mở thẳng chi tiết cuộc họp.
   - Họp định kỳ: hằng ngày / hằng tuần (chọn thứ) / hằng tháng, kết thúc theo ngày hoặc số buổi (tối đa 100 buổi, trong
-    1 năm). Sửa hoặc huỷ một buổi lặp lại thì hỏi "Chỉ buổi này" hay "Cả chuỗi".
+    1 năm). Sửa hoặc huỷ một buổi lặp lại thì hỏi "Chỉ buổi này" hay "Cả chuỗi"; sửa cả chuỗi thì buổi đã sửa riêng
+    trước đó giữ nguyên.
   - Chi tiết cuộc họp: "Vào họp" mở từ 10 phút trước giờ họp (link ngoài thì mở link, không thì vào phòng video), "Nhắn
     vào nhóm", phản hồi Tham gia / Có thể / Từ chối, danh sách người dự.
   - Biên bản họp: soạn, lưu, gửi vào nhóm; giao việc cho người dự ngay từ cuộc họp.
   - Link cho khách: người tổ chức bật / tắt link để người ngoài xin vào họp (người tổ chức duyệt); có nút sao chép.
+    Nhóm đang bật một link công khai khác thì app báo cần tắt link đó trước.
   - Cần máy chủ bản có Lịch họp mới; máy chủ cũ thì màn Lịch họp vẫn liệt kê họp sắp tới như trước.
 
 ## 1.31.1 · 16/11/2026

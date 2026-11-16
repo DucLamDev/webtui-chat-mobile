@@ -409,4 +409,18 @@ void main() {
       expect(members.valueOrNull!.map((p) => p.userId), ['u1']);
     });
   });
+
+  test('nhóm đang có link công khai khác: báo dễ hiểu', () {
+    const failure = Failure(
+      kind: FailureKind.conflict,
+      message: 'raw',
+      code: 'PUBLIC_LINK_IN_USE',
+    );
+    final friendly = friendlyMeetingFailure(failure);
+    expect(friendly.message, contains('Tắt link đó trước'));
+    expect(friendly.code, 'PUBLIC_LINK_IN_USE');
+    // Lỗi khác giữ nguyên lời máy chủ.
+    const other = Failure(kind: FailureKind.conflict, message: 'Lời máy chủ');
+    expect(friendlyMeetingFailure(other).message, 'Lời máy chủ');
+  });
 }
