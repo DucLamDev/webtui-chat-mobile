@@ -26,6 +26,8 @@ final class ConversationSummary {
     this.channelVisibility = ChannelVisibility.public,
     this.membershipStatus = MembershipStatus.none,
     this.canManage = false,
+    this.canLeave = false,
+    this.canDelete = false,
     this.privateSessionMode = false,
     this.isAutomation = false,
     this.noticeBot = false,
@@ -51,6 +53,14 @@ final class ConversationSummary {
   final ChannelVisibility channelVisibility;
   final MembershipStatus membershipStatus;
   final bool canManage;
+
+  /// Máy chủ cho người đang xem rời nhóm này (`can_leave`). Máy chủ cũ không
+  /// trả cờ → `false` (ẩn nút "Rời nhóm").
+  final bool canLeave;
+
+  /// Máy chủ cho người đang xem xoá (lưu trữ) nhóm cho mọi thành viên
+  /// (`can_delete`). Máy chủ cũ không trả cờ → `false`.
+  final bool canDelete;
   final bool privateSessionMode;
   final bool isAutomation;
 
@@ -121,6 +131,8 @@ final class ConversationSummary {
       channelVisibility: channelVisibility,
       membershipStatus: membershipStatus ?? this.membershipStatus,
       canManage: canManage,
+      canLeave: canLeave,
+      canDelete: canDelete,
       privateSessionMode: privateSessionMode,
       isAutomation: isAutomation,
       noticeBot: noticeBot,

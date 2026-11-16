@@ -82,6 +82,7 @@ import '../../features/call_privacy/domain/repositories/call_privacy_repository.
 import '../../features/conversations/application/incoming_call_ring_gate.dart';
 import '../../features/conversations/application/use_cases/call_use_cases.dart';
 import '../../features/conversations/application/use_cases/channel_avatar_use_cases.dart';
+import '../../features/conversations/application/use_cases/channel_exit_use_cases.dart';
 import '../../features/conversations/application/use_cases/channel_use_cases.dart';
 import '../../features/conversations/application/use_cases/collaboration_document_history_use_cases.dart';
 import '../../features/conversations/application/use_cases/collaboration_task_use_cases.dart';
@@ -108,6 +109,7 @@ import '../../features/conversations/data/repositories/audio_message_attachment_
 import '../../features/conversations/data/repositories/caching_conversation_repository.dart';
 import '../../features/conversations/data/repositories/call_repository_impl.dart';
 import '../../features/conversations/data/repositories/channel_avatar_repository_impl.dart';
+import '../../features/conversations/data/repositories/channel_exit_repository_impl.dart';
 import '../../features/conversations/data/repositories/collaboration_document_history_repository_impl.dart';
 import '../../features/conversations/data/repositories/collaboration_task_repository_impl.dart';
 import '../../features/conversations/data/repositories/conversation_repository_impl.dart';
@@ -120,6 +122,7 @@ import '../../features/conversations/data/repositories/secret_message_repository
 import '../../features/conversations/data/repositories/web_socket_conversation_realtime_repository.dart';
 import '../../features/conversations/domain/repositories/call_repository.dart';
 import '../../features/conversations/domain/repositories/channel_avatar_repository.dart';
+import '../../features/conversations/domain/repositories/channel_exit_repository.dart';
 import '../../features/conversations/domain/repositories/collaboration_document_history_repository.dart';
 import '../../features/conversations/domain/repositories/collaboration_task_repository.dart';
 import '../../features/conversations/domain/repositories/conversation_repository.dart';
@@ -1381,6 +1384,27 @@ final changeChannelAvatarUseCaseProvider = Provider<ChangeChannelAvatarUseCase>(
     );
   },
 );
+
+final channelExitRepositoryProvider = Provider<ChannelExitRepository>((ref) {
+  return ChannelExitRepositoryImpl(
+    remote: ref.watch(conversationRemoteDataSourceProvider),
+    cache: ref.watch(conversationCacheDataSourceProvider),
+  );
+});
+
+final leaveGroupUseCaseProvider = Provider<LeaveGroupUseCase>((ref) {
+  return LeaveGroupUseCase(ref.watch(channelExitRepositoryProvider));
+});
+
+final deleteGroupUseCaseProvider = Provider<DeleteGroupUseCase>((ref) {
+  return DeleteGroupUseCase(ref.watch(channelExitRepositoryProvider));
+});
+
+final forgetGroupLocallyUseCaseProvider = Provider<ForgetGroupLocallyUseCase>((
+  ref,
+) {
+  return ForgetGroupLocallyUseCase(ref.watch(channelExitRepositoryProvider));
+});
 
 final loadChannelDetailUseCaseProvider = Provider<LoadChannelDetailUseCase>((
   ref,

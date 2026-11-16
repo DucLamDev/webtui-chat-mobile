@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../../../core/network/api_response.dart';
 import '../../../../core/network/api_transport.dart';
 import '../../../../l10n/app_strings.dart';
+import '../../domain/entities/channel_exit.dart';
 import '../../domain/entities/channel_file.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/collaboration_room.dart';
@@ -773,6 +774,37 @@ final class ConversationRemoteDataSource {
     return channel;
   }
 
+  /// Rời nhóm: `POST .../channels/{id}/leave`. Máy chủ trả
+  /// `{channel_id, status: "left", archived}`; `archived = true` khi mình là
+  /// người cuối cùng nên nhóm tự lưu trữ.
+  Future<ChannelLeaveResult> leaveChannel({
+    required String workspaceId,
+    required String channelId,
+  }) async {
+    final response = await _api.post<Object>(
+      '/api/v1/workspaces/${_e(workspaceId)}/channels/${_e(channelId)}/leave',
+    );
+    final map = jsonMap(envelopeData(response.data));
+    return ChannelLeaveResult(
+      channelId: stringField(map, const [
+        'channel_id',
+        'channelId',
+      ], fallback: channelId),
+      archived: boolField(map, const ['archived']),
+    );
+  }
+
+  /// Xoá nhóm cho mọi thành viên: `DELETE .../channels/{id}` (máy chủ lưu trữ
+  /// kênh, tin cũ vẫn giữ trên máy chủ).
+  Future<void> deleteChannel({
+    required String workspaceId,
+    required String channelId,
+  }) async {
+    await _api.delete<Object>(
+      '/api/v1/workspaces/${_e(workspaceId)}/channels/${_e(channelId)}',
+    );
+  }
+
   Future<ConversationSummary> createChannel({
     required String workspaceId,
     required String slug,
@@ -1327,6 +1359,8 @@ ConversationSummary _channelFromMap(JsonMap map) {
       stringField(map, const ['membership_status', 'membershipStatus']),
     ),
     canManage: boolField(map, const ['can_manage', 'canManage']),
+    canLeave: boolField(map, const ['can_leave', 'canLeave']),
+    canDelete: boolField(map, const ['can_delete', 'canDelete']),
     privateSessionMode: boolField(map, const [
       'private_session_mode',
       'privateSessionMode',

@@ -48,6 +48,33 @@ final class ConversationCacheDataSource {
     return _readConversationList(workspaceId: workspaceId, key: 'channels');
   }
 
+  /// Bỏ một nhóm khỏi bộ nhớ đệm (đã rời / đã bị xoá): bỏ khỏi danh sách kênh
+  /// và hội thoại, xoá trang tin đã lưu để mở app khi mất mạng không còn thấy.
+  Future<void> removeChannel({
+    required String workspaceId,
+    required String channelId,
+  }) async {
+    for (final key in const ['channels', 'direct_conversations']) {
+      final items = await _readConversationList(
+        workspaceId: workspaceId,
+        key: key,
+      );
+      if (items == null) continue;
+      final kept = items
+          .where((item) => item.channelId != channelId && item.id != channelId)
+          .toList(growable: false);
+      if (kept.length == items.length) continue;
+      await _writeConversationList(
+        workspaceId: workspaceId,
+        key: key,
+        items: kept,
+      );
+    }
+    await _database.deleteScope(
+      _instanceScope.localScope(_messageScope(workspaceId, channelId)),
+    );
+  }
+
   /// Tin đang chạy dần (`metadata.streaming = true`) là bản dở: không lưu, để
   /// khi mở lại không hiện nhầm bản dở như bản cuối. Bản cuối đến sau qua
   /// `MessageUpdated` / lần tải tiếp theo.
@@ -327,6 +354,8 @@ Map<String, Object?> _conversationToJson(ConversationSummary item) {
     'channelVisibility': item.channelVisibility.name,
     'membershipStatus': item.membershipStatus.name,
     'canManage': item.canManage,
+    'canLeave': item.canLeave,
+    'canDelete': item.canDelete,
     'privateSessionMode': item.privateSessionMode,
     'isAutomation': item.isAutomation,
     'noticeBot': item.noticeBot,
@@ -369,6 +398,8 @@ ConversationSummary _conversationFromJson(Map<String, Object?> json) {
       MembershipStatus.none,
     ),
     canManage: _bool(json['canManage']),
+    canLeave: _bool(json['canLeave']),
+    canDelete: _bool(json['canDelete']),
     privateSessionMode: _bool(json['privateSessionMode']),
     isAutomation: _bool(json['isAutomation']),
     noticeBot: _bool(json['noticeBot']),

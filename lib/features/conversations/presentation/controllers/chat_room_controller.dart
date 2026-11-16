@@ -21,6 +21,7 @@ import '../../domain/entities/conversation_realtime_event.dart';
 import '../../domain/entities/message_outbox_item.dart';
 import '../../domain/entities/message_voice.dart';
 import '../../domain/entities/rich_message.dart';
+import 'channel_membership_events.dart';
 
 final chatRoomControllerProvider = StateNotifierProvider.autoDispose
     .family<ChatRoomController, ChatRoomState, ChatRoomScope>((ref, scope) {
@@ -80,6 +81,15 @@ final chatRoomControllerProvider = StateNotifierProvider.autoDispose
         getMessageUseCase: ref.watch(getMessageUseCaseProvider),
         canCreateUserContent: () => legalPolicy.canCreateUserContent,
         onLegalAcceptanceRequired: legalPolicy.requireAcceptance,
+        // Rời / xoá nhóm (room kênh): người khác rời thì làm mới số thành
+        // viên; nhóm bị xoá / mình rời thì bỏ nhóm và đóng phòng.
+        onChannelMembershipEvent: (event, currentUserId) =>
+            handleChannelMembershipEvent(
+              read: ref.read,
+              exists: ref.exists,
+              event: event,
+              currentUserId: currentUserId,
+            ),
       )..load();
       return controller;
     });
@@ -317,8 +327,11 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     GetMessageUseCase? getMessageUseCase,
     bool Function()? canCreateUserContent,
     void Function()? onLegalAcceptanceRequired,
+    void Function(ConversationRealtimeEvent event, String? currentUserId)?
+    onChannelMembershipEvent,
     ConversationRealtimeReducer reducer = const ConversationRealtimeReducer(),
-  }) : _loadMessagesUseCase = loadMessagesUseCase,
+  }) : _onChannelMembershipEvent = onChannelMembershipEvent,
+       _loadMessagesUseCase = loadMessagesUseCase,
        _sendMessageUseCase = sendMessageUseCase,
        _editMessageUseCase = editMessageUseCase,
        _deleteMessageUseCase = deleteMessageUseCase,
@@ -392,6 +405,8 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   final GetMessageUseCase? _getMessageUseCase;
   final bool Function() _canCreateUserContent;
   final void Function() _onLegalAcceptanceRequired;
+  final void Function(ConversationRealtimeEvent event, String? currentUserId)?
+  _onChannelMembershipEvent;
   final ConversationRealtimeReducer _reducer;
 
   StreamSubscription<ConversationRealtimeEvent>? _realtimeSubscription;
@@ -1413,6 +1428,11 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   }
 
   void _handleRealtimeEvent(ConversationRealtimeEvent event) {
+    if (event.type == ConversationRealtimeEventType.channelMemberLeft ||
+        event.type == ConversationRealtimeEventType.channelArchived) {
+      _onChannelMembershipEvent?.call(event, state.currentUserId);
+      return;
+    }
     if (event.type == ConversationRealtimeEventType.reconnected) {
       unawaited(_catchUpAfterReconnect());
       return;

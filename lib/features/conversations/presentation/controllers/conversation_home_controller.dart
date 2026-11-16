@@ -440,6 +440,25 @@ final class ConversationHomeController
     );
   }
 
+  /// Bỏ một nhóm khỏi danh sách ngay (đã rời / đã bị xoá), không chờ tải lại;
+  /// đang chọn nhóm đó (máy tính bảng) thì bỏ chọn.
+  void removeChannel(String channelId) {
+    final id = channelId.trim();
+    if (id.isEmpty) return;
+    bool matches(ConversationSummary item) =>
+        item.channelId == id || item.id == id;
+    final selected = state.selectedConversation;
+    state = state.copyWith(
+      conversations: state.conversations
+          .where((item) => !matches(item))
+          .toList(growable: false),
+      channels: state.channels
+          .where((item) => !matches(item))
+          .toList(growable: false),
+      clearSelection: selected != null && matches(selected),
+    );
+  }
+
   Future<void> refresh() async {
     state = state.copyWith(isRefreshing: true, clearError: true);
     await load();

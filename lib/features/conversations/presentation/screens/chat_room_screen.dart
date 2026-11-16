@@ -26,10 +26,12 @@ import '../../../my_notes/presentation/widgets/save_message_to_my_note.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
 import '../../application/use_cases/collaboration_task_use_cases.dart';
 import '../../domain/entities/call_session.dart';
+import '../../domain/entities/channel_exit.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/conversation_summary.dart';
 import '../../domain/entities/message_voice.dart';
 import '../../domain/repositories/collaboration_task_repository.dart';
+import '../controllers/channel_membership_events.dart';
 import '../controllers/chat_room_controller.dart';
 import '../controllers/collaboration_task_controller.dart';
 import '../controllers/conversation_home_controller.dart';
@@ -38,6 +40,7 @@ import '../controllers/notice_bot_identity.dart';
 import '../controllers/peer_presence.dart';
 import '../controllers/peer_read_controller.dart';
 import '../controllers/pending_chat_share_controller.dart';
+import '../widgets/channel_exit_actions.dart';
 import '../widgets/chat_call_history_card.dart';
 import '../widgets/chat_room_app_bar.dart';
 import '../widgets/collaboration_room_sheet.dart';
@@ -302,6 +305,53 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         return null;
       }),
     );
+  }
+
+  /// Nhóm này trong danh sách hội thoại đã tải (cờ rời / xoá, số thành viên
+  /// mới nhất), không có thì dùng hội thoại truyền vào khi mở phòng.
+  ConversationSummary? _currentGroup(String workspaceId) {
+    final home = conversationHomeControllerProvider(workspaceId);
+    if (ref.exists(home)) {
+      final state = ref.read(home);
+      for (final item in [...state.channels, ...state.conversations]) {
+        if (item.channelId == widget.channelId &&
+            item.kind == ConversationKind.channel) {
+          return item;
+        }
+      }
+    }
+    return widget.conversation;
+  }
+
+  /// Theo dõi cờ rời / xoá và số thành viên của nhóm trong danh sách đã tải để
+  /// menu ≡ và dòng "N thành viên" cập nhật theo (có người rời nhóm...).
+  ({bool canLeave, bool canDelete, int memberCount, bool isPublic})?
+  _watchGroupFlags(String workspaceId) {
+    ({bool canLeave, bool canDelete, int memberCount, bool isPublic}) flags(
+      ConversationSummary item,
+    ) => (
+      canLeave: canLeaveGroup(item),
+      canDelete: canDeleteGroup(item),
+      memberCount: item.memberCount,
+      isPublic: item.channelVisibility == ChannelVisibility.public,
+    );
+    final home = conversationHomeControllerProvider(workspaceId);
+    if (ref.exists(home)) {
+      final live = ref.watch(
+        home.select((state) {
+          for (final item in [...state.channels, ...state.conversations]) {
+            if (item.channelId == widget.channelId &&
+                item.kind == ConversationKind.channel) {
+              return flags(item);
+            }
+          }
+          return null;
+        }),
+      );
+      if (live != null) return live;
+    }
+    final given = widget.conversation;
+    return given == null ? null : flags(given);
   }
 
   void _redirectToCustomerTickets(String location) {
@@ -573,6 +623,19 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
       });
     }
 
+    // Nhóm bị xoá / mình rời nhóm ở máy khác: đóng phòng, về Tin nhắn.
+    ref.listen<ChannelRemovalSignal?>(channelRemovalSignalProvider, (_, next) {
+      if (next == null) return;
+      closeForRemovedChannel(
+        context,
+        next,
+        workspaceId: workspaceId,
+        channelId: widget.channelId,
+        navigate: !widget.embedded,
+      );
+    });
+    final groupFlags = noticeBot ? null : _watchGroupFlags(workspaceId);
+
     ref.listen<ChatRoomState>(provider, (previous, next) {
       final draftChanged = previous?.draft != next.draft;
       final editingChanged =
@@ -787,7 +850,9 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         noticeBot: noticeBot,
         directChat: isDirectChat,
         presence: peerPresence,
-        memberCount: (conversation?.memberCount ?? 0) > 0
+        memberCount: (groupFlags?.memberCount ?? 0) > 0
+            ? groupFlags!.memberCount
+            : (conversation?.memberCount ?? 0) > 0
             ? conversation!.memberCount
             : senderDirectory.length,
         callsEnabled: callsEnabled,
@@ -836,6 +901,15 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
           );
         },
         onDetails: () => _openDetails(context),
+        onLeaveGroup: groupFlags?.canLeave == true
+            ? () => _leaveGroup(context, workspaceId)
+            : null,
+        onDeleteGroup: groupFlags?.canDelete == true
+            ? () => _deleteGroup(context, workspaceId)
+            : null,
+        deleteGroupLabel: groupFlags?.isPublic == true
+            ? tr('Xoá kênh', 'Delete channel')
+            : null,
       ),
       // Không chừa đáy ở đây: thanh cuối thân (ô nhập, thanh chặn, thanh chỉ
       // đọc) tự lo vùng an toàn đáy để nền trắng chạy tới mép màn hình, không
@@ -852,6 +926,32 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
       body: body,
+    );
+  }
+
+  void _leaveGroup(BuildContext context, String workspaceId) {
+    final group = _currentGroup(workspaceId);
+    if (group == null) return;
+    unawaited(
+      confirmAndLeaveGroup(
+        context,
+        ref,
+        workspaceId: workspaceId,
+        channel: group,
+      ),
+    );
+  }
+
+  void _deleteGroup(BuildContext context, String workspaceId) {
+    final group = _currentGroup(workspaceId);
+    if (group == null) return;
+    unawaited(
+      confirmAndDeleteGroup(
+        context,
+        ref,
+        workspaceId: workspaceId,
+        channel: group,
+      ),
     );
   }
 

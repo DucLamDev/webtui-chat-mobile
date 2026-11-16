@@ -92,6 +92,7 @@ abstract final class WebTuiIcons {
   // Nhóm và thành viên.
   static const IconData group = LucideIcons.usersRound;
   static const IconData addMember = LucideIcons.userRoundPlus;
+  static const IconData leaveGroup = LucideIcons.logOut;
   static const IconData selected = LucideIcons.circleCheck;
   static const IconData unselected = LucideIcons.circle;
   static const IconData check = LucideIcons.check;

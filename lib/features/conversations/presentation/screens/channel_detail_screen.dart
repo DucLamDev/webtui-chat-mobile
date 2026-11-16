@@ -21,8 +21,10 @@ import '../../domain/entities/channel_file.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/conversation_summary.dart';
 import '../controllers/channel_detail_controller.dart';
+import '../controllers/channel_membership_events.dart';
 import '../controllers/conversation_home_controller.dart';
 import '../widgets/channel_avatar_setting.dart';
+import '../widgets/channel_exit_actions.dart';
 import '../widgets/message_media_widgets.dart';
 
 class ChannelDetailScreen extends ConsumerStatefulWidget {
@@ -85,6 +87,16 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
     final currentUserId = ref.watch(
       profileControllerProvider.select((state) => state.profile?.id),
     );
+    // Nhóm bị xoá / mình rời nhóm ở máy khác: đóng màn, về Tin nhắn.
+    ref.listen<ChannelRemovalSignal?>(channelRemovalSignalProvider, (_, next) {
+      if (next == null) return;
+      closeForRemovedChannel(
+        context,
+        next,
+        workspaceId: workspaceId,
+        channelId: widget.channelId,
+      );
+    });
     final canChangeAvatar = canChangeChannelAvatar(state.channel);
     final onChangeAvatar = canChangeAvatar && !state.isUpdatingAvatar
         ? () => _pickChannelAvatar(context, controller, workspaceId)
@@ -206,8 +218,49 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
                     ),
                     _ => _SettingsTab(channel: state.channel),
                   },
+                  ChannelExitSettings(
+                    channel: state.channel,
+                    onLeave: () => _leaveGroup(context, workspaceId, state),
+                    onDelete: () => _deleteGroup(context, workspaceId, state),
+                  ),
                 ],
               ),
+      ),
+    );
+  }
+}
+
+extension on _ChannelDetailScreenState {
+  void _leaveGroup(
+    BuildContext context,
+    String workspaceId,
+    ChannelDetailState state,
+  ) {
+    final channel = state.channel;
+    if (channel == null) return;
+    unawaited(
+      confirmAndLeaveGroup(
+        context,
+        ref,
+        workspaceId: workspaceId,
+        channel: channel,
+      ),
+    );
+  }
+
+  void _deleteGroup(
+    BuildContext context,
+    String workspaceId,
+    ChannelDetailState state,
+  ) {
+    final channel = state.channel;
+    if (channel == null) return;
+    unawaited(
+      confirmAndDeleteGroup(
+        context,
+        ref,
+        workspaceId: workspaceId,
+        channel: channel,
       ),
     );
   }
