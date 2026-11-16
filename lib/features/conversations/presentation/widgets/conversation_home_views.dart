@@ -8,6 +8,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../approvals/presentation/widgets/approval_inbox_entry.dart';
 import '../../../business/presentation/widgets/business_inbox_entry.dart';
 import '../../../customer_tickets/application/customer_ticket_channel_route.dart';
@@ -50,13 +51,19 @@ class MessagesHomeView extends ConsumerWidget {
     final moderationState = ref.watch(moderationProvider);
 
     if (moderationState.isLoadingBlockedUsers) {
-      return const WebTuiLoadingState(
-        message: 'Đang áp dụng cài đặt an toàn...',
+      return WebTuiLoadingState(
+        message: tr(
+          'Đang áp dụng cài đặt an toàn...',
+          'Applying safety settings...',
+        ),
       );
     }
     if (moderationState.errorMessage != null) {
       return WebTuiErrorState(
-        title: 'Chưa thể áp dụng cài đặt an toàn',
+        title: tr(
+          'Chưa thể áp dụng cài đặt an toàn',
+          'Couldn\'t apply safety settings',
+        ),
         message: moderationState.errorMessage!,
         onRetry: () => ref.read(moderationProvider.notifier).loadBlockedUsers(),
       );
@@ -145,11 +152,16 @@ class MessagesHomeView extends ConsumerWidget {
             const VerticalDivider(width: 1),
             Expanded(
               child: selected == null
-                  ? const Center(
+                  ? Center(
                       child: WebTuiEmptyState(
-                        title: 'Chưa chọn hội thoại',
-                        message:
-                            'Chọn một hội thoại ở bên trái để xem chi tiết.',
+                        title: tr(
+                          'Chưa chọn hội thoại',
+                          'No conversation selected',
+                        ),
+                        message: tr(
+                          'Chọn một hội thoại ở bên trái để xem chi tiết.',
+                          'Select a conversation on the left to see details.',
+                        ),
                         icon: Icons.chat_bubble_outline_rounded,
                       ),
                     )
@@ -205,15 +217,15 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
         SliverToBoxAdapter(
           child: _TopSearch(
             hintText: channelsTab
-                ? 'Tìm kênh theo tên...'
-                : 'Tìm đồng nghiệp...',
+                ? tr('Tìm kênh theo tên...', 'Search channels by name...')
+                : tr('Tìm đồng nghiệp...', 'Search colleagues...'),
             onChanged: controller.setSearchQuery,
           ),
         ),
         SliverToBoxAdapter(
           child: _InboxFilterChips(
             chipsKey: const ValueKey('contacts-tabs'),
-            labels: const ['Đồng nghiệp', 'Kênh'],
+            labels: [tr('Đồng nghiệp', 'Colleagues'), tr('Kênh', 'Channels')],
             selectedIndex: _tab,
             onChanged: (index) => setState(() => _tab = index),
           ),
@@ -252,7 +264,7 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
       return [
         SliverToBoxAdapter(
           child: WebTuiErrorState(
-            title: 'Không tải được dữ liệu',
+            title: tr('Không tải được dữ liệu', 'Couldn\'t load data'),
             message: state.errorMessage!,
             onRetry: controller.load,
           ),
@@ -260,18 +272,23 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
       ];
     }
     if (contacts.isEmpty) {
-      return const [
+      return [
         SliverToBoxAdapter(
           child: WebTuiEmptyState(
-            title: 'Chưa có đồng nghiệp',
-            message: 'Thành viên workspace hiện ở đây, bấm để nhắn ngay.',
+            title: tr('Chưa có đồng nghiệp', 'No colleagues yet'),
+            message: tr(
+              'Thành viên workspace hiện ở đây, bấm để nhắn ngay.',
+              'Workspace members show up here. Tap to message them.',
+            ),
             icon: Icons.contacts_outlined,
           ),
         ),
       ];
     }
     return [
-      const SliverToBoxAdapter(child: WebTuiSectionLabel('Đồng nghiệp')),
+      SliverToBoxAdapter(
+        child: WebTuiSectionLabel(tr('Đồng nghiệp', 'Colleagues')),
+      ),
       WebTuiSliverListSurface(
         itemCount: contacts.length,
         itemBuilder: (context, index) {
@@ -324,9 +341,11 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
     final joined = state.joinedChannels;
     final joinable = state.joinableChannels;
     if (state.isLoading && state.channels.isEmpty) {
-      return const [
+      return [
         SliverToBoxAdapter(
-          child: WebTuiLoadingState(message: 'Đang tải kênh...'),
+          child: WebTuiLoadingState(
+            message: tr('Đang tải kênh...', 'Loading channels...'),
+          ),
         ),
       ];
     }
@@ -334,7 +353,10 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
       return [
         SliverToBoxAdapter(
           child: WebTuiErrorState(
-            title: 'Không tải được danh sách kênh',
+            title: tr(
+              'Không tải được danh sách kênh',
+              'Couldn\'t load channels',
+            ),
             message: state.errorMessage!,
             onRetry: controller.load,
           ),
@@ -346,10 +368,15 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
       return [
         SliverToBoxAdapter(
           child: WebTuiEmptyState(
-            title: searching ? 'Không tìm thấy kênh' : 'Chưa có kênh nào',
+            title: searching
+                ? tr('Không tìm thấy kênh', 'No channels found')
+                : tr('Chưa có kênh nào', 'No channels yet'),
             message: searching
-                ? 'Thử tìm bằng tên khác.'
-                : 'Kênh bạn tham gia trong workspace sẽ hiện ở đây.',
+                ? tr('Thử tìm bằng tên khác.', 'Try a different name.')
+                : tr(
+                    'Kênh bạn tham gia trong workspace sẽ hiện ở đây.',
+                    'Channels you join in the workspace will show up here.',
+                  ),
             icon: Icons.tag_outlined,
           ),
         ),
@@ -357,7 +384,9 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
     }
     return [
       if (joined.isNotEmpty) ...[
-        const SliverToBoxAdapter(child: WebTuiSectionLabel('Kênh đã tham gia')),
+        SliverToBoxAdapter(
+          child: WebTuiSectionLabel(tr('Kênh đã tham gia', 'Joined channels')),
+        ),
         WebTuiSliverListSurface(
           itemCount: joined.length,
           itemBuilder: (context, index) {
@@ -382,7 +411,7 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
           child: _ChannelList(
             channels: joinable,
             emptyTitle: '',
-            sectionLabel: 'Kênh có thể tham gia',
+            sectionLabel: tr('Kênh có thể tham gia', 'Channels you can join'),
             onTap: (channel) => _handleChannelTap(context, controller, channel),
           ),
         ),
@@ -482,22 +511,33 @@ class _MessagesList extends StatelessWidget {
               ),
             ),
           if (state.isLoading)
-            const SliverToBoxAdapter(
-              child: WebTuiLoadingState(message: 'Đang tải hội thoại...'),
+            SliverToBoxAdapter(
+              child: WebTuiLoadingState(
+                message: tr(
+                  'Đang tải hội thoại...',
+                  'Loading conversations...',
+                ),
+              ),
             )
           else if (state.errorMessage != null)
             SliverToBoxAdapter(
               child: WebTuiErrorState(
-                title: 'Không tải được hội thoại',
+                title: tr(
+                  'Không tải được hội thoại',
+                  'Couldn\'t load conversations',
+                ),
                 message: state.errorMessage!,
                 onRetry: onRetry,
               ),
             )
           else if (conversations.isEmpty)
-            const SliverToBoxAdapter(
+            SliverToBoxAdapter(
               child: WebTuiEmptyState(
-                title: 'Chưa có hội thoại',
-                message: 'Hội thoại và nhóm bạn tham gia sẽ xuất hiện tại đây.',
+                title: tr('Chưa có hội thoại', 'No conversations yet'),
+                message: tr(
+                  'Hội thoại và nhóm bạn tham gia sẽ xuất hiện tại đây.',
+                  'Conversations and groups you join will appear here.',
+                ),
                 icon: Icons.chat_bubble_outline_rounded,
               ),
             )
@@ -518,10 +558,10 @@ class _MessagesList extends StatelessWidget {
             ),
           ],
           SliverToBoxAdapter(
-          child: SizedBox(
-            height: WebTuiSpacing.lg + MediaQuery.paddingOf(context).bottom,
+            child: SizedBox(
+              height: WebTuiSpacing.lg + MediaQuery.paddingOf(context).bottom,
+            ),
           ),
-        ),
         ],
       ),
     );
@@ -651,7 +691,7 @@ class _ConversationTile extends ConsumerWidget {
       onLongPress: privacy.isBlocked ? onTap : null,
       trailing: privacy.isBlocked
           ? Tooltip(
-              message: 'Quản lý người dùng đã chặn',
+              message: tr('Quản lý người dùng đã chặn', 'Manage blocked users'),
               child: Icon(Icons.block_rounded, color: WebTuiColors.danger),
             )
           : null,
@@ -699,7 +739,7 @@ class _ContactTile extends StatelessWidget {
     return WebTuiConversationListItem(
       title: contact.displayName,
       preview: blocked
-          ? 'Đã chặn · Nhấn để quản lý'
+          ? tr('Đã chặn · Nhấn để quản lý', 'Blocked · Tap to manage')
           : relationshipLabel ?? contact.title ?? contact.email,
       timeLabel: canOpenChat ? _presenceLabel(presence) : '',
       avatarLabel: contact.displayName,
@@ -708,7 +748,10 @@ class _ContactTile extends StatelessWidget {
       onTap: canOpenChat ? onTap : null,
       onLongPress: onSafety,
       trailing: IconButton(
-        tooltip: 'Báo cáo hoặc chặn ${contact.displayName}',
+        tooltip: tr(
+          'Báo cáo hoặc chặn ${contact.displayName}',
+          'Report or block ${contact.displayName}',
+        ),
         onPressed: onSafety,
         icon: Icon(blocked ? Icons.block_rounded : Icons.shield_outlined),
       ),
@@ -723,14 +766,14 @@ String? _contactRelationshipLabel(ContactSummary contact) {
   }
   if (status == 'pending') {
     return contact.isOutgoingContactRequest
-        ? 'Đã gửi lời mời'
-        : 'Lời mời đang chờ';
+        ? tr('Đã gửi lời mời', 'Invitation sent')
+        : tr('Lời mời đang chờ', 'Invitation pending');
   }
   if (status == 'rejected') {
-    return 'Lời mời đã bị từ chối';
+    return tr('Lời mời đã bị từ chối', 'Invitation declined');
   }
   if (status == 'cancelled') {
-    return 'Lời mời đã hủy';
+    return tr('Lời mời đã hủy', 'Invitation canceled');
   }
   return status;
 }
@@ -753,7 +796,10 @@ class _ChannelList extends StatelessWidget {
     if (channels.isEmpty) {
       return WebTuiEmptyState(
         title: emptyTitle,
-        message: 'Nhóm lấy từ workspace sẽ xuất hiện tại đây khi bạn có quyền.',
+        message: tr(
+          'Nhóm lấy từ workspace sẽ xuất hiện tại đây khi bạn có quyền.',
+          'Groups from the workspace will appear here when you have access.',
+        ),
         icon: Icons.tag_outlined,
       );
     }
@@ -815,7 +861,10 @@ class _MessagesTopBar extends StatelessWidget {
                 child: SizedBox.square(
                   dimension: 46,
                   child: Tooltip(
-                    message: 'Tin nhắn mới hoặc tạo nhóm',
+                    message: tr(
+                      'Tin nhắn mới hoặc tạo nhóm',
+                      'New message or create group',
+                    ),
                     child: Icon(
                       WebTuiIcons.compose,
                       size: 24,
@@ -829,7 +878,10 @@ class _MessagesTopBar extends StatelessWidget {
           ],
           Expanded(
             child: WebTuiSearchBar(
-              hintText: 'Tìm tin nhắn, nhóm...',
+              hintText: tr(
+                'Tìm tin nhắn, nhóm...',
+                'Search messages, groups...',
+              ),
               onChanged: onChanged,
             ),
           ),
@@ -966,8 +1018,8 @@ WebTuiPresenceStatus? _presenceStatus(ConversationPresence? presence) {
 String _presenceLabel(ConversationPresence? presence) {
   return switch (presence) {
     ConversationPresence.online => 'Online',
-    ConversationPresence.away => 'Vắng mặt',
-    ConversationPresence.offline => 'Ngoại tuyến',
+    ConversationPresence.away => tr('Vắng mặt', 'Away'),
+    ConversationPresence.offline => tr('Ngoại tuyến', 'Offline'),
     null => '',
   };
 }
@@ -981,11 +1033,14 @@ String _timeLabel(DateTime value) {
     return '${_two(local.hour)}:${_two(local.minute)}';
   }
   if (day == today.subtract(const Duration(days: 1))) {
-    return 'Hôm qua';
+    return tr('Hôm qua', 'Yesterday');
   }
   final difference = today.difference(day).inDays;
   if (difference < 7) {
-    return '$difference ngày';
+    return tr(
+      '$difference ngày',
+      difference == 1 ? '1 day ago' : '$difference days ago',
+    );
   }
   return '${_two(local.day)}/${_two(local.month)}';
 }
@@ -995,15 +1050,15 @@ String _two(int value) => value.toString().padLeft(2, '0');
 String _channelTrailing(ConversationSummary channel) {
   if (channel.isMember) {
     return channel.memberCount > 0
-        ? '${channel.memberCount} tham gia'
-        : 'Đã tham gia';
+        ? tr('${channel.memberCount} tham gia', '${channel.memberCount} joined')
+        : tr('Đã tham gia', 'Joined');
   }
   if (channel.membershipStatus == MembershipStatus.invited) {
-    return 'Chờ duyệt';
+    return tr('Chờ duyệt', 'Pending approval');
   }
   return channel.channelVisibility == ChannelVisibility.private
-      ? 'Yêu cầu'
-      : 'Mở nhóm';
+      ? tr('Yêu cầu', 'Request')
+      : tr('Mở nhóm', 'Open group');
 }
 
 IconData _channelIcon(ConversationSummary channel) {

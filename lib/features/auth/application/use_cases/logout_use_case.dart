@@ -1,5 +1,6 @@
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/repositories/auth_token_repository.dart';
 import '../../domain/repositories/session_state_repository.dart';
@@ -41,7 +42,10 @@ final class LogoutUseCase {
       return FailureResult(
         Failure(
           kind: FailureKind.storage,
-          message: 'Không thể xóa phiên đăng nhập khỏi thiết bị.',
+          message: tr(
+            'Không thể xóa phiên đăng nhập khỏi thiết bị.',
+            'Could not remove the session from this device.',
+          ),
           code: 'LOGOUT_LOCAL_CLEAR_FAILED',
           cause: error,
         ),

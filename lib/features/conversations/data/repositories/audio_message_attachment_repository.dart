@@ -7,6 +7,7 @@ import 'package:record/record.dart';
 
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/message_voice.dart';
 import '../../domain/repositories/message_attachment_repository.dart';
@@ -77,11 +78,13 @@ final class AudioMessageAttachmentRepository
       }
       final hasPermission = await _recorder.hasPermission();
       if (!hasPermission) {
-        return const FailureResult(
+        return FailureResult(
           Failure(
             kind: FailureKind.forbidden,
-            message:
-                'Chưa có quyền microphone. Vào Cài đặt để cấp quyền ghi âm.',
+            message: tr(
+              'Chưa có quyền microphone. Vào Cài đặt để cấp quyền ghi âm.',
+              'Microphone permission is missing. Allow recording in Settings.',
+            ),
             code: 'VOICE_MICROPHONE_PERMISSION_DENIED',
           ),
         );
@@ -105,7 +108,10 @@ final class AudioMessageAttachmentRepository
       return FailureResult(
         Failure(
           kind: FailureKind.storage,
-          message: 'Không thể bắt đầu ghi âm. Kiểm tra quyền microphone.',
+          message: tr(
+            'Không thể bắt đầu ghi âm. Kiểm tra quyền microphone.',
+            'Couldn\'t start recording. Check microphone permission.',
+          ),
           code: 'VOICE_RECORD_START_FAILED',
           cause: error,
         ),
@@ -133,10 +139,13 @@ final class AudioMessageAttachmentRepository
       final stat = await file.stat();
       if (stat.size <= 0) {
         await file.delete().catchError((_) => file);
-        return const FailureResult(
+        return FailureResult(
           Failure(
             kind: FailureKind.validation,
-            message: 'Bản ghi âm quá ngắn, hãy thử ghi lại.',
+            message: tr(
+              'Bản ghi âm quá ngắn, hãy thử ghi lại.',
+              'The recording is too short. Try again.',
+            ),
             code: 'VOICE_RECORD_EMPTY',
           ),
         );
@@ -155,7 +164,10 @@ final class AudioMessageAttachmentRepository
       return FailureResult(
         Failure(
           kind: FailureKind.storage,
-          message: 'Không thể lưu bản ghi âm. Hãy thử lại.',
+          message: tr(
+            'Không thể lưu bản ghi âm. Hãy thử lại.',
+            'Couldn\'t save the recording. Please try again.',
+          ),
           code: 'VOICE_RECORD_STOP_FAILED',
           cause: error,
         ),
@@ -182,7 +194,7 @@ final class AudioMessageAttachmentRepository
       return FailureResult(
         Failure(
           kind: FailureKind.storage,
-          message: 'Không thể hủy ghi âm.',
+          message: tr('Không thể hủy ghi âm.', 'Couldn\'t cancel recording.'),
           code: 'VOICE_RECORD_CANCEL_FAILED',
           cause: error,
         ),

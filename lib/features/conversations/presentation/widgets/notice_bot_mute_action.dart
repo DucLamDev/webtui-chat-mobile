@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../design_system/tokens/webtui_colors.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../notifications/presentation/controllers/channel_mute_controller.dart';
 
 /// Nút menu trên thanh phòng chat bot: Tắt / Bật thông báo cả chat bot.
@@ -21,7 +22,9 @@ class NoticeBotMuteAction extends ConsumerWidget {
     final provider = channelMuteControllerProvider(key);
     final state = ref.watch(provider);
     final muted = state.muted ?? false;
-    final label = muted ? 'Bật thông báo' : 'Tắt thông báo';
+    final label = muted
+        ? tr('Bật thông báo', 'Turn on notifications')
+        : tr('Tắt thông báo', 'Turn off notifications');
     if (state.isSaving) {
       return Padding(
         padding: EdgeInsets.symmetric(horizontal: 14),
@@ -39,7 +42,7 @@ class NoticeBotMuteAction extends ConsumerWidget {
     }
     return PopupMenuButton<bool>(
       key: const Key('notice_bot_mute_menu'),
-      tooltip: 'Tuỳ chọn thông báo',
+      tooltip: tr('Tuỳ chọn thông báo', 'Notification options'),
       icon: const Icon(Icons.more_vert_rounded),
       onSelected: (_) async {
         final messenger = ScaffoldMessenger.maybeOf(context);
@@ -48,10 +51,19 @@ class NoticeBotMuteAction extends ConsumerWidget {
         if (!context.mounted) return;
         final message = saved
             ? (ref.read(provider).muted == true
-                  ? 'Đã tắt thông báo của bot.'
-                  : 'Đã bật thông báo của bot.')
+                  ? tr(
+                      'Đã tắt thông báo của bot.',
+                      'Bot notifications turned off.',
+                    )
+                  : tr(
+                      'Đã bật thông báo của bot.',
+                      'Bot notifications turned on.',
+                    ))
             : (ref.read(provider).errorMessage ??
-                  'Chưa lưu được cài đặt thông báo.');
+                  tr(
+                    'Chưa lưu được cài đặt thông báo.',
+                    'Could not save notification settings.',
+                  ));
         messenger?.showSnackBar(SnackBar(content: Text(message)));
       },
       itemBuilder: (_) => [

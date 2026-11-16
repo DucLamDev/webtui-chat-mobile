@@ -1,3 +1,5 @@
+import 'package:webtui_chat/l10n/app_strings.dart';
+
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
 import '../../domain/entities/my_note.dart';
@@ -48,7 +50,10 @@ final class ListMyNotesUseCase {
     final query = filter.query.trim();
     if (query.runes.length > MyNoteLimits.queryMaxLength) {
       return _invalid(
-        'Từ khoá tìm kiếm tối đa ${MyNoteLimits.queryMaxLength} ký tự.',
+        tr(
+          'Từ khoá tìm kiếm tối đa ${MyNoteLimits.queryMaxLength} ký tự.',
+          'Search terms can be up to ${MyNoteLimits.queryMaxLength} characters.',
+        ),
         'MY_NOTE_QUERY_TOO_LONG',
       );
     }
@@ -99,7 +104,13 @@ final class CreateMyNoteUseCase {
         validateMyNoteTags(cleanTags);
     if (invalid != null) return FailureResult(invalid);
     if (cleanTitle.isEmpty && body.trim().isEmpty) {
-      return _invalid('Ghi chú cần có tiêu đề hoặc nội dung.', 'MY_NOTE_EMPTY');
+      return _invalid(
+        tr(
+          'Ghi chú cần có tiêu đề hoặc nội dung.',
+          'A note needs a title or content.',
+        ),
+        'MY_NOTE_EMPTY',
+      );
     }
     final folder = folderId?.trim();
     return _repository.createNote(
@@ -130,12 +141,18 @@ final class UpdateMyNoteUseCase {
     if (id.isEmpty) return _noteRequired();
     if (version < 1) {
       return _invalid(
-        'Thiếu phiên bản ghi chú, hãy tải lại ghi chú rồi sửa.',
+        tr(
+          'Thiếu phiên bản ghi chú, hãy tải lại ghi chú rồi sửa.',
+          'The note version is missing. Reload the note, then edit it.',
+        ),
         'MY_NOTE_VERSION_REQUIRED',
       );
     }
     if (patch.isEmpty) {
-      return _invalid('Chưa có thay đổi nào để lưu.', 'MY_NOTE_NO_CHANGES');
+      return _invalid(
+        tr('Chưa có thay đổi nào để lưu.', 'No changes to save.'),
+        'MY_NOTE_NO_CHANGES',
+      );
     }
     final title = patch.title?.trim();
     final tags = patch.tags == null ? null : normalizeMyNoteTags(patch.tags!);
@@ -147,7 +164,13 @@ final class UpdateMyNoteUseCase {
         patch.body != null &&
         title.isEmpty &&
         patch.body!.trim().isEmpty) {
-      return _invalid('Ghi chú cần có tiêu đề hoặc nội dung.', 'MY_NOTE_EMPTY');
+      return _invalid(
+        tr(
+          'Ghi chú cần có tiêu đề hoặc nội dung.',
+          'A note needs a title or content.',
+        ),
+        'MY_NOTE_EMPTY',
+      );
     }
     final folder = patch.folderId?.trim();
     return _repository.updateNote(
@@ -201,7 +224,10 @@ final class SaveMessageToMyNoteUseCase {
     // Tin chưa gửi xong (id tạm trên máy) chưa có trên máy chủ để lưu.
     if (channel.isEmpty || message.isEmpty || message.startsWith('local-')) {
       return _invalid(
-        'Tin nhắn chưa gửi xong nên chưa lưu vào My Note được.',
+        tr(
+          'Tin nhắn chưa gửi xong nên chưa lưu vào My Note được.',
+          'The message hasn\'t finished sending, so it can\'t be saved to My Note yet.',
+        ),
         'MY_NOTE_MESSAGE_REQUIRED',
       );
     }
@@ -231,7 +257,10 @@ final class RemoveMyNoteAttachmentUseCase {
     if (ws.isEmpty) return _workspaceRequired();
     if (id.isEmpty) return _noteRequired();
     if (file.isEmpty) {
-      return _invalid('Chưa chọn tệp đính kèm.', 'MY_NOTE_FILE_REQUIRED');
+      return _invalid(
+        tr('Chưa chọn tệp đính kèm.', 'No attachment selected.'),
+        'MY_NOTE_FILE_REQUIRED',
+      );
     }
     return _repository.removeAttachment(
       workspaceId: ws,
@@ -277,7 +306,10 @@ final class CreateMyNoteFolderUseCase {
       final parentDepth = myNoteFolderDepth(existingFolders, parent);
       if (parentDepth >= MyNoteLimits.folderMaxDepth) {
         return _invalid(
-          'Thư mục chỉ lồng tối đa ${MyNoteLimits.folderMaxDepth} tầng.',
+          tr(
+            'Thư mục chỉ lồng tối đa ${MyNoteLimits.folderMaxDepth} tầng.',
+            'Folders can be nested up to ${MyNoteLimits.folderMaxDepth} levels.',
+          ),
           'NOTE_FOLDER_TOO_DEEP',
         );
       }
@@ -348,16 +380,22 @@ final class ListMyNoteTagsUseCase {
 
 Failure? validateMyNoteContent({required String title, required String body}) {
   if (title.runes.length > MyNoteLimits.titleMaxLength) {
-    return const Failure(
+    return Failure(
       kind: FailureKind.validation,
-      message: 'Tiêu đề tối đa ${MyNoteLimits.titleMaxLength} ký tự.',
+      message: tr(
+        'Tiêu đề tối đa ${MyNoteLimits.titleMaxLength} ký tự.',
+        'Titles can be up to ${MyNoteLimits.titleMaxLength} characters.',
+      ),
       code: 'MY_NOTE_TITLE_TOO_LONG',
     );
   }
   if (body.runes.length > MyNoteLimits.bodyMaxLength) {
-    return const Failure(
+    return Failure(
       kind: FailureKind.validation,
-      message: 'Nội dung tối đa 50.000 ký tự.',
+      message: tr(
+        'Nội dung tối đa 50.000 ký tự.',
+        'Content can be up to 50,000 characters.',
+      ),
       code: 'MY_NOTE_BODY_TOO_LONG',
     );
   }
@@ -366,17 +404,23 @@ Failure? validateMyNoteContent({required String title, required String body}) {
 
 Failure? validateMyNoteTags(List<String> tags) {
   if (tags.length > MyNoteLimits.tagsMax) {
-    return const Failure(
+    return Failure(
       kind: FailureKind.validation,
-      message: 'Mỗi ghi chú có tối đa ${MyNoteLimits.tagsMax} tag.',
+      message: tr(
+        'Mỗi ghi chú có tối đa ${MyNoteLimits.tagsMax} tag.',
+        'Each note can have up to ${MyNoteLimits.tagsMax} tags.',
+      ),
       code: 'MY_NOTE_TOO_MANY_TAGS',
     );
   }
   for (final tag in tags) {
     if (tag.runes.length > MyNoteLimits.tagMaxLength) {
-      return const Failure(
+      return Failure(
         kind: FailureKind.validation,
-        message: 'Mỗi tag tối đa ${MyNoteLimits.tagMaxLength} ký tự.',
+        message: tr(
+          'Mỗi tag tối đa ${MyNoteLimits.tagMaxLength} ký tự.',
+          'Each tag can be up to ${MyNoteLimits.tagMaxLength} characters.',
+        ),
         code: 'MY_NOTE_TAG_TOO_LONG',
       );
     }
@@ -386,16 +430,19 @@ Failure? validateMyNoteTags(List<String> tags) {
 
 Failure? validateMyNoteFolderName(String name) {
   if (name.isEmpty) {
-    return const Failure(
+    return Failure(
       kind: FailureKind.validation,
-      message: 'Hãy nhập tên thư mục.',
+      message: tr('Hãy nhập tên thư mục.', 'Enter a folder name.'),
       code: 'NOTE_FOLDER_NAME_REQUIRED',
     );
   }
   if (name.runes.length > MyNoteLimits.folderNameMaxLength) {
-    return const Failure(
+    return Failure(
       kind: FailureKind.validation,
-      message: 'Tên thư mục tối đa ${MyNoteLimits.folderNameMaxLength} ký tự.',
+      message: tr(
+        'Tên thư mục tối đa ${MyNoteLimits.folderNameMaxLength} ký tự.',
+        'Folder names can be up to ${MyNoteLimits.folderNameMaxLength} characters.',
+      ),
       code: 'NOTE_FOLDER_NAME_TOO_LONG',
     );
   }
@@ -408,11 +455,15 @@ FailureResult<T> _invalid<T>(String message, String code) {
   );
 }
 
-FailureResult<T> _workspaceRequired<T>() =>
-    _invalid('Chưa chọn workspace.', 'MY_NOTE_WORKSPACE_REQUIRED');
+FailureResult<T> _workspaceRequired<T>() => _invalid(
+  tr('Chưa chọn workspace.', 'No workspace selected.'),
+  'MY_NOTE_WORKSPACE_REQUIRED',
+);
 
 FailureResult<T> _noteRequired<T>() =>
-    _invalid('Chưa chọn ghi chú.', 'MY_NOTE_REQUIRED');
+    _invalid(tr('Chưa chọn ghi chú.', 'No note selected.'), 'MY_NOTE_REQUIRED');
 
-FailureResult<T> _folderRequired<T>() =>
-    _invalid('Chưa chọn thư mục.', 'NOTE_FOLDER_REQUIRED');
+FailureResult<T> _folderRequired<T>() => _invalid(
+  tr('Chưa chọn thư mục.', 'No folder selected.'),
+  'NOTE_FOLDER_REQUIRED',
+);

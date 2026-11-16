@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
@@ -36,7 +37,7 @@ class ApprovalDetailScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: WebTuiColors.background,
       appBar: AppBar(
-        title: const Text('Chi tiết phê duyệt'),
+        title: Text(tr('Chi tiết phê duyệt', 'Approval details')),
         surfaceTintColor: Colors.transparent,
       ),
       body: SafeArea(
@@ -44,9 +45,12 @@ class ApprovalDetailScreen extends ConsumerWidget {
         child:
             gate ??
             (id.isEmpty
-                ? const WebTuiEmptyState(
-                    title: 'Chưa chọn workspace',
-                    message: 'Chọn workspace trước khi xem phê duyệt.',
+                ? WebTuiEmptyState(
+                    title: tr('Chưa chọn workspace', 'No workspace selected'),
+                    message: tr(
+                      'Chọn workspace trước khi xem phê duyệt.',
+                      'Select a workspace before viewing approvals.',
+                    ),
                     icon: Icons.fact_check_outlined,
                   )
                 : _Body(workspaceId: id, approvalId: approvalId)),
@@ -77,11 +81,13 @@ class _Body extends ConsumerWidget {
     if (state.forbidden) return const ApprovalNoAccessState();
     if (approval == null) {
       if (state.isLoading) {
-        return const WebTuiLoadingState(message: 'Đang tải yêu cầu...');
+        return WebTuiLoadingState(
+          message: tr('Đang tải yêu cầu...', 'Loading request...'),
+        );
       }
       return WebTuiErrorState(
-        title: 'Không tải được yêu cầu',
-        message: state.errorMessage ?? 'Hãy thử lại.',
+        title: tr('Không tải được yêu cầu', 'Couldn\'t load the request'),
+        message: state.errorMessage ?? tr('Hãy thử lại.', 'Try again.'),
         onRetry: controller.load,
       );
     }
@@ -141,39 +147,51 @@ class _ApprovalDetailViewState extends State<ApprovalDetailView> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(width: 96, child: Text('Trạng thái')),
+              SizedBox(width: 96, child: Text(tr('Trạng thái', 'Status'))),
               Expanded(child: ApprovalStatusText(approval: approval)),
             ],
           ),
         ),
-        _row('Nguồn', approval.sourceLabel),
-        _row('Hành động', approval.action),
+        _row(tr('Nguồn', 'Source'), approval.sourceLabel),
+        _row(tr('Hành động', 'Action'), approval.action),
         if (approval.requestedBy != null)
-          _row('Người tạo', approval.requestedBy!),
+          _row(tr('Người tạo', 'Created by'), approval.requestedBy!),
         _row(
-          'Số phiếu',
+          tr('Số phiếu', 'Votes'),
           '${approval.approvalsCount}/${approval.requiredApprovals}',
         ),
         if (approval.createdAt != null)
-          _row('Tạo lúc', formatApprovalTime(approval.createdAt!)),
+          _row(
+            tr('Tạo lúc', 'Created at'),
+            formatApprovalTime(approval.createdAt!),
+          ),
         if (approval.expiresAt != null)
-          _row('Hạn duyệt', formatApprovalTime(approval.expiresAt!)),
+          _row(
+            tr('Hạn duyệt', 'Approval deadline'),
+            formatApprovalTime(approval.expiresAt!),
+          ),
         if (preview.isNotEmpty) ...[
           const SizedBox(height: WebTuiSpacing.sm),
-          Text('Nội dung', style: Theme.of(context).textTheme.titleSmall),
+          Text(
+            tr('Nội dung', 'Content'),
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
           SelectableText(preview),
         ],
         if (approval.decisions.isNotEmpty) ...[
           const SizedBox(height: WebTuiSpacing.md),
-          Text('Phiếu đã bỏ', style: Theme.of(context).textTheme.titleSmall),
+          Text(
+            tr('Phiếu đã bỏ', 'Votes cast'),
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
           for (final vote in approval.decisions)
             ListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
               title: Text(
                 vote.decision == ApprovalDecisionKind.approve
-                    ? 'Đồng ý'
-                    : 'Từ chối',
+                    ? tr('Đồng ý', 'Approve')
+                    : tr('Từ chối', 'Reject'),
               ),
               subtitle: Text(
                 [
@@ -189,8 +207,8 @@ class _ApprovalDetailViewState extends State<ApprovalDetailView> {
             key: const Key('approval_comment'),
             controller: _comment,
             maxLength: 500,
-            decoration: const InputDecoration(
-              labelText: 'Ghi chú (không bắt buộc)',
+            decoration: InputDecoration(
+              labelText: tr('Ghi chú (không bắt buộc)', 'Note (optional)'),
             ),
           ),
           Row(
@@ -204,7 +222,7 @@ class _ApprovalDetailViewState extends State<ApprovalDetailView> {
                           ApprovalDecisionKind.reject,
                           _comment.text,
                         ),
-                  child: const Text('Từ chối'),
+                  child: Text(tr('Từ chối', 'Reject')),
                 ),
               ),
               const SizedBox(width: WebTuiSpacing.sm),
@@ -217,7 +235,7 @@ class _ApprovalDetailViewState extends State<ApprovalDetailView> {
                           ApprovalDecisionKind.approve,
                           _comment.text,
                         ),
-                  child: const Text('Duyệt'),
+                  child: Text(tr('Duyệt', 'Approve')),
                 ),
               ),
             ],

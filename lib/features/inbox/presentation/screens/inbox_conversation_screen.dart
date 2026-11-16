@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
@@ -36,7 +37,7 @@ class InboxConversationScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: WebTuiColors.background,
       appBar: AppBar(
-        title: const Text('Hội thoại khách'),
+        title: Text(tr('Hội thoại khách', 'Customer conversation')),
         surfaceTintColor: Colors.transparent,
       ),
       body: SafeArea(
@@ -44,9 +45,15 @@ class InboxConversationScreen extends ConsumerWidget {
         child:
             gate ??
             (id.isEmpty || conversationId.trim().isEmpty
-                ? const WebTuiEmptyState(
-                    title: 'Không mở được hội thoại',
-                    message: 'Thiếu thông tin hội thoại.',
+                ? WebTuiEmptyState(
+                    title: tr(
+                      'Không mở được hội thoại',
+                      'Couldn\'t open the conversation',
+                    ),
+                    message: tr(
+                      'Thiếu thông tin hội thoại.',
+                      'Conversation details are missing.',
+                    ),
                     icon: Icons.forum_outlined,
                   )
                 : _ConversationBody(
@@ -97,10 +104,13 @@ class _ConversationBodyState extends ConsumerState<_ConversationBody> {
     final controller = ref.read(provider.notifier);
     if (state.forbidden) return const InboxNoAccessState();
     if (state.notFound) {
-      return const WebTuiEmptyState(
+      return WebTuiEmptyState(
         key: Key('inbox_not_found'),
-        title: 'Không tìm thấy hội thoại',
-        message: 'Hội thoại đã bị xoá hoặc không thuộc workspace này.',
+        title: tr('Không tìm thấy hội thoại', 'Conversation not found'),
+        message: tr(
+          'Hội thoại đã bị xoá hoặc không thuộc workspace này.',
+          'The conversation was deleted or doesn\'t belong to this workspace.',
+        ),
         icon: Icons.forum_outlined,
       );
     }
@@ -108,12 +118,17 @@ class _ConversationBodyState extends ConsumerState<_ConversationBody> {
     if (conversation == null) {
       if (state.errorMessage != null) {
         return WebTuiErrorState(
-          title: 'Không tải được hội thoại',
+          title: tr(
+            'Không tải được hội thoại',
+            'Couldn\'t load the conversation',
+          ),
           message: state.errorMessage!,
           onRetry: controller.load,
         );
       }
-      return const WebTuiLoadingState(message: 'Đang tải hội thoại...');
+      return WebTuiLoadingState(
+        message: tr('Đang tải hội thoại...', 'Loading conversation...'),
+      );
     }
     return Column(
       children: [
@@ -142,10 +157,13 @@ class _ConversationBodyState extends ConsumerState<_ConversationBody> {
     InboxConversationController controller,
   ) {
     if (state.messages.isEmpty) {
-      return const WebTuiEmptyState(
+      return WebTuiEmptyState(
         key: Key('inbox_messages_empty'),
-        title: 'Chưa có tin nhắn',
-        message: 'Tin của khách sẽ hiện ở đây.',
+        title: tr('Chưa có tin nhắn', 'No messages yet'),
+        message: tr(
+          'Tin của khách sẽ hiện ở đây.',
+          'Customer messages will appear here.',
+        ),
         icon: Icons.chat_bubble_outline_rounded,
       );
     }
@@ -162,7 +180,9 @@ class _ConversationBodyState extends ConsumerState<_ConversationBody> {
               key: const Key('inbox_load_older'),
               onPressed: state.isLoadingMore ? null : controller.loadOlder,
               child: Text(
-                state.isLoadingMore ? 'Đang tải...' : 'Tải tin cũ hơn',
+                state.isLoadingMore
+                    ? tr('Đang tải...', 'Loading...')
+                    : tr('Tải tin cũ hơn', 'Load older messages'),
               ),
             ),
           );
@@ -228,7 +248,7 @@ class _Header extends StatelessWidget {
               children: [
                 PopupMenuButton<InboxStatus>(
                   key: const Key('inbox_status_menu'),
-                  tooltip: 'Đổi trạng thái',
+                  tooltip: tr('Đổi trạng thái', 'Change status'),
                   enabled: canAct && !state.isUpdating,
                   onSelected: controller.setStatus,
                   itemBuilder: (_) => [
@@ -254,7 +274,7 @@ class _Header extends StatelessWidget {
                     onPressed: !canAct || state.isUpdating
                         ? null
                         : controller.claim,
-                    child: const Text('Nhận xử lý'),
+                    child: Text(tr('Nhận xử lý', 'Assign to me')),
                   )
                 else if (mine)
                   OutlinedButton(
@@ -262,7 +282,7 @@ class _Header extends StatelessWidget {
                     onPressed: !canAct || state.isUpdating
                         ? null
                         : controller.release,
-                    child: const Text('Bỏ nhận'),
+                    child: Text(tr('Bỏ nhận', 'Unassign me')),
                   )
                 else
                   Chip(
@@ -270,8 +290,11 @@ class _Header extends StatelessWidget {
                     avatar: const Icon(Icons.person_outline, size: 16),
                     label: Text(
                       conversation.assigneeName.isEmpty
-                          ? 'Đã có người nhận'
-                          : 'Do ${conversation.assigneeName} xử lý',
+                          ? tr('Đã có người nhận', 'Already assigned')
+                          : tr(
+                              'Do ${conversation.assigneeName} xử lý',
+                              'Handled by ${conversation.assigneeName}',
+                            ),
                     ),
                   ),
               ],
@@ -292,7 +315,7 @@ class _Header extends StatelessWidget {
                         ? null
                         : () => _editTags(context),
                     icon: const Icon(Icons.sell_outlined, size: 18),
-                    label: const Text('Gắn tag'),
+                    label: Text(tr('Gắn tag', 'Add tags')),
                   ),
                 ],
               ),
@@ -331,10 +354,10 @@ class _TagSheetState extends State<_TagSheet> {
   @override
   Widget build(BuildContext context) {
     if (widget.tags.isEmpty) {
-      return const Column(
+      return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          WebTuiSheetHeader(title: 'Gắn tag'),
+          WebTuiSheetHeader(title: tr('Gắn tag', 'Add tags')),
           Padding(
             padding: EdgeInsets.fromLTRB(
               WebTuiSpacing.xl,
@@ -342,7 +365,12 @@ class _TagSheetState extends State<_TagSheet> {
               WebTuiSpacing.xl,
               WebTuiSpacing.xl,
             ),
-            child: Text('Workspace chưa có tag nào.'),
+            child: Text(
+              tr(
+                'Workspace chưa có tag nào.',
+                'This workspace has no tags yet.',
+              ),
+            ),
           ),
         ],
       );
@@ -351,7 +379,7 @@ class _TagSheetState extends State<_TagSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const WebTuiSheetHeader(title: 'Gắn tag'),
+          WebTuiSheetHeader(title: tr('Gắn tag', 'Add tags')),
           Flexible(
             child: ListView(
               shrinkWrap: true,
@@ -375,7 +403,7 @@ class _TagSheetState extends State<_TagSheet> {
             child: FilledButton(
               key: const Key('inbox_tags_save'),
               onPressed: () => Navigator.of(context).pop(_selected),
-              child: const Text('Lưu tag'),
+              child: Text(tr('Lưu tag', 'Save tags')),
             ),
           ),
         ],
@@ -395,7 +423,10 @@ class _ViewOnlyNotice extends StatelessWidget {
         padding: EdgeInsets.all(WebTuiSpacing.md),
         child: Center(
           child: Text(
-            'Bạn chỉ có quyền xem hộp thư này.',
+            tr(
+              'Bạn chỉ có quyền xem hộp thư này.',
+              'You can only view this inbox.',
+            ),
             key: Key('inbox_view_only'),
             style: TextStyle(color: WebTuiColors.textSecondary),
           ),
@@ -434,14 +465,14 @@ class _Composer extends StatelessWidget {
           children: [
             SegmentedButton<InboxComposeMode>(
               key: const Key('inbox_compose_mode'),
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: InboxComposeMode.reply,
-                  label: Text('Trả lời'),
+                  label: Text(tr('Trả lời', 'Reply')),
                 ),
                 ButtonSegment(
                   value: InboxComposeMode.note,
-                  label: Text('Ghi chú'),
+                  label: Text(tr('Ghi chú', 'Note')),
                 ),
               ],
               selected: {state.mode},
@@ -451,13 +482,18 @@ class _Composer extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: WebTuiSpacing.sm),
                 child: Text(
-                  reason.isEmpty ? 'Chưa trả lời được hội thoại này.' : reason,
+                  reason.isEmpty
+                      ? tr(
+                          'Chưa trả lời được hội thoại này.',
+                          'Couldn\'t reply to this conversation.',
+                        )
+                      : reason,
                   key: const Key('inbox_reply_blocked'),
                   style: TextStyle(color: WebTuiColors.danger),
                 ),
               ),
             if (noteMode)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(top: WebTuiSpacing.sm),
                 child: Text(
                   inboxNoteLabel,
@@ -481,17 +517,22 @@ class _Composer extends StatelessWidget {
                     decoration: InputDecoration(
                       counterText: '',
                       hintText: noteMode
-                          ? 'Viết ghi chú nội bộ...'
+                          ? tr(
+                              'Viết ghi chú nội bộ...',
+                              'Write an internal note...',
+                            )
                           : blocked
-                          ? 'Không thể trả lời'
-                          : 'Trả lời khách...',
+                          ? tr('Không thể trả lời', 'Can\'t reply')
+                          : tr('Trả lời khách...', 'Reply to the customer...'),
                     ),
                   ),
                 ),
                 const SizedBox(width: WebTuiSpacing.sm),
                 IconButton.filled(
                   key: const Key('inbox_send'),
-                  tooltip: noteMode ? 'Lưu ghi chú' : 'Gửi',
+                  tooltip: noteMode
+                      ? tr('Lưu ghi chú', 'Save note')
+                      : tr('Gửi', 'Send'),
                   onPressed: blocked || state.isSendingNote
                       ? null
                       : () => _send(noteMode, text),

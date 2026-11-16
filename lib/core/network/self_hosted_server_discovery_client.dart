@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../../l10n/app_strings.dart';
 import 'self_hosted_server_discovery.dart';
 import 'self_hosted_server_uri.dart';
 
@@ -34,7 +35,12 @@ final class SelfHostedServerDiscoveryClient {
             .replace(queryParameters: {'domain': serverUri.host}),
       );
       if (response.statusCode != 200) {
-        throw StateError('Server không trả thông tin discovery hợp lệ.');
+        throw StateError(
+          tr(
+            'Server không trả thông tin discovery hợp lệ.',
+            'The server did not return valid discovery info.',
+          ),
+        );
       }
       return SelfHostedServerDiscovery.fromApiResponse(
         payload: response.data,

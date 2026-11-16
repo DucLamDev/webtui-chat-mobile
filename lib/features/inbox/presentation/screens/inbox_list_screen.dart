@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
@@ -33,7 +34,7 @@ class InboxListScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: WebTuiColors.background,
       appBar: AppBar(
-        title: const Text('Hộp thư khách'),
+        title: Text(tr('Hộp thư khách', 'Customer inbox')),
         surfaceTintColor: Colors.transparent,
       ),
       body: SafeArea(
@@ -41,9 +42,12 @@ class InboxListScreen extends ConsumerWidget {
         child:
             gate ??
             (id.isEmpty
-                ? const WebTuiEmptyState(
-                    title: 'Chưa chọn workspace',
-                    message: 'Chọn workspace trước khi xem hộp thư khách.',
+                ? WebTuiEmptyState(
+                    title: tr('Chưa chọn workspace', 'No workspace selected'),
+                    message: tr(
+                      'Chọn workspace trước khi xem hộp thư khách.',
+                      'Select a workspace before viewing the customer inbox.',
+                    ),
                     icon: Icons.forum_outlined,
                   )
                 : _InboxListBody(workspaceId: id)),
@@ -55,12 +59,17 @@ class InboxListScreen extends ConsumerWidget {
 /// Chặn trước khi tải: máy chủ không hỗ trợ / đang tải quyền / thiếu quyền.
 Widget? inboxAccessGate(InboxAccess access) {
   if (!access.serverSupported) {
-    return const InboxNoAccessState(
-      message: 'Máy chủ này chưa có hộp thư khách.',
+    return InboxNoAccessState(
+      message: tr(
+        'Máy chủ này chưa có hộp thư khách.',
+        'This server doesn\'t have a customer inbox yet.',
+      ),
     );
   }
   if (access.isPending) {
-    return const WebTuiLoadingState(message: 'Đang kiểm tra quyền...');
+    return WebTuiLoadingState(
+      message: tr('Đang kiểm tra quyền...', 'Checking permissions...'),
+    );
   }
   if (!access.canView) return const InboxNoAccessState();
   return null;
@@ -75,9 +84,16 @@ class InboxNoAccessState extends StatelessWidget {
   Widget build(BuildContext context) {
     return WebTuiEmptyState(
       key: const Key('inbox_no_access'),
-      title: 'Không có quyền xem hộp thư khách',
+      title: tr(
+        'Không có quyền xem hộp thư khách',
+        'No permission to view the customer inbox',
+      ),
       message:
-          message ?? 'Bạn cần quyền xem hộp thư khách trong workspace này.',
+          message ??
+          tr(
+            'Bạn cần quyền xem hộp thư khách trong workspace này.',
+            'You need permission to view the customer inbox in this workspace.',
+          ),
       icon: Icons.lock_outline_rounded,
     );
   }
@@ -144,11 +160,16 @@ class _InboxListBody extends ConsumerWidget {
   ) {
     if (state.forbidden) return const InboxNoAccessState();
     if (!state.hasLoaded && state.isLoading) {
-      return const WebTuiLoadingState(message: 'Đang tải hộp thư khách...');
+      return WebTuiLoadingState(
+        message: tr('Đang tải hộp thư khách...', 'Loading customer inbox...'),
+      );
     }
     if (state.errorMessage != null && state.items.isEmpty) {
       return WebTuiErrorState(
-        title: 'Không tải được hộp thư khách',
+        title: tr(
+          'Không tải được hộp thư khách',
+          'Couldn\'t load the customer inbox',
+        ),
         message: state.errorMessage!,
         onRetry: controller.load,
       );
@@ -158,11 +179,14 @@ class _InboxListBody extends ConsumerWidget {
         onRefresh: controller.load,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          children: const [
+          children: [
             WebTuiEmptyState(
               key: Key('inbox_empty'),
-              title: 'Chưa có hội thoại nào',
-              message: 'Tin khách mới sẽ hiện ở đây.',
+              title: tr('Chưa có hội thoại nào', 'No conversations yet'),
+              message: tr(
+                'Tin khách mới sẽ hiện ở đây.',
+                'New customer messages will appear here.',
+              ),
               icon: Icons.forum_outlined,
             ),
           ],
@@ -187,7 +211,11 @@ class _InboxListBody extends ConsumerWidget {
               child: TextButton(
                 key: const Key('inbox_load_more'),
                 onPressed: state.isLoadingMore ? null : controller.loadMore,
-                child: Text(state.isLoadingMore ? 'Đang tải...' : 'Tải thêm'),
+                child: Text(
+                  state.isLoadingMore
+                      ? tr('Đang tải...', 'Loading...')
+                      : tr('Tải thêm', 'Load more'),
+                ),
               ),
             );
           }
@@ -223,7 +251,8 @@ class InboxConversationTile extends StatelessWidget {
     final item = conversation;
     final unread = item.unreadCount;
     final extra = [
-      if (item.assigneeName.isNotEmpty) 'Do ${item.assigneeName} xử lý',
+      if (item.assigneeName.isNotEmpty)
+        tr('Do ${item.assigneeName} xử lý', 'Handled by ${item.assigneeName}'),
       for (final tag in item.tags) '#${tag.name}',
     ].join('  ·  ');
     return Material(
@@ -255,7 +284,7 @@ class InboxConversationTile extends StatelessWidget {
           children: [
             Text(
               item.lastMessagePreview.isEmpty
-                  ? 'Chưa có tin nhắn'
+                  ? tr('Chưa có tin nhắn', 'No messages yet')
                   : item.lastMessagePreview,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,

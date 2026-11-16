@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../application/use_cases/rich_message_use_cases.dart';
 import '../../domain/entities/message_card.dart';
 import '../../domain/entities/rich_message.dart';
@@ -205,8 +206,11 @@ final class MessageCardController extends StateNotifier<MessageCardState> {
           pendingActionIds: pending,
           invokedActionIds: {...state.invokedActionIds, action.actionId},
           noticeMessage: value.duplicate
-              ? 'Bạn đã bấm nút này trước đó.'
-              : 'Đã gửi: ${action.label}',
+              ? tr(
+                  'Bạn đã bấm nút này trước đó.',
+                  'You already tapped this button.',
+                )
+              : tr('Đã gửi: ${action.label}', 'Sent: ${action.label}'),
         );
         return true;
       case FailureResult(:final failure):
@@ -292,15 +296,18 @@ final class MessageCardController extends StateNotifier<MessageCardState> {
           pendingApprovalIds: pending,
           decidedApprovalIds: {...state.decidedApprovalIds, action.approvalId},
           noticeMessage: action.decision == MessageCardApprovalDecision.approve
-              ? 'Đã gửi quyết định đồng ý.'
-              : 'Đã gửi quyết định từ chối.',
+              ? tr('Đã gửi quyết định đồng ý.', 'Your approval was sent.')
+              : tr('Đã gửi quyết định từ chối.', 'Your rejection was sent.'),
         );
         return true;
       case FailureResult(:final failure):
         state = state.copyWith(
           pendingApprovalIds: pending,
           errorMessage: failure.kind == FailureKind.unknown
-              ? 'Chưa gửi được quyết định. Vui lòng thử lại.'
+              ? tr(
+                  'Chưa gửi được quyết định. Vui lòng thử lại.',
+                  'Couldn\'t send your decision. Please try again.',
+                )
               : failure.message,
         );
         return false;

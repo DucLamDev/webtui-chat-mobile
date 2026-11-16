@@ -1,6 +1,8 @@
 /// Định dạng hiển thị dùng chung cho các màn phiên / thiết bị / QR.
 library;
 
+import '../../../l10n/app_strings.dart';
+
 String _two(int value) => value.toString().padLeft(2, '0');
 
 /// `14:05 · 09/11/2026` theo giờ máy.
@@ -14,13 +16,16 @@ String formatAuthDateTime(DateTime value) {
 String formatLastActive(DateTime value, DateTime now) {
   final difference = now.toUtc().difference(value.toUtc());
   if (difference.inSeconds < 60) {
-    return 'vừa xong';
+    return tr('vừa xong', 'just now');
   }
   if (difference.inMinutes < 60) {
-    return '${difference.inMinutes} phút trước';
+    return tr(
+      '${difference.inMinutes} phút trước',
+      '${difference.inMinutes} min ago',
+    );
   }
   if (difference.inHours < 24) {
-    return '${difference.inHours} giờ trước';
+    return tr('${difference.inHours} giờ trước', '${difference.inHours} h ago');
   }
   return formatAuthDateTime(value);
 }
@@ -35,7 +40,7 @@ String formatCountdown(Duration remaining) {
 String describeUserAgent(String? userAgent) {
   final value = userAgent?.trim() ?? '';
   if (value.isEmpty) {
-    return 'Trình duyệt không xác định';
+    return tr('Trình duyệt không xác định', 'Unknown browser');
   }
   final lower = value.toLowerCase();
   final browser = lower.contains('edg/')
@@ -61,7 +66,7 @@ String describeUserAgent(String? userAgent) {
       ? 'Linux'
       : null;
   if (browser != null && system != null) {
-    return '$browser trên $system';
+    return tr('$browser trên $system', '$browser on $system');
   }
   if (browser != null || system != null) {
     return browser ?? system!;
@@ -72,12 +77,12 @@ String describeUserAgent(String? userAgent) {
 /// Tên cách đăng nhập của một phiên.
 String authMethodLabel(String? method) {
   return switch (method?.trim().toLowerCase()) {
-    'password' => 'Mật khẩu',
-    'register' => 'Đăng ký mới',
+    'password' => tr('Mật khẩu', 'Password'),
+    'register' => tr('Đăng ký mới', 'New registration'),
     'oidc' => 'SSO',
-    'qr' => 'Mã QR',
-    'email_code' => 'Mã email',
-    'invite' => 'Lời mời',
+    'qr' => tr('Mã QR', 'QR code'),
+    'email_code' => tr('Mã email', 'Email code'),
+    'invite' => tr('Lời mời', 'Invitation'),
     _ => '',
   };
 }

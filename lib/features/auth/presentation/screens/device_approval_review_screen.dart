@@ -8,6 +8,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../application/use_cases/device_approval_use_cases.dart';
 import '../../domain/entities/device_approval.dart';
 import '../auth_formatters.dart';
@@ -35,28 +36,39 @@ class DeviceApprovalReviewScreen extends ConsumerWidget {
       backgroundColor: WebTuiColors.background,
       appBar: AppBar(
         leading: IconButton(
-          tooltip: 'Đóng',
+          tooltip: tr('Đóng', 'Close'),
           onPressed: () => _close(context),
           icon: const Icon(Icons.close_rounded),
         ),
-        title: const Text('Duyệt thiết bị mới'),
+        title: Text(tr('Duyệt thiết bị mới', 'Approve new device')),
         surfaceTintColor: Colors.transparent,
       ),
       body: SafeArea(
         child: switch (state.phase) {
-          ReviewPhase.loading => const WebTuiLoadingState(
-            message: 'Đang tải yêu cầu duyệt...',
+          ReviewPhase.loading => WebTuiLoadingState(
+            message: tr(
+              'Đang tải yêu cầu duyệt...',
+              'Loading approval request...',
+            ),
           ),
           ReviewPhase.error => WebTuiErrorState(
-            title: 'Không tải được yêu cầu',
-            message: state.errorMessage ?? 'Vui lòng thử lại.',
+            title: tr('Không tải được yêu cầu', 'Could not load the request'),
+            message:
+                state.errorMessage ??
+                tr('Vui lòng thử lại.', 'Please try again.'),
             onRetry: controller.load,
           ),
           ReviewPhase.notFound => WebTuiEmptyState(
-            title: 'Không còn yêu cầu chờ duyệt',
+            title: tr(
+              'Không còn yêu cầu chờ duyệt',
+              'No pending approval request',
+            ),
             message:
                 state.errorMessage ??
-                'Yêu cầu đã được xử lý, đã hết hạn hoặc bạn không có quyền duyệt.',
+                tr(
+                  'Yêu cầu đã được xử lý, đã hết hạn hoặc bạn không có quyền duyệt.',
+                  'The request was handled, has expired, or you do not have permission to approve it.',
+                ),
             icon: Icons.verified_user_outlined,
           ),
           ReviewPhase.decided => _DecidedView(
@@ -81,12 +93,15 @@ class DeviceApprovalReviewScreen extends ConsumerWidget {
   ) async {
     final confirmed = await showWebTuiConfirmDialog(
       context,
-      title: 'Từ chối thiết bị này?',
-      message:
-          'Thiết bị sẽ bị đăng xuất ngay. Nếu không phải bạn đăng nhập, hãy đổi '
-          'mật khẩu sau khi từ chối.',
-      confirmLabel: 'Từ chối',
-      cancelLabel: 'Hủy',
+      title: tr('Từ chối thiết bị này?', 'Reject this device?'),
+      message: tr(
+        'Thiết bị sẽ bị đăng xuất ngay. Nếu không phải bạn đăng nhập, hãy đổi '
+            'mật khẩu sau khi từ chối.',
+        'The device will be signed out immediately. If it was not you signing in, '
+            'change your password after rejecting.',
+      ),
+      confirmLabel: tr('Từ chối', 'Reject'),
+      cancelLabel: tr('Hủy', 'Cancel'),
       destructive: true,
       icon: WebTuiIcons.close,
     );
@@ -130,11 +145,20 @@ class _RequestView extends StatelessWidget {
       children: [
         Text(
           request.isSelf
-              ? 'Có thiết bị đang đăng nhập vào tài khoản của bạn. Chỉ đồng ý nếu '
-                    'chính bạn vừa đăng nhập.'
-              : '${request.userDisplayName ?? 'Một thành viên'} đang đăng nhập '
-                    'trên thiết bị mới và cần bạn duyệt '
-                    '(${deviceApprovalRoleLabel(request.myRole)}).',
+              ? tr(
+                  'Có thiết bị đang đăng nhập vào tài khoản của bạn. Chỉ đồng ý nếu '
+                      'chính bạn vừa đăng nhập.',
+                  'A device is signing in to your account. Only approve if it was '
+                      'you who just signed in.',
+                )
+              : tr(
+                  '${request.userDisplayName ?? tr('Một thành viên', 'A member')} đang đăng nhập '
+                      'trên thiết bị mới và cần bạn duyệt '
+                      '(${deviceApprovalRoleLabel(request.myRole)}).',
+                  '${request.userDisplayName ?? 'A member'} is signing in '
+                      'on a new device and needs your approval '
+                      '(${deviceApprovalRoleLabel(request.myRole)}).',
+                ),
           style: WebTuiTypography.bodyMedium.copyWith(
             color: WebTuiColors.textSecondary,
           ),
@@ -153,34 +177,40 @@ class _RequestView extends StatelessWidget {
               children: [
                 if (!request.isSelf)
                   _InfoLine(
-                    label: 'Người dùng',
+                    label: tr('Người dùng', 'User'),
                     value: [
                       request.userDisplayName,
                       request.userEmail,
                     ].whereType<String>().join(' · '),
                   ),
                 _InfoLine(
-                  label: 'Thiết bị',
-                  value: request.deviceName ?? 'Không xác định',
+                  label: tr('Thiết bị', 'Device'),
+                  value: request.deviceName ?? tr('Không xác định', 'Unknown'),
                 ),
                 _InfoLine(
-                  label: 'Trình duyệt / hệ điều hành',
+                  label: tr(
+                    'Trình duyệt / hệ điều hành',
+                    'Browser / operating system',
+                  ),
                   value: describeUserAgent(request.userAgent),
                 ),
                 _InfoLine(
-                  label: 'Địa chỉ IP',
-                  value: request.ipAddress ?? 'Không xác định',
+                  label: tr('Địa chỉ IP', 'IP address'),
+                  value: request.ipAddress ?? tr('Không xác định', 'Unknown'),
                 ),
                 if (createdAt != null)
                   _InfoLine(
-                    label: 'Thời điểm',
+                    label: tr('Thời điểm', 'Time'),
                     value: formatAuthDateTime(createdAt),
                   ),
                 if (method.isNotEmpty)
-                  _InfoLine(label: 'Cách đăng nhập', value: method),
+                  _InfoLine(
+                    label: tr('Cách đăng nhập', 'Sign-in method'),
+                    value: method,
+                  ),
                 if (expiresAt != null)
                   _InfoLine(
-                    label: 'Hết hạn duyệt',
+                    label: tr('Hết hạn duyệt', 'Approval expires'),
                     value: formatAuthDateTime(expiresAt),
                   ),
               ],
@@ -209,7 +239,7 @@ class _RequestView extends StatelessWidget {
                   minimumSize: const Size.fromHeight(48),
                 ),
                 icon: const Icon(Icons.block_rounded),
-                label: const Text('Từ chối'),
+                label: Text(tr('Từ chối', 'Reject')),
               ),
             ),
             const SizedBox(width: WebTuiSpacing.md),
@@ -226,7 +256,7 @@ class _RequestView extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.check_rounded),
-                label: const Text('Đồng ý'),
+                label: Text(tr('Đồng ý', 'Approve')),
               ),
             ),
           ],
@@ -256,7 +286,7 @@ class _InfoLine extends StatelessWidget {
             ),
           ),
           Text(
-            value.isEmpty ? 'Không xác định' : value,
+            value.isEmpty ? tr('Không xác định', 'Unknown') : value,
             style: WebTuiTypography.bodyMedium.copyWith(
               color: WebTuiColors.textPrimary,
               fontWeight: FontWeight.w700,
@@ -279,18 +309,24 @@ class _DecidedView extends StatelessWidget {
     final (icon, title, message) = switch (status) {
       'approved' => (
         Icons.verified_rounded,
-        'Đã cho phép thiết bị',
-        'Thiết bị mới có thể dùng ứng dụng ngay.',
+        tr('Đã cho phép thiết bị', 'Device approved'),
+        tr(
+          'Thiết bị mới có thể dùng ứng dụng ngay.',
+          'The new device can use the app now.',
+        ),
       ),
       'rejected' => (
         Icons.gpp_bad_rounded,
-        'Đã từ chối thiết bị',
-        'Thiết bị đã bị đăng xuất.',
+        tr('Đã từ chối thiết bị', 'Device rejected'),
+        tr('Thiết bị đã bị đăng xuất.', 'The device was signed out.'),
       ),
       _ => (
         Icons.hourglass_top_rounded,
-        'Đã ghi nhận đồng ý',
-        'Thiết bị còn chờ người duyệt thứ hai (quản trị viên).',
+        tr('Đã ghi nhận đồng ý', 'Approval recorded'),
+        tr(
+          'Thiết bị còn chờ người duyệt thứ hai (quản trị viên).',
+          'The device is waiting for a second approver (administrator).',
+        ),
       ),
     };
     return Center(

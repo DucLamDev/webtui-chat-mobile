@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
@@ -18,10 +19,10 @@ class BusinessInboxEntry extends StatelessWidget {
     if (id.isEmpty) return const SizedBox.shrink();
     return WebTuiConversationListItem(
       key: const Key('business_entry'),
-      title: 'Tổng quan nghiệp vụ',
-      preview: 'Số liệu và việc cần xử lý',
+      title: tr('Tổng quan nghiệp vụ', 'Business overview'),
+      preview: tr('Số liệu và việc cần xử lý', 'Figures and items to handle'),
       timeLabel: '',
-      avatarLabel: 'Tổng quan nghiệp vụ',
+      avatarLabel: tr('Tổng quan nghiệp vụ', 'Business overview'),
       avatarIcon: WebTuiIcons.work,
       trailing: Icon(
         CupertinoIcons.chevron_right,

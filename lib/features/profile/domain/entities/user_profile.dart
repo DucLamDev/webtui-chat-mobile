@@ -1,3 +1,5 @@
+import '../../../../l10n/app_strings.dart';
+
 final class UserProfile {
   const UserProfile({
     required this.id,
@@ -60,8 +62,12 @@ final class WorkProfile {
       department,
       location,
       if (date != null)
-        'vào ${date.day.toString().padLeft(2, '0')}/'
-            '${date.month.toString().padLeft(2, '0')}/${date.year}',
+        tr(
+          'vào ${date.day.toString().padLeft(2, '0')}/'
+              '${date.month.toString().padLeft(2, '0')}/${date.year}',
+          'since ${date.day.toString().padLeft(2, '0')}/'
+              '${date.month.toString().padLeft(2, '0')}/${date.year}',
+        ),
     ].whereType<String>().where((part) => part.trim().isNotEmpty).join(' · ');
   }
 }

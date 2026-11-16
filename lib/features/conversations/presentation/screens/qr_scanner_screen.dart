@@ -8,18 +8,24 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 
 /// Màn quét mã QR toàn màn hình (quét QR trong chat, quét mã đăng nhập máy
 /// tính). Trả về nội dung mã qua `Navigator.pop`, đóng thì trả `null`.
 class QrScannerScreen extends StatefulWidget {
-  const QrScannerScreen({
-    this.title = 'Quét mã QR',
-    this.hint = 'Đưa mã vào khung, nội dung sẽ được chèn vào tin nhắn.',
-    super.key,
-  });
+  const QrScannerScreen({this.title, this.hint, super.key});
 
-  final String title;
-  final String hint;
+  /// Null thì dùng chữ mặc định (đã dịch).
+  final String? title;
+  final String? hint;
+
+  String get resolvedTitle => title ?? tr('Quét mã QR', 'Scan QR code');
+  String get resolvedHint =>
+      hint ??
+      tr(
+        'Đưa mã vào khung, nội dung sẽ được chèn vào tin nhắn.',
+        'Put the code in the frame and its content will be added to your message.',
+      );
 
   @override
   State<QrScannerScreen> createState() => _QrScannerScreenState();
@@ -61,8 +67,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         ),
         builder: (context, state, preview) => QrScannerLayout(
           preview: preview!,
-          title: widget.title,
-          hint: widget.hint,
+          title: widget.resolvedTitle,
+          hint: widget.resolvedHint,
           torchState: state.torchState,
           errorMessage: state.error == null
               ? null
@@ -103,14 +109,22 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 /// Lời báo lỗi camera cho người dùng.
 String qrScannerErrorMessage(MobileScannerErrorCode code) {
   return switch (code) {
-    MobileScannerErrorCode.permissionDenied =>
+    MobileScannerErrorCode.permissionDenied => tr(
       'Ứng dụng chưa được phép dùng camera. Hãy bật quyền Camera cho ứng '
           'dụng trong Cài đặt của điện thoại rồi thử lại.',
-    MobileScannerErrorCode.unsupported =>
+      'The app isn\'t allowed to use the camera. Turn on Camera access '
+          'for the app in your phone\'s Settings and try again.',
+    ),
+    MobileScannerErrorCode.unsupported => tr(
       'Thiết bị này không hỗ trợ quét mã bằng camera.',
-    _ =>
+      'This device doesn\'t support scanning with the camera.',
+    ),
+    _ => tr(
       'Camera đang bận hoặc gặp lỗi. Hãy đóng các ứng dụng đang dùng '
           'camera rồi thử lại.',
+      'The camera is busy or had an error. Close other apps that are '
+          'using the camera and try again.',
+    ),
   };
 }
 
@@ -323,7 +337,7 @@ class _TopBar extends StatelessWidget {
               children: [
                 IconButton(
                   key: const Key('qr_scanner_close'),
-                  tooltip: 'Đóng',
+                  tooltip: tr('Đóng', 'Close'),
                   onPressed: onClose,
                   style: IconButton.styleFrom(
                     backgroundColor: Colors.black.withValues(alpha: 0.38),
@@ -404,7 +418,9 @@ class _TorchButton extends StatelessWidget {
         children: [
           IconButton(
             key: const Key('qr_scanner_torch'),
-            tooltip: on ? 'Tắt đèn pin' : 'Bật đèn pin',
+            tooltip: on
+                ? tr('Tắt đèn pin', 'Turn off flashlight')
+                : tr('Bật đèn pin', 'Turn on flashlight'),
             onPressed: available ? onPressed : null,
             style: IconButton.styleFrom(
               backgroundColor: on
@@ -423,7 +439,7 @@ class _TorchButton extends StatelessWidget {
           ),
           const SizedBox(height: WebTuiSpacing.sm),
           Text(
-            on ? 'Tắt đèn' : 'Đèn pin',
+            on ? tr('Tắt đèn', 'Light off') : tr('Đèn pin', 'Flashlight'),
             style: WebTuiTypography.bodySmall.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w600,
@@ -473,7 +489,7 @@ class _CameraErrorView extends StatelessWidget {
                 ),
                 const SizedBox(height: WebTuiSpacing.lg),
                 Text(
-                  'Không mở được camera',
+                  tr('Không mở được camera', 'Couldn\'t open camera'),
                   textAlign: TextAlign.center,
                   style: WebTuiTypography.titleMedium.copyWith(
                     color: Colors.white,
@@ -497,7 +513,7 @@ class _CameraErrorView extends StatelessWidget {
                   style: FilledButton.styleFrom(
                     minimumSize: const Size(160, 48),
                   ),
-                  child: const Text('Thử lại'),
+                  child: Text(tr('Thử lại', 'Try again')),
                 ),
               ],
             ),

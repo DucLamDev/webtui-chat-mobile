@@ -1,17 +1,21 @@
+import '../../../../l10n/app_strings.dart';
 import 'conversation_summary.dart';
 
 /// Nhóm kênh nghiệp vụ (kênh bot) để hộp thư hiện gọn theo việc thay vì một
 /// danh sách dài xếp theo tên.
 enum BusinessChannelGroup {
-  sales('Bán hàng'),
-  customerSupport('Hỗ trợ khách'),
-  monitoring('Giám sát & cảnh báo'),
-  engineering('Kỹ thuật'),
-  other('Khác');
+  sales('Bán hàng', 'Sales'),
+  customerSupport('Hỗ trợ khách', 'Customer support'),
+  monitoring('Giám sát & cảnh báo', 'Monitoring & alerts'),
+  engineering('Kỹ thuật', 'Engineering'),
+  other('Khác', 'Other');
 
-  const BusinessChannelGroup(this.label);
+  const BusinessChannelGroup(this._vi, this._en);
 
-  final String label;
+  final String _vi;
+  final String _en;
+
+  String get label => tr(_vi, _en);
 }
 
 final class BusinessChannelDefinition {

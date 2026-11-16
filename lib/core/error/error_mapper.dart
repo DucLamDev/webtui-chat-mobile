@@ -1,8 +1,12 @@
 import 'package:dio/dio.dart';
 
+import '../../l10n/app_strings.dart';
 import 'failure.dart';
 
-const _genericErrorMessage = 'Chưa thực hiện được. Vui lòng thử lại.';
+String get _genericErrorMessage => tr(
+  'Chưa thực hiện được. Vui lòng thử lại.',
+  'Could not complete that. Please try again.',
+);
 
 /// Câu báo lỗi hiện cho người dùng: không lộ chữ kỹ thuật tiếng Anh
 /// (`DioException [bad response]...`, `Bad state: ...`). Lỗi nội bộ không có
@@ -15,8 +19,13 @@ String userFacingErrorMessage(Object error) {
     _ => error.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''),
   };
   final trimmed = message.trim();
-  // Chỉ giữ câu có ký tự ngoài ASCII (câu tiếng Việt viết cho người dùng).
-  if (trimmed.isEmpty || !trimmed.runes.any((rune) => rune > 0x7f)) {
+  // Tiếng Việt: chỉ giữ câu có ký tự ngoài ASCII (câu viết cho người dùng).
+  // Tiếng Anh: câu của app cũng là ASCII nên tin các lỗi do app tạo ra.
+  final appMessage =
+      AppStrings.current.isEnglish &&
+      (error is DioException || error is Failure || error is StateError);
+  if (trimmed.isEmpty ||
+      (!appMessage && !trimmed.runes.any((rune) => rune > 0x7f))) {
     return _genericErrorMessage;
   }
   return trimmed;
@@ -25,7 +34,7 @@ String userFacingErrorMessage(Object error) {
 Failure mapDioExceptionToFailure(DioException exception) {
   final requestId = _requestIdFrom(exception);
   final host = exception.requestOptions.uri.host;
-  final serverLabel = host.isEmpty ? 'máy chủ' : host;
+  final serverLabel = host.isEmpty ? tr('máy chủ', 'server') : host;
 
   return switch (exception.type) {
     DioExceptionType.connectionTimeout ||
@@ -33,13 +42,16 @@ Failure mapDioExceptionToFailure(DioException exception) {
     DioExceptionType.transformTimeout ||
     DioExceptionType.receiveTimeout => Failure(
       kind: FailureKind.timeout,
-      message: 'Kết nối quá hạn. Vui lòng thử lại.',
+      message: tr(
+        'Kết nối quá hạn. Vui lòng thử lại.',
+        'Connection timed out. Please try again.',
+      ),
       requestId: requestId,
       cause: exception,
     ),
     DioExceptionType.cancel => Failure(
       kind: FailureKind.cancelled,
-      message: 'Yêu cầu đã bị hủy.',
+      message: tr('Yêu cầu đã bị hủy.', 'Request canceled.'),
       requestId: requestId,
       cause: exception,
     ),
@@ -50,20 +62,25 @@ Failure mapDioExceptionToFailure(DioException exception) {
     ),
     DioExceptionType.connectionError => Failure(
       kind: FailureKind.network,
-      message:
-          'Không thể kết nối $serverLabel. Kiểm tra Internet hoặc trạng thái máy chủ.',
+      message: tr(
+        'Không thể kết nối $serverLabel. Kiểm tra Internet hoặc trạng thái máy chủ.',
+        'Could not connect to $serverLabel. Check your internet or the server status.',
+      ),
       requestId: requestId,
       cause: exception,
     ),
     DioExceptionType.badCertificate => Failure(
       kind: FailureKind.network,
-      message: 'Chứng chỉ HTTPS của $serverLabel không hợp lệ.',
+      message: tr(
+        'Chứng chỉ HTTPS của $serverLabel không hợp lệ.',
+        'The HTTPS certificate of $serverLabel is not valid.',
+      ),
       requestId: requestId,
       cause: exception,
     ),
     DioExceptionType.unknown => Failure(
       kind: FailureKind.unknown,
-      message: 'Đã có lỗi không xác định.',
+      message: tr('Đã có lỗi không xác định.', 'An unknown error occurred.'),
       requestId: requestId,
       cause: exception,
     ),
@@ -104,14 +121,23 @@ FailureKind _kindFromStatus(int statusCode) {
 
 String _messageFromStatus(int statusCode) {
   return switch (statusCode) {
-    401 => 'Phiên đăng nhập đã hết hạn.',
-    403 => 'Bạn không có quyền thực hiện thao tác này.',
-    404 => 'Không tìm thấy dữ liệu.',
-    409 => 'Dữ liệu đã thay đổi, vui lòng tải lại.',
-    422 || 400 => 'Dữ liệu không hợp lệ.',
-    429 => 'Yêu cầu tạm thời chưa thể xử lý. Vui lòng thử lại sau ít phút.',
-    >= 500 => 'Máy chủ đang gặp lỗi.',
-    _ => 'Yêu cầu không thành công.',
+    401 => tr('Phiên đăng nhập đã hết hạn.', 'Your session has expired.'),
+    403 => tr(
+      'Bạn không có quyền thực hiện thao tác này.',
+      'You do not have permission to do this.',
+    ),
+    404 => tr('Không tìm thấy dữ liệu.', 'Data not found.'),
+    409 => tr(
+      'Dữ liệu đã thay đổi, vui lòng tải lại.',
+      'The data has changed. Please reload.',
+    ),
+    422 || 400 => tr('Dữ liệu không hợp lệ.', 'Invalid data.'),
+    429 => tr(
+      'Yêu cầu tạm thời chưa thể xử lý. Vui lòng thử lại sau ít phút.',
+      'The request cannot be processed right now. Please try again in a few minutes.',
+    ),
+    >= 500 => tr('Máy chủ đang gặp lỗi.', 'The server is having problems.'),
+    _ => tr('Yêu cầu không thành công.', 'The request failed.'),
   };
 }
 

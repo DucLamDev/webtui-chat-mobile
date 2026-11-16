@@ -4,6 +4,7 @@ import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../../l10n/app_strings.dart';
 import '../../../domain/entities/message_card.dart';
 import 'card_common.dart';
 
@@ -15,7 +16,9 @@ class MessageCardFactsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (facts.isEmpty) return const MessageCardEmptyNote('Chưa có số liệu.');
+    if (facts.isEmpty) {
+      return MessageCardEmptyNote(tr('Chưa có số liệu.', 'No figures yet.'));
+    }
     return Wrap(
       spacing: WebTuiSpacing.md,
       runSpacing: WebTuiSpacing.sm,
@@ -63,7 +66,9 @@ class MessageCardRowsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (rows.isEmpty) return const MessageCardEmptyNote('Chưa có dữ liệu.');
+    if (rows.isEmpty) {
+      return MessageCardEmptyNote(tr('Chưa có dữ liệu.', 'No data yet.'));
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -120,7 +125,9 @@ class MessageCardItemsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) return const MessageCardEmptyNote('Chưa có mục nào.');
+    if (items.isEmpty) {
+      return MessageCardEmptyNote(tr('Chưa có mục nào.', 'No items yet.'));
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -161,7 +168,9 @@ class MessageCardCommandsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (commands.isEmpty) {
-      return const MessageCardEmptyNote('Chưa có lệnh gợi ý.');
+      return MessageCardEmptyNote(
+        tr('Chưa có lệnh gợi ý.', 'No suggested commands yet.'),
+      );
     }
     return Wrap(
       spacing: WebTuiSpacing.xs,
@@ -200,7 +209,9 @@ class MessageCardPlanView extends StatelessWidget {
   Widget build(BuildContext context) {
     final steps = plan.steps;
     if (steps.isEmpty) {
-      return const MessageCardEmptyNote('Kế hoạch chưa có bước.');
+      return MessageCardEmptyNote(
+        tr('Kế hoạch chưa có bước.', 'This plan has no steps yet.'),
+      );
     }
     final done = steps
         .where((step) => step.status == MessageCardPlanStatus.done)
@@ -225,7 +236,10 @@ class MessageCardPlanView extends StatelessWidget {
               ),
               const SizedBox(width: WebTuiSpacing.sm),
               Text(
-                '$done/${steps.length} bước xong',
+                tr(
+                  '$done/${steps.length} bước xong',
+                  '$done/${steps.length} steps done',
+                ),
                 style: WebTuiTypography.labelSmall.copyWith(
                   color: WebTuiColors.textSecondary,
                 ),
@@ -250,33 +264,37 @@ class _PlanStepTile extends StatelessWidget {
       MessageCardPlanStatus.done => (
         Icons.check_circle_rounded,
         WebTuiColors.accentGreen,
-        'Xong',
+        tr('Xong', 'Done'),
       ),
       MessageCardPlanStatus.inProgress => (
         Icons.timelapse_rounded,
         WebTuiColors.primary,
-        'Đang làm',
+        tr('Đang làm', 'In progress'),
       ),
       MessageCardPlanStatus.blocked => (
         Icons.block_rounded,
         WebTuiColors.danger,
-        'Bị chặn',
+        tr('Bị chặn', 'Blocked'),
       ),
       MessageCardPlanStatus.skipped => (
         Icons.remove_circle_outline_rounded,
         WebTuiColors.textMuted,
-        'Bỏ qua',
+        tr('Bỏ qua', 'Skipped'),
       ),
       MessageCardPlanStatus.todo => (
         Icons.radio_button_unchecked_rounded,
         WebTuiColors.textMuted,
-        'Chưa làm',
+        tr('Chưa làm', 'To do'),
       ),
     };
     final details = [
       label,
       if (step.owner != null) step.owner!,
-      if (step.due != null) 'Hạn ${formatCardDay(step.due!)}',
+      if (step.due != null)
+        tr(
+          'Hạn ${formatCardDay(step.due!)}',
+          'Due ${formatCardDay(step.due!)}',
+        ),
     ].join(' · ');
     return Semantics(
       label: '${step.title}, $details',

@@ -10,6 +10,7 @@ import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../workspace/presentation/screens/workspace_selector_screen.dart';
 import '../../domain/entities/auth_session.dart';
 import '../../domain/entities/email_verification.dart';
@@ -62,11 +63,17 @@ class _EmailVerificationScreenState
     final ticket = widget.ticket;
     if (ticket == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Xác minh email')),
+        appBar: AppBar(title: Text(tr('Xác minh email', 'Verify email'))),
         body: SafeArea(
           child: WebTuiErrorState(
-            title: 'Không mở được phiên xác minh',
-            message: 'Hãy đăng ký hoặc đăng nhập lại để nhận mã mới.',
+            title: tr(
+              'Không mở được phiên xác minh',
+              'Could not open the verification session',
+            ),
+            message: tr(
+              'Hãy đăng ký hoặc đăng nhập lại để nhận mã mới.',
+              'Sign up or sign in again to get a new code.',
+            ),
             onRetry: () => context.go('/login'),
           ),
         ),
@@ -90,7 +97,7 @@ class _EmailVerificationScreenState
       backgroundColor: WebTuiColors.background,
       appBar: AppBar(
         leading: IconButton(
-          tooltip: 'Quay lại',
+          tooltip: tr('Quay lại', 'Back'),
           onPressed: () {
             final navigator = Navigator.of(context);
             if (navigator.canPop()) {
@@ -101,7 +108,7 @@ class _EmailVerificationScreenState
           },
           icon: const Icon(Icons.arrow_back_rounded),
         ),
-        title: const Text('Xác minh email'),
+        title: Text(tr('Xác minh email', 'Verify email')),
         surfaceTintColor: Colors.transparent,
       ),
       body: SafeArea(
@@ -115,8 +122,12 @@ class _EmailVerificationScreenState
             ),
             const SizedBox(height: WebTuiSpacing.md),
             Text(
-              'Nhập mã 6 số đã gửi tới '
-              '${state.ticket.emailHint ?? 'email của bạn'}',
+              tr(
+                'Nhập mã 6 số đã gửi tới '
+                    '${state.ticket.emailHint ?? 'email của bạn'}',
+                'Enter the 6-digit code sent to '
+                    '${state.ticket.emailHint ?? 'your email'}',
+              ),
               textAlign: TextAlign.center,
               style: WebTuiTypography.titleMedium.copyWith(
                 fontWeight: FontWeight.w800,
@@ -124,7 +135,10 @@ class _EmailVerificationScreenState
             ),
             const SizedBox(height: WebTuiSpacing.xs),
             Text(
-              'Mã có hiệu lực 15 phút. Kiểm tra cả thư mục spam nếu chưa thấy.',
+              tr(
+                'Mã có hiệu lực 15 phút. Kiểm tra cả thư mục spam nếu chưa thấy.',
+                'The code is valid for 15 minutes. Check your spam folder too if you do not see it.',
+              ),
               textAlign: TextAlign.center,
               style: WebTuiTypography.bodySmall.copyWith(
                 color: WebTuiColors.textMuted,
@@ -188,7 +202,7 @@ class _EmailVerificationScreenState
                       dimension: 20,
                       child: CircularProgressIndicator(strokeWidth: 2.2),
                     )
-                  : const Text('Xác minh'),
+                  : Text(tr('Xác minh', 'Verify')),
             ),
             const SizedBox(height: WebTuiSpacing.sm),
             TextButton(
@@ -198,10 +212,13 @@ class _EmailVerificationScreenState
                   : controller.resend,
               child: Text(
                 secondsLeft > 0
-                    ? 'Gửi lại mã sau ${secondsLeft}s'
+                    ? tr(
+                        'Gửi lại mã sau ${secondsLeft}s',
+                        'Resend code in ${secondsLeft}s',
+                      )
                     : state.isResending
-                    ? 'Đang gửi lại mã...'
-                    : 'Gửi lại mã',
+                    ? tr('Đang gửi lại mã...', 'Resending code...')
+                    : tr('Gửi lại mã', 'Resend code'),
               ),
             ),
           ],

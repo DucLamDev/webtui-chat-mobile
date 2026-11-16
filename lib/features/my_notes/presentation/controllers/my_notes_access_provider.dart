@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/error/error_mapper.dart';
@@ -11,8 +12,10 @@ final myNotesEnabledProvider = Provider<bool>((ref) {
       false;
 });
 
-const myNotesDisabledMessage =
-    'My Note chưa được bật trên máy chủ này. Hãy liên hệ quản trị viên.';
+String get myNotesDisabledMessage => tr(
+  'My Note chưa được bật trên máy chủ này. Hãy liên hệ quản trị viên.',
+  'My Note isn\'t enabled on this server. Contact an administrator.',
+);
 
 bool isMyNotesFeatureDisabled(Failure failure) =>
     failure.code == 'FEATURE_DISABLED';

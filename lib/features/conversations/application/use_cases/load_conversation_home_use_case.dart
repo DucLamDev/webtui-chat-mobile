@@ -1,5 +1,6 @@
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../workspace/domain/repositories/workspace_session_repository.dart';
 import '../../domain/entities/conversation_summary.dart';
 import '../../domain/repositories/conversation_repository.dart';
@@ -19,10 +20,13 @@ final class LoadConversationHomeUseCase {
         workspaceId ??
         await _workspaceSessionRepository.readActiveWorkspaceId();
     if (activeWorkspaceId == null || activeWorkspaceId.isEmpty) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.validation,
-          message: 'Bạn cần chọn workspace trước khi mở hội thoại.',
+          message: tr(
+            'Bạn cần chọn workspace trước khi mở hội thoại.',
+            'Select a workspace before opening a conversation.',
+          ),
           code: 'WORKSPACE_REQUIRED',
         ),
       );
@@ -85,7 +89,10 @@ final class LoadConversationHomeUseCase {
                   contactRequestsResult.failureOrNull?.message,
         membersErrorMessage:
             membersResult.failureOrNull?.kind == FailureKind.forbidden
-            ? 'Bạn chưa có quyền xem danh sách thành viên workspace.'
+            ? tr(
+                'Bạn chưa có quyền xem danh sách thành viên workspace.',
+                'You don\'t have permission to view workspace members.',
+              )
             : membersResult.failureOrNull?.message,
         presenceErrorMessage: presenceResult.failureOrNull?.message,
       ),

@@ -1,5 +1,6 @@
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../workspace/domain/repositories/workspace_session_repository.dart';
 import '../../domain/entities/avatar_upload.dart';
 import '../../domain/entities/user_profile.dart';
@@ -23,10 +24,13 @@ final class UpdateProfileUseCase {
     final displayName = command.displayName?.trim();
     if (displayName != null && displayName.isEmpty) {
       return Future.value(
-        const FailureResult(
+        FailureResult(
           Failure(
             kind: FailureKind.validation,
-            message: 'Tên hiển thị không được để trống.',
+            message: tr(
+              'Tên hiển thị không được để trống.',
+              'The display name cannot be empty.',
+            ),
             code: 'PROFILE_NAME_REQUIRED',
           ),
         ),
@@ -35,10 +39,13 @@ final class UpdateProfileUseCase {
     final title = command.title?.trim();
     if (title != null && title.length > 120) {
       return Future.value(
-        const FailureResult(
+        FailureResult(
           Failure(
             kind: FailureKind.validation,
-            message: 'Chức danh tối đa 120 ký tự.',
+            message: tr(
+              'Chức danh tối đa 120 ký tự.',
+              'The job title can have at most 120 characters.',
+            ),
             code: 'PROFILE_TITLE_TOO_LONG',
           ),
         ),
@@ -79,10 +86,13 @@ final class ChangeAvatarUseCase {
     final workspaceId = await _workspaceSessionRepository
         .readActiveWorkspaceId();
     if (workspaceId == null || workspaceId.trim().isEmpty) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.validation,
-          message: 'Bạn cần chọn workspace trước khi đổi ảnh đại diện.',
+          message: tr(
+            'Bạn cần chọn workspace trước khi đổi ảnh đại diện.',
+            'Choose a workspace before changing your avatar.',
+          ),
           code: 'WORKSPACE_REQUIRED',
         ),
       );

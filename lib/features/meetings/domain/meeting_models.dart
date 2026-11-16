@@ -1,3 +1,5 @@
+import 'package:webtui_chat/l10n/app_strings.dart';
+
 import '../../../core/network/api_response.dart';
 
 /// Máy chủ họp: LiveKit (họp ngay trong app) hoặc Jitsi (mở trình duyệt).
@@ -161,11 +163,16 @@ final class GroupCall {
 }
 
 String groupCallRingTitle(String callerName, String channelName) {
-  final caller = callerName.trim().isEmpty ? 'Một thành viên' : callerName;
+  final caller = callerName.trim().isEmpty
+      ? tr('Một thành viên', 'A member')
+      : callerName;
   final channel = channelName.trim();
   return channel.isEmpty
-      ? '$caller đang gọi nhóm'
-      : '$caller đang gọi nhóm $channel';
+      ? tr('$caller đang gọi nhóm', '$caller is calling the group')
+      : tr(
+          '$caller đang gọi nhóm $channel',
+          '$caller is calling the group $channel',
+        );
 }
 
 /// Kết quả nhận cuộc gọi nhóm: thông tin cuộc gọi + token vào họp.

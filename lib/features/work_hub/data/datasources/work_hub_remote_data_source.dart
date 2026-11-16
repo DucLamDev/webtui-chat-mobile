@@ -1,3 +1,5 @@
+import 'package:webtui_chat/l10n/app_strings.dart';
+
 import '../../../../core/network/api_response.dart';
 import '../../../../core/network/api_transport.dart';
 import '../../domain/entities/work_hub.dart';
@@ -171,7 +173,7 @@ SharedFile _fileFromMap(JsonMap map) {
       'original_name',
       'name',
       'file_name',
-    ], fallback: 'Tệp'),
+    ], fallback: tr('Tệp', 'File')),
     mimeType: stringField(map, const [
       'mime_type',
       'mimeType',

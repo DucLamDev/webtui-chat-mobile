@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
@@ -55,25 +56,27 @@ class _MyNoteFilterSheetState extends ConsumerState<_MyNoteFilterSheet> {
   Future<void> _create({String? parentId}) async {
     final name = await showMyNoteTextDialog(
       context,
-      title: parentId == null ? 'Thư mục mới' : 'Thư mục con mới',
-      label: 'Tên thư mục',
-      confirmLabel: 'Tạo',
+      title: parentId == null
+          ? tr('Thư mục mới', 'New folder')
+          : tr('Thư mục con mới', 'New subfolder'),
+      label: tr('Tên thư mục', 'Folder name'),
+      confirmLabel: tr('Tạo', 'Create'),
       icon: WebTuiIcons.folderPlus,
       maxLength: MyNoteLimits.folderNameMaxLength,
     );
     if (name == null || !mounted) return;
     await _run(
       () => _controller.createFolder(name, parentId: parentId),
-      'Đã tạo thư mục.',
+      tr('Đã tạo thư mục.', 'Folder created.'),
     );
   }
 
   Future<void> _rename(MyNoteFolder folder) async {
     final name = await showMyNoteTextDialog(
       context,
-      title: 'Đổi tên thư mục',
-      label: 'Tên thư mục',
-      confirmLabel: 'Lưu',
+      title: tr('Đổi tên thư mục', 'Rename folder'),
+      label: tr('Tên thư mục', 'Folder name'),
+      confirmLabel: tr('Lưu', 'Save'),
       icon: WebTuiIcons.folderEdit,
       initialValue: folder.name,
       maxLength: MyNoteLimits.folderNameMaxLength,
@@ -81,22 +84,26 @@ class _MyNoteFilterSheetState extends ConsumerState<_MyNoteFilterSheet> {
     if (name == null || !mounted) return;
     await _run(
       () => _controller.renameFolder(folder.id, name),
-      'Đã đổi tên thư mục.',
+      tr('Đã đổi tên thư mục.', 'Folder renamed.'),
     );
   }
 
   Future<void> _delete(MyNoteFolder folder) async {
     final confirmed = await confirmMyNoteAction(
       context,
-      title: 'Xoá thư mục?',
-      message:
-          'Xoá "${folder.name}". Các ghi chú trong thư mục sẽ chuyển về '
-          '"Chưa xếp thư mục", không bị xoá.',
-      confirmLabel: 'Xoá',
+      title: tr('Xoá thư mục?', 'Delete folder?'),
+      message: tr(
+        'Xoá "${folder.name}". Các ghi chú trong thư mục sẽ chuyển về "Chưa xếp thư mục", không bị xoá.',
+        'Delete "${folder.name}". Notes in this folder will move to "No folder" and won\'t be deleted.',
+      ),
+      confirmLabel: tr('Xoá', 'Delete'),
     );
     if (!confirmed || !mounted) return;
     setState(() => _openFolderId = null);
-    await _run(() => _controller.deleteFolder(folder.id), 'Đã xoá thư mục.');
+    await _run(
+      () => _controller.deleteFolder(folder.id),
+      tr('Đã xoá thư mục.', 'Folder deleted.'),
+    );
   }
 
   Widget _section(String label) => Padding(
@@ -131,13 +138,13 @@ class _MyNoteFilterSheetState extends ConsumerState<_MyNoteFilterSheet> {
         children: [
           ActionChip(
             avatar: const Icon(WebTuiIcons.edit, size: 16),
-            label: const Text('Đổi tên'),
+            label: Text(tr('Đổi tên', 'Rename')),
             onPressed: () => unawaited(_rename(node.folder)),
           ),
           if (node.depth < MyNoteLimits.folderMaxDepth)
             ActionChip(
               avatar: const Icon(WebTuiIcons.folderPlus, size: 16),
-              label: const Text('Thư mục con'),
+              label: Text(tr('Thư mục con', 'Subfolder')),
               onPressed: () => unawaited(_create(parentId: node.folder.id)),
             ),
           ActionChip(
@@ -146,7 +153,10 @@ class _MyNoteFilterSheetState extends ConsumerState<_MyNoteFilterSheet> {
               size: 16,
               color: WebTuiColors.danger,
             ),
-            label: Text('Xoá', style: TextStyle(color: WebTuiColors.danger)),
+            label: Text(
+              tr('Xoá', 'Delete'),
+              style: TextStyle(color: WebTuiColors.danger),
+            ),
             onPressed: () => unawaited(_delete(node.folder)),
           ),
         ],
@@ -171,7 +181,7 @@ class _MyNoteFilterSheetState extends ConsumerState<_MyNoteFilterSheet> {
         shrinkWrap: true,
         children: [
           WebTuiSheetHeader(
-            title: 'Lọc ghi chú',
+            title: tr('Lọc ghi chú', 'Filter notes'),
             trailing: myNoteActiveFilterCount(filter) > 0
                 ? TextButton(
                     key: const Key('my_notes_filter_clear'),
@@ -180,14 +190,14 @@ class _MyNoteFilterSheetState extends ConsumerState<_MyNoteFilterSheet> {
                       unawaited(controller.setTag(null));
                       unawaited(controller.setPinnedOnly(false));
                     },
-                    child: const Text('Xoá lọc'),
+                    child: Text(tr('Xoá lọc', 'Clear filters')),
                   )
                 : null,
           ),
           WebTuiSheetActionTile(
             key: const Key('my_notes_pinned_filter'),
             icon: WebTuiIcons.pin,
-            title: 'Chỉ ghi chú đã ghim',
+            title: tr('Chỉ ghi chú đã ghim', 'Pinned notes only'),
             selected: filter.pinnedOnly,
             onTap: () =>
                 unawaited(controller.setPinnedOnly(!filter.pinnedOnly)),
@@ -199,10 +209,10 @@ class _MyNoteFilterSheetState extends ConsumerState<_MyNoteFilterSheet> {
               ),
             ),
           ),
-          _section('THƯ MỤC'),
+          _section(tr('THƯ MỤC', 'FOLDERS')),
           WebTuiSheetActionTile(
             icon: WebTuiIcons.sharedFiles,
-            title: 'Mọi thư mục',
+            title: tr('Mọi thư mục', 'All folders'),
             selected: filter.folderId == null,
             trailing: filter.folderId == null ? _check() : null,
             onTap: () => unawaited(controller.setFolder(null)),
@@ -210,7 +220,7 @@ class _MyNoteFilterSheetState extends ConsumerState<_MyNoteFilterSheet> {
           WebTuiSheetActionTile(
             key: const Key('my_notes_folder_root_filter'),
             icon: WebTuiIcons.file,
-            title: 'Chưa xếp thư mục',
+            title: tr('Chưa xếp thư mục', 'No folder'),
             selected: filter.folderId == myNoteRootFolderFilter,
             trailing: filter.folderId == myNoteRootFolderFilter
                 ? _check()
@@ -225,7 +235,10 @@ class _MyNoteFilterSheetState extends ConsumerState<_MyNoteFilterSheet> {
                 key: Key('my_notes_folder_${node.folder.id}'),
                 icon: WebTuiIcons.folderOpen,
                 title: node.folder.name,
-                subtitle: '${node.folder.noteCount} ghi chú',
+                subtitle: tr(
+                  '${node.folder.noteCount} ghi chú',
+                  '${node.folder.noteCount} notes',
+                ),
                 selected: filter.folderId == node.folder.id,
                 onTap: () => unawaited(controller.setFolder(node.folder.id)),
                 trailing: Row(
@@ -235,7 +248,7 @@ class _MyNoteFilterSheetState extends ConsumerState<_MyNoteFilterSheet> {
                     if (editable)
                       IconButton(
                         key: Key('my_notes_folder_more_${node.folder.id}'),
-                        tooltip: 'Thao tác thư mục',
+                        tooltip: tr('Thao tác thư mục', 'Folder actions'),
                         icon: const Icon(WebTuiIcons.more, size: 20),
                         onPressed: () => setState(
                           () => _openFolderId = _openFolderId == node.folder.id
@@ -254,7 +267,7 @@ class _MyNoteFilterSheetState extends ConsumerState<_MyNoteFilterSheet> {
             WebTuiSheetActionTile(
               key: const Key('my_notes_folder_create'),
               icon: WebTuiIcons.folderPlus,
-              title: 'Thư mục mới',
+              title: tr('Thư mục mới', 'New folder'),
               onTap: () => unawaited(_create()),
             )
           else

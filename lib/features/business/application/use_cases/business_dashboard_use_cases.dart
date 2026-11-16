@@ -1,3 +1,5 @@
+import 'package:webtui_chat/l10n/app_strings.dart';
+
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
 import '../../domain/entities/business_dashboard.dart';
@@ -160,10 +162,10 @@ final class CreateTicketUseCase {
     final trimmedTitle = draft.title.trim();
     if (trimmedTitle.isEmpty) {
       return Future.value(
-        const FailureResult(
+        FailureResult(
           Failure(
             kind: FailureKind.validation,
-            message: 'Cần nhập tiêu đề ticket.',
+            message: tr('Cần nhập tiêu đề ticket.', 'Enter a ticket title.'),
             code: 'VALIDATION_ERROR',
           ),
         ),

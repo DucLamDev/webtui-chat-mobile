@@ -1,3 +1,5 @@
+import 'package:webtui_chat/l10n/app_strings.dart';
+
 import '../../../core/result/result.dart';
 import '../domain/entities/approval.dart';
 import 'use_cases/approval_use_cases.dart';
@@ -45,14 +47,18 @@ final class ApprovalNotificationActionHandler {
       case Success(value: final approval):
         await _report(
           approvalId: approvalId,
-          title: approve ? 'Đã duyệt yêu cầu' : 'Đã từ chối yêu cầu',
+          title: approve
+              ? tr('Đã duyệt yêu cầu', 'Request approved')
+              : tr('Đã từ chối yêu cầu', 'Request rejected'),
           body: _bodyWithStatus(approval),
         );
         return true;
       case FailureResult(failure: final failure):
         await _report(
           approvalId: approvalId,
-          title: approve ? 'Chưa duyệt được' : 'Chưa từ chối được',
+          title: approve
+              ? tr('Chưa duyệt được', 'Couldn\'t approve')
+              : tr('Chưa từ chối được', 'Couldn\'t reject'),
           body: approvalDecisionFailureMessage(failure),
         );
         return false;
@@ -74,17 +80,25 @@ final class ApprovalNotificationActionHandler {
       final decidedAt = decision.decidedAt;
       final String? reason;
       if (instance.isEmpty || instance != active) {
-        reason = 'Yêu cầu thuộc máy chủ khác. Mở app trên máy chủ đó để xử lý.';
+        reason = tr(
+          'Yêu cầu thuộc máy chủ khác. Mở app trên máy chủ đó để xử lý.',
+          'This request belongs to another server. Open the app on that server to handle it.',
+        );
       } else if (decidedAt != null &&
           now.difference(decidedAt.toUtc()) > maxDecisionAge) {
-        reason = 'Lần bấm đã quá 24 giờ nên chưa gửi. Mở yêu cầu để xử lý lại.';
+        reason = tr(
+          'Lần bấm đã quá 24 giờ nên chưa gửi. Mở yêu cầu để xử lý lại.',
+          'The tap was more than 24 hours ago, so it wasn\'t sent. Open the request to handle it again.',
+        );
       } else {
         reason = null;
       }
       if (reason != null) {
         await _report(
           approvalId: decision.approvalId,
-          title: decision.approve ? 'Chưa duyệt được' : 'Chưa từ chối được',
+          title: decision.approve
+              ? tr('Chưa duyệt được', 'Couldn\'t approve')
+              : tr('Chưa từ chối được', 'Couldn\'t reject'),
           body: reason,
         );
         continue;
@@ -114,6 +128,6 @@ String _bodyWithStatus(ApprovalRequest approval) {
   final skip =
       approval.isPending ||
       approval.status == ApprovalStatus.unknown ||
-      label == 'Đã duyệt';
+      label == tr('Đã duyệt', 'Approved');
   return skip ? approval.title : '${approval.title} · $label';
 }

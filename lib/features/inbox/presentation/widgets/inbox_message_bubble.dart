@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
@@ -9,7 +10,10 @@ import 'inbox_formatters.dart';
 /// Nền ghi chú nội bộ (khác tin khách / trả lời).
 const inboxNoteColor = Color(0xFFFFF4D6);
 const inboxNoteBorderColor = Color(0xFFE8CF8A);
-const inboxNoteLabel = 'Ghi chú nội bộ – khách không thấy';
+String get inboxNoteLabel => tr(
+  'Ghi chú nội bộ – khách không thấy',
+  'Internal note – not visible to customers',
+);
 
 /// Một tin: khách (trái, nền trắng), trả lời (phải, nền xanh) hoặc ghi chú
 /// nội bộ (nền vàng, kèm nhãn). Tin trả lời có dòng trạng thái gửi.
@@ -57,7 +61,7 @@ class InboxMessageBubble extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (note)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(bottom: WebTuiSpacing.xs),
                   child: Text(
                     inboxNoteLabel,
@@ -98,7 +102,7 @@ class InboxMessageBubble extends StatelessWidget {
                 TextButton(
                   key: Key('inbox_retry_${message.clientMessageId}'),
                   onPressed: onRetry,
-                  child: const Text('Gửi lại'),
+                  child: Text(tr('Gửi lại', 'Resend')),
                 ),
             ],
           ),

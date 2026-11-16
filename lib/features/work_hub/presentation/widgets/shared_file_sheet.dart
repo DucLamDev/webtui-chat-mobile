@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
@@ -12,15 +13,15 @@ enum SharedFileSheetChoice { view, open, openExternally }
 
 String sharedFileTypeLabel(SharedFile file) {
   return switch (sharedFileFormat(file)) {
-    SharedFileFormat.pdf => 'Tài liệu PDF',
-    SharedFileFormat.word => 'Tài liệu Word',
-    SharedFileFormat.excel => 'Bảng tính Excel',
-    SharedFileFormat.powerpoint => 'Bài trình chiếu',
+    SharedFileFormat.pdf => tr('Tài liệu PDF', 'PDF document'),
+    SharedFileFormat.word => tr('Tài liệu Word', 'Word document'),
+    SharedFileFormat.excel => tr('Bảng tính Excel', 'Excel spreadsheet'),
+    SharedFileFormat.powerpoint => tr('Bài trình chiếu', 'Presentation'),
     SharedFileFormat.other => switch (file.kind) {
       SharedFileKind.video => 'Video',
-      SharedFileKind.image => 'Ảnh',
-      SharedFileKind.audio => 'Ghi âm',
-      SharedFileKind.document => 'Tệp',
+      SharedFileKind.image => tr('Ảnh', 'Photo'),
+      SharedFileKind.audio => tr('Ghi âm', 'Voice message'),
+      SharedFileKind.document => tr('Tệp', 'File'),
     },
   };
 }
@@ -96,8 +97,13 @@ Future<SharedFileSheetChoice?> showSharedFileActionSheet(
               WebTuiSheetActionTile(
                 key: const Key('file_action_view'),
                 icon: video ? WebTuiIcons.play : WebTuiIcons.view,
-                title: 'Xem',
-                subtitle: video ? 'Phát ngay, không cần tải hết' : null,
+                title: tr('Xem', 'View'),
+                subtitle: video
+                    ? tr(
+                        'Phát ngay, không cần tải hết',
+                        'Plays right away, no need to download it all',
+                      )
+                    : null,
                 onTap: () => pick(SharedFileSheetChoice.view),
               )
             else
@@ -105,22 +111,30 @@ Future<SharedFileSheetChoice?> showSharedFileActionSheet(
                 key: const Key('file_action_open'),
                 icon: WebTuiIcons.externalLink,
                 title: file.kind == SharedFileKind.audio
-                    ? 'Mở bằng ứng dụng khác'
-                    : 'Mở',
+                    ? tr('Mở bằng ứng dụng khác', 'Open in another app')
+                    : tr('Mở', 'Open'),
                 // Ghi âm chỉ vào bảng này khi máy không phát trực tiếp được
                 // (WebM / Ogg trên iPhone).
                 subtitle: file.kind == SharedFileKind.audio
-                    ? 'Máy này không phát trực tiếp được ghi âm định dạng '
-                          'này; mở bằng ứng dụng khác hoặc lưu về máy'
-                    : 'Mở bằng ứng dụng có sẵn; từ đó lưu hoặc chia sẻ',
+                    ? tr(
+                        'Máy này không phát trực tiếp được ghi âm định dạng này; mở bằng ứng dụng khác hoặc lưu về máy',
+                        'This device can\'t play this voice message format directly; open it in another app or save it to your device',
+                      )
+                    : tr(
+                        'Mở bằng ứng dụng có sẵn; từ đó lưu hoặc chia sẻ',
+                        'Open in an installed app, then save or share from there',
+                      ),
                 onTap: () => pick(SharedFileSheetChoice.open),
               ),
             if (video || action == SharedFileTapAction.pdfSheet)
               WebTuiSheetActionTile(
                 key: const Key('file_action_external'),
                 icon: WebTuiIcons.externalLink,
-                title: 'Mở bằng ứng dụng khác',
-                subtitle: 'Lưu vào máy, chia sẻ hoặc mở bằng ứng dụng khác',
+                title: tr('Mở bằng ứng dụng khác', 'Open in another app'),
+                subtitle: tr(
+                  'Lưu vào máy, chia sẻ hoặc mở bằng ứng dụng khác',
+                  'Save to device, share or open in another app',
+                ),
                 onTap: () => pick(SharedFileSheetChoice.openExternally),
               ),
             const SizedBox(height: 8),

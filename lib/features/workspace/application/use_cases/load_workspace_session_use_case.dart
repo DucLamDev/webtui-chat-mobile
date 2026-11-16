@@ -1,5 +1,6 @@
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/workspace.dart';
 import '../../domain/entities/workspace_permission.dart';
 import '../../domain/entities/workspace_session.dart';
@@ -41,7 +42,10 @@ final class LoadWorkspaceSessionUseCase {
           return FailureResult(
             Failure(
               kind: FailureKind.validation,
-              message: 'Không tìm thấy workspace hợp lệ cho tài khoản này.',
+              message: tr(
+                'Không tìm thấy workspace hợp lệ cho tài khoản này.',
+                'No valid workspace was found for this account.',
+              ),
               code: 'WORKSPACE_NOT_AVAILABLE',
             ),
           );

@@ -1,3 +1,5 @@
+import 'package:webtui_chat/l10n/app_strings.dart';
+
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
 import '../../../conversations/domain/entities/collaboration_room.dart';
@@ -12,9 +14,14 @@ const maxShortcutCount = 24;
 /// Tên lối tắt: bỏ khoảng trắng hai đầu, 1–40 ký tự. Trả câu báo lỗi hoặc `null`.
 String? validateShortcutTitle(String raw) {
   final title = raw.trim();
-  if (title.isEmpty) return 'Hãy nhập tên lối tắt.';
+  if (title.isEmpty) {
+    return tr('Hãy nhập tên lối tắt.', 'Enter a shortcut name.');
+  }
   if (title.runes.length > maxShortcutTitleLength) {
-    return 'Tên lối tắt tối đa $maxShortcutTitleLength ký tự.';
+    return tr(
+      'Tên lối tắt tối đa $maxShortcutTitleLength ký tự.',
+      'Shortcut names can be up to $maxShortcutTitleLength characters.',
+    );
   }
   return null;
 }
@@ -22,10 +29,16 @@ String? validateShortcutTitle(String raw) {
 /// Đường dẫn lối tắt: chỉ https, có địa chỉ máy chủ, không kèm tài khoản.
 String? validateShortcutUrl(String raw) {
   final url = raw.trim();
-  const needHttps = 'Đường dẫn phải bắt đầu bằng https://';
+  final needHttps = tr(
+    'Đường dẫn phải bắt đầu bằng https://',
+    'The link must start with https://',
+  );
   if (url.isEmpty) return needHttps;
   if (url.length > maxShortcutUrlLength) {
-    return 'Đường dẫn tối đa $maxShortcutUrlLength ký tự.';
+    return tr(
+      'Đường dẫn tối đa $maxShortcutUrlLength ký tự.',
+      'Links can be up to $maxShortcutUrlLength characters.',
+    );
   }
   final uri = Uri.tryParse(url);
   if (uri == null ||
@@ -35,7 +48,10 @@ String? validateShortcutUrl(String raw) {
     return needHttps;
   }
   if (uri.userInfo.isNotEmpty) {
-    return 'Đường dẫn không được chứa tên đăng nhập hoặc mật khẩu.';
+    return tr(
+      'Đường dẫn không được chứa tên đăng nhập hoặc mật khẩu.',
+      'The link can\'t contain a username or password.',
+    );
   }
   return null;
 }
@@ -44,17 +60,26 @@ String? validateShortcutUrl(String raw) {
 Failure _friendlyShortcutFailure(Failure failure) {
   if (failure.kind == FailureKind.forbidden) {
     return failure.copyWith(
-      message: 'Chỉ quản trị viên mới được thay đổi lối tắt.',
+      message: tr(
+        'Chỉ quản trị viên mới được thay đổi lối tắt.',
+        'Only administrators can change shortcuts.',
+      ),
     );
   }
   if (failure.hasCode('SHORTCUT_LIMIT_REACHED')) {
     return failure.copyWith(
-      message: 'Đã đủ $maxShortcutCount lối tắt. Hãy xoá bớt trước khi thêm.',
+      message: tr(
+        'Đã đủ $maxShortcutCount lối tắt. Hãy xoá bớt trước khi thêm.',
+        'You have $maxShortcutCount shortcuts already. Delete some before adding more.',
+      ),
     );
   }
   if (failure.hasCode('SHORTCUT_NOT_FOUND')) {
     return failure.copyWith(
-      message: 'Lối tắt này không còn nữa. Hãy kéo để tải lại.',
+      message: tr(
+        'Lối tắt này không còn nữa. Hãy kéo để tải lại.',
+        'This shortcut no longer exists. Pull to reload.',
+      ),
     );
   }
   if (failure.kind == FailureKind.validation) {
@@ -62,7 +87,10 @@ Failure _friendlyShortcutFailure(Failure failure) {
     final ascii = !failure.message.runes.any((rune) => rune > 0x7f);
     return failure.copyWith(
       message: ascii || lower.isEmpty
-          ? 'Thông tin lối tắt chưa hợp lệ. Hãy kiểm tra tên và đường dẫn.'
+          ? tr(
+              'Thông tin lối tắt chưa hợp lệ. Hãy kiểm tra tên và đường dẫn.',
+              'The shortcut details are invalid. Check the name and link.',
+            )
           : failure.message,
     );
   }

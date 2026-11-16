@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import '../../../core/error/failure.dart';
+import '../../../l10n/app_strings.dart';
 import '../domain/repositories/auth_token_repository.dart';
 import '../domain/repositories/session_state_repository.dart';
 
@@ -64,30 +65,60 @@ final class SessionEndedNotice {
     switch (reason) {
       case SessionEndReason.reloginRequired:
         return switch (detail) {
-          'idle' =>
+          'idle' => tr(
             'Bạn đã không dùng ứng dụng quá lâu. Vui lòng đăng nhập lại.',
-          'max_session_age' =>
+            'You have not used the app for a long time. Please sign in again.',
+          ),
+          'max_session_age' => tr(
             'Phiên đăng nhập đã tới thời hạn tối đa của tổ chức. '
                 'Vui lòng đăng nhập lại.',
-          _ => 'Vui lòng đăng nhập lại để tiếp tục.',
+            'Your session reached the maximum age set by your organization. Please sign in again.',
+          ),
+          _ => tr(
+            'Vui lòng đăng nhập lại để tiếp tục.',
+            'Please sign in again to continue.',
+          ),
         };
       case SessionEndReason.approvalRejected:
-        return 'Yêu cầu đăng nhập trên thiết bị này đã bị từ chối.';
+        return tr(
+          'Yêu cầu đăng nhập trên thiết bị này đã bị từ chối.',
+          'The sign-in request on this device was rejected.',
+        );
       case SessionEndReason.approvalExpired:
-        return 'Hết thời gian chờ duyệt thiết bị. Vui lòng đăng nhập lại.';
+        return tr(
+          'Hết thời gian chờ duyệt thiết bị. Vui lòng đăng nhập lại.',
+          'Device approval timed out. Please sign in again.',
+        );
       case SessionEndReason.revoked:
         return switch (detail) {
-          'user_revoked' =>
+          'user_revoked' => tr(
             'Phiên đăng nhập trên thiết bị này đã bị thu hồi từ thiết bị khác.',
-          'logout_all' => 'Bạn đã đăng xuất khỏi tất cả thiết bị.',
-          'admin_revoked' =>
+            'The session on this device was revoked from another device.',
+          ),
+          'logout_all' => tr(
+            'Bạn đã đăng xuất khỏi tất cả thiết bị.',
+            'You were signed out of all devices.',
+          ),
+          'admin_revoked' => tr(
             'Quản trị viên đã thu hồi phiên đăng nhập trên thiết bị này.',
-          'device_rejected' =>
+            'An administrator revoked the session on this device.',
+          ),
+          'device_rejected' => tr(
             'Yêu cầu đăng nhập trên thiết bị này đã bị từ chối.',
-          'account_disabled' => 'Tài khoản của bạn đã bị khoá.',
-          'policy' =>
+            'The sign-in request on this device was rejected.',
+          ),
+          'account_disabled' => tr(
+            'Tài khoản của bạn đã bị khoá.',
+            'Your account has been locked.',
+          ),
+          'policy' => tr(
             'Phiên đăng nhập đã kết thúc theo chính sách của tổ chức.',
-          _ => 'Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.',
+            'Your session ended under your organization policy.',
+          ),
+          _ => tr(
+            'Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.',
+            'Your session has ended. Please sign in again.',
+          ),
         };
     }
   }

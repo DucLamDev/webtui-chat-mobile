@@ -33,6 +33,7 @@ import '../../features/work_hub/presentation/screens/shared_files_screen.dart';
 import '../../features/work_hub/presentation/screens/shortcuts_manage_screen.dart';
 import '../../features/workspace/presentation/screens/invite_screen.dart';
 import '../../features/workspace/presentation/screens/workspace_selector_screen.dart';
+import '../../l10n/app_strings.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -118,7 +119,9 @@ final appRouterProvider = Provider<GoRouter>((_) {
             channelId: state.pathParameters['channel_id'] ?? '',
             workspaceId: state.uri.queryParameters['workspaceId'],
             avatarUrl: state.uri.queryParameters['avatarUrl'],
-            title: state.uri.queryParameters['title'] ?? 'Hội thoại',
+            title:
+                state.uri.queryParameters['title'] ??
+                tr('Hội thoại', 'Conversation'),
             initialMessageId: state.uri.queryParameters['messageId'],
             conversation: state.extra is ConversationSummary
                 ? state.extra! as ConversationSummary
@@ -151,7 +154,8 @@ final appRouterProvider = Provider<GoRouter>((_) {
         builder: (context, state) {
           return ChannelDetailScreen(
             channelId: state.pathParameters['channel_id'] ?? '',
-            initialTitle: state.uri.queryParameters['title'] ?? 'Kênh',
+            initialTitle:
+                state.uri.queryParameters['title'] ?? tr('Kênh', 'Channel'),
           );
         },
       ),

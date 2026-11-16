@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/conversation_realtime_event.dart';
 import '../../domain/repositories/conversation_repository.dart';
@@ -115,10 +116,10 @@ final class ToggleReactionUseCase {
     final normalized = emoji.trim();
     if (normalized.isEmpty || normalized.runes.length > 32) {
       return Future.value(
-        const FailureResult(
+        FailureResult(
           Failure(
             kind: FailureKind.validation,
-            message: 'Reaction không hợp lệ.',
+            message: tr('Reaction không hợp lệ.', 'Invalid reaction.'),
             code: 'REACTION_INVALID',
           ),
         ),
@@ -185,10 +186,13 @@ final class ForwardMessageUseCase {
     final target = targetChannelId.trim();
     if (target.isEmpty) {
       return Future.value(
-        const FailureResult(
+        FailureResult(
           Failure(
             kind: FailureKind.validation,
-            message: 'Bạn cần chọn kênh nhận tin nhắn chuyển tiếp.',
+            message: tr(
+              'Bạn cần chọn kênh nhận tin nhắn chuyển tiếp.',
+              'Select a channel to forward the message to.',
+            ),
             code: 'FORWARD_TARGET_REQUIRED',
           ),
         ),
@@ -232,10 +236,13 @@ final class SearchMessagesUseCase {
     final query = command.query.trim();
     if (query.isEmpty) {
       return Future.value(
-        const FailureResult(
+        FailureResult(
           Failure(
             kind: FailureKind.validation,
-            message: 'Từ khóa tìm kiếm không được để trống.',
+            message: tr(
+              'Từ khóa tìm kiếm không được để trống.',
+              'Enter a search term.',
+            ),
             code: 'SEARCH_QUERY_REQUIRED',
           ),
         ),
@@ -396,9 +403,12 @@ final class ClearDraftUseCase {
 
 Failure? _validateMessageBody(String body) {
   if (body.isEmpty || body.runes.length > 8000) {
-    return const Failure(
+    return Failure(
       kind: FailureKind.validation,
-      message: 'Nội dung tin nhắn phải dài từ 1 đến 8000 ký tự.',
+      message: tr(
+        'Nội dung tin nhắn phải dài từ 1 đến 8000 ký tự.',
+        'Messages must be 1 to 8000 characters long.',
+      ),
       code: 'MESSAGE_BODY_INVALID',
     );
   }

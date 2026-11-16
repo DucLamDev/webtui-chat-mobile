@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:webtui_chat/l10n/app_strings.dart';
+
 import '../../../../core/network/api_response.dart';
 import '../../../../core/network/api_transport.dart';
 import '../../domain/entities/business_dashboard.dart';
@@ -260,7 +262,9 @@ final class BusinessRemoteDataSource {
 DepartmentSummary _departmentFromMap(JsonMap map) {
   return DepartmentSummary(
     id: stringField(map, const ['id']),
-    name: stringField(map, const ['name'], fallback: 'Phòng ban'),
+    name: stringField(map, const [
+      'name',
+    ], fallback: tr('Phòng ban', 'Departments')),
     slug: stringField(map, const ['slug']),
     description: nullableStringField(map, const ['description']),
     parentId: nullableStringField(map, const ['parent_id', 'parentId']),

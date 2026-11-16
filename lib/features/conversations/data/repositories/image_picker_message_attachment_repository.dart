@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/repositories/message_attachment_repository.dart';
 
@@ -57,8 +58,10 @@ final class ImagePickerMessageAttachmentRepository
       return FailureResult(
         Failure(
           kind: FailureKind.storage,
-          message:
-              'Không thể chọn tệp. Kiểm tra quyền camera/thư viện rồi thử lại.',
+          message: tr(
+            'Không thể chọn tệp. Kiểm tra quyền camera/thư viện rồi thử lại.',
+            'Couldn\'t select the file. Check camera/library permissions and try again.',
+          ),
           code: 'MESSAGE_ATTACHMENT_PICK_FAILED',
           cause: error,
         ),

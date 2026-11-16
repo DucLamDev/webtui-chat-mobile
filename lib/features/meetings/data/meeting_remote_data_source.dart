@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../core/error/error_mapper.dart';
 import '../../../core/error/failure.dart';
@@ -175,24 +176,63 @@ final class MeetingRemoteDataSource implements MeetingApi {
 /// [Failure.kind] và mã lỗi để nơi gọi còn phân biệt (ví dụ 404 do máy chủ cũ).
 Failure meetingFailureFrom(Failure failure) {
   final message = switch (failure.code?.trim().toUpperCase()) {
-    'MEETING_FORBIDDEN' => 'Bạn không có quyền tham gia cuộc họp này.',
-    'MEETING_NOT_FOUND' => 'Không tìm thấy cuộc họp này.',
-    'MEETING_NOT_ACTIVE' => 'Cuộc họp đã kết thúc hoặc đã bị hủy.',
-    'LIVEKIT_NOT_CONFIGURED' =>
+    'MEETING_FORBIDDEN' => tr(
+      'Bạn không có quyền tham gia cuộc họp này.',
+      'You don\'t have permission to join this meeting.',
+    ),
+    'MEETING_NOT_FOUND' => tr(
+      'Không tìm thấy cuộc họp này.',
+      'This meeting wasn\'t found.',
+    ),
+    'MEETING_NOT_ACTIVE' => tr(
+      'Cuộc họp đã kết thúc hoặc đã bị hủy.',
+      'The meeting has ended or was canceled.',
+    ),
+    'LIVEKIT_NOT_CONFIGURED' => tr(
       'Máy chủ chưa cấu hình dịch vụ họp trực tuyến. Hãy báo quản trị viên.',
-    'GROUP_CALL_ACTIVE' => 'Kênh này đang có một cuộc gọi nhóm khác đổ chuông.',
-    'GROUP_CALL_NOT_FOUND' => 'Không tìm thấy cuộc gọi nhóm này.',
-    'GROUP_CALL_NOT_RINGING' => 'Cuộc gọi nhóm không còn đổ chuông.',
-    'GROUP_CALL_ENDED' => 'Cuộc gọi nhóm đã kết thúc.',
-    'MEETING_PROVIDER_UNSUPPORTED' => 'Máy chủ chưa hỗ trợ loại cuộc họp này.',
-    'GROUP_CALLS_UNAVAILABLE' =>
+      'The server has no online meeting service set up. Please tell an administrator.',
+    ),
+    'GROUP_CALL_ACTIVE' => tr(
+      'Kênh này đang có một cuộc gọi nhóm khác đổ chuông.',
+      'Another group call is already ringing in this channel.',
+    ),
+    'GROUP_CALL_NOT_FOUND' => tr(
+      'Không tìm thấy cuộc gọi nhóm này.',
+      'This group call wasn\'t found.',
+    ),
+    'GROUP_CALL_NOT_RINGING' => tr(
+      'Cuộc gọi nhóm không còn đổ chuông.',
+      'The group call is no longer ringing.',
+    ),
+    'GROUP_CALL_ENDED' => tr(
+      'Cuộc gọi nhóm đã kết thúc.',
+      'The group call has ended.',
+    ),
+    'MEETING_PROVIDER_UNSUPPORTED' => tr(
+      'Máy chủ chưa hỗ trợ loại cuộc họp này.',
+      'The server doesn\'t support this type of meeting.',
+    ),
+    'GROUP_CALLS_UNAVAILABLE' => tr(
       'Gọi nhóm tạm thời không khả dụng. Hãy thử lại sau.',
+      'Group calls are temporarily unavailable. Try again later.',
+    ),
     _ => switch (failure.kind) {
-      FailureKind.forbidden => 'Bạn không có quyền thực hiện thao tác này.',
-      FailureKind.notFound => 'Không tìm thấy cuộc họp hoặc cuộc gọi nhóm.',
-      FailureKind.conflict => 'Cuộc họp hoặc cuộc gọi nhóm đã kết thúc.',
-      FailureKind.validation =>
+      FailureKind.forbidden => tr(
+        'Bạn không có quyền thực hiện thao tác này.',
+        'You don\'t have permission to do this.',
+      ),
+      FailureKind.notFound => tr(
+        'Không tìm thấy cuộc họp hoặc cuộc gọi nhóm.',
+        'The meeting or group call wasn\'t found.',
+      ),
+      FailureKind.conflict => tr(
+        'Cuộc họp hoặc cuộc gọi nhóm đã kết thúc.',
+        'The meeting or group call has ended.',
+      ),
+      FailureKind.validation => tr(
         'Máy chủ chưa hỗ trợ thao tác này hoặc dữ liệu không hợp lệ.',
+        'The server doesn\'t support this action, or the data is invalid.',
+      ),
       _ => failure.message,
     },
   };

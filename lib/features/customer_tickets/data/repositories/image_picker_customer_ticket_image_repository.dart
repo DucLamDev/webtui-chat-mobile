@@ -1,4 +1,5 @@
 import 'package:image_picker/image_picker.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
@@ -58,7 +59,10 @@ final class ImagePickerCustomerTicketImageRepository
       return FailureResult(
         Failure(
           kind: FailureKind.storage,
-          message: 'Không chọn được ảnh. Kiểm tra quyền camera / thư viện ảnh.',
+          message: tr(
+            'Không chọn được ảnh. Kiểm tra quyền camera / thư viện ảnh.',
+            'Couldn\'t pick the photo. Check camera / photo library permissions.',
+          ),
           code: 'CUSTOMER_TICKET_IMAGE_PICK_FAILED',
           cause: error,
         ),

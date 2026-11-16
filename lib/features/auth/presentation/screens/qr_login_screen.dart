@@ -9,6 +9,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../conversations/presentation/screens/qr_scanner_screen.dart';
 import '../../domain/entities/qr_login.dart';
 import '../auth_formatters.dart';
@@ -51,9 +52,12 @@ class _QrLoginScreenState extends ConsumerState<QrLoginScreen> {
     ref.read(qrLoginControllerProvider.notifier).reset();
     final raw = await Navigator.of(context).push<String>(
       MaterialPageRoute(
-        builder: (_) => const QrScannerScreen(
-          title: 'Quét mã đăng nhập',
-          hint: 'Hướng camera vào mã QR trên trang đăng nhập của máy tính.',
+        builder: (_) => QrScannerScreen(
+          title: tr('Quét mã đăng nhập', 'Scan sign-in code'),
+          hint: tr(
+            'Hướng camera vào mã QR trên trang đăng nhập của máy tính.',
+            'Point the camera at the QR code on the computer sign-in page.',
+          ),
         ),
       ),
     );
@@ -69,18 +73,20 @@ class _QrLoginScreenState extends ConsumerState<QrLoginScreen> {
       backgroundColor: WebTuiColors.background,
       appBar: AppBar(
         leading: IconButton(
-          tooltip: 'Quay lại',
+          tooltip: tr('Quay lại', 'Back'),
           onPressed: () => _close(context),
           icon: const Icon(Icons.arrow_back_rounded),
         ),
-        title: const Text('Đăng nhập máy tính bằng QR'),
+        title: Text(
+          tr('Đăng nhập máy tính bằng QR', 'Sign in on computer with QR'),
+        ),
         surfaceTintColor: Colors.transparent,
       ),
       body: SafeArea(
         child: switch (state.phase) {
           QrLoginPhase.idle => _IdleView(onScan: _scan),
-          QrLoginPhase.checking => const WebTuiLoadingState(
-            message: 'Đang kiểm tra mã QR...',
+          QrLoginPhase.checking => WebTuiLoadingState(
+            message: tr('Đang kiểm tra mã QR...', 'Checking QR code...'),
           ),
           QrLoginPhase.confirm || QrLoginPhase.deciding => _ConfirmView(
             scan: state.scan!,
@@ -90,21 +96,32 @@ class _QrLoginScreenState extends ConsumerState<QrLoginScreen> {
           ),
           QrLoginPhase.approved => _ResultView(
             icon: Icons.verified_rounded,
-            title: 'Đã đồng ý đăng nhập',
-            message:
-                'Máy tính sẽ tiếp tục đăng nhập. Tổ chức có thể yêu cầu '
-                'duyệt thêm thiết bị này.',
+            title: tr('Đã đồng ý đăng nhập', 'Sign-in approved'),
+            message: tr(
+              'Máy tính sẽ tiếp tục đăng nhập. Tổ chức có thể yêu cầu '
+                  'duyệt thêm thiết bị này.',
+              'The computer will continue signing in. Your organization may '
+                  'require this device to be approved as well.',
+            ),
             onDone: () => _close(context),
           ),
           QrLoginPhase.rejected => _ResultView(
             icon: Icons.block_rounded,
-            title: 'Đã từ chối',
-            message: 'Máy tính sẽ không được đăng nhập.',
+            title: tr('Đã từ chối', 'Rejected'),
+            message: tr(
+              'Máy tính sẽ không được đăng nhập.',
+              'The computer will not be signed in.',
+            ),
             onDone: () => _close(context),
           ),
           QrLoginPhase.error => WebTuiErrorState(
-            title: 'Không dùng được mã QR này',
-            message: state.errorMessage ?? 'Vui lòng thử lại.',
+            title: tr(
+              'Không dùng được mã QR này',
+              'This QR code cannot be used',
+            ),
+            message:
+                state.errorMessage ??
+                tr('Vui lòng thử lại.', 'Please try again.'),
             onRetry: _scan,
           ),
         },
@@ -142,8 +159,12 @@ class _IdleView extends StatelessWidget {
             ),
             const SizedBox(height: WebTuiSpacing.md),
             Text(
-              'Mở trang đăng nhập trên máy tính, chọn đăng nhập bằng QR rồi '
-              'quét mã bằng điện thoại này.',
+              tr(
+                'Mở trang đăng nhập trên máy tính, chọn đăng nhập bằng QR rồi '
+                    'quét mã bằng điện thoại này.',
+                'Open the sign-in page on your computer, choose QR sign-in, then '
+                    'scan the code with this phone.',
+              ),
               textAlign: TextAlign.center,
               style: WebTuiTypography.bodyMedium,
             ),
@@ -152,7 +173,7 @@ class _IdleView extends StatelessWidget {
               key: const Key('qr_login_scan_button'),
               onPressed: onScan,
               icon: const Icon(Icons.qr_code_scanner_rounded),
-              label: const Text('Quét mã'),
+              label: Text(tr('Quét mã', 'Scan code')),
             ),
           ],
         ),
@@ -185,15 +206,19 @@ class _ConfirmView extends StatelessWidget {
       padding: const EdgeInsets.all(WebTuiSpacing.lg),
       children: [
         Text(
-          'Đăng nhập trên máy tính này?',
+          tr('Đăng nhập trên máy tính này?', 'Sign in on this computer?'),
           style: WebTuiTypography.titleMedium.copyWith(
             fontWeight: FontWeight.w800,
           ),
         ),
         const SizedBox(height: WebTuiSpacing.xs),
         Text(
-          'Chỉ đồng ý nếu chính bạn đang đứng trước máy tính này. Máy tính sẽ '
-          'đăng nhập bằng tài khoản của bạn.',
+          tr(
+            'Chỉ đồng ý nếu chính bạn đang đứng trước máy tính này. Máy tính sẽ '
+                'đăng nhập bằng tài khoản của bạn.',
+            'Only approve if you are the one sitting at this computer. The computer '
+                'will sign in with your account.',
+          ),
           style: WebTuiTypography.bodyMedium.copyWith(
             color: WebTuiColors.textSecondary,
           ),
@@ -211,20 +236,21 @@ class _ConfirmView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _Line(
-                  label: 'Thiết bị',
-                  value: requester.deviceName ?? 'Không xác định',
+                  label: tr('Thiết bị', 'Device'),
+                  value:
+                      requester.deviceName ?? tr('Không xác định', 'Unknown'),
                 ),
                 _Line(
-                  label: 'Trình duyệt',
+                  label: tr('Trình duyệt', 'Browser'),
                   value: describeUserAgent(requester.userAgent),
                 ),
                 _Line(
-                  label: 'Địa chỉ IP',
-                  value: requester.ipAddress ?? 'Không xác định',
+                  label: tr('Địa chỉ IP', 'IP address'),
+                  value: requester.ipAddress ?? tr('Không xác định', 'Unknown'),
                 ),
                 if (createdAt != null)
                   _Line(
-                    label: 'Thời điểm',
+                    label: tr('Thời điểm', 'Time'),
                     value: formatAuthDateTime(createdAt),
                   ),
               ],
@@ -235,8 +261,14 @@ class _ConfirmView extends StatelessWidget {
           const SizedBox(height: WebTuiSpacing.sm),
           Text(
             expired
-                ? 'Mã đã hết hạn. Hãy tải mã mới trên máy tính rồi quét lại.'
-                : 'Mã hết hạn sau ${formatCountdown(remaining)}',
+                ? tr(
+                    'Mã đã hết hạn. Hãy tải mã mới trên máy tính rồi quét lại.',
+                    'The code has expired. Load a new code on your computer and scan again.',
+                  )
+                : tr(
+                    'Mã hết hạn sau ${formatCountdown(remaining)}',
+                    'Code expires in ${formatCountdown(remaining)}',
+                  ),
             key: const Key('qr_login_countdown'),
             style: WebTuiTypography.bodySmall.copyWith(
               color: expired ? WebTuiColors.danger : WebTuiColors.textMuted,
@@ -255,7 +287,7 @@ class _ConfirmView extends StatelessWidget {
                   foregroundColor: WebTuiColors.danger,
                   minimumSize: const Size.fromHeight(48),
                 ),
-                child: const Text('Từ chối'),
+                child: Text(tr('Từ chối', 'Reject')),
               ),
             ),
             const SizedBox(width: WebTuiSpacing.md),
@@ -271,7 +303,7 @@ class _ConfirmView extends StatelessWidget {
                         dimension: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Đồng ý'),
+                    : Text(tr('Đồng ý', 'Approve')),
               ),
             ),
           ],

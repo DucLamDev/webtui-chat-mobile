@@ -12,6 +12,7 @@ import '../../../../core/security/active_call_tracker.dart';
 import '../../../../core/security/instance_scope.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../auth/presentation/controllers/legal_acceptance_controller.dart';
 import '../../application/use_cases/call_use_cases.dart';
 import '../../domain/entities/call_device_routing.dart';
@@ -131,7 +132,10 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     try {
       if (!ref.read(legalAcceptanceControllerProvider).canCreateUserContent) {
         throw StateError(
-          'Cần đồng ý Điều khoản và Chính sách quyền riêng tư trước khi bắt đầu hoặc nhận cuộc gọi.',
+          tr(
+            'Cần đồng ý Điều khoản và Chính sách quyền riêng tư trước khi bắt đầu hoặc nhận cuộc gọi.',
+            'You need to accept the Terms and Privacy Policy before starting or answering a call.',
+          ),
         );
       }
       await _localRenderer.initialize();
@@ -302,7 +306,9 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
                 ))
             .valueOrNull;
     if (current == null || current.isTerminal) {
-      throw StateError('Cuộc gọi không còn khả dụng.');
+      throw StateError(
+        tr('Cuộc gọi không còn khả dụng.', 'This call is no longer available.'),
+      );
     }
     if (current.status == CallStatus.ringing) {
       final accepted = await ref
@@ -313,7 +319,8 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
           return false;
         }
         throw StateError(
-          accepted.failureOrNull?.message ?? 'Không thể nhận cuộc gọi.',
+          accepted.failureOrNull?.message ??
+              tr('Không thể nhận cuộc gọi.', 'Couldn\'t answer the call.'),
         );
       }
       return !callAnsweredOnAnotherDevice(
@@ -531,7 +538,10 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
         );
     if (result.isFailure) {
       throw StateError(
-        'Không thể gửi tín hiệu WebRTC: ${result.failureOrNull?.message}',
+        tr(
+          'Không thể gửi tín hiệu WebRTC: ${result.failureOrNull?.message}',
+          'Couldn\'t send WebRTC signal: ${result.failureOrNull?.message}',
+        ),
       );
     }
   }
@@ -758,7 +768,12 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       if (widget.incoming) {
         unawaited(
           _abortCall(
-            StateError('Kết nối cuộc gọi đã bị gián đoạn.'),
+            StateError(
+              tr(
+                'Kết nối cuộc gọi đã bị gián đoạn.',
+                'The call connection was interrupted.',
+              ),
+            ),
             reason: 'webrtc_disconnected',
           ),
         );
@@ -784,7 +799,10 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
           unawaited(
             _abortCall(
               StateError(
-                'Không thể khôi phục đường truyền WebRTC. Hãy kiểm tra TURN và firewall của server.',
+                tr(
+                  'Không thể khôi phục đường truyền WebRTC. Hãy kiểm tra TURN và firewall của server.',
+                  'Couldn\'t restore the WebRTC connection. Check the server\'s TURN and firewall settings.',
+                ),
               ),
               reason: 'webrtc_disconnected',
             ),
@@ -844,10 +862,10 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
                       const SizedBox(height: 4),
                       Text(
                         _reconnecting
-                            ? 'Đang khôi phục kết nối…'
+                            ? tr('Đang khôi phục kết nối…', 'Reconnecting…')
                             : _status == CallStatus.accepted
                             ? _duration(_elapsed)
-                            : 'Đang kết nối',
+                            : tr('Đang kết nối', 'Connecting'),
                         style: TextStyle(
                           color: _reconnecting
                               ? const Color(0xFFFBBF24)
@@ -885,7 +903,10 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
                           ),
                           const SizedBox(width: WebTuiSpacing.sm),
                           Text(
-                            'Cuộc họp đã kéo dài ${_elapsed.inMinutes} phút',
+                            tr(
+                              'Cuộc họp đã kéo dài ${_elapsed.inMinutes} phút',
+                              'Meeting has lasted ${_elapsed.inMinutes} min',
+                            ),
                             style: WebTuiTypography.bodySmall.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.w800,
@@ -925,7 +946,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
                     children: [
                       _control(
                         _microphoneEnabled ? Icons.mic : Icons.mic_off,
-                        _microphoneEnabled ? 'Mic' : 'Bật mic',
+                        _microphoneEnabled ? 'Mic' : tr('Bật mic', 'Unmute'),
                         _toggleMicrophone,
                         active: !_microphoneEnabled,
                       ),
@@ -933,26 +954,30 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
                         _speakerEnabled
                             ? Icons.volume_up
                             : Icons.hearing_outlined,
-                        _speakerEnabled ? 'Loa ngoài' : 'Tai nghe',
+                        _speakerEnabled
+                            ? tr('Loa ngoài', 'Speaker')
+                            : tr('Tai nghe', 'Earpiece'),
                         () => unawaited(_toggleSpeaker()),
                         active: _speakerEnabled,
                       ),
                       if (widget.mode == CallMode.video) ...[
                         _control(
                           _cameraEnabled ? Icons.videocam : Icons.videocam_off,
-                          _cameraEnabled ? 'Camera' : 'Bật cam',
+                          _cameraEnabled
+                              ? 'Camera'
+                              : tr('Bật cam', 'Camera on'),
                           _toggleCamera,
                           active: !_cameraEnabled,
                         ),
                         _control(
                           Icons.cameraswitch_outlined,
-                          'Đổi cam',
+                          tr('Đổi cam', 'Flip camera'),
                           () => unawaited(_switchCamera()),
                         ),
                       ],
                       _control(
                         Icons.call_end,
-                        'Kết thúc',
+                        tr('Kết thúc', 'End'),
                         () => unawaited(_finishLeave()),
                         destructive: true,
                       ),
@@ -969,13 +994,17 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
 
   Widget _media() {
     if (_error != null) {
-      return _state(Icons.videocam_off_outlined, 'Không thể kết nối', _error!);
+      return _state(
+        Icons.videocam_off_outlined,
+        tr('Không thể kết nối', 'Couldn\'t connect'),
+        _error!,
+      );
     }
     if (!_ready) {
       return _state(
         Icons.sync,
-        'Đang chuẩn bị cuộc gọi',
-        'Đang kết nối media...',
+        tr('Đang chuẩn bị cuộc gọi', 'Preparing call'),
+        tr('Đang kết nối media...', 'Connecting media...'),
         loading: true,
       );
     }
@@ -983,7 +1012,9 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       return _state(
         Icons.person,
         widget.title,
-        _status == CallStatus.accepted ? 'Đã kết nối' : 'Đang đổ chuông...',
+        _status == CallStatus.accepted
+            ? tr('Đã kết nối', 'Connected')
+            : tr('Đang đổ chuông...', 'Ringing...'),
       );
     }
     return LayoutBuilder(
@@ -1171,9 +1202,14 @@ String _friendlyError(Object error) {
     '',
   );
   if (message.contains('NotAllowed') || message.contains('Permission')) {
-    return 'Cần cấp quyền camera và microphone để thực hiện cuộc gọi.';
+    return tr(
+      'Cần cấp quyền camera và microphone để thực hiện cuộc gọi.',
+      'Camera and microphone access is needed to make calls.',
+    );
   }
-  return message.trim().isEmpty ? 'Không thể bắt đầu cuộc gọi.' : message;
+  return message.trim().isEmpty
+      ? tr('Không thể bắt đầu cuộc gọi.', 'Couldn\'t start the call.')
+      : message;
 }
 
 /// Tín hiệu WebRTC (offer / answer / ICE / ready) có `target_device_id` khác máy

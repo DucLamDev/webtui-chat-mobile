@@ -4,6 +4,7 @@ import 'dart:io';
 import '../../../../core/error/failure.dart';
 import '../../../../core/platform/video_compressor.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/chat_message.dart';
 import 'message_attachment_use_cases.dart';
 
@@ -163,13 +164,16 @@ final class DefaultMessageMediaUploader implements MessageMediaUploader {
     String? compressedPath;
     try {
       if (!await File(attachment.path).exists()) {
-        const failure = Failure(
+        final failure = Failure(
           kind: FailureKind.validation,
           code: 'ATTACHMENT_FILE_MISSING',
-          message: 'Không còn tệp trên máy, hãy chọn lại.',
+          message: tr(
+            'Không còn tệp trên máy, hãy chọn lại.',
+            'The file is no longer on this device. Select it again.',
+          ),
         );
         _emit(job, id, MessageMediaUploadStage.failed, 0);
-        return const FailureResult(failure);
+        return FailureResult(failure);
       }
 
       var toUpload = attachment;
@@ -236,7 +240,10 @@ final class DefaultMessageMediaUploader implements MessageMediaUploader {
       return FailureResult(
         Failure(
           kind: FailureKind.unknown,
-          message: 'Không tải được tệp lên, hãy thử lại.',
+          message: tr(
+            'Không tải được tệp lên, hãy thử lại.',
+            'Couldn\'t upload the file. Please try again.',
+          ),
           cause: error,
         ),
       );

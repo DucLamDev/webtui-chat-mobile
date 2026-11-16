@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../design_system/components/webtui_components.dart';
@@ -25,16 +26,22 @@ class BusinessRouteScreen extends ConsumerWidget {
     final id = requested.isNotEmpty ? requested : active?.trim() ?? '';
     final Widget body;
     if (!enabled) {
-      body = const WebTuiEmptyState(
+      body = WebTuiEmptyState(
         key: Key('business_unavailable'),
-        title: 'Chưa có module nghiệp vụ',
-        message: 'Máy chủ này chưa bật module nghiệp vụ.',
+        title: tr('Chưa có module nghiệp vụ', 'No business module'),
+        message: tr(
+          'Máy chủ này chưa bật module nghiệp vụ.',
+          'This server hasn\'t enabled the business module.',
+        ),
         icon: Icons.lock_outline_rounded,
       );
     } else if (id.isEmpty) {
-      body = const WebTuiEmptyState(
-        title: 'Chưa chọn workspace',
-        message: 'Chọn workspace trước khi xem nghiệp vụ.',
+      body = WebTuiEmptyState(
+        title: tr('Chưa chọn workspace', 'No workspace selected'),
+        message: tr(
+          'Chọn workspace trước khi xem nghiệp vụ.',
+          'Select a workspace before viewing business.',
+        ),
         icon: Icons.dashboard_customize_outlined,
       );
     } else {
@@ -43,7 +50,7 @@ class BusinessRouteScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: WebTuiColors.background,
       appBar: AppBar(
-        title: const Text('Nghiệp vụ'),
+        title: Text(tr('Nghiệp vụ', 'Business')),
         surfaceTintColor: Colors.transparent,
       ),
       body: SafeArea(top: false, child: body),

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
+import '../../../../l10n/app_strings.dart';
 
 /// Tên và logo hiển thị cho chat bot thông báo. Dựng từ discovery (không dùng
 /// tên máy chủ lưu trong kênh) để luôn đúng khi tổ chức đổi tên hoặc logo.
@@ -17,7 +18,9 @@ final class NoticeBotIdentity {
     final cleanName = name?.trim() ?? '';
     final cleanLogo = logoUrl?.trim() ?? '';
     return NoticeBotIdentity(
-      title: cleanName.isEmpty ? 'Bot thông báo' : '$cleanName Bot',
+      title: cleanName.isEmpty
+          ? tr('Bot thông báo', 'Notification bot')
+          : '$cleanName Bot',
       logoUrl: cleanLogo.isEmpty ? null : cleanLogo,
     );
   }

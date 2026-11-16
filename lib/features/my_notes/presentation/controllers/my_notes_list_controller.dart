@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
@@ -277,8 +278,10 @@ final class MyNotesListController extends StateNotifier<MyNotesListState> {
       case FailureResult(failure: final failure):
         if (isMyNoteVersionConflict(failure)) {
           unawaited(load());
-          return 'Ghi chú vừa được sửa ở nơi khác. Danh sách đã tải lại, '
-              'hãy thử lại.';
+          return tr(
+            'Ghi chú vừa được sửa ở nơi khác. Danh sách đã tải lại, hãy thử lại.',
+            'This note was just edited elsewhere. The list was reloaded, so try again.',
+          );
         }
         return myNotesErrorText(failure);
     }
@@ -352,8 +355,10 @@ final class MyNotesListController extends StateNotifier<MyNotesListState> {
         return null;
       case FailureResult(failure: final failure):
         if (failure.code == 'NOTE_FOLDER_HAS_CHILDREN') {
-          return 'Thư mục còn thư mục con. Hãy xoá hoặc chuyển thư mục con '
-              'trước.';
+          return tr(
+            'Thư mục còn thư mục con. Hãy xoá hoặc chuyển thư mục con trước.',
+            'This folder still has subfolders. Delete or move them first.',
+          );
         }
         return myNotesErrorText(failure);
     }

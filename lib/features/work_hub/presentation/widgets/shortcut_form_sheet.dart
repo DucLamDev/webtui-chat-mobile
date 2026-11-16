@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../design_system/components/webtui_components.dart';
@@ -107,7 +108,11 @@ class _ShortcutFormSheetState extends ConsumerState<ShortcutFormSheet> {
           key: const Key('shortcut_form'),
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            WebTuiSheetHeader(title: editing ? 'Sửa lối tắt' : 'Thêm lối tắt'),
+            WebTuiSheetHeader(
+              title: editing
+                  ? tr('Sửa lối tắt', 'Edit shortcut')
+                  : tr('Thêm lối tắt', 'Add shortcut'),
+            ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
@@ -116,7 +121,7 @@ class _ShortcutFormSheetState extends ConsumerState<ShortcutFormSheet> {
                   WebTuiDialogTextField(
                     key: const Key('shortcut_title'),
                     controller: _title,
-                    label: 'Tên hiển thị',
+                    label: tr('Tên hiển thị', 'Display name'),
                     maxLength: maxShortcutTitleLength,
                     errorText: _titleError,
                     textInputAction: TextInputAction.next,
@@ -125,13 +130,13 @@ class _ShortcutFormSheetState extends ConsumerState<ShortcutFormSheet> {
                   WebTuiDialogTextField(
                     key: const Key('shortcut_url'),
                     controller: _url,
-                    label: 'Đường dẫn (https://...)',
+                    label: tr('Đường dẫn (https://...)', 'Link (https://...)'),
                     errorText: _urlError,
                     keyboardType: TextInputType.url,
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Biểu tượng',
+                    tr('Biểu tượng', 'Icon'),
                     style: WebTuiTypography.bodyMedium.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -156,7 +161,7 @@ class _ShortcutFormSheetState extends ConsumerState<ShortcutFormSheet> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Màu',
+                    tr('Màu', 'Color'),
                     style: WebTuiTypography.bodyMedium.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -192,7 +197,11 @@ class _ShortcutFormSheetState extends ConsumerState<ShortcutFormSheet> {
                   FilledButton(
                     key: const Key('shortcut_save'),
                     onPressed: _saving ? null : _save,
-                    child: Text(_saving ? 'Đang lưu...' : 'Lưu'),
+                    child: Text(
+                      _saving
+                          ? tr('Đang lưu...', 'Saving...')
+                          : tr('Lưu', 'Save'),
+                    ),
                   ),
                 ],
               ),
@@ -264,7 +273,7 @@ class _ColorChoice extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      label: 'Màu $colorKey',
+      label: tr('Màu $colorKey', 'Color $colorKey'),
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onTap,

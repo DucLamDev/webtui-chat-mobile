@@ -1,5 +1,6 @@
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/message_card.dart';
 import '../../domain/entities/rich_message.dart';
@@ -18,7 +19,7 @@ final class GetMessageUseCase {
     required String messageId,
   }) {
     if (messageId.trim().isEmpty) {
-      return Future.value(const FailureResult(_missingMessage));
+      return Future.value(FailureResult(_missingMessage));
     }
     return _repository.getMessage(
       workspaceId: workspaceId,
@@ -42,10 +43,13 @@ final class InvokeMessageActionUseCase {
   }) {
     if (messageId.trim().isEmpty || actionId.trim().isEmpty) {
       return Future.value(
-        const FailureResult(
+        FailureResult(
           Failure(
             kind: FailureKind.validation,
-            message: 'Nút này không còn dùng được.',
+            message: tr(
+              'Nút này không còn dùng được.',
+              'This button is no longer available.',
+            ),
             code: 'ACTION_NOT_FOUND',
           ),
         ),
@@ -80,7 +84,10 @@ final class SubmitMessageFormUseCase {
         FailureResult(
           Failure(
             kind: FailureKind.validation,
-            message: 'Biểu mẫu còn ô chưa hợp lệ.',
+            message: tr(
+              'Biểu mẫu còn ô chưa hợp lệ.',
+              'Some form fields are invalid.',
+            ),
             code: 'INVALID_FORM_SUBMISSION',
             cause: MessageFormFieldErrors(errors),
           ),
@@ -116,8 +123,10 @@ final class LoadMyMessageInteractionsUseCase {
 }
 
 /// Câu báo khi máy chủ chưa có API phê duyệt (route trả 404).
-const approvalUnavailableMessage =
-    'Chức năng phê duyệt chưa sẵn sàng trên máy chủ';
+String get approvalUnavailableMessage => tr(
+  'Chức năng phê duyệt chưa sẵn sàng trên máy chủ',
+  'Approvals aren\'t available on the server yet',
+);
 
 /// Đồng ý / từ chối một yêu cầu phê duyệt từ nút trên thẻ.
 final class DecideApprovalUseCase {
@@ -131,10 +140,13 @@ final class DecideApprovalUseCase {
     required MessageCardApprovalDecision decision,
   }) async {
     if (approvalId.trim().isEmpty) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.validation,
-          message: 'Yêu cầu phê duyệt không hợp lệ.',
+          message: tr(
+            'Yêu cầu phê duyệt không hợp lệ.',
+            'Invalid approval request.',
+          ),
           code: 'VALIDATION_ERROR',
         ),
       );
@@ -177,7 +189,7 @@ final class LoadFileTranscriptUseCase {
     required String fileId,
   }) {
     if (fileId.trim().isEmpty) {
-      return Future.value(const FailureResult(_missingMessage));
+      return Future.value(FailureResult(_missingMessage));
     }
     return _repository.getFileTranscript(
       workspaceId: workspaceId,
@@ -186,8 +198,8 @@ final class LoadFileTranscriptUseCase {
   }
 }
 
-const _missingMessage = Failure(
+Failure get _missingMessage => Failure(
   kind: FailureKind.validation,
-  message: 'Không tìm thấy tin nhắn.',
+  message: tr('Không tìm thấy tin nhắn.', 'Message not found.'),
   code: 'MESSAGE_NOT_FOUND',
 );

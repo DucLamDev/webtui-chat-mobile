@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_strings.dart';
 import '../tokens/webtui_colors.dart';
 import '../tokens/webtui_radii.dart';
 import '../tokens/webtui_spacing.dart';
@@ -29,16 +30,16 @@ class WebTuiEmptyState extends StatelessWidget {
 }
 
 class WebTuiLoadingState extends StatelessWidget {
-  const WebTuiLoadingState({this.message = 'Đang tải dữ liệu...', super.key});
+  const WebTuiLoadingState({this.message, super.key});
 
-  final String message;
+  final String? message;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       container: true,
       liveRegion: true,
-      label: message,
+      label: message ?? tr('Đang tải dữ liệu...', 'Loading data...'),
       child: SizedBox(
         height: 92,
         child: Padding(
@@ -51,7 +52,7 @@ class WebTuiLoadingState extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                message,
+                message ?? tr('Đang tải dữ liệu...', 'Loading data...'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: WebTuiTypography.bodySmall.copyWith(
@@ -114,7 +115,7 @@ class WebTuiErrorState extends StatelessWidget {
           : TextButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('Thử lại'),
+              label: Text(tr('Thử lại', 'Retry')),
             ),
     );
   }

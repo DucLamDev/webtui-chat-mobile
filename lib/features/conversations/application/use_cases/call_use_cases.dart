@@ -2,6 +2,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../auth/domain/repositories/device_identity_repository.dart';
 import '../../domain/entities/call_session.dart';
 import '../../domain/repositories/call_repository.dart';
@@ -60,10 +61,13 @@ final class StartCallUseCase {
   }) {
     if (targetUserId.trim().isEmpty) {
       return Future.value(
-        const FailureResult(
+        FailureResult(
           Failure(
             kind: FailureKind.validation,
-            message: 'Chưa có người nhận cuộc gọi.',
+            message: tr(
+              'Chưa có người nhận cuộc gọi.',
+              'No one to receive the call yet.',
+            ),
             code: 'CALL_TARGET_REQUIRED',
           ),
         ),

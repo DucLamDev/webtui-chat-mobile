@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/error/failure.dart';
@@ -415,7 +416,10 @@ final class InboxConversationController
     final me = state.currentUserId;
     if (me == null || me.isEmpty) {
       state = state.copyWith(
-        actionError: 'Chưa xác định được tài khoản của bạn.',
+        actionError: tr(
+          'Chưa xác định được tài khoản của bạn.',
+          'Couldn\'t identify your account.',
+        ),
       );
       return;
     }
@@ -453,7 +457,10 @@ final class InboxConversationController
   Future<void> _update(InboxConversationChange change) async {
     if (state.isUpdating) {
       state = state.copyWith(
-        actionError: 'Đang cập nhật, thử lại sau giây lát.',
+        actionError: tr(
+          'Đang cập nhật, thử lại sau giây lát.',
+          'Updating. Try again in a moment.',
+        ),
       );
       return;
     }

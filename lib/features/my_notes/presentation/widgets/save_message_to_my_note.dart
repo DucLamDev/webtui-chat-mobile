@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
@@ -77,22 +78,32 @@ Future<void> saveMessageToMyNote(
           SnackBar(
             content: Text(
               saved.created
-                  ? 'Đã lưu vào My Note.'
-                  : 'Tin nhắn này đã có trong My Note.',
+                  ? tr('Đã lưu vào My Note.', 'Saved to My Note.')
+                  : tr(
+                      'Tin nhắn này đã có trong My Note.',
+                      'This message is already in My Note.',
+                    ),
             ),
             action: SnackBarAction(
-              label: 'Mở ghi chú',
+              label: tr('Mở ghi chú', 'Open note'),
               onPressed: () => unawaited(router.push(location)),
             ),
           ),
         );
     case FailureResult(failure: final failure):
       final message = switch (failure.code) {
-        'SECRET_MESSAGE_RESTRICTED' =>
+        'SECRET_MESSAGE_RESTRICTED' => tr(
           'Tin nhắn bí mật không lưu vào My Note được.',
-        'CHANNEL_ACCESS_DENIED' =>
+          'Secret messages can\'t be saved to My Note.',
+        ),
+        'CHANNEL_ACCESS_DENIED' => tr(
           'Bạn không còn ở trong cuộc trò chuyện này nên chưa lưu được tin.',
-        'MESSAGE_NOT_FOUND' => 'Tin nhắn không còn tồn tại.',
+          'You\'re no longer in this conversation, so the message couldn\'t be saved.',
+        ),
+        'MESSAGE_NOT_FOUND' => tr(
+          'Tin nhắn không còn tồn tại.',
+          'The message no longer exists.',
+        ),
         _ => myNotesErrorText(failure),
       };
       messenger

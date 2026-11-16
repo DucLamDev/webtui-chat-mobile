@@ -1,3 +1,5 @@
+import 'package:webtui_chat/l10n/app_strings.dart';
+
 import '../../../core/error/failure.dart';
 
 const inboxReplyWindowClosedCode = 'INBOX_REPLY_WINDOW_CLOSED';
@@ -6,19 +8,31 @@ const inboxSourceDisabledCode = 'INBOX_SOURCE_DISABLED';
 /// Câu báo lỗi tiếng Việt khi gửi / đổi hội thoại không thành công.
 String inboxActionFailureMessage(Failure failure) {
   if (failure.hasCode(inboxReplyWindowClosedCode)) {
-    return 'Đã quá thời hạn trả lời của kênh này.';
+    return tr(
+      'Đã quá thời hạn trả lời của kênh này.',
+      'The reply window for this channel has passed.',
+    );
   }
   if (failure.hasCode(inboxSourceDisabledCode)) {
-    return 'Nguồn này đang tắt, chưa trả lời được.';
+    return tr(
+      'Nguồn này đang tắt, chưa trả lời được.',
+      'This source is turned off, so you can\'t reply yet.',
+    );
   }
   if (failure.kind == FailureKind.forbidden) {
-    return 'Bạn không có quyền thực hiện thao tác này.';
+    return tr(
+      'Bạn không có quyền thực hiện thao tác này.',
+      'You don\'t have permission to do this.',
+    );
   }
   if (failure.kind == FailureKind.notFound) {
-    return 'Hội thoại không còn tồn tại.';
+    return tr(
+      'Hội thoại không còn tồn tại.',
+      'This conversation no longer exists.',
+    );
   }
   return failure.message.trim().isEmpty
-      ? 'Chưa thực hiện được, hãy thử lại.'
+      ? tr('Chưa thực hiện được, hãy thử lại.', 'Couldn\'t do that. Try again.')
       : failure.message;
 }
 

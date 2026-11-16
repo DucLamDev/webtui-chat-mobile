@@ -1,7 +1,17 @@
+import '../../../../l10n/app_strings.dart';
+
 /// Mức gấp của hạn việc để tô màu.
 enum TaskDueUrgency { none, soon, overdue }
 
-const _weekdayLabels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+List<String> get _weekdayLabels => [
+  tr('T2', 'Mon'),
+  tr('T3', 'Tue'),
+  tr('T4', 'Wed'),
+  tr('T5', 'Thu'),
+  tr('T6', 'Fri'),
+  tr('T7', 'Sat'),
+  tr('CN', 'Sun'),
+];
 
 String _two(int value) => value.toString().padLeft(2, '0');
 
@@ -17,11 +27,11 @@ String formatTaskDue(DateTime due, DateTime now) {
   final time = '${_two(local.hour)}:${_two(local.minute)}';
   switch (days) {
     case 0:
-      return 'Hôm nay $time';
+      return tr('Hôm nay $time', 'Today $time');
     case 1:
-      return 'Ngày mai $time';
+      return tr('Ngày mai $time', 'Tomorrow $time');
     case -1:
-      return 'Hôm qua $time';
+      return tr('Hôm qua $time', 'Yesterday $time');
   }
   final date = '${_two(local.day)}/${_two(local.month)}';
   if (local.year == current.year) {
@@ -59,8 +69,9 @@ List<({String label, DateTime value})> quickTaskDueOptions(DateTime now) {
     9,
   );
   return [
-    if (todayFive.isAfter(local)) (label: 'Hôm nay 17:00', value: todayFive),
-    (label: 'Ngày mai 09:00', value: tomorrowNine),
-    (label: 'Thứ Hai tuần sau', value: nextMonday),
+    if (todayFive.isAfter(local))
+      (label: tr('Hôm nay 17:00', 'Today 17:00'), value: todayFive),
+    (label: tr('Ngày mai 09:00', 'Tomorrow 09:00'), value: tomorrowNine),
+    (label: tr('Thứ Hai tuần sau', 'Next Monday'), value: nextMonday),
   ];
 }

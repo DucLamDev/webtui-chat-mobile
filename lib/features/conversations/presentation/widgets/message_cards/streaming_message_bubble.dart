@@ -5,6 +5,7 @@ import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_shadows.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../../l10n/app_strings.dart';
 import '../../../application/use_cases/message_stream_merger.dart';
 
 /// Bong bóng tin đang chạy dần (AI / bot trả lời từng đoạn): chữ đã có và con
@@ -59,7 +60,9 @@ class _StreamingMessageBubbleState extends State<StreamingMessageBubble>
     final visible = visibleStreamingText(widget.text);
     final trimmed = visible.text.trim();
     final waiting = trimmed.isEmpty || trimmed == messageStreamPlaceholder;
-    final status = visible.drawing ? 'Đang vẽ…' : 'Đang trả lời…';
+    final status = visible.drawing
+        ? tr('Đang vẽ…', 'Drawing…')
+        : tr('Đang trả lời…', 'Replying…');
     final style = WebTuiTypography.bodyMedium.copyWith(
       color: WebTuiColors.textPrimary,
       fontWeight: FontWeight.w500,

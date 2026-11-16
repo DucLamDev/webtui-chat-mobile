@@ -2,6 +2,7 @@ import 'dart:math';
 
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/conversation_summary.dart';
 import '../../domain/repositories/conversation_repository.dart';
@@ -75,19 +76,22 @@ final class CreateGroupUseCase {
   }) async {
     final trimmedName = name.trim();
     if (trimmedName.isEmpty) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.validation,
-          message: 'Vui lòng nhập tên nhóm.',
+          message: tr('Vui lòng nhập tên nhóm.', 'Enter a group name.'),
           code: 'GROUP_NAME_REQUIRED',
         ),
       );
     }
     if (trimmedName.length > groupNameMaxLength) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.validation,
-          message: 'Tên nhóm tối đa $groupNameMaxLength ký tự.',
+          message: tr(
+            'Tên nhóm tối đa $groupNameMaxLength ký tự.',
+            'Group names can be up to $groupNameMaxLength characters.',
+          ),
           code: 'GROUP_NAME_TOO_LONG',
         ),
       );

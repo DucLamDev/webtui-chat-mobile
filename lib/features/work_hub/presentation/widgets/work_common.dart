@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
@@ -133,7 +134,7 @@ class WorkErrorBox extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          TextButton(onPressed: onRetry, child: const Text('Thử lại')),
+          TextButton(onPressed: onRetry, child: Text(tr('Thử lại', 'Retry'))),
         ],
       ),
     );

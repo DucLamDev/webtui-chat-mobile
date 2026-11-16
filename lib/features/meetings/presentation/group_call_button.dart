@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../app/providers/foundation_providers.dart';
 import '../../../design_system/components/webtui_components.dart';
@@ -24,7 +25,7 @@ class GroupCallButton extends ConsumerWidget {
       key: const Key('group-call-button'),
       onPressed: busy ? null : () => _choose(context),
       icon: const Icon(Icons.notifications_active_outlined),
-      label: const Text('Gọi cả nhóm'),
+      label: Text(tr('Gọi cả nhóm', 'Call the whole group')),
     );
   }
 
@@ -34,22 +35,28 @@ class GroupCallButton extends ConsumerWidget {
       builder: (sheetContext) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const WebTuiSheetHeader(
-            title: 'Gọi cả nhóm',
-            subtitle: 'Đổ chuông tới mọi thành viên',
+          WebTuiSheetHeader(
+            title: tr('Gọi cả nhóm', 'Call the whole group'),
+            subtitle: tr('Đổ chuông tới mọi thành viên', 'Ring every member'),
           ),
           WebTuiSheetActionTile(
             key: const Key('group-call-audio'),
             icon: WebTuiIcons.phoneCall,
-            title: 'Gọi thoại',
-            subtitle: 'Gọi thoại: đổ chuông tới mọi thành viên',
+            title: tr('Gọi thoại', 'Voice call'),
+            subtitle: tr(
+              'Gọi thoại: đổ chuông tới mọi thành viên',
+              'Voice call: ring every member',
+            ),
             onTap: () => Navigator.of(sheetContext).pop('audio'),
           ),
           WebTuiSheetActionTile(
             key: const Key('group-call-video'),
             icon: WebTuiIcons.video,
-            title: 'Gọi video',
-            subtitle: 'Gọi video: đổ chuông tới mọi thành viên',
+            title: tr('Gọi video', 'Video call'),
+            subtitle: tr(
+              'Gọi video: đổ chuông tới mọi thành viên',
+              'Video call: ring every member',
+            ),
             onTap: () => Navigator.of(sheetContext).pop('video'),
           ),
           const SizedBox(height: 8),

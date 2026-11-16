@@ -1,3 +1,5 @@
+import 'package:webtui_chat/l10n/app_strings.dart';
+
 import '../../domain/entities/work_hub.dart';
 import 'shared_file_logic.dart';
 
@@ -37,9 +39,9 @@ String sharedFileTitle(SharedFile file, {int maxLength = 40}) {
   final media = file.kind != SharedFileKind.document;
   if (media && isMachineFileName(file.name)) {
     return switch (file.kind) {
-      SharedFileKind.image => 'Ảnh',
+      SharedFileKind.image => tr('Ảnh', 'Photo'),
       SharedFileKind.video => 'Video',
-      SharedFileKind.audio => 'Ghi âm',
+      SharedFileKind.audio => tr('Ghi âm', 'Voice message'),
       SharedFileKind.document => file.name,
     };
   }
@@ -145,12 +147,18 @@ List<SharedFileSection> groupSharedFiles(
     final local = file.createdAt.toLocal();
     final day = DateTime(local.year, local.month, local.day);
     final (title, showTime) = !byMonth && !day.isBefore(today)
-        ? ('Hôm nay', true)
+        ? (tr('Hôm nay', 'Today'), true)
         : !byMonth && !day.isBefore(yesterday)
-        ? ('Hôm qua', true)
+        ? (tr('Hôm qua', 'Yesterday'), true)
         : local.year == localNow.year && local.month == localNow.month
-        ? ('Tháng này', false)
-        : ('Tháng ${local.month}/${local.year}', false);
+        ? (tr('Tháng này', 'This month'), false)
+        : (
+            tr(
+              'Tháng ${local.month}/${local.year}',
+              '${local.month}/${local.year}',
+            ),
+            false,
+          );
     if (title != currentTitle) {
       flush();
       currentTitle = title;

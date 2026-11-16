@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-
 import '../../domain/entities/work_hub.dart';
 
 /// Định dạng tệp để vẽ "logo" loại tệp và chọn thao tác.

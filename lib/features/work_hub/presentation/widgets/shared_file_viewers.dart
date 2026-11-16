@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:video_player/video_player.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
@@ -126,15 +127,18 @@ class _SharedVideoPlayerPageState extends State<SharedVideoPlayerPage> {
                     ? Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text(
-                            'Không phát được video này.',
+                          Text(
+                            tr(
+                              'Không phát được video này.',
+                              'Couldn\'t play this video.',
+                            ),
                             style: TextStyle(color: Colors.white),
                           ),
                           const SizedBox(height: 12),
                           FilledButton(
                             key: const Key('video_retry'),
                             onPressed: _start,
-                            child: const Text('Thử lại'),
+                            child: Text(tr('Thử lại', 'Retry')),
                           ),
                         ],
                       )
@@ -158,7 +162,7 @@ class _SharedVideoPlayerPageState extends State<SharedVideoPlayerPage> {
               left: 4,
               child: IconButton(
                 key: const Key('video_close'),
-                tooltip: 'Đóng',
+                tooltip: tr('Đóng', 'Close'),
                 color: Colors.white,
                 icon: const Icon(WebTuiIcons.close),
                 onPressed: () => Navigator.of(context).maybePop(),
@@ -176,7 +180,9 @@ class _SharedVideoPlayerPageState extends State<SharedVideoPlayerPage> {
                       IconButton(
                         key: const Key('video_toggle'),
                         color: Colors.white,
-                        tooltip: value.isPlaying ? 'Dừng' : 'Phát',
+                        tooltip: value.isPlaying
+                            ? tr('Dừng', 'Pause')
+                            : tr('Phát', 'Play'),
                         icon: Icon(
                           value.isPlaying
                               ? WebTuiIcons.pause
@@ -276,7 +282,14 @@ class _SharedPdfViewerPageState extends State<SharedPdfViewerPage> {
     if (local != null) ok = await openSharedFileExternally(local);
     if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Không mở được tệp bằng ứng dụng khác.')),
+        SnackBar(
+          content: Text(
+            tr(
+              'Không mở được tệp bằng ứng dụng khác.',
+              'Couldn\'t open the file in another app.',
+            ),
+          ),
+        ),
       );
     }
   }
@@ -292,7 +305,7 @@ class _SharedPdfViewerPageState extends State<SharedPdfViewerPage> {
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           key: const Key('pdf_close'),
-          tooltip: 'Đóng',
+          tooltip: tr('Đóng', 'Close'),
           icon: const Icon(WebTuiIcons.close),
           onPressed: () => Navigator.of(context).maybePop(),
         ),
@@ -320,7 +333,7 @@ class _SharedPdfViewerPageState extends State<SharedPdfViewerPage> {
         actions: [
           IconButton(
             key: const Key('pdf_open_external'),
-            tooltip: 'Mở bằng ứng dụng khác',
+            tooltip: tr('Mở bằng ứng dụng khác', 'Open in another app'),
             icon: const Icon(WebTuiIcons.externalLink),
             onPressed: _local == null ? null : _openExternally,
           ),
@@ -331,8 +344,11 @@ class _SharedPdfViewerPageState extends State<SharedPdfViewerPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'Không mở được tệp PDF này.',
+                  Text(
+                    tr(
+                      'Không mở được tệp PDF này.',
+                      'Couldn\'t open this PDF.',
+                    ),
                     style: TextStyle(color: Colors.white),
                   ),
                   const SizedBox(height: 12),
@@ -342,13 +358,13 @@ class _SharedPdfViewerPageState extends State<SharedPdfViewerPage> {
                       FilledButton(
                         key: const Key('pdf_retry'),
                         onPressed: _load,
-                        child: const Text('Thử lại'),
+                        child: Text(tr('Thử lại', 'Retry')),
                       ),
                       if (_local != null)
                         OutlinedButton(
                           onPressed: _openExternally,
-                          child: const Text(
-                            'Mở bằng ứng dụng khác',
+                          child: Text(
+                            tr('Mở bằng ứng dụng khác', 'Open in another app'),
                             style: TextStyle(color: Colors.white),
                           ),
                         ),

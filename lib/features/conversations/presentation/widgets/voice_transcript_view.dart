@@ -9,6 +9,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/message_voice.dart';
 import '../../domain/entities/rich_message.dart';
@@ -63,15 +64,15 @@ class VoiceTranscriptView extends ConsumerWidget {
             ),
             onPressed: () => unawaited(controller.load()),
             icon: const Icon(Icons.subtitles_outlined, size: 18),
-            label: const Text('Xem lời'),
+            label: Text(tr('Xem lời', 'View transcript')),
           ),
         ),
         VoiceTranscriptPhase.loading ||
         VoiceTranscriptPhase.pending => _StatusLine(
           loading: true,
           text: state.phase == VoiceTranscriptPhase.pending
-              ? 'Đang chép lời…'
-              : 'Đang tải lời…',
+              ? tr('Đang chép lời…', 'Transcribing…')
+              : tr('Đang tải lời…', 'Loading transcript…'),
         ),
         VoiceTranscriptPhase.ready => _TranscriptBox(
           text: state.text,
@@ -80,11 +81,16 @@ class VoiceTranscriptView extends ConsumerWidget {
           onHide: controller.hide,
         ),
         VoiceTranscriptPhase.unavailable => _StatusLine(
-          text: 'Chưa có lời cho tin này',
+          text: tr(
+            'Chưa có lời cho tin này',
+            'No transcript for this message yet',
+          ),
           onRetry: () => unawaited(controller.load()),
         ),
         VoiceTranscriptPhase.error => _StatusLine(
-          text: state.errorMessage ?? 'Chưa tải được lời.',
+          text:
+              state.errorMessage ??
+              tr('Chưa tải được lời.', 'Couldn\'t load the transcript.'),
           error: true,
           onRetry: () => unawaited(controller.load()),
         ),
@@ -136,7 +142,7 @@ class _StatusLine extends StatelessWidget {
             TextButton(
               style: TextButton.styleFrom(minimumSize: const Size(44, 36)),
               onPressed: onRetry,
-              child: const Text('Thử lại'),
+              child: Text(tr('Thử lại', 'Try again')),
             ),
         ],
       ),
@@ -192,7 +198,7 @@ class _TranscriptBox extends StatelessWidget {
                 child: TextButton(
                   style: TextButton.styleFrom(minimumSize: const Size(44, 32)),
                   onPressed: onHide,
-                  child: const Text('Ẩn lời'),
+                  child: Text(tr('Ẩn lời', 'Hide transcript')),
                 ),
               ),
             ],
@@ -372,7 +378,7 @@ class _SegmentRow extends StatelessWidget {
     return Semantics(
       selected: active,
       button: onTap != null,
-      label: onTap != null ? 'Nghe từ $time' : null,
+      label: onTap != null ? tr('Nghe từ $time', 'Listen from $time') : null,
       child: Container(
         constraints: BoxConstraints(minHeight: onTap != null ? 44 : 0),
         decoration: BoxDecoration(

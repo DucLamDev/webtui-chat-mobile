@@ -1,5 +1,6 @@
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/auth_session.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/repositories/auth_token_repository.dart';
@@ -34,10 +35,13 @@ final class LoginUseCase {
     final identifier = command.identifier.trim();
     final password = command.password.trim();
     if (identifier.isEmpty || password.isEmpty) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.validation,
-          message: 'Vui lòng nhập email/username và mật khẩu.',
+          message: tr(
+            'Vui lòng nhập email/username và mật khẩu.',
+            'Enter your email or username and your password.',
+          ),
           code: 'AUTH_INPUT_REQUIRED',
         ),
       );
@@ -79,7 +83,10 @@ final class LoginUseCase {
 Failure _storageFailure(Object error) {
   return Failure(
     kind: FailureKind.storage,
-    message: 'Không thể lưu phiên đăng nhập an toàn.',
+    message: tr(
+      'Không thể lưu phiên đăng nhập an toàn.',
+      'Could not save your session securely.',
+    ),
     code: 'AUTH_STORAGE_FAILURE',
     cause: error,
   );

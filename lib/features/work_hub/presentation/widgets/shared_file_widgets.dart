@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
@@ -60,7 +61,7 @@ class SharedFileTypeBadge extends StatelessWidget {
     }
     final isPdf = format == SharedFileFormat.pdf;
     return Semantics(
-      label: 'Tệp ${style.letter}',
+      label: tr('Tệp ${style.letter}', '${style.letter} file'),
       excludeSemantics: true,
       child: Container(
         key: Key('file_badge_${format.name}'),

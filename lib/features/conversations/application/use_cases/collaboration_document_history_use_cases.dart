@@ -1,20 +1,23 @@
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/collaboration_document_version.dart';
 import '../../domain/entities/collaboration_room.dart';
 import '../../domain/repositories/collaboration_document_history_repository.dart';
 
 /// Câu báo khi khôi phục mà tài liệu đã bị người khác sửa trước.
-const collaborationDocumentConflictMessage =
-    'Tài liệu vừa được người khác sửa, hãy tải lại';
+String get collaborationDocumentConflictMessage => tr(
+  'Tài liệu vừa được người khác sửa, hãy tải lại',
+  'Someone else just edited this document. Reload it.',
+);
 
 const _supportedKinds = {'notes', 'whiteboard'};
 
 Failure? _invalidKind(String kind) => _supportedKinds.contains(kind)
     ? null
-    : const Failure(
+    : Failure(
         kind: FailureKind.validation,
-        message: 'Loại tài liệu không hợp lệ.',
+        message: tr('Loại tài liệu không hợp lệ.', 'Invalid document type.'),
         code: 'VALIDATION_ERROR',
       );
 

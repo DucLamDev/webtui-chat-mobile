@@ -4,6 +4,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 
 final class MeetingScheduleDraft {
   const MeetingScheduleDraft({
@@ -75,10 +76,15 @@ class _MeetingSchedulerSheetState extends State<_MeetingSchedulerSheet> {
 
   String? get _validationMessage {
     if (_titleController.text.trim().isEmpty) {
-      return _submitted ? 'Hãy nhập tên cuộc họp.' : null;
+      return _submitted
+          ? tr('Hãy nhập tên cuộc họp.', 'Enter a meeting name.')
+          : null;
     }
     if (!_startsAt.isAfter(DateTime.now().add(const Duration(minutes: 1)))) {
-      return 'Thời gian bắt đầu phải sau hiện tại ít nhất 1 phút.';
+      return tr(
+        'Thời gian bắt đầu phải sau hiện tại ít nhất 1 phút.',
+        'The start time must be at least 1 minute from now.',
+      );
     }
     return null;
   }
@@ -122,7 +128,7 @@ class _MeetingSchedulerSheetState extends State<_MeetingSchedulerSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Lên lịch cuộc họp',
+                          tr('Lên lịch cuộc họp', 'Schedule a meeting'),
                           style: WebTuiTypography.titleMedium.copyWith(
                             color: WebTuiColors.textPrimary,
                             fontWeight: FontWeight.w800,
@@ -140,7 +146,7 @@ class _MeetingSchedulerSheetState extends State<_MeetingSchedulerSheet> {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Đóng',
+                    tooltip: tr('Đóng', 'Close'),
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded),
                   ),
@@ -157,9 +163,12 @@ class _MeetingSchedulerSheetState extends State<_MeetingSchedulerSheet> {
                     autofocus: true,
                     maxLength: 160,
                     textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: 'Tên cuộc họp',
-                      hintText: 'Ví dụ: Họp sprint tuần',
+                    decoration: InputDecoration(
+                      labelText: tr('Tên cuộc họp', 'Meeting name'),
+                      hintText: tr(
+                        'Ví dụ: Họp sprint tuần',
+                        'For example: Weekly sprint meeting',
+                      ),
                       prefixIcon: Icon(Icons.title_rounded),
                     ),
                     onChanged: (_) => setState(() {}),
@@ -171,10 +180,15 @@ class _MeetingSchedulerSheetState extends State<_MeetingSchedulerSheet> {
                     maxLines: 4,
                     minLines: 2,
                     textCapitalization: TextCapitalization.sentences,
-                    decoration: const InputDecoration(
-                      labelText: 'Nội dung / chương trình họp',
-                      hintText:
-                          'Mục tiêu, nội dung cần chuẩn bị hoặc đường dẫn tài liệu…',
+                    decoration: InputDecoration(
+                      labelText: tr(
+                        'Nội dung / chương trình họp',
+                        'Agenda / meeting details',
+                      ),
+                      hintText: tr(
+                        'Mục tiêu, nội dung cần chuẩn bị hoặc đường dẫn tài liệu…',
+                        'Goals, things to prepare or links to documents…',
+                      ),
                       alignLabelWithHint: true,
                       prefixIcon: Icon(Icons.notes_rounded),
                     ),
@@ -188,7 +202,7 @@ class _MeetingSchedulerSheetState extends State<_MeetingSchedulerSheet> {
                           Icons.calendar_month_outlined,
                           color: WebTuiColors.primary,
                         ),
-                        title: const Text('Ngày bắt đầu'),
+                        title: Text(tr('Ngày bắt đầu', 'Start date')),
                         subtitle: Text(localizations.formatFullDate(_startsAt)),
                         trailing: const Icon(Icons.chevron_right_rounded),
                         onTap: _pickDate,
@@ -200,7 +214,7 @@ class _MeetingSchedulerSheetState extends State<_MeetingSchedulerSheet> {
                           Icons.schedule_rounded,
                           color: WebTuiColors.primary,
                         ),
-                        title: const Text('Giờ bắt đầu'),
+                        title: Text(tr('Giờ bắt đầu', 'Start time')),
                         subtitle: Text(
                           localizations.formatTimeOfDay(
                             TimeOfDay.fromDateTime(_startsAt),
@@ -212,20 +226,38 @@ class _MeetingSchedulerSheetState extends State<_MeetingSchedulerSheet> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: WebTuiSpacing.md),
+                  SizedBox(height: WebTuiSpacing.md),
                   DropdownButtonFormField<int>(
                     initialValue: _durationMinutes,
-                    decoration: const InputDecoration(
-                      labelText: 'Thời lượng dự kiến',
+                    decoration: InputDecoration(
+                      labelText: tr('Thời lượng dự kiến', 'Expected duration'),
                       prefixIcon: Icon(Icons.timelapse_rounded),
                     ),
-                    items: const [
-                      DropdownMenuItem(value: 15, child: Text('15 phút')),
-                      DropdownMenuItem(value: 30, child: Text('30 phút')),
-                      DropdownMenuItem(value: 45, child: Text('45 phút')),
-                      DropdownMenuItem(value: 60, child: Text('1 giờ')),
-                      DropdownMenuItem(value: 90, child: Text('1 giờ 30 phút')),
-                      DropdownMenuItem(value: 120, child: Text('2 giờ')),
+                    items: [
+                      DropdownMenuItem(
+                        value: 15,
+                        child: Text(tr('15 phút', '15 min')),
+                      ),
+                      DropdownMenuItem(
+                        value: 30,
+                        child: Text(tr('30 phút', '30 min')),
+                      ),
+                      DropdownMenuItem(
+                        value: 45,
+                        child: Text(tr('45 phút', '45 min')),
+                      ),
+                      DropdownMenuItem(
+                        value: 60,
+                        child: Text(tr('1 giờ', '1 hour')),
+                      ),
+                      DropdownMenuItem(
+                        value: 90,
+                        child: Text(tr('1 giờ 30 phút', '1 hour 30 min')),
+                      ),
+                      DropdownMenuItem(
+                        value: 120,
+                        child: Text(tr('2 giờ', '2 hours')),
+                      ),
                     ],
                     onChanged: (value) {
                       if (value != null) {
@@ -236,19 +268,33 @@ class _MeetingSchedulerSheetState extends State<_MeetingSchedulerSheet> {
                   const SizedBox(height: WebTuiSpacing.md),
                   DropdownButtonFormField<int>(
                     initialValue: _lobbyMinutes,
-                    decoration: const InputDecoration(
-                      labelText: 'Mở phòng chờ',
+                    decoration: InputDecoration(
+                      labelText: tr('Mở phòng chờ', 'Open waiting room'),
                       prefixIcon: Icon(Icons.meeting_room_outlined),
                     ),
-                    items: const [
+                    items: [
                       DropdownMenuItem(
                         value: 0,
-                        child: Text('Khi cuộc họp bắt đầu'),
+                        child: Text(
+                          tr('Khi cuộc họp bắt đầu', 'When the meeting starts'),
+                        ),
                       ),
-                      DropdownMenuItem(value: 5, child: Text('Trước 5 phút')),
-                      DropdownMenuItem(value: 10, child: Text('Trước 10 phút')),
-                      DropdownMenuItem(value: 15, child: Text('Trước 15 phút')),
-                      DropdownMenuItem(value: 30, child: Text('Trước 30 phút')),
+                      DropdownMenuItem(
+                        value: 5,
+                        child: Text(tr('Trước 5 phút', '5 min before')),
+                      ),
+                      DropdownMenuItem(
+                        value: 10,
+                        child: Text(tr('Trước 10 phút', '10 min before')),
+                      ),
+                      DropdownMenuItem(
+                        value: 15,
+                        child: Text(tr('Trước 15 phút', '15 min before')),
+                      ),
+                      DropdownMenuItem(
+                        value: 30,
+                        child: Text(tr('Trước 30 phút', '30 min before')),
+                      ),
                     ],
                     onChanged: (value) {
                       if (value != null) {
@@ -259,22 +305,34 @@ class _MeetingSchedulerSheetState extends State<_MeetingSchedulerSheet> {
                   const SizedBox(height: WebTuiSpacing.md),
                   DropdownButtonFormField<String>(
                     initialValue: _roomPolicy,
-                    decoration: const InputDecoration(
-                      labelText: 'Sau cuộc họp',
+                    decoration: InputDecoration(
+                      labelText: tr('Sau cuộc họp', 'After the meeting'),
                       prefixIcon: Icon(Icons.inventory_2_outlined),
                     ),
-                    items: const [
+                    items: [
                       DropdownMenuItem(
                         value: 'keep',
-                        child: Text('Giữ phòng và nội dung'),
+                        child: Text(
+                          tr(
+                            'Giữ phòng và nội dung',
+                            'Keep the room and content',
+                          ),
+                        ),
                       ),
                       DropdownMenuItem(
                         value: 'archive',
-                        child: Text('Lưu trữ sau 24 giờ'),
+                        child: Text(
+                          tr('Lưu trữ sau 24 giờ', 'Archive after 24 hours'),
+                        ),
                       ),
                       DropdownMenuItem(
                         value: 'delete',
-                        child: Text('Dọn phòng sau 24 giờ'),
+                        child: Text(
+                          tr(
+                            'Dọn phòng sau 24 giờ',
+                            'Clean up the room after 24 hours',
+                          ),
+                        ),
                       ),
                     ],
                     onChanged: (value) {
@@ -300,9 +358,14 @@ class _MeetingSchedulerSheetState extends State<_MeetingSchedulerSheet> {
                         const SizedBox(width: WebTuiSpacing.sm),
                         Expanded(
                           child: Text(
-                            'Dự kiến kết thúc lúc '
-                            '${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(endsAt), alwaysUse24HourFormat: true)}'
-                            '${_lobbyMinutes > 0 ? ' · Phòng chờ mở trước $_lobbyMinutes phút' : ''}.',
+                            tr(
+                              'Dự kiến kết thúc lúc '
+                                  '${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(endsAt), alwaysUse24HourFormat: true)}'
+                                  '${_lobbyMinutes > 0 ? ' · Phòng chờ mở trước $_lobbyMinutes phút' : ''}.',
+                              'Expected to end at '
+                                  '${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(endsAt), alwaysUse24HourFormat: true)}'
+                                  '${_lobbyMinutes > 0 ? ' · Waiting room opens $_lobbyMinutes min before' : ''}.',
+                            ),
                             style: WebTuiTypography.bodySmall.copyWith(
                               color: WebTuiColors.textSecondary,
                             ),
@@ -331,7 +394,7 @@ class _MeetingSchedulerSheetState extends State<_MeetingSchedulerSheet> {
                 child: FilledButton.icon(
                   onPressed: _submit,
                   icon: const Icon(Icons.event_available_rounded),
-                  label: const Text('Tạo lịch họp'),
+                  label: Text(tr('Tạo lịch họp', 'Create meeting')),
                 ),
               ),
             ),

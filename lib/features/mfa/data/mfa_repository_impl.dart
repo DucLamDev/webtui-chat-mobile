@@ -3,6 +3,7 @@ import '../../../core/network/api_response.dart';
 import '../../../core/network/api_transport.dart';
 import '../../../core/result/result.dart';
 import '../../../core/result/result_guard.dart';
+import '../../../l10n/app_strings.dart';
 import '../../auth/domain/repositories/device_identity_repository.dart';
 import '../domain/mfa_repository.dart';
 
@@ -40,7 +41,12 @@ final class MfaRepositoryImpl implements MfaRepository {
     );
     final token = stringField(envelopeItem(r.data, 'reauth'), ['reauth_token']);
     if (token.isEmpty) {
-      throw const FormatException('Máy chủ không trả mã xác thực lại.');
+      throw FormatException(
+        tr(
+          'Máy chủ không trả mã xác thực lại.',
+          'The server did not return a re-authentication code.',
+        ),
+      );
     }
     return token;
   });

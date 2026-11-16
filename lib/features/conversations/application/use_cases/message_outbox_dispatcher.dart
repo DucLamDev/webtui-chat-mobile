@@ -3,6 +3,7 @@ import 'dart:collection';
 
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/conversation_realtime_event.dart';
 import '../../domain/entities/message_outbox_item.dart';
@@ -131,8 +132,10 @@ final class MessageOutboxDispatcher {
     Duration(minutes: 5),
   ];
 
-  static const serverChangedError =
-      'Server đã thay đổi; tin nhắn chưa được gửi.';
+  static String get serverChangedError => tr(
+    'Server đã thay đổi; tin nhắn chưa được gửi.',
+    'The server changed; the message wasn\'t sent.',
+  );
 
   final MessageOutboxRepository _repository;
   final SendOutboxMessage _sendMessage;
@@ -379,7 +382,10 @@ final class MessageOutboxDispatcher {
       if (uploadFile == null) {
         await _failUpload(
           current,
-          'Không tải được tệp đính kèm.',
+          tr(
+            'Không tải được tệp đính kèm.',
+            'Couldn\'t upload the attachment.',
+          ),
           FailureKind.unknown,
         );
         return;
@@ -448,9 +454,12 @@ final class MessageOutboxDispatcher {
               emitProgress();
             });
           } on Object {
-            failure ??= const Failure(
+            failure ??= Failure(
               kind: FailureKind.unknown,
-              message: 'Không tải được tệp đính kèm.',
+              message: tr(
+                'Không tải được tệp đính kèm.',
+                'Couldn\'t upload the attachment.',
+              ),
             );
             return;
           }
@@ -513,7 +522,7 @@ final class MessageOutboxDispatcher {
     } on Object {
       await _failUpload(
         current,
-        'Không tải được tệp đính kèm.',
+        tr('Không tải được tệp đính kèm.', 'Couldn\'t upload the attachment.'),
         FailureKind.unknown,
       );
       return;
@@ -601,7 +610,10 @@ final class MessageOutboxDispatcher {
     } on Object {
       return _fail(
         sending,
-        'Không thể gửi tin nhắn lúc này.',
+        tr(
+          'Không thể gửi tin nhắn lúc này.',
+          'Couldn\'t send the message right now.',
+        ),
         FailureKind.unknown,
       );
     }

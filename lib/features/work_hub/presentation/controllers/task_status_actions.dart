@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/error/error_mapper.dart';
@@ -52,13 +53,13 @@ Future<void> advanceAssignedTask(
     SnackBar(
       content: Text(
         next == CollaborationTaskStatus.done
-            ? 'Đã hoàn thành "${task.title}"'
-            : 'Đã nhận việc "${task.title}"',
+            ? tr('Đã hoàn thành "${task.title}"', 'Completed "${task.title}"')
+            : tr('Đã nhận việc "${task.title}"', 'Claimed "${task.title}"'),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
       action: SnackBarAction(
-        label: 'Hoàn tác',
+        label: tr('Hoàn tác', 'Undo'),
         onPressed: () async {
           final undoError = await apply(previous);
           onChanged();

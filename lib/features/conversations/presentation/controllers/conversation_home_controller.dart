@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../application/use_cases/channel_use_cases.dart';
 import '../../application/use_cases/load_conversation_home_use_case.dart';
 import '../../application/use_cases/open_direct_conversation_use_case.dart';
@@ -49,13 +50,13 @@ const _inboxFilterOrder = [
   ConversationListFilter.unread,
 ];
 
-const _inboxFilterLabels = {
-  ConversationListFilter.all: 'Tất cả',
-  ConversationListFilter.unread: 'Chưa đọc',
-  ConversationListFilter.direct: 'Cá nhân',
-  ConversationListFilter.group: 'Nhóm',
-  ConversationListFilter.favorite: 'Ghim',
-  ConversationListFilter.bot: 'Nghiệp vụ',
+Map<ConversationListFilter, String> get _inboxFilterLabels => {
+  ConversationListFilter.all: tr('Tất cả', 'All'),
+  ConversationListFilter.unread: tr('Chưa đọc', 'Unread'),
+  ConversationListFilter.direct: tr('Cá nhân', 'Direct'),
+  ConversationListFilter.group: tr('Nhóm', 'Groups'),
+  ConversationListFilter.favorite: tr('Ghim', 'Pinned'),
+  ConversationListFilter.bot: tr('Nghiệp vụ', 'Business'),
 };
 
 final class ConversationHomeState {
@@ -493,7 +494,10 @@ final class ConversationHomeController
       case Success<ConversationSummary>(value: final conversation):
         state = state.copyWith(
           selectedConversation: conversation,
-          noticeMessage: 'Đã mở hội thoại với ${contact.displayName}.',
+          noticeMessage: tr(
+            'Đã mở hội thoại với ${contact.displayName}.',
+            'Opened chat with ${contact.displayName}.',
+          ),
         );
         // Mở phòng ngay; danh sách cập nhật ngầm phía sau.
         unawaited(syncSilently());
@@ -517,7 +521,10 @@ final class ConversationHomeController
       case Success<ConversationSummary>(value: final conversation):
         state = state.copyWith(
           selectedConversation: conversation,
-          noticeMessage: 'Đã mở phiên hỗ trợ riêng tư.',
+          noticeMessage: tr(
+            'Đã mở phiên hỗ trợ riêng tư.',
+            'Private support chat opened.',
+          ),
         );
         // Mở phòng ngay; danh sách cập nhật ngầm phía sau.
         unawaited(syncSilently());

@@ -1,5 +1,6 @@
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/channel_file.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/conversation_summary.dart';
@@ -21,10 +22,13 @@ final class CreateChannelUseCase {
     final normalizedSlug = slug.trim().toLowerCase();
     if (normalizedName.isEmpty || normalizedSlug.isEmpty) {
       return Future.value(
-        const FailureResult(
+        FailureResult(
           Failure(
             kind: FailureKind.validation,
-            message: 'Vui lòng nhập tên và slug của kênh.',
+            message: tr(
+              'Vui lòng nhập tên và slug của kênh.',
+              'Enter the channel name and slug.',
+            ),
             code: 'CHANNEL_INPUT_REQUIRED',
           ),
         ),
@@ -34,10 +38,13 @@ final class CreateChannelUseCase {
       r'^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$',
     ).hasMatch(normalizedSlug)) {
       return Future.value(
-        const FailureResult(
+        FailureResult(
           Failure(
             kind: FailureKind.validation,
-            message: 'Slug chỉ gồm chữ thường, số và dấu gạch ngang.',
+            message: tr(
+              'Slug chỉ gồm chữ thường, số và dấu gạch ngang.',
+              'The slug can only contain lowercase letters, numbers and hyphens.',
+            ),
             code: 'CHANNEL_SLUG_INVALID',
           ),
         ),

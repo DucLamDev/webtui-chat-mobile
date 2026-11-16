@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
@@ -53,9 +54,12 @@ class CustomerTicketDetailScreen extends ConsumerWidget {
     if (resolvedWorkspaceId.isEmpty) {
       return _DetailFrame(
         ticketId: normalizedTicketId,
-        body: const WebTuiEmptyState(
-          title: 'Chưa chọn workspace',
-          message: 'Chọn workspace trước khi xem ticket khách.',
+        body: WebTuiEmptyState(
+          title: tr('Chưa chọn workspace', 'No workspace selected'),
+          message: tr(
+            'Chọn workspace trước khi xem ticket khách.',
+            'Select a workspace before viewing customer tickets.',
+          ),
           icon: Icons.confirmation_number_outlined,
         ),
       );
@@ -79,7 +83,11 @@ class _DetailFrame extends StatelessWidget {
       backgroundColor: WebTuiColors.background,
       appBar: AppBar(
         leading: const _BackButton(),
-        title: Text(ticketId.isEmpty ? 'Ticket khách' : '#$ticketId'),
+        title: Text(
+          ticketId.isEmpty
+              ? tr('Ticket khách', 'Customer tickets')
+              : '#$ticketId',
+        ),
         surfaceTintColor: Colors.transparent,
       ),
       body: SafeArea(top: false, child: body),
@@ -96,7 +104,7 @@ class _BackButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      tooltip: 'Quay lại',
+      tooltip: tr('Quay lại', 'Back'),
       icon: const BackButtonIcon(),
       onPressed: () {
         if (context.canPop()) {
@@ -182,38 +190,38 @@ class _CustomerTicketDetailViewState
           if (detail != null)
             PopupMenuButton<_TicketMenuAction>(
               key: const Key('customer_ticket_menu'),
-              tooltip: 'Thao tác ticket',
+              tooltip: tr('Thao tác ticket', 'Ticket actions'),
               icon: const Icon(Icons.more_vert_rounded),
               onSelected: (action) => _onMenu(action, state),
               itemBuilder: (context) => [
                 if (canReply)
                   state.assignedToMe
-                      ? const PopupMenuItem(
+                      ? PopupMenuItem(
                           value: _TicketMenuAction.release,
-                          child: Text('Bỏ nhận'),
+                          child: Text(tr('Bỏ nhận', 'Unassign me')),
                         )
-                      : const PopupMenuItem(
+                      : PopupMenuItem(
                           value: _TicketMenuAction.claim,
-                          child: Text('Nhận xử lý'),
+                          child: Text(tr('Nhận xử lý', 'Assign to me')),
                         ),
                 if (canReply)
                   detail.ticket.status == CustomerTicketStatus.unanswered
-                      ? const PopupMenuItem(
+                      ? PopupMenuItem(
                           value: _TicketMenuAction.markAnswered,
-                          child: Text('Đã xử lý'),
+                          child: Text(tr('Đã xử lý', 'Done')),
                         )
-                      : const PopupMenuItem(
+                      : PopupMenuItem(
                           value: _TicketMenuAction.reopen,
-                          child: Text('Mở lại'),
+                          child: Text(tr('Mở lại', 'Reopen')),
                         ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: _TicketMenuAction.reload,
-                  child: Text('Tải lại'),
+                  child: Text(tr('Tải lại', 'Reload')),
                 ),
                 if (detail.customer != null)
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: _TicketMenuAction.info,
-                    child: Text('Thông tin khách'),
+                    child: Text(tr('Thông tin khách', 'Customer info')),
                   ),
               ],
             ),
@@ -231,12 +239,14 @@ class _CustomerTicketDetailViewState
     if (detail == null) {
       if (state.errorMessage != null && !state.isLoading) {
         return WebTuiErrorState(
-          title: 'Không tải được ticket',
+          title: tr('Không tải được ticket', 'Couldn\'t load the ticket'),
           message: state.errorMessage!,
           onRetry: () => unawaited(_controller.load()),
         );
       }
-      return const WebTuiLoadingState(message: 'Đang tải ticket...');
+      return WebTuiLoadingState(
+        message: tr('Đang tải ticket...', 'Loading ticket...'),
+      );
     }
     final children = <Widget>[
       if (canReply)
@@ -268,10 +278,13 @@ class _CustomerTicketDetailViewState
             child: detail.messages.isEmpty && !canReply
                 ? ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    children: const [
+                    children: [
                       WebTuiEmptyState(
-                        title: 'Chưa có tin nhắn',
-                        message: 'Ticket này chưa có nội dung.',
+                        title: tr('Chưa có tin nhắn', 'No messages yet'),
+                        message: tr(
+                          'Ticket này chưa có nội dung.',
+                          'This ticket has no content yet.',
+                        ),
                         icon: Icons.chat_bubble_outline_rounded,
                       ),
                     ],
@@ -316,9 +329,15 @@ class _CustomerTicketDetailViewState
         _toast(outcome.message);
       case CustomerTicketActionStatus.claimedByOther:
         final confirmed = await _confirm(
-          title: 'Ticket đang có người xử lý',
-          message: '${outcome.holderName} đang xử lý ticket này. Vẫn gửi?',
-          confirmLabel: 'Vẫn gửi',
+          title: tr(
+            'Ticket đang có người xử lý',
+            'Someone is handling this ticket',
+          ),
+          message: tr(
+            '${outcome.holderName} đang xử lý ticket này. Vẫn gửi?',
+            '${outcome.holderName} is handling this ticket. Send anyway?',
+          ),
+          confirmLabel: tr('Vẫn gửi', 'Send anyway'),
         );
         if (confirmed && mounted) await _send(force: true);
       case CustomerTicketActionStatus.failed:
@@ -334,10 +353,15 @@ class _CustomerTicketDetailViewState
         _toast(outcome.message);
       case CustomerTicketActionStatus.claimedByOther:
         final confirmed = await _confirm(
-          title: 'Ticket đang có người xử lý',
-          message:
-              '${outcome.holderName} đang xử lý ticket này. Vẫn nhận xử lý?',
-          confirmLabel: 'Nhận xử lý',
+          title: tr(
+            'Ticket đang có người xử lý',
+            'Someone is handling this ticket',
+          ),
+          message: tr(
+            '${outcome.holderName} đang xử lý ticket này. Vẫn nhận xử lý?',
+            '${outcome.holderName} is handling this ticket. Assign it to you anyway?',
+          ),
+          confirmLabel: tr('Nhận xử lý', 'Assign to me'),
         );
         if (confirmed && mounted) await _claim(force: true);
       case CustomerTicketActionStatus.failed:
@@ -380,17 +404,17 @@ class _CustomerTicketDetailViewState
       builder: (sheetContext) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const WebTuiSheetHeader(title: 'Thêm ảnh'),
+          WebTuiSheetHeader(title: tr('Thêm ảnh', 'Add photo')),
           WebTuiSheetActionTile(
             icon: WebTuiIcons.gallery,
-            title: 'Chọn từ thư viện ảnh',
+            title: tr('Chọn từ thư viện ảnh', 'Choose from photo library'),
             onTap: () => Navigator.of(
               sheetContext,
             ).pop(CustomerTicketImageSource.gallery),
           ),
           WebTuiSheetActionTile(
             icon: WebTuiIcons.camera,
-            title: 'Chụp ảnh',
+            title: tr('Chụp ảnh', 'Take photo'),
             onTap: () => Navigator.of(
               sheetContext,
             ).pop(CustomerTicketImageSource.camera),
@@ -423,7 +447,7 @@ class _CustomerTicketDetailViewState
   Future<void> _copy(String text) async {
     if (text.trim().isEmpty) return;
     await Clipboard.setData(ClipboardData(text: text));
-    _toast('Đã chép nội dung tin.');
+    _toast(tr('Đã chép nội dung tin.', 'Message copied.'));
   }
 
   Future<bool> _confirm({
@@ -436,7 +460,7 @@ class _CustomerTicketDetailViewState
       title: title,
       message: message,
       confirmLabel: confirmLabel,
-      cancelLabel: 'Huỷ',
+      cancelLabel: tr('Huỷ', 'Cancel'),
       icon: WebTuiIcons.ticket,
     );
     return confirmed;
@@ -490,10 +514,10 @@ class _TicketHeader extends StatelessWidget {
             ),
           WebTuiStatusPill(
             label: assignee == null
-                ? 'Chưa ai nhận xử lý'
+                ? tr('Chưa ai nhận xử lý', 'No one is handling it')
                 : state.assignedToMe
-                ? 'Bạn đang xử lý'
-                : '${assignee.name.isEmpty ? 'Người khác' : assignee.name} đang xử lý',
+                ? tr('Bạn đang xử lý', 'You\'re handling it')
+                : '${assignee.name.isEmpty ? tr('Người khác', 'Someone else') : assignee.name} đang xử lý',
             color: assignee == null
                 ? WebTuiColors.textMuted
                 : state.assignedToMe
@@ -580,7 +604,7 @@ class _TicketMessageBubble extends StatelessWidget {
               for (final url in message.images)
                 Semantics(
                   button: true,
-                  label: 'Xem ảnh lớn',
+                  label: tr('Xem ảnh lớn', 'View full size'),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(WebTuiRadii.sm),
                     onTap: () => showCustomerTicketImageViewer(context, url),
@@ -590,9 +614,10 @@ class _TicketMessageBubble extends StatelessWidget {
                         url: url,
                         width: 112,
                         height: 112,
-                        semanticLabel:
-                            'Ảnh trong tin của '
-                            '${message.displaySenderName}',
+                        semanticLabel: tr(
+                          'Ảnh trong tin của ${message.displaySenderName}',
+                          'Photo in message from ${message.displaySenderName}',
+                        ),
                       ),
                     ),
                   ),
@@ -665,7 +690,9 @@ class _AiDraftCard extends StatelessWidget {
                 const SizedBox(width: WebTuiSpacing.xs),
                 Expanded(
                   child: Text(
-                    draft == null ? 'Trợ lý AI' : 'Nháp AI',
+                    draft == null
+                        ? tr('Trợ lý AI', 'AI assistant')
+                        : tr('Nháp AI', 'AI draft'),
                     style: WebTuiTypography.bodyMedium.copyWith(
                       color: WebTuiColors.textPrimary,
                       fontWeight: FontWeight.w800,
@@ -687,7 +714,7 @@ class _AiDraftCard extends StatelessWidget {
                 children: [
                   if (percent != null)
                     WebTuiStatusPill(
-                      label: 'Tự tin $percent%',
+                      label: tr('Tự tin $percent%', 'Confidence $percent%'),
                       color: percent >= 70
                           ? WebTuiColors.accentGreen
                           : WebTuiColors.accentAmber,
@@ -705,8 +732,14 @@ class _AiDraftCard extends StatelessWidget {
                   icon: Icons.warning_amber_rounded,
                   color: WebTuiColors.accentAmber,
                   text: draft.reason.isEmpty
-                      ? 'AI đề nghị người kiểm tra kỹ trước khi gửi.'
-                      : 'Cần người xử lý: ${draft.reason}',
+                      ? tr(
+                          'AI đề nghị người kiểm tra kỹ trước khi gửi.',
+                          'AI suggests a careful human check before sending.',
+                        )
+                      : tr(
+                          'Cần người xử lý: ${draft.reason}',
+                          'Needs a person: ${draft.reason}',
+                        ),
                 ),
               ],
               const SizedBox(height: WebTuiSpacing.sm),
@@ -720,7 +753,10 @@ class _AiDraftCard extends StatelessWidget {
               if (draft.suggestedCommand.isNotEmpty) ...[
                 const SizedBox(height: WebTuiSpacing.xs),
                 Text(
-                  'Lệnh gợi ý: ${draft.suggestedCommand}',
+                  tr(
+                    'Lệnh gợi ý: ${draft.suggestedCommand}',
+                    'Suggested command: ${draft.suggestedCommand}',
+                  ),
                   style: WebTuiTypography.bodySmall.copyWith(
                     color: WebTuiColors.textSecondary,
                   ),
@@ -730,7 +766,10 @@ class _AiDraftCard extends StatelessWidget {
                 const SizedBox(height: WebTuiSpacing.xxs),
                 Text(
                   draft.usedFallback
-                      ? '${draft.model} (dự phòng)'
+                      ? tr(
+                          '${draft.model} (dự phòng)',
+                          '${draft.model} (fallback)',
+                        )
                       : draft.model,
                   style: WebTuiTypography.labelSmall.copyWith(
                     color: WebTuiColors.textMuted,
@@ -740,7 +779,7 @@ class _AiDraftCard extends StatelessWidget {
             ] else if (pending) ...[
               const SizedBox(height: WebTuiSpacing.xs),
               Text(
-                'AI đang soạn câu trả lời...',
+                tr('AI đang soạn câu trả lời...', 'AI is drafting a reply...'),
                 style: WebTuiTypography.bodySmall.copyWith(
                   color: WebTuiColors.textSecondary,
                 ),
@@ -748,7 +787,10 @@ class _AiDraftCard extends StatelessWidget {
             ] else ...[
               const SizedBox(height: WebTuiSpacing.xs),
               Text(
-                'Chưa có nháp cho tin mới nhất của khách.',
+                tr(
+                  'Chưa có nháp cho tin mới nhất của khách.',
+                  'No draft yet for the customer\'s latest message.',
+                ),
                 style: WebTuiTypography.bodySmall.copyWith(
                   color: WebTuiColors.textSecondary,
                 ),
@@ -772,12 +814,16 @@ class _AiDraftCard extends StatelessWidget {
                   FilledButton.tonalIcon(
                     onPressed: () => onUse(draft.text),
                     icon: const Icon(Icons.edit_note_rounded, size: 18),
-                    label: const Text('Dùng câu này'),
+                    label: Text(tr('Dùng câu này', 'Use this reply')),
                   ),
                 TextButton.icon(
                   onPressed: pending ? null : onRequest,
                   icon: const Icon(Icons.refresh_rounded, size: 18),
-                  label: Text(draft == null ? 'AI soạn trả lời' : 'Soạn lại'),
+                  label: Text(
+                    draft == null
+                        ? tr('AI soạn trả lời', 'Draft a reply with AI')
+                        : tr('Soạn lại', 'Redraft'),
+                  ),
                 ),
               ],
             ),
@@ -846,7 +892,10 @@ class _TruncatedNote extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Text(
-        'Chỉ hiện các tin gần nhất của ticket.',
+        tr(
+          'Chỉ hiện các tin gần nhất của ticket.',
+          'Only the latest messages of the ticket are shown.',
+        ),
         style: WebTuiTypography.labelSmall.copyWith(
           color: WebTuiColors.textMuted,
         ),
@@ -896,7 +945,7 @@ class _Composer extends StatelessWidget {
                   WebTuiSpacing.xs,
                 ),
                 child: Text(
-                  '${holder.isEmpty ? 'Người khác' : holder} đang xử lý ticket này.',
+                  '${holder.isEmpty ? tr('Người khác', 'Someone else') : holder} đang xử lý ticket này.',
                   style: WebTuiTypography.bodySmall.copyWith(
                     color: WebTuiColors.accentAmber,
                     fontWeight: FontWeight.w600,
@@ -931,7 +980,10 @@ class _Composer extends StatelessWidget {
               children: [
                 IconButton(
                   key: const Key('customer_ticket_attach'),
-                  tooltip: 'Đính kèm ảnh (tối đa 3)',
+                  tooltip: tr(
+                    'Đính kèm ảnh (tối đa 3)',
+                    'Attach photos (up to 3)',
+                  ),
                   onPressed:
                       state.isSending ||
                           state.isPickingImages ||
@@ -962,7 +1014,10 @@ class _Composer extends StatelessWidget {
                         ? Text('$currentLength/$maxLength')
                         : null,
                     decoration: InputDecoration(
-                      hintText: 'Nhập câu trả lời cho khách...',
+                      hintText: tr(
+                        'Nhập câu trả lời cho khách...',
+                        'Type a reply to the customer...',
+                      ),
                       isDense: true,
                       filled: true,
                       fillColor: WebTuiColors.backgroundMuted,
@@ -994,7 +1049,7 @@ class _Composer extends StatelessWidget {
                         (value.text.trim().isNotEmpty || images.isNotEmpty);
                     return IconButton.filled(
                       key: const Key('customer_ticket_send'),
-                      tooltip: 'Gửi trả lời',
+                      tooltip: tr('Gửi trả lời', 'Send reply'),
                       onPressed: ready ? onSend : null,
                       icon: state.isSending
                           ? SizedBox.square(
@@ -1049,7 +1104,10 @@ class _PickedImage extends StatelessWidget {
                   color: onRemove == null
                       ? WebTuiColors.textMuted
                       : WebTuiColors.textOnPrimary,
-                  semanticLabel: 'Bỏ ảnh ${image.name}',
+                  semanticLabel: tr(
+                    'Bỏ ảnh ${image.name}',
+                    'Remove photo ${image.name}',
+                  ),
                 ),
               ),
             ),
@@ -1080,7 +1138,10 @@ class _ReadOnlyNote extends StatelessWidget {
           const SizedBox(width: WebTuiSpacing.sm),
           Expanded(
             child: Text(
-              'Chỉ xem: bạn chưa có quyền trả lời ticket khách.',
+              tr(
+                'Chỉ xem: bạn chưa có quyền trả lời ticket khách.',
+                'View only: you don\'t have permission to reply to customer tickets.',
+              ),
               style: WebTuiTypography.bodySmall.copyWith(
                 color: WebTuiColors.textSecondary,
               ),
@@ -1124,7 +1185,9 @@ class _InstructionSheetState extends State<_InstructionSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const WebTuiSheetHeader(title: 'AI soạn câu trả lời'),
+          WebTuiSheetHeader(
+            title: tr('AI soạn câu trả lời', 'Draft a reply with AI'),
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.lg),
             child: WebTuiDialogTextField(
@@ -1132,8 +1195,10 @@ class _InstructionSheetState extends State<_InstructionSheet> {
               controller: _controller,
               autofocus: true,
               maxLength: customerTicketMaxInstructionLength,
-              hint:
-                  'Gợi ý cho AI (không bắt buộc), vd. xin lỗi khách, hẹn 30 phút',
+              hint: tr(
+                'Gợi ý cho AI (không bắt buộc), vd. xin lỗi khách, hẹn 30 phút',
+                'Hint for the AI (optional), e.g. apologize to the customer, promise 30 minutes',
+              ),
             ),
           ),
           const SizedBox(height: WebTuiSpacing.sm),
@@ -1143,7 +1208,7 @@ class _InstructionSheetState extends State<_InstructionSheet> {
               onPressed: () =>
                   Navigator.of(context).pop(_controller.text.trim()),
               icon: const Icon(Icons.auto_awesome_outlined),
-              label: const Text('Soạn nháp'),
+              label: Text(tr('Soạn nháp', 'Draft')),
             ),
           ),
         ],
@@ -1171,15 +1236,15 @@ Future<void> _showCustomerInfo(
           WebTuiSpacing.xl,
         ),
         children: [
-          const WebTuiSheetHeader(title: 'Thông tin khách'),
-          _InfoRow(label: 'Tên', value: customer.name),
+          WebTuiSheetHeader(title: tr('Thông tin khách', 'Customer info')),
+          _InfoRow(label: tr('Tên', 'Name'), value: customer.name),
           _InfoRow(label: 'Email', value: customer.email),
           _InfoRow(
-            label: 'Mã khách',
+            label: tr('Mã khách', 'Customer ID'),
             value: customer.customerId == null ? '' : '#${customer.customerId}',
           ),
           _InfoRow(
-            label: 'Số dư',
+            label: tr('Số dư', 'Balance'),
             value: customer.balance == null
                 ? ''
                 : formatCustomerTicketMoney(customer.balance!),
@@ -1187,8 +1252,14 @@ Future<void> _showCustomerInfo(
           const SizedBox(height: WebTuiSpacing.md),
           Text(
             customer.servicesTotal > customer.services.length
-                ? 'Dịch vụ (${customer.services.length}/${customer.servicesTotal})'
-                : 'Dịch vụ (${customer.services.length})',
+                ? tr(
+                    'Dịch vụ (${customer.services.length}/${customer.servicesTotal})',
+                    'Services (${customer.services.length}/${customer.servicesTotal})',
+                  )
+                : tr(
+                    'Dịch vụ (${customer.services.length})',
+                    'Services (${customer.services.length})',
+                  ),
             style: WebTuiTypography.bodyMedium.copyWith(
               color: WebTuiColors.textPrimary,
               fontWeight: FontWeight.w800,
@@ -1197,7 +1268,7 @@ Future<void> _showCustomerInfo(
           const SizedBox(height: WebTuiSpacing.xs),
           if (customer.services.isEmpty)
             Text(
-              'Khách chưa có dịch vụ.',
+              tr('Khách chưa có dịch vụ.', 'The customer has no services.'),
               style: WebTuiTypography.bodySmall.copyWith(
                 color: WebTuiColors.textMuted,
               ),
@@ -1262,11 +1333,16 @@ class _ServiceRow extends StatelessWidget {
       if (service.meta.isNotEmpty) service.meta,
       if (expires.isNotEmpty)
         days == null
-            ? 'Hạn $expires'
+            ? tr('Hạn $expires', 'Expires $expires')
             : days < 0
-            ? 'Hết hạn $expires'
-            : 'Hạn $expires (còn $days ngày)',
-      service.autoRenew ? 'Tự gia hạn' : 'Không tự gia hạn',
+            ? tr('Hết hạn $expires', 'Expired $expires')
+            : tr(
+                'Hạn $expires (còn $days ngày)',
+                'Expires $expires ($days days left)',
+              ),
+      service.autoRenew
+          ? tr('Tự gia hạn', 'Auto-renews')
+          : tr('Không tự gia hạn', 'Doesn\'t auto-renew'),
     ];
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: WebTuiSpacing.xs),

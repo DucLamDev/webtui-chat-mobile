@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
@@ -21,10 +22,13 @@ class InboxEntry extends ConsumerWidget {
     if (!access.canView || id.isEmpty) return const SizedBox.shrink();
     return WebTuiConversationListItem(
       key: const Key('inbox_entry'),
-      title: 'Hộp thư khách',
-      preview: 'Tin khách từ email, Messenger, Zalo...',
+      title: tr('Hộp thư khách', 'Customer inbox'),
+      preview: tr(
+        'Tin khách từ email, Messenger, Zalo...',
+        'Customer messages from email, Messenger, Zalo...',
+      ),
       timeLabel: '',
-      avatarLabel: 'Hộp thư khách',
+      avatarLabel: tr('Hộp thư khách', 'Customer inbox'),
       avatarIcon: WebTuiIcons.messages,
       trailing: Icon(
         CupertinoIcons.chevron_right,

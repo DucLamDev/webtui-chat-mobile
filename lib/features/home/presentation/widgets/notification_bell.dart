@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../notifications/presentation/controllers/notification_center_controller.dart';
 
 /// Nút chuông trên thanh đầu: chỉ có khi máy chủ chưa dùng bot thông báo.
@@ -48,7 +49,7 @@ class NotificationBellButton extends StatelessWidget {
       clipBehavior: Clip.none,
       children: [
         IconButton(
-          tooltip: 'Thông báo',
+          tooltip: tr('Thông báo', 'Notifications'),
           onPressed: onPressed,
           icon: const Icon(CupertinoIcons.bell),
         ),

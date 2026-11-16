@@ -1,6 +1,8 @@
 /// Sổ ghi chú cá nhân My Note: chỉ chủ sở hữu đọc / sửa (máy chủ kiểm).
 library;
 
+import 'package:webtui_chat/l10n/app_strings.dart';
+
 /// Giới hạn khớp với máy chủ.
 abstract final class MyNoteLimits {
   static const titleMaxLength = 200;
@@ -447,7 +449,7 @@ String myNoteDisplayTitle(String title, String body) {
           : text;
     }
   }
-  return 'Ghi chú không tiêu đề';
+  return tr('Ghi chú không tiêu đề', 'Untitled note');
 }
 
 /// Ghim lên đầu, rồi mới sửa gần nhất (khớp thứ tự máy chủ).

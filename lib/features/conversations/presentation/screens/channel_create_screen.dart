@@ -8,6 +8,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../profile/presentation/controllers/profile_controller.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
 import '../../application/use_cases/create_group_use_case.dart';
@@ -28,11 +29,14 @@ class ChannelCreateScreen extends ConsumerWidget {
         ?.id;
     if (workspaceId == null || workspaceId.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Tạo nhóm')),
-        body: const SafeArea(
+        appBar: AppBar(title: Text(tr('Tạo nhóm', 'Create group'))),
+        body: SafeArea(
           child: WebTuiEmptyState(
-            title: 'Chưa chọn workspace',
-            message: 'Bạn cần chọn workspace trước khi tạo nhóm.',
+            title: tr('Chưa chọn workspace', 'No workspace selected'),
+            message: tr(
+              'Bạn cần chọn workspace trước khi tạo nhóm.',
+              'Select a workspace before creating a group.',
+            ),
             icon: WebTuiIcons.group,
           ),
         ),
@@ -112,7 +116,7 @@ class _GroupCreateViewState extends ConsumerState<GroupCreateView> {
           bottom: BorderSide(color: WebTuiColors.border.withValues(alpha: 0.7)),
         ),
         titleSpacing: 0,
-        title: const Text('Tạo nhóm'),
+        title: Text(tr('Tạo nhóm', 'Create group')),
       ),
       body: SafeArea(
         top: false,
@@ -122,7 +126,7 @@ class _GroupCreateViewState extends ConsumerState<GroupCreateView> {
           children: [
             if (state.errorMessage != null) ...[
               WebTuiErrorState(
-                title: 'Không tạo được nhóm',
+                title: tr('Không tạo được nhóm', 'Couldn\'t create group'),
                 message: state.errorMessage!,
               ),
               const SizedBox(height: WebTuiSpacing.md),
@@ -130,8 +134,8 @@ class _GroupCreateViewState extends ConsumerState<GroupCreateView> {
             WebTuiDialogTextField(
               key: const Key('group-name-field'),
               controller: _nameController,
-              label: 'Tên nhóm',
-              hint: 'Ví dụ: Kế hoạch tháng 12',
+              label: tr('Tên nhóm', 'Group name'),
+              hint: tr('Ví dụ: Kế hoạch tháng 12', 'e.g. December plan'),
               maxLength: groupNameMaxLength,
               textInputAction: TextInputAction.next,
               prefixIcon: WebTuiIcons.group,
@@ -141,8 +145,8 @@ class _GroupCreateViewState extends ConsumerState<GroupCreateView> {
             WebTuiDialogTextField(
               key: const Key('group-description-field'),
               controller: _descriptionController,
-              label: 'Mô tả (tuỳ chọn)',
-              hint: 'Nhóm này dùng để làm gì?',
+              label: tr('Mô tả (tuỳ chọn)', 'Description (optional)'),
+              hint: tr('Nhóm này dùng để làm gì?', 'What is this group for?'),
               minLines: 2,
               maxLines: 4,
             ),
@@ -151,14 +155,17 @@ class _GroupCreateViewState extends ConsumerState<GroupCreateView> {
               children: [
                 Expanded(
                   child: Text(
-                    'Thành viên',
+                    tr('Thành viên', 'Members'),
                     style: WebTuiTypography.titleMedium.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
                 Text(
-                  'Đã chọn ${selected.length}',
+                  tr(
+                    'Đã chọn ${selected.length}',
+                    '${selected.length} selected',
+                  ),
                   key: const Key('group-selected-count'),
                   style: WebTuiTypography.bodySmall.copyWith(
                     color: WebTuiColors.textSecondary,
@@ -187,15 +194,17 @@ class _GroupCreateViewState extends ConsumerState<GroupCreateView> {
             WebTuiDialogTextField(
               key: const Key('group-member-search'),
               controller: _searchController,
-              hint: 'Tìm bạn bè, thành viên',
+              hint: tr('Tìm bạn bè, thành viên', 'Search friends, members'),
               prefixIcon: WebTuiIcons.search,
               onChanged: (value) => setState(() => _query = value),
             ),
             const SizedBox(height: WebTuiSpacing.sm),
             if (home.isLoading && candidates.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(WebTuiSpacing.xl),
-                child: WebTuiLoadingState(message: 'Đang tải danh sách...'),
+              Padding(
+                padding: const EdgeInsets.all(WebTuiSpacing.xl),
+                child: WebTuiLoadingState(
+                  message: tr('Đang tải danh sách...', 'Loading list...'),
+                ),
               )
             else if (candidates.isEmpty &&
                 (home.contactsErrorMessage != null ||
@@ -204,7 +213,7 @@ class _GroupCreateViewState extends ConsumerState<GroupCreateView> {
               // "Chưa có ai để thêm".
               WebTuiErrorState(
                 key: const Key('group-members-error'),
-                title: 'Không tải được danh sách',
+                title: tr('Không tải được danh sách', 'Couldn\'t load list'),
                 message:
                     home.contactsErrorMessage ?? home.membersErrorMessage ?? '',
                 onRetry: () => ref
@@ -216,11 +225,14 @@ class _GroupCreateViewState extends ConsumerState<GroupCreateView> {
             else if (visible.isEmpty)
               WebTuiEmptyState(
                 title: candidates.isEmpty
-                    ? 'Chưa có ai để thêm'
-                    : 'Không tìm thấy',
+                    ? tr('Chưa có ai để thêm', 'No one to add yet')
+                    : tr('Không tìm thấy', 'No results'),
                 message: candidates.isEmpty
-                    ? 'Bạn vẫn có thể tạo nhóm trước rồi thêm người sau.'
-                    : 'Thử tìm bằng tên khác.',
+                    ? tr(
+                        'Bạn vẫn có thể tạo nhóm trước rồi thêm người sau.',
+                        'You can create the group now and add people later.',
+                      )
+                    : tr('Thử tìm bằng tên khác.', 'Try a different name.'),
                 icon: WebTuiIcons.group,
               )
             else
@@ -265,7 +277,7 @@ class _GroupCreateViewState extends ConsumerState<GroupCreateView> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(WebTuiIcons.newGroup),
-            label: const Text('Tạo nhóm'),
+            label: Text(tr('Tạo nhóm', 'Create group')),
           ),
         ),
       ),
@@ -286,7 +298,16 @@ class _GroupCreateViewState extends ConsumerState<GroupCreateView> {
     final channel = outcome.channel;
     if (outcome.failedCount > 0) {
       messenger.showSnackBar(
-        SnackBar(content: Text('Không thêm được ${outcome.failedCount} người')),
+        SnackBar(
+          content: Text(
+            tr(
+              'Không thêm được ${outcome.failedCount} người',
+              outcome.failedCount == 1
+                  ? 'Couldn\'t add 1 person'
+                  : 'Couldn\'t add ${outcome.failedCount} people',
+            ),
+          ),
+        ),
       );
     }
     router.replace(
@@ -416,7 +437,10 @@ class _SelectedChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Bỏ chọn ${_personName(person)}',
+      label: tr(
+        'Bỏ chọn ${_personName(person)}',
+        'Deselect ${_personName(person)}',
+      ),
       child: InkWell(
         key: Key('group-chip-${person.userId}'),
         borderRadius: BorderRadius.circular(20),

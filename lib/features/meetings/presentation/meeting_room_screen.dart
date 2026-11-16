@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../design_system/tokens/webtui_colors.dart';
 import '../../../design_system/tokens/webtui_radii.dart';
@@ -114,8 +115,8 @@ class _MeetingRoomScreenState extends State<MeetingRoomScreen> {
           children: [
             const Icon(Icons.videocam_outlined, color: Colors.white, size: 48),
             const SizedBox(height: WebTuiSpacing.lg),
-            const Text(
-              'Sẵn sàng vào họp?',
+            Text(
+              tr('Sẵn sàng vào họp?', 'Ready to join the meeting?'),
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 20,
@@ -123,10 +124,11 @@ class _MeetingRoomScreenState extends State<MeetingRoomScreen> {
               ),
             ),
             const SizedBox(height: WebTuiSpacing.sm),
-            const Text(
-              'Ứng dụng cần dùng micro để mọi người nghe bạn nói và camera để '
-              'chia sẻ hình ảnh. Máy sẽ hỏi quyền khi bạn bật từng thiết bị; '
-              'bạn có thể tắt bất cứ lúc nào trong cuộc họp.',
+            Text(
+              tr(
+                'Ứng dụng cần dùng micro để mọi người nghe bạn nói và camera để chia sẻ hình ảnh. Máy sẽ hỏi quyền khi bạn bật từng thiết bị; bạn có thể tắt bất cứ lúc nào trong cuộc họp.',
+                'The app needs the microphone so others can hear you and the camera to share video. Your device will ask for permission when you turn each one on; you can turn them off at any time during the meeting.',
+              ),
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.white70, height: 1.4),
             ),
@@ -135,7 +137,7 @@ class _MeetingRoomScreenState extends State<MeetingRoomScreen> {
               key: const Key('meeting-join-button'),
               onPressed: _join,
               icon: const Icon(Icons.login_rounded),
-              label: const Text('Tham gia họp'),
+              label: Text(tr('Tham gia họp', 'Join meeting')),
             ),
           ],
         ),
@@ -147,14 +149,17 @@ class _MeetingRoomScreenState extends State<MeetingRoomScreen> {
     final controller = _controller;
     return switch (controller.state) {
       MeetingConnectionState.idle ||
-      MeetingConnectionState.connecting => const Center(
+      MeetingConnectionState.connecting => Center(
         key: Key('meeting-connecting'),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             CircularProgressIndicator(),
             SizedBox(height: WebTuiSpacing.lg),
-            Text('Đang kết nối...', style: TextStyle(color: Colors.white70)),
+            Text(
+              tr('Đang kết nối...', 'Connecting...'),
+              style: TextStyle(color: Colors.white70),
+            ),
           ],
         ),
       ),
@@ -164,7 +169,7 @@ class _MeetingRoomScreenState extends State<MeetingRoomScreen> {
         children: [
           if (controller.state == MeetingConnectionState.reconnecting)
             _banner(
-              'Đang kết nối lại...',
+              tr('Đang kết nối lại...', 'Reconnecting...'),
               WebTuiColors.accentAmber,
               key: const Key('meeting-reconnecting'),
             ),
@@ -200,8 +205,12 @@ class _MeetingRoomScreenState extends State<MeetingRoomScreen> {
             const SizedBox(height: WebTuiSpacing.lg),
             Text(
               left
-                  ? 'Bạn đã rời cuộc họp.'
-                  : controller.error ?? 'Không vào được cuộc họp.',
+                  ? tr('Bạn đã rời cuộc họp.', 'You left the meeting.')
+                  : controller.error ??
+                        tr(
+                          'Không vào được cuộc họp.',
+                          'Couldn\'t join the meeting.',
+                        ),
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white, fontSize: 16),
             ),
@@ -210,12 +219,12 @@ class _MeetingRoomScreenState extends State<MeetingRoomScreen> {
               FilledButton(
                 key: const Key('meeting-retry-button'),
                 onPressed: () => unawaited(controller.retry()),
-                child: const Text('Thử lại'),
+                child: Text(tr('Thử lại', 'Retry')),
               ),
             TextButton(
               onPressed: () => Navigator.of(context).maybePop(),
               child: Text(
-                left ? 'Đóng' : 'Rời phòng',
+                left ? tr('Đóng', 'Close') : tr('Rời phòng', 'Leave room'),
                 style: const TextStyle(color: Colors.white70),
               ),
             ),
@@ -252,9 +261,9 @@ class _MeetingRoomScreenState extends State<MeetingRoomScreen> {
   Widget _grid(MeetingRoomController controller) {
     final people = controller.participants;
     if (people.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
-          'Chưa có ai trong phòng.',
+          tr('Chưa có ai trong phòng.', 'No one is in the room yet.'),
           style: TextStyle(color: Colors.white70),
         ),
       );
@@ -292,7 +301,7 @@ class _MeetingRoomScreenState extends State<MeetingRoomScreen> {
           _RoundButton(
             key: const Key('meeting-mic-button'),
             icon: c.micOn ? Icons.mic_rounded : Icons.mic_off_rounded,
-            label: c.micOn ? 'Tắt mic' : 'Bật mic',
+            label: c.micOn ? tr('Tắt mic', 'Mute') : tr('Bật mic', 'Unmute'),
             active: c.micOn,
             onPressed: c.canToggleMic ? () => unawaited(c.toggleMic()) : null,
           ),
@@ -301,7 +310,9 @@ class _MeetingRoomScreenState extends State<MeetingRoomScreen> {
             icon: c.cameraOn
                 ? Icons.videocam_rounded
                 : Icons.videocam_off_rounded,
-            label: c.cameraOn ? 'Tắt cam' : 'Bật cam',
+            label: c.cameraOn
+                ? tr('Tắt cam', 'Camera off')
+                : tr('Bật cam', 'Camera on'),
             active: c.cameraOn,
             onPressed: c.canToggleCamera
                 ? () => unawaited(c.toggleCamera())
@@ -310,7 +321,7 @@ class _MeetingRoomScreenState extends State<MeetingRoomScreen> {
           _RoundButton(
             key: const Key('meeting-flip-button'),
             icon: Icons.cameraswitch_rounded,
-            label: 'Đổi cam',
+            label: tr('Đổi cam', 'Flip camera'),
             onPressed: c.cameraOn ? () => unawaited(c.flipCamera()) : null,
           ),
           _RoundButton(
@@ -318,14 +329,16 @@ class _MeetingRoomScreenState extends State<MeetingRoomScreen> {
             icon: c.speakerOn
                 ? Icons.volume_up_rounded
                 : Icons.volume_down_rounded,
-            label: c.speakerOn ? 'Loa ngoài' : 'Loa trong',
+            label: c.speakerOn
+                ? tr('Loa ngoài', 'Speaker')
+                : tr('Loa trong', 'Earpiece'),
             active: c.speakerOn,
             onPressed: () => unawaited(c.toggleSpeaker()),
           ),
           _RoundButton(
             key: const Key('meeting-leave-button'),
             icon: Icons.call_end_rounded,
-            label: 'Rời phòng',
+            label: tr('Rời phòng', 'Leave room'),
             danger: true,
             onPressed: () => unawaited(_leave()),
           ),
@@ -453,7 +466,9 @@ class _ParticipantTile extends StatelessWidget {
                     ),
                   Expanded(
                     child: Text(
-                      person.isLocal ? '${person.name} (Bạn)' : person.name,
+                      person.isLocal
+                          ? tr('${person.name} (Bạn)', '${person.name} (You)')
+                          : person.name,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Colors.white,

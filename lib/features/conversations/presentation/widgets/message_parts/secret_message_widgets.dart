@@ -7,6 +7,7 @@ import '../../../../../core/privacy/background_privacy.dart';
 import '../../../../../design_system/components/webtui_components.dart';
 import '../../../../../design_system/icons/webtui_icons.dart';
 import '../../../../../design_system/tokens/webtui_colors.dart';
+import '../../../../../l10n/app_strings.dart';
 import '../../../../mfa/presentation/reauth_prompt.dart';
 import '../../../domain/entities/chat_message.dart';
 
@@ -28,7 +29,7 @@ class SecretMessageComposer extends ConsumerWidget {
     }
     return TextButton.icon(
       icon: const Icon(WebTuiIcons.lock),
-      label: const Text('Bí mật 24h'),
+      label: Text(tr('Bí mật 24h', 'Secret 24h')),
       onPressed: () async {
         final sent = await showDialog<bool>(
           context: context,
@@ -83,8 +84,11 @@ class _SecretComposerState extends ConsumerState<_SecretComposer> {
 
   @override
   Widget build(BuildContext context) => WebTuiDialog(
-    title: 'Tin bí mật 24h',
-    message: 'Chỉ gửi chữ. Không lưu bản nháp hoặc hàng chờ offline.',
+    title: tr('Tin bí mật 24h', '24h secret message'),
+    message: tr(
+      'Chỉ gửi chữ. Không lưu bản nháp hoặc hàng chờ offline.',
+      'Text only. No draft or offline queue is saved.',
+    ),
     icon: WebTuiIcons.lock,
     content: Column(
       mainAxisSize: MainAxisSize.min,
@@ -99,7 +103,9 @@ class _SecretComposerState extends ConsumerState<_SecretComposer> {
           maxLines: 6,
           autocorrect: false,
           enableSuggestions: false,
-          decoration: const InputDecoration(labelText: 'Nội dung tin bí mật'),
+          decoration: InputDecoration(
+            labelText: tr('Nội dung tin bí mật', 'Secret message content'),
+          ),
           onChanged: (_) => _clientId = const Uuid().v4(),
         ),
         if (_error != null)
@@ -111,11 +117,11 @@ class _SecretComposerState extends ConsumerState<_SecretComposer> {
     ),
     actions: [
       WebTuiDialogAction(
-        label: 'Huỷ',
+        label: tr('Huỷ', 'Cancel'),
         onPressed: _busy ? null : () => Navigator.pop(context),
       ),
       WebTuiDialogAction(
-        label: _busy ? 'Đang gửi…' : 'Gửi',
+        label: _busy ? tr('Đang gửi…', 'Sending…') : tr('Gửi', 'Send'),
         primary: true,
         onPressed: _busy ? null : _send,
       ),
@@ -156,7 +162,10 @@ class _SecretMessageBubbleState extends ConsumerState<SecretMessageBubble> {
     final token = await requestReauthToken(
       context,
       ref,
-      reason: 'Xem tin bí mật trong tối đa 60 giây',
+      reason: tr(
+        'Xem tin bí mật trong tối đa 60 giây',
+        'View the secret message for up to 60 seconds',
+      ),
     );
     if (!mounted || token == null || _expired) return;
     setState(() {
@@ -205,10 +214,17 @@ class _SecretMessageBubbleState extends ConsumerState<SecretMessageBubble> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(_expired ? 'Tin bí mật đã hết hạn' : 'Tin nhắn bí mật'),
+          Text(
+            _expired
+                ? tr('Tin bí mật đã hết hạn', 'Secret message expired')
+                : tr('Tin nhắn bí mật', 'Secret message'),
+          ),
           if (!_expired)
             Text(
-              'Còn ${(widget.message.expiresAt!.difference(DateTime.now()).inSeconds / 60).ceil()} phút',
+              tr(
+                'Còn ${(widget.message.expiresAt!.difference(DateTime.now()).inSeconds / 60).ceil()} phút',
+                '${(widget.message.expiresAt!.difference(DateTime.now()).inSeconds / 60).ceil()} min left',
+              ),
             ),
           if (_error != null)
             Text(
@@ -218,7 +234,9 @@ class _SecretMessageBubbleState extends ConsumerState<SecretMessageBubble> {
           if (!_expired)
             TextButton(
               onPressed: _busy ? null : _reveal,
-              child: Text(_busy ? 'Đang mở…' : 'Xem'),
+              child: Text(
+                _busy ? tr('Đang mở…', 'Opening…') : tr('Xem', 'View'),
+              ),
             ),
         ],
       ),
@@ -266,12 +284,12 @@ class _SecretRevealState extends State<_SecretReveal>
 
   @override
   Widget build(BuildContext context) => WebTuiDialog(
-    title: 'Tin bí mật',
+    title: tr('Tin bí mật', 'Secret message'),
     icon: WebTuiIcons.lock,
     content: Text(widget.body),
     actions: [
       WebTuiDialogAction(
-        label: 'Đóng',
+        label: tr('Đóng', 'Close'),
         primary: true,
         onPressed: () => Navigator.pop(context),
       ),

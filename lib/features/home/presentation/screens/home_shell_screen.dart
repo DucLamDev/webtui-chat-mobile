@@ -216,21 +216,27 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     final organization = ref.watch(activeServerDiscoveryProvider);
 
     if (workspaceState.isLoading && activeWorkspace == null) {
-      return const Scaffold(
+      return Scaffold(
         body: SafeArea(
-          child: WebTuiLoadingState(message: 'Đang tải workspace...'),
+          child: WebTuiLoadingState(
+            message: tr('Đang tải workspace...', 'Loading workspace...'),
+          ),
         ),
       );
     }
 
     if (activeWorkspace == null) {
       return Scaffold(
-        appBar: AppBar(title: Text(organization?.name ?? 'Tổ chức')),
-        body: const SafeArea(
+        appBar: AppBar(
+          title: Text(organization?.name ?? tr('Tổ chức', 'Organization')),
+        ),
+        body: SafeArea(
           child: WebTuiEmptyState(
-            title: 'Chưa có workspace',
-            message:
-                'Tài khoản này chưa được gắn workspace. Hãy liên hệ quản trị viên.',
+            title: tr('Chưa có workspace', 'No workspace yet'),
+            message: tr(
+              'Tài khoản này chưa được gắn workspace. Hãy liên hệ quản trị viên.',
+              'This account is not linked to a workspace. Contact an administrator.',
+            ),
             icon: Icons.business_rounded,
           ),
         ),
@@ -240,7 +246,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
             onPressed: () =>
                 ref.read(workspaceControllerProvider.notifier).load(),
             icon: const Icon(Icons.business_rounded),
-            label: const Text('Tải lại workspace'),
+            label: Text(tr('Tải lại workspace', 'Reload workspace')),
           ),
         ),
       );
@@ -472,7 +478,10 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         SnackBar(
           content: Text(
             result.failureOrNull?.message ??
-                'Chưa thể tải danh sách cuộc trò chuyện.',
+                tr(
+                  'Chưa thể tải danh sách cuộc trò chuyện.',
+                  'Could not load the conversation list.',
+                ),
           ),
         ),
       );
@@ -481,7 +490,14 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     final targets = _shareTargets(data);
     if (targets.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Chưa có cuộc trò chuyện để gửi vào.')),
+        SnackBar(
+          content: Text(
+            tr(
+              'Chưa có cuộc trò chuyện để gửi vào.',
+              'No conversation to send to yet.',
+            ),
+          ),
+        ),
       );
       return;
     }
@@ -667,7 +683,11 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          result.failureOrNull?.message ?? 'Chưa gửi được trả lời nhanh.',
+          result.failureOrNull?.message ??
+              tr(
+                'Chưa gửi được trả lời nhanh.',
+                'Could not send the quick reply.',
+              ),
         ),
       ),
     );
@@ -733,12 +753,18 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           }
           return showWebTuiConfirmDialog(
             context,
-            title: 'Nhận cuộc gọi khi tắt app',
-            message:
-                'Cho phép thông báo để điện thoại đổ chuông khi có người gọi '
-                'và báo tin nhắn mới, kể cả khi bạn đã thoát app.',
-            confirmLabel: 'Cho phép',
-            cancelLabel: 'Để sau',
+            title: tr(
+              'Nhận cuộc gọi khi tắt app',
+              'Receive calls when the app is closed',
+            ),
+            message: tr(
+              'Cho phép thông báo để điện thoại đổ chuông khi có người gọi '
+                  'và báo tin nhắn mới, kể cả khi bạn đã thoát app.',
+              'Allow notifications so your phone rings for calls and alerts '
+                  'you to new messages, even after you leave the app.',
+            ),
+            confirmLabel: tr('Cho phép', 'Allow'),
+            cancelLabel: tr('Để sau', 'Later'),
             icon: WebTuiIcons.phoneIncoming,
           );
         },
@@ -753,12 +779,20 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     if (outcome == NotificationOfferOutcome.skipped || !mounted) return;
     ref.invalidate(notificationPermissionStatusProvider);
     final message = switch (outcome) {
-      NotificationOfferOutcome.granted => 'Đã bật thông báo.',
-      NotificationOfferOutcome.denied =>
+      NotificationOfferOutcome.granted => tr(
+        'Đã bật thông báo.',
+        'Notifications turned on.',
+      ),
+      NotificationOfferOutcome.denied => tr(
         'Thông báo đang bị tắt trong cài đặt điện thoại. Hãy bật lại để nhận '
             'cuộc gọi khi không mở app.',
-      NotificationOfferOutcome.unknown =>
+        'Notifications are turned off in your phone settings. Turn them on to '
+            'receive calls when the app is closed.',
+      ),
+      NotificationOfferOutcome.unknown => tr(
         'Chưa bật được thông báo. Thử lại trong Cài đặt > Thông báo.',
+        'Could not turn on notifications. Try again in Settings > Notifications.',
+      ),
       NotificationOfferOutcome.skipped ||
       NotificationOfferOutcome.later => null,
     };
@@ -798,17 +832,23 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       builder: (sheetContext) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const WebTuiSheetHeader(title: 'Soạn mới'),
+          WebTuiSheetHeader(title: tr('Soạn mới', 'New')),
           WebTuiSheetActionTile(
             icon: WebTuiIcons.newMessage,
-            title: 'Tin nhắn mới',
-            subtitle: 'Chọn một người trong workspace',
+            title: tr('Tin nhắn mới', 'New message'),
+            subtitle: tr(
+              'Chọn một người trong workspace',
+              'Choose someone in the workspace',
+            ),
             onTap: () => Navigator.of(sheetContext).pop('direct'),
           ),
           WebTuiSheetActionTile(
             icon: WebTuiIcons.newGroup,
-            title: 'Tạo nhóm',
-            subtitle: 'Trò chuyện cùng nhiều người',
+            title: tr('Tạo nhóm', 'Create group'),
+            subtitle: tr(
+              'Trò chuyện cùng nhiều người',
+              'Chat with several people',
+            ),
             onTap: () => Navigator.of(sheetContext).pop('group'),
           ),
           const SizedBox(height: WebTuiSpacing.md),
@@ -874,18 +914,33 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   /// ném lỗi để use case giữ con trỏ cũ (lần sau đặt lại tiếp).
   Future<void> _reloadAfterSyncReset(String workspaceId) async {
     if (!mounted) {
-      throw StateError('Màn hình đã đóng trước khi tải lại.');
+      throw StateError(
+        tr(
+          'Màn hình đã đóng trước khi tải lại.',
+          'The screen was closed before reloading.',
+        ),
+      );
     }
     final reloaded = await ref
         .read(conversationHomeControllerProvider(workspaceId).notifier)
         .syncSilently();
     if (!mounted) {
-      throw StateError('Màn hình đã đóng trước khi tải lại.');
+      throw StateError(
+        tr(
+          'Màn hình đã đóng trước khi tải lại.',
+          'The screen was closed before reloading.',
+        ),
+      );
     }
     ref.invalidate(notificationCenterControllerProvider(workspaceId));
     ref.read(workspaceRefreshSignalProvider).notifyReset(workspaceId);
     if (!reloaded) {
-      throw StateError('Không tải lại được danh sách hội thoại.');
+      throw StateError(
+        tr(
+          'Không tải lại được danh sách hội thoại.',
+          'Could not reload the conversation list.',
+        ),
+      );
     }
   }
 
@@ -987,11 +1042,11 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       final location = locationForNotificationTarget(target);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Có thông báo mới'),
+          content: Text(tr('Có thông báo mới', 'New notification')),
           action: location == null
               ? null
               : SnackBarAction(
-                  label: 'Mở',
+                  label: tr('Mở', 'Open'),
                   onPressed: () => context.push(location),
                 ),
         ),
@@ -1062,7 +1117,8 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           useRootNavigator: true,
           barrierDismissible: false,
           builder: (dialogContext) => _IncomingCallDialog(
-            callerName: target.callerName ?? 'Cuộc gọi đến',
+            callerName:
+                target.callerName ?? tr('Cuộc gọi đến', 'Incoming call'),
             mode: initialCall.mode,
             dismissSignal: dismiss,
             checkStatus: () async {
@@ -1131,7 +1187,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
             workspaceId: initialCall.workspaceId,
             channelId: initialCall.channelId,
             callId: initialCall.id,
-            title: target.callerName ?? 'Cuộc gọi đến',
+            title: target.callerName ?? tr('Cuộc gọi đến', 'Incoming call'),
             mode: initialCall.mode,
             incoming: true,
             onConnected: () =>
@@ -1258,7 +1314,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
             workspaceId: currentCall.workspaceId,
             channelId: currentCall.channelId,
             callId: currentCall.id,
-            title: target.callerName ?? 'Cuộc gọi đến',
+            title: target.callerName ?? tr('Cuộc gọi đến', 'Incoming call'),
             mode: currentCall.mode,
             incoming: true,
             onConnected: () =>
@@ -1745,7 +1801,7 @@ class _ShareTargetPickerSheetState extends State<_ShareTargetPickerSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Gửi vào chat',
+                tr('Gửi vào chat', 'Send to chat'),
                 style: WebTuiTypography.titleMedium.copyWith(
                   color: WebTuiColors.textPrimary,
                   fontWeight: FontWeight.w800,
@@ -1764,15 +1820,21 @@ class _ShareTargetPickerSheetState extends State<_ShareTargetPickerSheet> {
               WebTuiDialogTextField(
                 controller: _searchController,
                 onChanged: (value) => setState(() => _query = value),
-                hint: 'Tìm cuộc trò chuyện hoặc nhóm',
+                hint: tr(
+                  'Tìm cuộc trò chuyện hoặc nhóm',
+                  'Search conversations or groups',
+                ),
                 prefixIcon: WebTuiIcons.search,
               ),
               const SizedBox(height: WebTuiSpacing.md),
               Expanded(
                 child: targets.isEmpty
-                    ? const WebTuiEmptyState(
-                        title: 'Không tìm thấy',
-                        message: 'Thử tìm bằng tên khác.',
+                    ? WebTuiEmptyState(
+                        title: tr('Không tìm thấy', 'Nothing found'),
+                        message: tr(
+                          'Thử tìm bằng tên khác.',
+                          'Try a different name.',
+                        ),
                         icon: CupertinoIcons.chat_bubble_2,
                       )
                     : ListView.separated(
@@ -1803,8 +1865,8 @@ class _ShareTargetPickerSheetState extends State<_ShareTargetPickerSheet> {
                             ),
                             subtitle: Text(
                               target.kind == ConversationKind.channel
-                                  ? 'Nhóm'
-                                  : 'Tin nhắn',
+                                  ? tr('Nhóm', 'Group')
+                                  : tr('Tin nhắn', 'Direct message'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -2027,7 +2089,9 @@ class _IncomingCallDialogState extends State<_IncomingCallDialog> {
               ),
               const SizedBox(height: WebTuiSpacing.xs),
               Text(
-                video ? 'Cuộc gọi video đến' : 'Cuộc gọi thoại đến',
+                video
+                    ? tr('Cuộc gọi video đến', 'Incoming video call')
+                    : tr('Cuộc gọi thoại đến', 'Incoming voice call'),
                 style: WebTuiTypography.bodySmall.copyWith(
                   color: WebTuiColors.textSecondary,
                 ),
@@ -2037,7 +2101,7 @@ class _IncomingCallDialogState extends State<_IncomingCallDialog> {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   _IncomingCallAction(
-                    label: 'Từ chối',
+                    label: tr('Từ chối', 'Decline'),
                     icon: Icons.call_end_rounded,
                     color: WebTuiColors.danger,
                     onPressed: () => _close(_IncomingCallDialogResult.declined),
@@ -2129,7 +2193,10 @@ class _NetworkQualityBanner extends StatelessWidget {
             const SizedBox(width: WebTuiSpacing.sm),
             Expanded(
               child: Text(
-                'Mạng yếu, đang dùng dữ liệu gần nhất',
+                tr(
+                  'Mạng yếu, đang dùng dữ liệu gần nhất',
+                  'Weak connection, showing the latest data',
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: WebTuiTypography.labelSmall.copyWith(
@@ -2141,7 +2208,7 @@ class _NetworkQualityBanner extends StatelessWidget {
             TextButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded, size: 16),
-              label: const Text('Thử lại'),
+              label: Text(tr('Thử lại', 'Retry')),
             ),
           ],
         ),

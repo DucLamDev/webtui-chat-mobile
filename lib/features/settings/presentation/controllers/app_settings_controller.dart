@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../notifications/application/use_cases/notification_use_cases.dart';
 import '../../../notifications/domain/entities/mobile_notification.dart';
 import '../../application/use_cases/app_settings_use_cases.dart';
@@ -100,7 +101,10 @@ final class AppSettingsController extends StateNotifier<AppSettingsState> {
     } on Object {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Không thể tải thiết lập.',
+        errorMessage: tr(
+          'Không thể tải thiết lập.',
+          'Could not load settings.',
+        ),
       );
     }
   }
@@ -143,7 +147,12 @@ final class AppSettingsController extends StateNotifier<AppSettingsState> {
         }
       }
     } on Object {
-      state = state.copyWith(errorMessage: 'Không thể lưu thiết lập.');
+      state = state.copyWith(
+        errorMessage: tr(
+          'Không thể lưu thiết lập.',
+          'Could not save settings.',
+        ),
+      );
     }
   }
 
@@ -152,7 +161,12 @@ final class AppSettingsController extends StateNotifier<AppSettingsState> {
       await clearWorkspaceCacheUseCase.execute(workspaceId: workspaceId);
       state = state.copyWith(clearError: true);
     } on Object {
-      state = state.copyWith(errorMessage: 'Không thể xóa cache lúc này.');
+      state = state.copyWith(
+        errorMessage: tr(
+          'Không thể xóa cache lúc này.',
+          'Could not clear the cache right now.',
+        ),
+      );
     }
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../profile/domain/entities/avatar_upload.dart';
 import '../../application/use_cases/channel_avatar_use_cases.dart';
 import '../../application/use_cases/channel_use_cases.dart';
@@ -234,7 +235,7 @@ final class ChannelDetailController extends StateNotifier<ChannelDetailState> {
         state = state.copyWith(
           channel: _mergeChannel(channel, updated),
           isUpdatingAvatar: false,
-          noticeMessage: 'Đã đổi ảnh nhóm.',
+          noticeMessage: tr('Đã đổi ảnh nhóm.', 'Group photo updated.'),
         );
         return true;
       case FailureResult<ConversationSummary?>(failure: final failure):
@@ -325,7 +326,12 @@ final class ChannelDetailController extends StateNotifier<ChannelDetailState> {
       case Success<ChannelMember>():
         state = state.copyWith(isSubmitting: false);
         await load();
-        state = state.copyWith(noticeMessage: 'Đã gửi yêu cầu tham gia kênh.');
+        state = state.copyWith(
+          noticeMessage: tr(
+            'Đã gửi yêu cầu tham gia kênh.',
+            'Join request sent.',
+          ),
+        );
       case FailureResult<ChannelMember>(failure: final failure):
         state = state.copyWith(
           isSubmitting: false,
@@ -336,7 +342,12 @@ final class ChannelDetailController extends StateNotifier<ChannelDetailState> {
 
   Future<void> inviteMember(String userId) async {
     if (userId.trim().isEmpty) {
-      state = state.copyWith(errorMessage: 'Vui lòng nhập mã người dùng.');
+      state = state.copyWith(
+        errorMessage: tr(
+          'Vui lòng nhập mã người dùng.',
+          'Please enter a user ID.',
+        ),
+      );
       return;
     }
     state = state.copyWith(isSubmitting: true, clearError: true);
@@ -350,7 +361,7 @@ final class ChannelDetailController extends StateNotifier<ChannelDetailState> {
         state = state.copyWith(
           isSubmitting: false,
           members: [...state.members, member],
-          noticeMessage: 'Đã mời thành viên vào kênh.',
+          noticeMessage: tr('Đã mời thành viên vào kênh.', 'Member invited.'),
         );
       case FailureResult<ChannelMember>(failure: final failure):
         state = state.copyWith(
@@ -383,7 +394,10 @@ final class ChannelDetailController extends StateNotifier<ChannelDetailState> {
           joinRequests: state.joinRequests
               .where((request) => request.userId != userId)
               .toList(growable: false),
-          noticeMessage: 'Đã duyệt yêu cầu tham gia.',
+          noticeMessage: tr(
+            'Đã duyệt yêu cầu tham gia.',
+            'Join request approved.',
+          ),
         );
       case FailureResult<ChannelMember>(failure: final failure):
         state = state.copyWith(errorMessage: failure.message);
@@ -402,7 +416,10 @@ final class ChannelDetailController extends StateNotifier<ChannelDetailState> {
           joinRequests: state.joinRequests
               .where((request) => request.userId != userId)
               .toList(growable: false),
-          noticeMessage: 'Đã từ chối yêu cầu tham gia.',
+          noticeMessage: tr(
+            'Đã từ chối yêu cầu tham gia.',
+            'Join request declined.',
+          ),
         );
       case FailureResult<void>(failure: final failure):
         state = state.copyWith(errorMessage: failure.message);

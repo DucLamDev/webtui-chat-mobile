@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
@@ -32,10 +33,10 @@ class MyTasksScreen extends ConsumerStatefulWidget {
 }
 
 class _MyTasksScreenState extends ConsumerState<MyTasksScreen> {
-  static const _filters = [
-    (CollaborationTaskStatus.open, 'Chưa nhận'),
-    (CollaborationTaskStatus.inProgress, 'Đã nhận'),
-    (CollaborationTaskStatus.done, 'Hoàn thành'),
+  static List<(CollaborationTaskStatus, String)> get _filters => [
+    (CollaborationTaskStatus.open, tr('Chưa nhận', 'Unclaimed')),
+    (CollaborationTaskStatus.inProgress, tr('Đã nhận', 'Claimed')),
+    (CollaborationTaskStatus.done, tr('Hoàn thành', 'Done')),
   ];
 
   final _search = TextEditingController();
@@ -65,17 +66,22 @@ class _MyTasksScreenState extends ConsumerState<MyTasksScreen> {
                 controller: _search,
                 autofocus: true,
                 onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(
-                  hintText: 'Tìm việc theo tên...',
+                decoration: InputDecoration(
+                  hintText: tr(
+                    'Tìm việc theo tên...',
+                    'Search tasks by name...',
+                  ),
                   border: InputBorder.none,
                   filled: false,
                 ),
               )
-            : const Text('Việc của tôi'),
+            : Text(tr('Việc của tôi', 'My tasks')),
         actions: [
           IconButton(
             key: const Key('my_tasks_search_toggle'),
-            tooltip: _searching ? 'Đóng tìm kiếm' : 'Tìm việc',
+            tooltip: _searching
+                ? tr('Đóng tìm kiếm', 'Close search')
+                : tr('Tìm việc', 'Search tasks'),
             icon: Icon(_searching ? WebTuiIcons.close : WebTuiIcons.search),
             onPressed: () => setState(() {
               _searching = !_searching;
@@ -113,7 +119,10 @@ class _MyTasksScreenState extends ConsumerState<MyTasksScreen> {
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'Việc xong trong 7 ngày qua. Tìm theo tên để xem việc cũ hơn.',
+                    tr(
+                      'Việc xong trong 7 ngày qua. Tìm theo tên để xem việc cũ hơn.',
+                      'Tasks done in the last 7 days. Search by name to see older ones.',
+                    ),
                     key: const Key('my_tasks_done_hint'),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: WebTuiColors.textSecondary,
@@ -155,12 +164,24 @@ class _MyTasksScreenState extends ConsumerState<MyTasksScreen> {
                   if (shown.isEmpty) {
                     return WorkEmptyBox(
                       message: tasks.isEmpty
-                          ? 'Chưa có việc nào được giao cho bạn'
+                          ? tr(
+                              'Chưa có việc nào được giao cho bạn',
+                              'No tasks assigned to you yet',
+                            )
                           : query.isEmpty
                           ? _filter == CollaborationTaskStatus.done
-                                ? 'Không có việc nào xong trong 7 ngày qua'
-                                : 'Không có việc nào ở mục này'
-                          : 'Không thấy việc nào tên "${_search.text.trim()}"',
+                                ? tr(
+                                    'Không có việc nào xong trong 7 ngày qua',
+                                    'No tasks done in the last 7 days',
+                                  )
+                                : tr(
+                                    'Không có việc nào ở mục này',
+                                    'No tasks in this section',
+                                  )
+                          : tr(
+                              'Không thấy việc nào tên "${_search.text.trim()}"',
+                              'No task named "${_search.text.trim()}"',
+                            ),
                     );
                   }
                   return RefreshIndicator(

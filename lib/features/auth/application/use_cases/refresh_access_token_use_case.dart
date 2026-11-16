@@ -1,5 +1,6 @@
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/auth_session.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/repositories/auth_token_repository.dart';
@@ -31,10 +32,13 @@ final class RefreshAccessTokenUseCase {
         expectedGuard ?? await _tokenRepository.captureMutationGuard();
     if (guard == null ||
         !await _tokenRepository.isMutationGuardCurrent(guard)) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.unauthorized,
-          message: 'Máy chủ đang hoạt động đã thay đổi.',
+          message: tr(
+            'Máy chủ đang hoạt động đã thay đổi.',
+            'The active server has changed.',
+          ),
           code: 'AUTH_INSTANCE_CHANGED',
         ),
       );
@@ -64,10 +68,13 @@ final class RefreshAccessTokenUseCase {
         guard,
       ))?.trim();
       if (refreshToken == null || refreshToken.isEmpty) {
-        return const FailureResult(
+        return FailureResult(
           Failure(
             kind: FailureKind.unauthorized,
-            message: 'Phiên đăng nhập đã hết hạn.',
+            message: tr(
+              'Phiên đăng nhập đã hết hạn.',
+              'Your session has expired.',
+            ),
             code: 'REFRESH_TOKEN_MISSING',
           ),
         );
@@ -80,10 +87,13 @@ final class RefreshAccessTokenUseCase {
             value.tokens,
             guard,
           )) {
-            return const FailureResult(
+            return FailureResult(
               Failure(
                 kind: FailureKind.unauthorized,
-                message: 'Máy chủ đang hoạt động đã thay đổi.',
+                message: tr(
+                  'Máy chủ đang hoạt động đã thay đổi.',
+                  'The active server has changed.',
+                ),
                 code: 'AUTH_INSTANCE_CHANGED',
               ),
             );
@@ -101,7 +111,10 @@ final class RefreshAccessTokenUseCase {
       return FailureResult(
         Failure(
           kind: FailureKind.storage,
-          message: 'Không thể làm mới phiên đăng nhập.',
+          message: tr(
+            'Không thể làm mới phiên đăng nhập.',
+            'Could not refresh your session.',
+          ),
           code: 'REFRESH_STORAGE_FAILURE',
           cause: error,
         ),

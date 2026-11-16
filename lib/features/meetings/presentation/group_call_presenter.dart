@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../core/platform/external_url_launcher.dart';
 import '../../../design_system/components/webtui_components.dart';
@@ -79,7 +80,12 @@ final class ShellGroupCallPresenter implements GroupCallPresenter {
     if (join.provider == MeetingProviderKind.jitsi) {
       final base = Uri.tryParse(join.serverUrl);
       if (base == null || join.room.isEmpty) {
-        showError('Không mở được phòng họp trên thiết bị này.');
+        showError(
+          tr(
+            'Không mở được phòng họp trên thiết bị này.',
+            'Couldn\'t open the meeting room on this device.',
+          ),
+        );
         return;
       }
       final url = MeetingJoinInfo.withJitsiJwt(
@@ -87,7 +93,12 @@ final class ShellGroupCallPresenter implements GroupCallPresenter {
         join.token,
       );
       if (!await launcher.open(url.toString())) {
-        showError('Không mở được phòng họp trên thiết bị này.');
+        showError(
+          tr(
+            'Không mở được phòng họp trên thiết bị này.',
+            'Couldn\'t open the meeting room on this device.',
+          ),
+        );
       }
       await endNativeCall(call.id);
       return;
@@ -96,7 +107,9 @@ final class ShellGroupCallPresenter implements GroupCallPresenter {
       MaterialPageRoute<void>(
         fullscreenDialog: true,
         builder: (_) => MeetingRoomScreen(
-          title: call.channelName.isEmpty ? 'Cuộc họp nhóm' : call.channelName,
+          title: call.channelName.isEmpty
+              ? tr('Cuộc họp nhóm', 'Group meeting')
+              : call.channelName,
           join: join,
           startWithVideo: call.isVideo,
           autoJoin: true,
@@ -172,18 +185,20 @@ class _GroupCallRingDialogState extends State<GroupCallRingDialog> {
   Widget build(BuildContext context) {
     return WebTuiDialog(
       title: widget.title,
-      message: widget.isVideo ? 'Cuộc gọi nhóm video' : 'Cuộc gọi nhóm thoại',
+      message: widget.isVideo
+          ? tr('Cuộc gọi nhóm video', 'Group video call')
+          : tr('Cuộc gọi nhóm thoại', 'Group voice call'),
       icon: widget.isVideo ? WebTuiIcons.video : WebTuiIcons.phoneCall,
       actions: [
         WebTuiDialogAction(
           key: const Key('group-call-decline'),
-          label: 'Từ chối',
+          label: tr('Từ chối', 'Reject'),
           destructive: true,
           onPressed: () => _close(GroupCallChoice.decline),
         ),
         WebTuiDialogAction(
           key: const Key('group-call-accept'),
-          label: 'Nhận',
+          label: tr('Nhận', 'Accept'),
           primary: true,
           onPressed: () => _close(GroupCallChoice.accept),
         ),

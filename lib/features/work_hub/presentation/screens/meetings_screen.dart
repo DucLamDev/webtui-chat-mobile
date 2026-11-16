@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
@@ -30,8 +31,8 @@ List<(String, List<UpcomingMeeting>)> groupMeetingsByDay(
     for (final entry in groups.entries)
       (
         switch (entry.key.difference(today).inDays) {
-          0 => 'Hôm nay',
-          1 => 'Ngày mai',
+          0 => tr('Hôm nay', 'Today'),
+          1 => tr('Ngày mai', 'Tomorrow'),
           _ => workShortDate(entry.key),
         },
         entry.value,
@@ -58,7 +59,7 @@ class MeetingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(upcomingMeetingsProvider(workspaceId));
     return Scaffold(
-      appBar: AppBar(title: const Text('Lịch họp')),
+      appBar: AppBar(title: Text(tr('Lịch họp', 'Meetings'))),
       body: SafeArea(
         child: async.when(
           loading: () => const Padding(
@@ -79,9 +80,9 @@ class MeetingsScreen extends ConsumerWidget {
           ),
           data: (meetings) {
             if (meetings.isEmpty) {
-              return const WorkEmptyBox(
+              return WorkEmptyBox(
                 icon: WebTuiIcons.meetings,
-                message: 'Chưa có cuộc họp sắp tới',
+                message: tr('Chưa có cuộc họp sắp tới', 'No upcoming meetings'),
               );
             }
             final groups = groupMeetingsByDay(meetings, now ?? DateTime.now());
@@ -112,7 +113,7 @@ class MeetingsScreen extends ConsumerWidget {
                             workspaceId: workspaceId,
                             channelId: meeting.channelId,
                             title: meeting.channelName.isEmpty
-                                ? 'Hội thoại'
+                                ? tr('Hội thoại', 'Conversation')
                                 : meeting.channelName,
                             conversation: null,
                             initialTab: _meetingTabIndex,
@@ -216,7 +217,7 @@ class _LiveBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
-        'Đang diễn ra',
+        tr('Đang diễn ra', 'In progress'),
         style: WebTuiTypography.labelSmall.copyWith(
           color: const Color(0xFF1E9E5A),
           fontWeight: FontWeight.w700,

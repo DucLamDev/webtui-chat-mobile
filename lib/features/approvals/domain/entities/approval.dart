@@ -1,3 +1,5 @@
+import 'package:webtui_chat/l10n/app_strings.dart';
+
 /// Trạng thái yêu cầu phê duyệt (khớp hợp đồng máy chủ).
 enum ApprovalStatus {
   pending,
@@ -23,14 +25,14 @@ enum ApprovalStatus {
   }
 
   String get label => switch (this) {
-    ApprovalStatus.pending => 'Đang chờ',
-    ApprovalStatus.approved => 'Đã duyệt',
-    ApprovalStatus.rejected => 'Đã từ chối',
-    ApprovalStatus.expired => 'Đã hết hạn',
-    ApprovalStatus.executed => 'Đã thực hiện',
-    ApprovalStatus.failed => 'Thực hiện lỗi',
-    ApprovalStatus.cancelled => 'Đã huỷ',
-    ApprovalStatus.unknown => 'Đã cập nhật',
+    ApprovalStatus.pending => tr('Đang chờ', 'Pending'),
+    ApprovalStatus.approved => tr('Đã duyệt', 'Approved'),
+    ApprovalStatus.rejected => tr('Đã từ chối', 'Rejected'),
+    ApprovalStatus.expired => tr('Đã hết hạn', 'Expired'),
+    ApprovalStatus.executed => tr('Đã thực hiện', 'Executed'),
+    ApprovalStatus.failed => tr('Thực hiện lỗi', 'Execution failed'),
+    ApprovalStatus.cancelled => tr('Đã huỷ', 'Canceled'),
+    ApprovalStatus.unknown => tr('Đã cập nhật', 'Updated'),
   };
 }
 
@@ -70,13 +72,16 @@ final class ApprovalStatusDisplay {
 
 /// Bộ lọc danh sách: Đang chờ / Đã xử lý.
 enum ApprovalFilter {
-  pending('pending', 'Đang chờ'),
-  done('done', 'Đã xử lý');
+  pending('pending', 'Đang chờ', 'Pending'),
+  done('done', 'Đã xử lý', 'Done');
 
-  const ApprovalFilter(this.apiValue, this.label);
+  const ApprovalFilter(this.apiValue, this._vi, this._en);
 
   final String apiValue;
-  final String label;
+  final String _vi;
+  final String _en;
+
+  String get label => tr(_vi, _en);
 }
 
 enum ApprovalDecisionKind {
@@ -178,28 +183,37 @@ final class ApprovalRequest {
     switch (status) {
       case ApprovalStatus.approved:
         return switch (executionMode ?? ApprovalExecutionMode.none) {
-          ApprovalExecutionMode.internal => const ApprovalStatusDisplay(
-            label: 'Đã duyệt – đang thực hiện',
+          ApprovalExecutionMode.internal => ApprovalStatusDisplay(
+            label: tr('Đã duyệt – đang thực hiện', 'Approved – in progress'),
             tone: plain,
           ),
-          ApprovalExecutionMode.external => const ApprovalStatusDisplay(
-            label: 'Đã duyệt – chờ bot thực hiện',
+          ApprovalExecutionMode.external => ApprovalStatusDisplay(
+            label: tr(
+              'Đã duyệt – chờ bot thực hiện',
+              'Approved – waiting for the bot',
+            ),
             tone: plain,
           ),
-          ApprovalExecutionMode.none => const ApprovalStatusDisplay(
-            label: 'Đã duyệt',
+          ApprovalExecutionMode.none => ApprovalStatusDisplay(
+            label: tr('Đã duyệt', 'Approved'),
             tone: ok,
           ),
         };
       case ApprovalStatus.executed:
         if (resultExecutor?.trim().toLowerCase() == 'none') {
-          return const ApprovalStatusDisplay(label: 'Đã duyệt', tone: ok);
+          return ApprovalStatusDisplay(
+            label: tr('Đã duyệt', 'Approved'),
+            tone: ok,
+          );
         }
-        return const ApprovalStatusDisplay(label: 'Đã thực hiện', tone: ok);
+        return ApprovalStatusDisplay(
+          label: tr('Đã thực hiện', 'Executed'),
+          tone: ok,
+        );
       case ApprovalStatus.failed:
         final error = resultError?.trim();
         return ApprovalStatusDisplay(
-          label: 'Thực hiện lỗi',
+          label: tr('Thực hiện lỗi', 'Execution failed'),
           tone: ApprovalStatusTone.error,
           detail: error == null || error.isEmpty ? null : error,
         );
@@ -215,8 +229,8 @@ final class ApprovalRequest {
   String get sourceLabel => switch (source) {
     'bot' => 'Bot',
     'webhook' => 'Webhook',
-    'order' => 'Đơn hàng',
-    _ => 'Người dùng',
+    'order' => tr('Đơn hàng', 'Order'),
+    _ => tr('Người dùng', 'User'),
   };
 }
 

@@ -295,7 +295,8 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
                     ),
             child: MobileUpdateGate(
               child: PrivacyGuard(
-                organizationName: activeDiscovery?.name ?? 'Ứng dụng chat',
+                organizationName:
+                    activeDiscovery?.name ?? tr('Ứng dụng chat', 'Chat app'),
                 organizationLogoUrl: activeDiscovery?.logoUrl,
                 child: AppLockGate(
                   protectSession: accessToken?.isNotEmpty == true,

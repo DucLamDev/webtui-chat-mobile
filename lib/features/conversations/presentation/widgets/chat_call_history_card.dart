@@ -4,6 +4,7 @@ import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 
 const callCardMissedColor = Color(0xFFE5322D);
 Color get callCardIncomingColor => WebTuiColors.accentGreen;
@@ -38,17 +39,23 @@ class ChatCallHistoryCard extends StatelessWidget {
     required bool video,
     required bool outgoing,
   }) {
-    if (missed) return 'Cuộc gọi nhỡ';
-    final mode = video ? 'video' : 'thoại';
-    return 'Cuộc gọi $mode ${outgoing ? 'đi' : 'đến'}';
+    if (missed) return tr('Cuộc gọi nhỡ', 'Missed call');
+    if (video) {
+      return outgoing
+          ? tr('Cuộc gọi video đi', 'Outgoing video call')
+          : tr('Cuộc gọi video đến', 'Incoming video call');
+    }
+    return outgoing
+        ? tr('Cuộc gọi thoại đi', 'Outgoing voice call')
+        : tr('Cuộc gọi thoại đến', 'Incoming voice call');
   }
 
   static String durationLabel(int durationSeconds) {
     final safe = durationSeconds < 0 ? 0 : durationSeconds;
     final minutes = safe ~/ 60;
     final seconds = safe % 60;
-    if (minutes == 0) return '$seconds giây';
-    return '$minutes phút $seconds giây';
+    if (minutes == 0) return tr('$seconds giây', '$seconds sec');
+    return tr('$minutes phút $seconds giây', '$minutes min $seconds sec');
   }
 
   @override
@@ -66,7 +73,9 @@ class ChatCallHistoryCard extends StatelessWidget {
         ? WebTuiIcons.phoneOutgoing
         : WebTuiIcons.phoneIncoming;
     final title = titleFor(missed: missed, video: video, outgoing: outgoing);
-    final detail = missed ? 'Không trả lời' : durationLabel(durationSeconds);
+    final detail = missed
+        ? tr('Không trả lời', 'No answer')
+        : durationLabel(durationSeconds);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -141,7 +150,9 @@ class ChatCallHistoryCard extends StatelessWidget {
                     const SizedBox(width: WebTuiSpacing.sm),
                     Semantics(
                       button: true,
-                      label: video ? 'Gọi lại bằng video' : 'Gọi lại',
+                      label: video
+                          ? tr('Gọi lại bằng video', 'Call back by video')
+                          : tr('Gọi lại', 'Call back'),
                       excludeSemantics: true,
                       child: InkWell(
                         key: const Key('chat_call_history_retry'),
@@ -164,7 +175,7 @@ class ChatCallHistoryCard extends StatelessWidget {
                                   vertical: 6,
                                 ),
                                 child: Text(
-                                  'Gọi lại',
+                                  tr('Gọi lại', 'Call back'),
                                   maxLines: 1,
                                   style: WebTuiTypography.labelSmall.copyWith(
                                     color: WebTuiColors.primary,

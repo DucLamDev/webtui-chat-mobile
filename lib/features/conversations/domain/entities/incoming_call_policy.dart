@@ -1,3 +1,4 @@
+import '../../../../l10n/app_strings.dart';
 import 'call_device_routing.dart';
 
 /// Quyết định có đổ chuông cuộc gọi đến trên máy này hay không.
@@ -43,7 +44,11 @@ const Duration callConnectTimeout = Duration(seconds: 40);
 /// Thời gian giữ thông báo lỗi trên màn gọi trước khi tự đóng.
 const Duration callErrorDisplayDuration = Duration(seconds: 2);
 
-const String callGoneMessage =
-    'Cuộc gọi đã kết thúc hoặc đã được nhận ở thiết bị khác.';
-const String callConnectTimeoutMessage =
-    'Không kết nối được, vui lòng thử lại.';
+String get callGoneMessage => tr(
+  'Cuộc gọi đã kết thúc hoặc đã được nhận ở thiết bị khác.',
+  'The call ended or was answered on another device.',
+);
+String get callConnectTimeoutMessage => tr(
+  'Không kết nối được, vui lòng thử lại.',
+  'Couldn\'t connect. Please try again.',
+);

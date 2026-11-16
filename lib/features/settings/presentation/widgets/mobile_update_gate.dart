@@ -6,6 +6,7 @@ import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/mobile_release_policy.dart';
 
 class MobileUpdateGate extends ConsumerStatefulWidget {
@@ -64,18 +65,18 @@ class _MobileUpdateGateState extends ConsumerState<MobileUpdateGate> {
       builder: (dialogContext) {
         return WebTuiDialog(
           title: policy.requiresUpdate
-              ? 'Cần cập nhật ứng dụng'
-              : 'Có bản cập nhật mới',
+              ? tr('Cần cập nhật ứng dụng', 'Update required')
+              : tr('Có bản cập nhật mới', 'Update available'),
           message: _message(policy),
           icon: WebTuiIcons.download,
           actions: [
             if (!policy.requiresUpdate)
               WebTuiDialogAction(
-                label: 'Để sau',
+                label: tr('Để sau', 'Later'),
                 onPressed: () => Navigator.of(dialogContext).pop(),
               ),
             WebTuiDialogAction(
-              label: 'Cập nhật',
+              label: tr('Cập nhật', 'Update'),
               primary: true,
               onPressed: updateUrl == null
                   ? null
@@ -91,8 +92,13 @@ class _MobileUpdateGateState extends ConsumerState<MobileUpdateGate> {
                         return;
                       }
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Không mở được link cập nhật.'),
+                        SnackBar(
+                          content: Text(
+                            tr(
+                              'Không mở được link cập nhật.',
+                              'Could not open the update link.',
+                            ),
+                          ),
                         ),
                       );
                     },
@@ -111,11 +117,19 @@ class _MobileUpdateGateState extends ConsumerState<MobileUpdateGate> {
 
 String _message(MobileReleasePolicy policy) {
   final target = policy.minimumVersion ?? policy.recommendedVersion;
-  final versionText = target == null ? '' : ' lên phiên bản $target';
+  final versionText = target == null
+      ? ''
+      : tr(' lên phiên bản $target', ' to version $target');
   final notes = policy.releaseNotes?.trim();
   final prefix = policy.requiresUpdate
-      ? 'Bản hiện tại không còn được hỗ trợ. Hãy cập nhật$versionText để tiếp tục sử dụng.'
-      : 'Đã có bản mới$versionText.';
+      ? tr(
+          'Bản hiện tại không còn được hỗ trợ. Hãy cập nhật$versionText để tiếp tục sử dụng.',
+          'This version is no longer supported. Please update$versionText to keep using the app.',
+        )
+      : tr(
+          'Đã có bản mới$versionText.',
+          'A new version is available$versionText.',
+        );
   if (notes == null || notes.isEmpty) {
     return prefix;
   }

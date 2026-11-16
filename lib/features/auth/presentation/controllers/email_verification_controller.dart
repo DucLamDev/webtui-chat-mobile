@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../application/use_cases/email_verification_use_cases.dart';
 import '../../domain/entities/auth_session.dart';
 import '../../domain/entities/email_verification.dart';
@@ -160,8 +161,10 @@ final class EmailVerificationController
           countdown: ticket.resendAvailableAt == null
               ? ResendCountdown.after(60, now: now)
               : ResendCountdown(availableAt: ticket.resendAvailableAt),
-          infoMessage:
-              'Đã gửi mã mới tới ${ticket.emailHint ?? 'email của bạn'}.',
+          infoMessage: tr(
+            'Đã gửi mã mới tới ${ticket.emailHint ?? tr('email của bạn', 'your email')}.',
+            'A new code was sent to ${ticket.emailHint ?? 'your email'}.',
+          ),
         );
       case FailureResult<EmailVerificationTicket>(:final failure):
         final retryAfter = retryAfterSeconds(failure);

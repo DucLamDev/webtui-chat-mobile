@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/avatar_upload.dart';
 import '../../domain/repositories/avatar_repository.dart';
 
@@ -37,7 +38,10 @@ final class ImagePickerAvatarRepository implements AvatarPickerRepository {
       return FailureResult(
         Failure(
           kind: FailureKind.storage,
-          message: 'Không thể chọn ảnh đại diện.',
+          message: tr(
+            'Không thể chọn ảnh đại diện.',
+            'Could not pick an avatar.',
+          ),
           code: 'AVATAR_PICK_FAILED',
           cause: error,
         ),

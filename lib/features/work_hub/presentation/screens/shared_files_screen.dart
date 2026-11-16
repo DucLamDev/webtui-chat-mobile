@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
@@ -47,12 +48,12 @@ class SharedFilesScreen extends ConsumerStatefulWidget {
 }
 
 class _SharedFilesScreenState extends ConsumerState<SharedFilesScreen> {
-  static const _filters = <(SharedFileKind?, String)>[
-    (null, 'Tất cả'),
-    (SharedFileKind.image, 'Ảnh'),
-    (SharedFileKind.video, 'Video'),
-    (SharedFileKind.document, 'Tài liệu'),
-    (SharedFileKind.audio, 'Ghi âm'),
+  static List<(SharedFileKind?, String)> get _filters => [
+    (null, tr('Tất cả', 'All')),
+    (SharedFileKind.image, tr('Ảnh', 'Photos')),
+    (SharedFileKind.video, tr('Video', 'Videos')),
+    (SharedFileKind.document, tr('Tài liệu', 'Documents')),
+    (SharedFileKind.audio, tr('Ghi âm', 'Voice messages')),
   ];
 
   SharedFileKind? _filter;
@@ -98,10 +99,15 @@ class _SharedFilesScreenState extends ConsumerState<SharedFilesScreen> {
             ..hideCurrentSnackBar()
             ..showSnackBar(
               SnackBar(
-                content: const Text('Không phát được ghi âm này.'),
+                content: Text(
+                  tr(
+                    'Không phát được ghi âm này.',
+                    'Couldn\'t play this voice message.',
+                  ),
+                ),
                 action: SnackBarAction(
                   key: const Key('file_audio_open_external'),
-                  label: 'Mở bằng ứng dụng khác',
+                  label: tr('Mở bằng ứng dụng khác', 'Open in another app'),
                   onPressed: () => unawaited(
                     _run(SharedFileSheetChoice.openExternally, file),
                   ),
@@ -121,7 +127,7 @@ class _SharedFilesScreenState extends ConsumerState<SharedFilesScreen> {
           ],
           initialIndex: images.indexWhere((item) => item.id == file.id),
           apiBaseUri: apiBase,
-          title: 'Tệp chia sẻ',
+          title: tr('Tệp chia sẻ', 'Shared files'),
         );
       case SharedFileTapAction.videoSheet:
       case SharedFileTapAction.pdfSheet:
@@ -161,16 +167,31 @@ class _SharedFilesScreenState extends ConsumerState<SharedFilesScreen> {
         );
       case SharedFileSheetChoice.open:
       case SharedFileSheetChoice.openExternally:
-        _message('Đang tải ${shortenFileName(file.name, maxLength: 24)}…');
+        _message(
+          tr(
+            'Đang tải ${shortenFileName(file.name, maxLength: 24)}…',
+            'Loading ${shortenFileName(file.name, maxLength: 24)}…',
+          ),
+        );
         try {
           final local = await resolver.localFile(file);
           if (!await openSharedFileExternally(local)) {
-            _message('Không có ứng dụng nào mở được tệp này.');
+            _message(
+              tr(
+                'Không có ứng dụng nào mở được tệp này.',
+                'No app can open this file.',
+              ),
+            );
           } else if (mounted) {
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
           }
         } on Object {
-          _message('Không thể tải tệp này. Hãy thử lại.');
+          _message(
+            tr(
+              'Không thể tải tệp này. Hãy thử lại.',
+              'Couldn\'t load this file. Try again.',
+            ),
+          );
         }
     }
   }
@@ -192,8 +213,11 @@ class _SharedFilesScreenState extends ConsumerState<SharedFilesScreen> {
                 autofocus: true,
                 onChanged: (_) => setState(() {}),
                 textInputAction: TextInputAction.search,
-                decoration: const InputDecoration(
-                  hintText: 'Tìm tệp theo tên...',
+                decoration: InputDecoration(
+                  hintText: tr(
+                    'Tìm tệp theo tên...',
+                    'Search files by name...',
+                  ),
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
@@ -201,7 +225,7 @@ class _SharedFilesScreenState extends ConsumerState<SharedFilesScreen> {
                 ),
               )
             : Text(
-                'Tệp chia sẻ',
+                tr('Tệp chia sẻ', 'Shared files'),
                 style: WebTuiTypography.titleLarge.copyWith(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
@@ -211,7 +235,9 @@ class _SharedFilesScreenState extends ConsumerState<SharedFilesScreen> {
         actions: [
           IconButton(
             key: const Key('files_search_toggle'),
-            tooltip: _searching ? 'Đóng tìm kiếm' : 'Tìm tệp',
+            tooltip: _searching
+                ? tr('Đóng tìm kiếm', 'Close search')
+                : tr('Tìm tệp', 'Search files'),
             icon: Icon(_searching ? WebTuiIcons.close : WebTuiIcons.search),
             onPressed: () => setState(() {
               _searching = !_searching;
@@ -257,10 +283,16 @@ class _SharedFilesScreenState extends ConsumerState<SharedFilesScreen> {
                       ? WorkEmptyBox(
                           icon: WebTuiIcons.sharedFiles,
                           message: files.isEmpty
-                              ? 'Chưa có tệp nào'
+                              ? tr('Chưa có tệp nào', 'No files yet')
                               : query.isNotEmpty
-                              ? 'Không thấy tệp nào tên "${_search.text.trim()}"'
-                              : 'Không có tệp nào ở mục này',
+                              ? tr(
+                                  'Không thấy tệp nào tên "${_search.text.trim()}"',
+                                  'No file named "${_search.text.trim()}"',
+                                )
+                              : tr(
+                                  'Không có tệp nào ở mục này',
+                                  'No files in this section',
+                                ),
                         )
                       : RefreshIndicator(
                           onRefresh: () async =>

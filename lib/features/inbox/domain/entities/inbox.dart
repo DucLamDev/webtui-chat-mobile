@@ -1,15 +1,20 @@
+import 'package:webtui_chat/l10n/app_strings.dart';
+
 /// Hộp thư khách đa kênh (Lõi 6): các đối tượng đọc từ máy chủ. Trường thiếu
 /// hoặc `null` dùng giá trị an toàn (vd. `can_reply` thiếu = không được trả lời).
 enum InboxStatus {
-  open('open', 'Đang mở'),
-  pending('pending', 'Chờ khách'),
-  closed('closed', 'Đã đóng'),
-  unknown('', 'Không rõ');
+  open('open', 'Đang mở', 'Open'),
+  pending('pending', 'Chờ khách', 'Waiting for customer'),
+  closed('closed', 'Đã đóng', 'Closed'),
+  unknown('', 'Không rõ', 'Unknown');
 
-  const InboxStatus(this.apiValue, this.label);
+  const InboxStatus(this.apiValue, this._vi, this._en);
 
   final String apiValue;
-  final String label;
+  final String _vi;
+  final String _en;
+
+  String get label => tr(_vi, _en);
 
   static InboxStatus fromApi(String? value) {
     final text = value?.trim().toLowerCase() ?? '';
@@ -22,29 +27,35 @@ enum InboxStatus {
 
 /// Lọc theo trạng thái ở danh sách (`null` = tất cả).
 enum InboxStatusFilter {
-  all(null, 'Tất cả'),
-  open(InboxStatus.open, 'Đang mở'),
-  pending(InboxStatus.pending, 'Chờ khách'),
-  closed(InboxStatus.closed, 'Đã đóng');
+  all(null, 'Tất cả', 'All'),
+  open(InboxStatus.open, 'Đang mở', 'Open'),
+  pending(InboxStatus.pending, 'Chờ khách', 'Waiting for customer'),
+  closed(InboxStatus.closed, 'Đã đóng', 'Closed');
 
-  const InboxStatusFilter(this.status, this.label);
+  const InboxStatusFilter(this.status, this._vi, this._en);
 
   final InboxStatus? status;
-  final String label;
+  final String _vi;
+  final String _en;
+
+  String get label => tr(_vi, _en);
 
   String? get apiValue => status?.apiValue;
 }
 
 /// Lọc theo người xử lý.
 enum InboxAssigneeFilter {
-  all(null, 'Tất cả'),
-  mine('me', 'Của tôi'),
-  unassigned('none', 'Chưa gán');
+  all(null, 'Tất cả', 'All'),
+  mine('me', 'Của tôi', 'Mine'),
+  unassigned('none', 'Chưa gán', 'Unassigned');
 
-  const InboxAssigneeFilter(this.apiValue, this.label);
+  const InboxAssigneeFilter(this.apiValue, this._vi, this._en);
 
   final String? apiValue;
-  final String label;
+  final String _vi;
+  final String _en;
+
+  String get label => tr(_vi, _en);
 }
 
 enum InboxDirection { inbound, outbound }
@@ -72,10 +83,10 @@ enum InboxDelivery {
 
   /// Nhãn trạng thái gửi (chỉ dùng cho tin do nhân viên gửi).
   String? get label => switch (this) {
-    InboxDelivery.queued => 'Đang chờ gửi',
-    InboxDelivery.sending => 'Đang gửi',
-    InboxDelivery.sent => 'Đã gửi',
-    InboxDelivery.failed => 'Gửi lỗi',
+    InboxDelivery.queued => tr('Đang chờ gửi', 'Waiting to send'),
+    InboxDelivery.sending => tr('Đang gửi', 'Sending'),
+    InboxDelivery.sent => tr('Đã gửi', 'Sent'),
+    InboxDelivery.failed => tr('Gửi lỗi', 'Failed to send'),
     _ => null,
   };
 }
@@ -113,7 +124,7 @@ final class InboxSourceSummary {
     'facebook' => 'Facebook',
     'zalo' => 'Zalo',
     'webhook' => 'Webhook',
-    _ => name.isEmpty ? 'Nguồn khác' : name,
+    _ => name.isEmpty ? tr('Nguồn khác', 'Other source') : name,
   };
 }
 
@@ -194,7 +205,7 @@ final class InboxConversation {
       return contact.displayName.trim();
     }
     if (subject.trim().isNotEmpty) return subject.trim();
-    return 'Khách';
+    return tr('Khách', 'Customer');
   }
 }
 

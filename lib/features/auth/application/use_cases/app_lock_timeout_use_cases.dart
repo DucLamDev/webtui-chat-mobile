@@ -1,5 +1,6 @@
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/app_lock_timeout_policy.dart';
 import '../../domain/repositories/app_lock_timeout_repository.dart';
 
@@ -22,10 +23,13 @@ final class SaveAppLockIdleMinutesUseCase {
     required int serverMaxMinutes,
   }) async {
     if (minutes <= 0) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.validation,
-          message: 'Thời gian tự khóa phải lớn hơn 0 phút.',
+          message: tr(
+            'Thời gian tự khóa phải lớn hơn 0 phút.',
+            'The auto-lock time must be greater than 0 minutes.',
+          ),
           code: 'APP_LOCK_TIMEOUT_INVALID',
         ),
       );
@@ -34,9 +38,12 @@ final class SaveAppLockIdleMinutesUseCase {
       return FailureResult(
         Failure(
           kind: FailureKind.validation,
-          message:
-              'Máy chủ chỉ cho phép tự khóa sau tối đa '
-              '${AppLockTimeoutPolicy.label(serverMaxMinutes)}.',
+          message: tr(
+            'Máy chủ chỉ cho phép tự khóa sau tối đa '
+                '${AppLockTimeoutPolicy.label(serverMaxMinutes)}.',
+            'The server only allows auto-lock after at most '
+                '${AppLockTimeoutPolicy.label(serverMaxMinutes)}.',
+          ),
           code: 'APP_LOCK_TIMEOUT_TOO_LONG',
         ),
       );

@@ -1,5 +1,6 @@
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/auth_session.dart';
 import '../../domain/entities/email_verification.dart';
 import '../../domain/repositories/auth_token_repository.dart';
@@ -29,10 +30,13 @@ final class VerifyEmailCodeUseCase {
   }) async {
     final cleanCode = code.replaceAll(RegExp(r'\s'), '');
     if (!_codePattern.hasMatch(cleanCode)) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.validation,
-          message: 'Mã xác minh gồm đúng 6 chữ số.',
+          message: tr(
+            'Mã xác minh gồm đúng 6 chữ số.',
+            'The verification code has exactly 6 digits.',
+          ),
           code: 'EMAIL_CODE_FORMAT',
         ),
       );
@@ -62,7 +66,10 @@ final class VerifyEmailCodeUseCase {
       return FailureResult(
         Failure(
           kind: FailureKind.storage,
-          message: 'Không thể lưu phiên đăng nhập an toàn.',
+          message: tr(
+            'Không thể lưu phiên đăng nhập an toàn.',
+            'Could not save your session securely.',
+          ),
           code: 'AUTH_STORAGE_FAILURE',
           cause: error,
         ),
@@ -86,22 +93,40 @@ String emailVerificationFailureMessage(Failure failure) {
   if (failure.hasCode(EmailVerificationErrorCode.codeInvalid)) {
     final left = int.tryParse('${failure.details['attempts_left'] ?? ''}');
     return left == null
-        ? 'Mã xác minh chưa đúng.'
+        ? tr('Mã xác minh chưa đúng.', 'The verification code is incorrect.')
         : left <= 0
-        ? 'Mã xác minh chưa đúng. Bạn đã hết lượt thử, hãy gửi lại mã mới.'
-        : 'Mã xác minh chưa đúng. Còn $left lần thử.';
+        ? tr(
+            'Mã xác minh chưa đúng. Bạn đã hết lượt thử, hãy gửi lại mã mới.',
+            'The verification code is incorrect. You are out of attempts, so request a new code.',
+          )
+        : tr(
+            'Mã xác minh chưa đúng. Còn $left lần thử.',
+            'The verification code is incorrect. $left attempts left.',
+          );
   }
   if (failure.hasCode(EmailVerificationErrorCode.codeLocked)) {
-    return 'Bạn đã nhập sai quá nhiều lần. Hãy gửi lại mã mới.';
+    return tr(
+      'Bạn đã nhập sai quá nhiều lần. Hãy gửi lại mã mới.',
+      'Too many incorrect attempts. Request a new code.',
+    );
   }
   if (failure.hasCode(EmailVerificationErrorCode.codeExpired)) {
-    return 'Mã xác minh đã hết hạn. Hãy gửi lại mã mới.';
+    return tr(
+      'Mã xác minh đã hết hạn. Hãy gửi lại mã mới.',
+      'The verification code has expired. Request a new code.',
+    );
   }
   if (failure.hasCode(EmailVerificationErrorCode.notFound)) {
-    return 'Phiên xác minh không còn. Hãy đăng ký hoặc đăng nhập lại.';
+    return tr(
+      'Phiên xác minh không còn. Hãy đăng ký hoặc đăng nhập lại.',
+      'The verification session is gone. Sign up or sign in again.',
+    );
   }
   if (failure.hasCode(EmailVerificationErrorCode.resendTooSoon)) {
-    return 'Bạn vừa yêu cầu gửi mã. Vui lòng chờ rồi thử lại.';
+    return tr(
+      'Bạn vừa yêu cầu gửi mã. Vui lòng chờ rồi thử lại.',
+      'You just requested a code. Please wait and try again.',
+    );
   }
   return failure.message;
 }
@@ -119,6 +144,10 @@ String emailDomainNotAllowedMessage(Failure failure) {
   final hasVietnamese = serverMessage.runes.any((rune) => rune > 0x7f);
   return hasVietnamese
       ? serverMessage
-      : 'Email này không thuộc tên miền công ty được phép đăng ký. '
-            'Hãy dùng email công ty hoặc liên hệ quản trị viên.';
+      : tr(
+          'Email này không thuộc tên miền công ty được phép đăng ký. '
+              'Hãy dùng email công ty hoặc liên hệ quản trị viên.',
+          'This email is not on a company domain that is allowed to register. '
+              'Use your company email or contact an administrator.',
+        );
 }

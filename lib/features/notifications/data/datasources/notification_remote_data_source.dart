@@ -1,5 +1,6 @@
 import '../../../../core/network/api_response.dart';
 import '../../../../core/network/api_transport.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/mobile_notification.dart';
 
 final class NotificationRemoteDataSource {
@@ -139,7 +140,9 @@ MobileNotification _notificationFromMap(JsonMap map) {
     channelId: nullableStringField(map, const ['channel_id', 'channelId']),
     messageId: nullableStringField(map, const ['message_id', 'messageId']),
     type: stringField(map, const ['type'], fallback: 'notification'),
-    title: stringField(map, const ['title'], fallback: 'Thông báo'),
+    title: stringField(map, const [
+      'title',
+    ], fallback: tr('Thông báo', 'Notifications')),
     body: stringField(map, const ['body']),
     data: data.cast<String, Object?>(),
     readAt: nullableDateTimeField(map, const ['read_at', 'readAt']),

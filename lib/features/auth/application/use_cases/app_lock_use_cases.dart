@@ -1,5 +1,6 @@
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/repositories/app_lock_repository.dart';
 
 final class IsAppLockEnabledUseCase {
@@ -19,10 +20,13 @@ final class EnableAppLockUseCase {
 
   Future<Result<void>> execute(String pin) async {
     if (!RegExp(r'^\d{4,12}$').hasMatch(pin)) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.validation,
-          message: 'Mã PIN cần gồm 4-12 chữ số.',
+          message: tr(
+            'Mã PIN cần gồm 4-12 chữ số.',
+            'The PIN must have 4-12 digits.',
+          ),
           code: 'APP_LOCK_PIN_INVALID',
         ),
       );
@@ -41,10 +45,10 @@ final class UnlockAppUseCase {
   Future<Result<void>> execute(String pin) async {
     final ok = await _repository.verifyPin(pin);
     if (!ok) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.unauthorized,
-          message: 'Mã PIN không đúng.',
+          message: tr('Mã PIN không đúng.', 'Incorrect PIN.'),
           code: 'APP_LOCK_PIN_MISMATCH',
         ),
       );

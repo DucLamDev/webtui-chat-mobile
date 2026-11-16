@@ -1,3 +1,5 @@
+import '../../../../l10n/app_strings.dart';
+
 enum CollaborationRoomMode { internal, public, webinar }
 
 enum CollaborationParticipantRole { moderator, presenter, member, listener }
@@ -96,15 +98,18 @@ final class CollaborationDocument {
 
 /// Trạng thái công việc theo máy chủ (`open`, `in_progress`, `done`, `cancelled`).
 enum CollaborationTaskStatus {
-  open('open', 'Cần làm'),
-  inProgress('in_progress', 'Đang làm'),
-  done('done', 'Xong'),
-  cancelled('cancelled', 'Đã huỷ');
+  open('open', 'Cần làm', 'To do'),
+  inProgress('in_progress', 'Đang làm', 'In progress'),
+  done('done', 'Xong', 'Done'),
+  cancelled('cancelled', 'Đã huỷ', 'Canceled');
 
-  const CollaborationTaskStatus(this.apiValue, this.label);
+  const CollaborationTaskStatus(this.apiValue, this._vi, this._en);
 
   final String apiValue;
-  final String label;
+  final String _vi;
+  final String _en;
+
+  String get label => tr(_vi, _en);
 
   bool get isActive => this == open || this == inProgress;
 

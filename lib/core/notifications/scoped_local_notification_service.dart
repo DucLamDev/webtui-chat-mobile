@@ -8,10 +8,14 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../features/notifications/domain/entities/mobile_notification.dart';
+import '../../l10n/app_strings.dart';
 
 const _messageChannelId = 'webtui_messages';
-const _messageChannelName = 'Tin nhắn';
-const _messageChannelDescription = 'Tin nhắn mới và cập nhật cuộc trò chuyện';
+String get _messageChannelName => tr('Tin nhắn', 'Messages');
+String get _messageChannelDescription => tr(
+  'Tin nhắn mới và cập nhật cuộc trò chuyện',
+  'New messages and conversation updates',
+);
 const _notificationIcon = 'ic_stat_webtui_chat';
 const _quickReplyActionId = 'webtui_quick_reply';
 const _approveActionId = 'webtui_approval_approve';
@@ -19,8 +23,11 @@ const _rejectActionId = 'webtui_approval_reject';
 const _approvalRequestedType = 'approval_requested';
 const _pendingApprovalActionsStorageKey = 'pending_approval_actions_v1';
 const _approvalChannelId = 'webtui_approvals';
-const _approvalChannelName = 'Phê duyệt';
-const _approvalChannelDescription = 'Yêu cầu phê duyệt và kết quả duyệt nhanh';
+String get _approvalChannelName => tr('Phê duyệt', 'Approvals');
+String get _approvalChannelDescription => tr(
+  'Yêu cầu phê duyệt và kết quả duyệt nhanh',
+  'Approval requests and quick approval results',
+);
 const _pendingQuickReplyStorageKey = 'pending_notification_quick_replies_v1';
 
 @pragma('vm:entry-point')
@@ -63,7 +70,7 @@ final class ScopedLocalNotification {
     final body = _cleanDisplayText(
       data['body'],
       maxLength: 512,
-      fallback: 'Bạn có thông báo mới',
+      fallback: tr('Bạn có thông báo mới', 'You have a new notification'),
     );
     return ScopedLocalNotification._(
       id: id == 0 ? 1 : id,
@@ -294,7 +301,7 @@ final class ScopedLocalNotificationService {
         id: approvalResultNotificationId(approvalId),
         title: title,
         body: body,
-        notificationDetails: const NotificationDetails(
+        notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails(
             _approvalChannelId,
             _approvalChannelName,
@@ -375,28 +382,28 @@ final class ScopedLocalNotificationService {
             fullScreenIntent: false,
             tag: notification.tag,
             actions: notification.approvalId != null
-                ? const [
+                ? [
                     AndroidNotificationAction(
                       _approveActionId,
-                      'Duyệt',
+                      tr('Duyệt', 'Approve'),
                       showsUserInterface: false,
                       cancelNotification: true,
                     ),
                     AndroidNotificationAction(
                       _rejectActionId,
-                      'Từ chối',
+                      tr('Từ chối', 'Reject'),
                       showsUserInterface: false,
                       cancelNotification: true,
                     ),
                   ]
                 : notification.canQuickReply
-                ? const [
+                ? [
                     AndroidNotificationAction(
                       _quickReplyActionId,
-                      'Trả lời',
+                      tr('Trả lời', 'Reply'),
                       inputs: [
                         AndroidNotificationActionInput(
-                          label: 'Nhập trả lời...',
+                          label: tr('Nhập trả lời...', 'Type a reply...'),
                         ),
                       ],
                       semanticAction: SemanticAction.reply,
