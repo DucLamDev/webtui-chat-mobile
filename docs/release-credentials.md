@@ -146,25 +146,53 @@ a signed Internal-only AAB, obtain the Play App Signing SHA-256, redeploy
 versionCode through the complete gate. Never use the upload certificate in the
 production association file.
 
-### Automatic upload to the Play internal track (optional)
+### Automatic upload to Google Play on tag push (optional)
 
-The `android-release` job can push the signed AAB to the Play **internal**
-testing track after it is built and verified. It is off by default and runs only
-when the repository variable `ENABLE_ANDROID_PLAY_INTERNAL` is `true`.
+The `android-release` job can push the signed AAB to a Google Play track after it
+is built and verified, so pushing a `mobile-vX.Y.Z` tag updates the app on Play
+without opening Play Console. It is off by default and runs only when the
+`production` environment variable `ENABLE_ANDROID_PLAY_UPLOAD` is `true` (the
+older name `ENABLE_ANDROID_PLAY_INTERNAL` is still accepted).
 
 - Secret `PLAY_SERVICE_ACCOUNT_JSON`: the JSON key of a Google Cloud service
-  account that is invited in Play Console (Users and permissions) with permission
-  to release to testing tracks for this app. Store it only in the `production`
-  environment secrets.
-- Optional variable `PLAY_INTERNAL_STATUS`: `draft` (default; the release waits
-  in Play Console until someone rolls it out, required while the app has never
-  been published) or `completed` (rolls out to internal testers immediately).
+  account (Google Play Android Developer API enabled in its Cloud project) that is
+  invited in Play Console > Users and permissions with release permissions for
+  this app, including production when `PLAY_TRACK=production`. Store it only in
+  the `production` environment secrets, never in the repository.
+- Variable `PLAY_TRACK`: `internal` (default), `alpha`, `beta`, `production`, or
+  another track id. `production` sends the update to every user.
+- Optional variable `PLAY_ROLLOUT_FRACTION`: staged rollout, a number strictly
+  between 0 and 1 (for example `0.2` = 20% of users). Raise or complete the
+  rollout later in Play Console. Leave empty for a full release.
+- Optional variable `PLAY_RELEASE_STATUS`: `completed` (default; rolls out as
+  soon as Google's review passes) or `draft` (waits in Play Console until someone
+  presses roll out; required while the app has never been published). Ignored
+  when `PLAY_ROLLOUT_FRACTION` is set. The older `PLAY_INTERNAL_STATUS` is still
+  read as a fallback, and a setup enabled only through the old
+  `ENABLE_ANDROID_PLAY_INTERNAL` name keeps its old `draft` default.
+- Optional variable `PLAY_RELEASE_NOTES_LANG`: language of the "What's new" text,
+  default `vi-VN`.
+- Optional variable `PLAY_CHANGES_NOT_SENT_FOR_REVIEW=true`: only when the upload
+  fails with a message asking for `changesNotSentForReview`; the changes then
+  have to be sent for review manually in Play Console.
 - Optional variable `PLAY_PACKAGE_NAME`: only when the Play package differs from
   the default application id.
 
-The upload never promotes beyond the internal track; promotion to closed or
-production stays a manual Play Console step. The first Play upload still needs
-the bootstrap sequence above.
+"What's new" is taken from the annotated tag message, capped at Play's 500
+characters; a lightweight tag or an empty message falls back to a generic note:
+
+```bash
+git tag -a mobile-v1.0.18 -m "Sửa lỗi gửi ảnh, thêm tìm kiếm nhóm."
+git push origin mobile-v1.0.18
+```
+
+The job succeeds once Play accepts the upload. Production (and closed or open
+testing) updates still go through Google's review, so users receive them only
+after the review passes. The versionCode comes from the workflow run number, so
+re-running a tag still produces a new, higher versionCode; use a new, higher
+tag for each real release so the version name also increases. Native debug
+symbols are already inside the AAB, so Play picks them up without a separate
+upload. The first Play upload still needs the bootstrap sequence above.
 
 If Play Console already shows the real App signing key certificate before the
 first upload, skip the bootstrap job and configure that fingerprint directly.
