@@ -599,6 +599,7 @@ void main() {
         for (final rect in rects) {
           expect(rect.top, moreOrLessEquals(rects.first.top));
           expect(rect.width, moreOrLessEquals(rects.first.width));
+          expect(rect.height, moreOrLessEquals(rects.first.height));
         }
         final labels = [
           'Lịch họp',
@@ -609,6 +610,8 @@ void main() {
         for (final rect in labels) {
           expect(rect.top, moreOrLessEquals(labels.first.top));
         }
+        // Lưới đã có ô Thêm: không còn câu báo thừa "Chưa có lối tắt".
+        expect(find.text('Chưa có lối tắt'), findsNothing);
       },
     );
 
