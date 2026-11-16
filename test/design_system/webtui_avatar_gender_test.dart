@@ -120,6 +120,34 @@ void main() {
     expect(find.byIcon(WebTuiIcons.messages), findsOneWidget);
   });
 
+  testWidgets('hình người không có dải màu bên dưới (mép tròn không lộ viền)', (
+    tester,
+  ) async {
+    Gradient? gradientOf(Widget avatar) {
+      final box = tester.widget<DecoratedBox>(
+        find
+            .descendant(
+              of: find.byWidget(avatar),
+              matching: find.byType(DecoratedBox),
+            )
+            .first,
+      );
+      return (box.decoration as BoxDecoration).gradient;
+    }
+
+    const person = WebTuiAvatar(
+      label: 'Lan Anh',
+      gender: WebTuiAvatarGender.female,
+    );
+    const group = WebTuiAvatar(label: 'Nhóm Bán Hàng');
+    await tester.pumpWidget(
+      const MaterialApp(home: Column(children: [person, group])),
+    );
+    expect(gradientOf(person), isNull);
+    // Nhóm / kênh vẫn giữ dải màu sau chữ viết tắt.
+    expect(gradientOf(group), isNotNull);
+  });
+
   testWidgets('ảnh lỗi thì rơi về hình người; có ảnh thì dùng ảnh', (
     tester,
   ) async {

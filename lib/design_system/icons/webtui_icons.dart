@@ -87,6 +87,7 @@ abstract final class WebTuiIcons {
   // Công việc.
   static const IconData tasks = PhosphorRegular.listChecks;
   static const IconData taskDone = PhosphorRegular.check;
+  static const IconData overdue = PhosphorRegular.alarm;
   static const IconData note = PhosphorRegular.notepad;
   static const IconData meetings = PhosphorRegular.calendarDots;
   static const IconData sharedFiles = PhosphorRegular.folderSimple;
