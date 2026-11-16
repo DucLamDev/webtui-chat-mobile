@@ -1421,9 +1421,11 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
             }
             return;
           }
-          // Chat bot thông báo vừa được tạo: tải lại danh sách để nó hiện ngay.
+          // Chat bot thông báo vừa được tạo, hoặc vừa được thêm vào nhóm: tải
+          // lại danh sách để hội thoại hiện ngay.
           if (event.type ==
-              ConversationRealtimeEventType.noticeChannelCreated) {
+                  ConversationRealtimeEventType.noticeChannelCreated ||
+              event.type == ConversationRealtimeEventType.channelMemberAdded) {
             ref.invalidate(conversationHomeControllerProvider(workspaceId));
             return;
           }

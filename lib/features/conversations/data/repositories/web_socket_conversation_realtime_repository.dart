@@ -773,6 +773,7 @@ ConversationRealtimeEventType _eventType(String value) {
       ConversationRealtimeEventType.contactRequestCancelled,
     'NoticeChannelCreated' =>
       ConversationRealtimeEventType.noticeChannelCreated,
+    'ChannelMemberAdded' => ConversationRealtimeEventType.channelMemberAdded,
     'ChannelUpdated' => ConversationRealtimeEventType.channelUpdated,
     'OrderTicketUpdated' => ConversationRealtimeEventType.orderTicketUpdated,
     'SessionRevoked' => ConversationRealtimeEventType.sessionRevoked,
