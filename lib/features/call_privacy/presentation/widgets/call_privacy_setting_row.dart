@@ -6,6 +6,7 @@ import '../../../../core/result/result.dart';
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/call_privacy.dart';
 
 /// Cài đặt hiện tại theo workspace.
@@ -36,15 +37,21 @@ class CallPrivacySettingRow extends ConsumerWidget {
         subtitle = value.description;
       case AsyncData(value: FailureResult<WhoCanCallMe>()):
       case AsyncError():
-        subtitle = 'Không tải được cài đặt. Chạm để thử lại.';
+        subtitle = tr(
+          'Không tải được cài đặt. Chạm để thử lại.',
+          'Could not load the setting. Tap to retry.',
+        );
       default:
-        subtitle = 'Đang tải...';
+        subtitle = tr('Đang tải...', 'Loading...');
     }
     return WebTuiSettingRow(
       key: const Key('call_privacy_row'),
       title: current == null
-          ? 'Ai được gọi cho tôi'
-          : 'Ai được gọi cho tôi: ${current.label}',
+          ? tr('Ai được gọi cho tôi', 'Who can call me')
+          : tr(
+              'Ai được gọi cho tôi: ${current.label}',
+              'Who can call me: ${current.label}',
+            ),
       subtitle: subtitle,
       icon: Icons.phone_locked_outlined,
       trailing: const Icon(Icons.chevron_right_rounded),
@@ -69,7 +76,12 @@ class CallPrivacySettingRow extends ConsumerWidget {
       builder: (sheetContext) => ListView(
         shrinkWrap: true,
         children: [
-          const WebTuiSheetHeader(title: 'Ai được gọi thoại / video cho bạn'),
+          WebTuiSheetHeader(
+            title: tr(
+              'Ai được gọi thoại / video cho bạn',
+              'Who can voice / video call you',
+            ),
+          ),
           for (final option in WhoCanCallMe.values)
             WebTuiSheetActionTile(
               key: Key('call_privacy_choice_${option.apiValue}'),
@@ -78,7 +90,7 @@ class CallPrivacySettingRow extends ConsumerWidget {
               subtitle: option.description,
               selected: option == current,
               trailing: option == current
-                  ? const Icon(
+                  ? Icon(
                       WebTuiIcons.check,
                       size: 20,
                       color: WebTuiColors.primary,

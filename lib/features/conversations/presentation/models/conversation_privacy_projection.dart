@@ -1,7 +1,10 @@
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/conversation_summary.dart';
 
-const blockedConversationPreview =
-    'Đã ẩn nội dung từ người dùng bị chặn · Nhấn để quản lý';
+String get blockedConversationPreview => tr(
+  'Đã ẩn nội dung từ người dùng bị chặn · Nhấn để quản lý',
+  'Hidden content from a blocked user · Tap to manage',
+);
 
 final class ConversationPrivacyProjection {
   const ConversationPrivacyProjection({

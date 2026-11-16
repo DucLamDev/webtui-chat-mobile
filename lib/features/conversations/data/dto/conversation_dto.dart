@@ -1,3 +1,4 @@
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/channel_file.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/conversation_summary.dart';
@@ -151,11 +152,15 @@ final class DirectConversationDto {
       workspaceId: workspaceId,
       channelId: channelId,
       kind: ConversationKind.direct,
-      title: title.isEmpty ? 'Hội thoại riêng' : title,
+      title: title.isEmpty
+          ? tr('Hội thoại riêng', 'Direct conversation')
+          : title,
       preview: message?.body.trim().isNotEmpty == true
           ? message!.body
-          : 'Chưa có tin nhắn',
-      avatarLabel: title.isEmpty ? 'Hội thoại riêng' : title,
+          : tr('Chưa có tin nhắn', 'No messages yet'),
+      avatarLabel: title.isEmpty
+          ? tr('Hội thoại riêng', 'Direct conversation')
+          : title,
       updatedAt: message?.createdAt ?? updatedAt,
       unreadCount: unreadCount,
       peerUserId: peer?.userId,
@@ -274,7 +279,7 @@ final class MessageDto {
           ? ''
           : deletedAt == null
           ? body
-          : 'Tin nhắn đã được thu hồi',
+          : tr('Tin nhắn đã được thu hồi', 'Message unsent'),
       isSecret: isSecret,
       expiresAt: expiresAt,
       createdAt: createdAt,
@@ -660,11 +665,20 @@ MembershipStatus _membershipFrom(String value) {
 
 String _channelPreview(ChannelVisibility visibility, bool privateSessionMode) {
   if (privateSessionMode) {
-    return 'Kênh tạo phiên riêng cho từng người dùng';
+    return tr(
+      'Kênh tạo phiên riêng cho từng người dùng',
+      'Channel with a private session for each user',
+    );
   }
   return switch (visibility) {
-    ChannelVisibility.private => 'Kênh riêng tư trong workspace',
-    ChannelVisibility.direct => 'Hội thoại riêng',
-    ChannelVisibility.public => 'Kênh công khai trong workspace',
+    ChannelVisibility.private => tr(
+      'Kênh riêng tư trong workspace',
+      'Private channel in the workspace',
+    ),
+    ChannelVisibility.direct => tr('Hội thoại riêng', 'Direct conversation'),
+    ChannelVisibility.public => tr(
+      'Kênh công khai trong workspace',
+      'Public channel in the workspace',
+    ),
   };
 }

@@ -1,6 +1,7 @@
 import '../../features/conversations/domain/entities/message_card.dart';
 import '../../features/inbox/presentation/screens/inbox_list_screen.dart';
 import '../../features/notifications/domain/entities/mobile_notification.dart';
+import '../../l10n/app_strings.dart';
 
 /// Đường dẫn của màn cần mở cho một thông báo / liên kết đã phân tích; `null`
 /// khi không đủ thông tin để mở.
@@ -32,7 +33,7 @@ String? locationForNotificationTarget(NotificationTarget target) {
   }
   final params = <String, String>{
     'workspaceId': target.workspaceId,
-    'title': 'Hội thoại',
+    'title': tr('Hội thoại', 'Conversation'),
     if (target.messageId?.trim().isNotEmpty == true)
       'messageId': target.messageId!.trim(),
     if (target.opensTasks) 'tool': 'tasks',
@@ -62,7 +63,7 @@ String? locationForCardOpenTarget(
         path: '/conversations/${Uri.encodeComponent(channelId)}',
         queryParameters: <String, String>{
           'workspaceId': workspaceId,
-          'title': 'Hội thoại',
+          'title': tr('Hội thoại', 'Conversation'),
           if (target.messageId != null) 'messageId': target.messageId!,
         },
       ).toString();
@@ -74,7 +75,7 @@ String? locationForCardOpenTarget(
         path: '/conversations/${Uri.encodeComponent(channelId)}',
         queryParameters: <String, String>{
           'workspaceId': workspaceId,
-          'title': 'Hội thoại',
+          'title': tr('Hội thoại', 'Conversation'),
           'tool': 'tasks',
           'taskId': taskId,
         },
@@ -114,7 +115,7 @@ String? locationForCardOpenTarget(
         path: '/conversations/${Uri.encodeComponent(channelId)}',
         queryParameters: <String, String>{
           'workspaceId': workspaceId,
-          'title': 'Hội thoại',
+          'title': tr('Hội thoại', 'Conversation'),
           'peerUserId': userId,
           'startCall': mode == MessageCardCallMode.video ? 'video' : 'audio',
         },

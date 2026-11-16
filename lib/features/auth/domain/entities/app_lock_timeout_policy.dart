@@ -1,3 +1,5 @@
+import '../../../../l10n/app_strings.dart';
+
 /// Thời gian tự khoá ứng dụng (lõi 3.1).
 ///
 /// Máy chủ đặt mức tối đa `privacy_policy.idle_lock_minutes` (0 = không ép).
@@ -59,8 +61,8 @@ abstract final class AppLockTimeoutPolicy {
   /// Nhãn tiếng Việt cho một mức.
   static String label(int minutes) {
     if (minutes >= 60 && minutes % 60 == 0) {
-      return '${minutes ~/ 60} giờ';
+      return tr('${minutes ~/ 60} giờ', '${minutes ~/ 60} h');
     }
-    return '$minutes phút';
+    return tr('$minutes phút', '$minutes min');
   }
 }

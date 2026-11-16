@@ -2,6 +2,7 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_strings.dart';
 import '../icons/webtui_icons.dart';
 import '../tokens/webtui_colors.dart';
 import '../tokens/webtui_density.dart';
@@ -82,15 +83,20 @@ class _TabSpec {
   const _TabSpec(this.icon, this.label);
 
   final IconData icon;
-  final String label;
+
+  /// Tên tab theo ngôn ngữ đang chọn (Tiếng Việt / English).
+  final String Function(AppStrings strings) label;
 }
 
-const _tabs = [
-  _TabSpec(WebTuiIcons.messages, 'Tin nhắn'),
-  _TabSpec(WebTuiIcons.friends, 'Bạn bè'),
-  _TabSpec(WebTuiIcons.work, 'Công việc'),
-  _TabSpec(WebTuiIcons.settings, 'Cài đặt'),
+final _tabs = [
+  _TabSpec(WebTuiIcons.messages, (s) => s.tabMessages),
+  _TabSpec(WebTuiIcons.friends, (s) => s.tabFriends),
+  _TabSpec(WebTuiIcons.work, (s) => s.tabWork),
+  _TabSpec(WebTuiIcons.settings, (s) => s.tabSettings),
 ];
+
+const _tabAnimation = Duration(milliseconds: 180);
+const _selectedFgLight = Color(0xFF0561C7);
 
 /// Bảng màu của thanh nổi theo nền sáng / tối.
 class _TabBarPalette {
@@ -98,6 +104,8 @@ class _TabBarPalette {
     required this.background,
     required this.border,
     required this.shadow,
+    required this.shadowBlur,
+    required this.shadowOffsetY,
     required this.selectedFill,
     required this.selected,
     required this.unselected,
@@ -110,6 +118,8 @@ class _TabBarPalette {
         background: const Color(0xFF1F2329).withValues(alpha: 0.82),
         border: Colors.white.withValues(alpha: 0.10),
         shadow: Colors.black.withValues(alpha: 0.45),
+        shadowBlur: 18,
+        shadowOffsetY: 6,
         selectedFill: Colors.white.withValues(alpha: 0.12),
         selected: const Color(0xFF5AA9FF),
         unselected: Colors.white.withValues(alpha: 0.72),
@@ -118,9 +128,13 @@ class _TabBarPalette {
     return _TabBarPalette(
       background: WebTuiColors.surface.withValues(alpha: 0.85),
       border: WebTuiColors.border.withValues(alpha: 0.9),
-      shadow: const Color(0xFF1E3A64).withValues(alpha: 0.14),
+      // Nền sáng: bóng rất nhẹ, không thành vệt xám dưới viên thuốc.
+      shadow: Colors.black.withValues(alpha: 0.07),
+      shadowBlur: 22,
+      shadowOffsetY: 3,
       selectedFill: WebTuiColors.primarySoft,
-      selected: theme.colorScheme.primary,
+      // Xanh đậm hơn một bậc để chữ tab đang chọn đủ tương phản trên nền xanh nhạt.
+      selected: _selectedFgLight,
       unselected: WebTuiColors.textSecondary,
     );
   }
@@ -128,6 +142,8 @@ class _TabBarPalette {
   final Color background;
   final Color border;
   final Color shadow;
+  final double shadowBlur;
+  final double shadowOffsetY;
   final Color selectedFill;
   final Color selected;
   final Color unselected;
@@ -183,8 +199,8 @@ class WebTuiFloatingTabBar extends StatelessWidget {
           boxShadow: [
             BoxShadow(
               color: palette.shadow,
-              blurRadius: 24,
-              offset: const Offset(0, 8),
+              blurRadius: palette.shadowBlur,
+              offset: Offset(0, palette.shadowOffsetY),
             ),
           ],
         ),
@@ -245,17 +261,22 @@ class _FloatingTabItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = selected ? palette.selected : palette.unselected;
     final radius = BorderRadius.circular(WebTuiBottomTabTokens.radius - 4);
+    final label = spec.label(AppStrings.of(context));
+    // Không dùng InkWell: không splash / highlight / hover đọng lại ở tab cũ.
+    // Nút chỉ đổi màu theo `selected`.
     return Semantics(
       button: true,
       selected: selected,
-      label: spec.label,
+      label: label,
+      onTap: onTap,
       excludeSemantics: true,
-      child: InkWell(
-        key: ValueKey('tab-${spec.label}'),
+      child: GestureDetector(
+        // Khoá theo tên tiếng Việt để test / mã gọi tìm được ở mọi ngôn ngữ.
+        key: ValueKey('tab-${spec.label(const AppStringsVi())}'),
+        behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        borderRadius: radius,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration: _tabAnimation,
           // Vùng bấm cao 54 (≥ 44), rộng ~1/4 thanh.
           constraints: const BoxConstraints(
             minHeight: WebTuiBottomTabTokens.height - 8,
@@ -265,39 +286,43 @@ class _FloatingTabItem extends StatelessWidget {
             color: selected ? palette.selectedFill : Colors.transparent,
             borderRadius: radius,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Icon(
-                    spec.icon,
-                    size: WebTuiBottomTabTokens.iconSize,
-                    color: color,
-                  ),
-                  if (badge > 0)
-                    Positioned(
-                      left: WebTuiBottomTabTokens.iconSize - 8,
-                      top: -7,
-                      child: _TabBadge(count: badge),
+          child: TweenAnimationBuilder<Color?>(
+            tween: ColorTween(end: color),
+            duration: _tabAnimation,
+            builder: (context, tint, _) => Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Icon(
+                      spec.icon,
+                      size: WebTuiBottomTabTokens.iconSize,
+                      color: tint,
                     ),
-                ],
-              ),
-              const SizedBox(height: 2),
-              Text(
-                spec.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11,
-                  height: 1.2,
-                  color: color,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    if (badge > 0)
+                      Positioned(
+                        left: WebTuiBottomTabTokens.iconSize - 8,
+                        top: -7,
+                        child: _TabBadge(count: badge),
+                      ),
+                  ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    height: 1.2,
+                    color: tint,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -328,16 +353,21 @@ class _TabBadge extends StatelessWidget {
           width: 1.5,
         ),
       ),
-      alignment: Alignment.center,
-      child: Text(
-        label,
-        maxLines: 1,
-        softWrap: false,
-        style: const TextStyle(
-          fontSize: 11,
-          height: 1.1,
-          color: Colors.white,
-          fontWeight: FontWeight.w700,
+      // Center co theo chữ: số là viên tròn 18px giãn ngang theo số, không bị
+      // kéo dài theo khung cha.
+      child: Center(
+        widthFactor: 1,
+        heightFactor: 1,
+        child: Text(
+          label,
+          maxLines: 1,
+          softWrap: false,
+          style: const TextStyle(
+            fontSize: 11,
+            height: 1.1,
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );

@@ -1,5 +1,6 @@
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../auth/domain/repositories/device_identity_repository.dart';
 import '../../domain/entities/workspace_sync_event.dart';
 import '../../domain/repositories/workspace_sync_repository.dart';
@@ -119,14 +120,22 @@ final class CatchUpWorkspaceSyncUseCase {
   }) async {
     try {
       if (onResetRequired == null) {
-        throw StateError('Chưa có bộ tải lại dữ liệu đồng bộ.');
+        throw StateError(
+          tr(
+            'Chưa có bộ tải lại dữ liệu đồng bộ.',
+            'No loader is set up to reload synced data.',
+          ),
+        );
       }
       await onResetRequired(page);
     } on Object catch (error) {
       return FailureResult(
         Failure(
           kind: FailureKind.unknown,
-          message: 'Không thể tải lại dữ liệu sau khi đồng bộ bị đặt lại.',
+          message: tr(
+            'Không thể tải lại dữ liệu sau khi đồng bộ bị đặt lại.',
+            'Could not reload data after sync was reset.',
+          ),
           code: 'SYNC_RESET_RELOAD_FAILURE',
           cause: error,
         ),
@@ -160,7 +169,10 @@ final class CatchUpWorkspaceSyncUseCase {
       return FailureResult(
         Failure(
           kind: FailureKind.storage,
-          message: 'Không thể đọc định danh thiết bị để đồng bộ.',
+          message: tr(
+            'Không thể đọc định danh thiết bị để đồng bộ.',
+            'Could not read the device identity for syncing.',
+          ),
           code: 'SYNC_DEVICE_ID_FAILURE',
           cause: error,
         ),

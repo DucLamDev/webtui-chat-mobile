@@ -9,6 +9,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/collaboration_document_version.dart';
 import '../../domain/entities/collaboration_room.dart';
 import '../../domain/entities/whiteboard_document.dart';
@@ -79,7 +80,7 @@ class CollaborationHistorySheet extends ConsumerWidget {
                 children: [
                   if (previewing)
                     IconButton(
-                      tooltip: 'Về danh sách',
+                      tooltip: tr('Về danh sách', 'Back to list'),
                       onPressed: controller.closePreview,
                       icon: const Icon(WebTuiIcons.back),
                     )
@@ -87,7 +88,9 @@ class CollaborationHistorySheet extends ConsumerWidget {
                     const SizedBox(width: WebTuiSpacing.md),
                   Expanded(
                     child: Text(
-                      _isWhiteboard ? 'Lịch sử bảng trắng' : 'Lịch sử ghi chú',
+                      _isWhiteboard
+                          ? tr('Lịch sử bảng trắng', 'Whiteboard history')
+                          : tr('Lịch sử ghi chú', 'Notes history'),
                       style: WebTuiTypography.titleMedium.copyWith(
                         color: WebTuiColors.textPrimary,
                         fontWeight: FontWeight.w800,
@@ -95,14 +98,14 @@ class CollaborationHistorySheet extends ConsumerWidget {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Đóng',
+                    tooltip: tr('Đóng', 'Close'),
                     onPressed: () => Navigator.of(context).maybePop(),
                     icon: const Icon(WebTuiIcons.close),
                   ),
                 ],
               ),
             ),
-            const Divider(height: 1, color: WebTuiColors.border),
+            Divider(height: 1, color: WebTuiColors.border),
             Expanded(
               child: previewing
                   ? _Preview(
@@ -131,13 +134,24 @@ class CollaborationHistorySheet extends ConsumerWidget {
     if (selected == null) return;
     final confirmed = await showWebTuiConfirmDialog(
       context,
-      title: 'Khôi phục bản v${selected.version}?',
+      title: tr(
+        'Khôi phục bản v${selected.version}?',
+        'Restore version v${selected.version}?',
+      ),
       message: _isWhiteboard
-          ? 'Bảng trắng sẽ trở về nội dung của bản này. Bản hiện tại vẫn '
-                'còn trong lịch sử.'
-          : 'Ghi chú sẽ trở về nội dung của bản này. Bản hiện tại vẫn còn '
-                'trong lịch sử.',
-      confirmLabel: 'Khôi phục',
+          ? tr(
+              'Bảng trắng sẽ trở về nội dung của bản này. Bản hiện tại vẫn '
+                  'còn trong lịch sử.',
+              'The whiteboard will go back to this version. The current '
+                  'version stays in the history.',
+            )
+          : tr(
+              'Ghi chú sẽ trở về nội dung của bản này. Bản hiện tại vẫn còn '
+                  'trong lịch sử.',
+              'The notes will go back to this version. The current version '
+                  'stays in the history.',
+            ),
+      confirmLabel: tr('Khôi phục', 'Restore'),
       icon: WebTuiIcons.refresh,
     );
     if (!confirmed || !context.mounted) return;
@@ -166,34 +180,42 @@ class _VersionList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (state.loading && state.versions.isEmpty) {
-      return const WebTuiLoadingState(message: 'Đang tải lịch sử...');
+      return WebTuiLoadingState(
+        message: tr('Đang tải lịch sử...', 'Loading history...'),
+      );
     }
     if (state.errorMessage != null) {
       if (state.forbidden) {
-        return const WebTuiEmptyState(
+        return WebTuiEmptyState(
           icon: Icons.lock_outline_rounded,
-          title: 'Không có quyền',
-          message: 'Bạn không có quyền xem lịch sử của tài liệu này.',
+          title: tr('Không có quyền', 'No access'),
+          message: tr(
+            'Bạn không có quyền xem lịch sử của tài liệu này.',
+            "You don't have permission to view this document's history.",
+          ),
         );
       }
       return WebTuiErrorState(
-        title: 'Chưa tải được lịch sử',
+        title: tr('Chưa tải được lịch sử', "Couldn't load history"),
         message: state.errorMessage!,
         onRetry: onRetry,
       );
     }
     if (state.versions.isEmpty) {
-      return const WebTuiEmptyState(
+      return WebTuiEmptyState(
         icon: Icons.history_rounded,
-        title: 'Chưa có bản lưu nào',
-        message: 'Lịch sử sẽ có sau lần lưu tiếp theo.',
+        title: tr('Chưa có bản lưu nào', 'No saved versions yet'),
+        message: tr(
+          'Lịch sử sẽ có sau lần lưu tiếp theo.',
+          'History will appear after the next save.',
+        ),
       );
     }
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: WebTuiSpacing.sm),
       itemCount: state.versions.length,
       separatorBuilder: (_, _) =>
-          const Divider(height: 1, indent: 72, color: WebTuiColors.border),
+          Divider(height: 1, indent: 72, color: WebTuiColors.border),
       itemBuilder: (context, index) {
         final version = state.versions[index];
         return ListTile(
@@ -217,8 +239,11 @@ class _VersionList extends StatelessWidget {
 }
 
 String _authorLine(CollaborationDocumentVersion version, int currentVersion) {
-  final author = version.authorName ?? 'Không rõ người sửa';
-  return version.version == currentVersion ? '$author · Bản hiện tại' : author;
+  final author =
+      version.authorName ?? tr('Không rõ người sửa', 'Unknown editor');
+  return version.version == currentVersion
+      ? tr('$author · Bản hiện tại', '$author · Current version')
+      : author;
 }
 
 class _Preview extends StatelessWidget {
@@ -240,11 +265,13 @@ class _Preview extends StatelessWidget {
     if (selected == null) {
       if (state.previewError != null) {
         return WebTuiErrorState(
-          title: 'Chưa tải được bản này',
+          title: tr('Chưa tải được bản này', "Couldn't load this version"),
           message: state.previewError!,
         );
       }
-      return const WebTuiLoadingState(message: 'Đang tải bản xem trước...');
+      return WebTuiLoadingState(
+        message: tr('Đang tải bản xem trước...', 'Loading preview...'),
+      );
     }
     final isCurrent = selected.version == currentVersion;
     return Column(
@@ -258,8 +285,12 @@ class _Preview extends StatelessWidget {
             WebTuiSpacing.sm,
           ),
           child: Text(
-            'Bản v${selected.version} · ${formatHistoryTime(selected.updatedAt)}'
-            ' · ${selected.authorName ?? 'Không rõ người sửa'}',
+            tr(
+              'Bản v${selected.version} · ${formatHistoryTime(selected.updatedAt)}'
+                  ' · ${selected.authorName ?? 'Không rõ người sửa'}',
+              'Version v${selected.version} · ${formatHistoryTime(selected.updatedAt)}'
+                  ' · ${selected.authorName ?? 'Unknown editor'}',
+            ),
             style: WebTuiTypography.bodySmall.copyWith(
               color: WebTuiColors.textSecondary,
               fontWeight: FontWeight.w700,
@@ -301,7 +332,9 @@ class _Preview extends StatelessWidget {
                   )
                 : const Icon(Icons.restore_rounded),
             label: Text(
-              isCurrent ? 'Đang là bản hiện tại' : 'Khôi phục bản này',
+              isCurrent
+                  ? tr('Đang là bản hiện tại', 'This is the current version')
+                  : tr('Khôi phục bản này', 'Restore this version'),
             ),
           ),
         ),
@@ -328,7 +361,7 @@ class _NotesPreview extends StatelessWidget {
         padding: const EdgeInsets.all(WebTuiSpacing.md),
         child: text.trim().isEmpty
             ? Text(
-                'Bản này trống.',
+                tr('Bản này trống.', 'This version is empty.'),
                 style: WebTuiTypography.bodySmall.copyWith(
                   color: WebTuiColors.textMuted,
                 ),
@@ -354,7 +387,10 @@ class _WhiteboardPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final document = WhiteboardDocument.parse(content);
     return Semantics(
-      label: 'Xem trước bảng trắng (chỉ đọc)',
+      label: tr(
+        'Xem trước bảng trắng (chỉ đọc)',
+        'Whiteboard preview (read-only)',
+      ),
       child: AspectRatio(
         aspectRatio: whiteboardWidth / whiteboardHeight,
         child: DecoratedBox(

@@ -13,6 +13,7 @@ import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../../l10n/app_strings.dart';
 import '../../../domain/entities/chat_message.dart';
 import '../../../domain/entities/message_card.dart';
 import '../../controllers/message_card_controller.dart';
@@ -271,7 +272,11 @@ class _MessageCardViewState extends ConsumerState<MessageCardView> {
         ScaffoldMessenger.maybeOf(context)
           ?..hideCurrentSnackBar()
           ..showSnackBar(
-            const SnackBar(content: Text('Đã chép vào bộ nhớ tạm.')),
+            SnackBar(
+              content: Text(
+                tr('Đã chép vào bộ nhớ tạm.', 'Copied to clipboard.'),
+              ),
+            ),
           );
       case MessageCardCallbackAction(:final confirm):
         final provider = messageCardControllerProvider(_scope);
@@ -297,7 +302,7 @@ class _MessageCardViewState extends ConsumerState<MessageCardView> {
   Future<bool> _confirm(String question, String label) {
     return showWebTuiConfirmDialog(
       context,
-      title: 'Xác nhận thao tác',
+      title: tr('Xác nhận thao tác', 'Confirm action'),
       message: question,
       confirmLabel: label,
       icon: WebTuiIcons.shieldCheck,

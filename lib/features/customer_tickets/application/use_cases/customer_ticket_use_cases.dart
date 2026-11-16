@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:webtui_chat/l10n/app_strings.dart';
+
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
 import '../../domain/entities/customer_ticket.dart';
@@ -22,23 +24,23 @@ String customerTicketHolderName(Failure failure, {String? fallback}) {
   final fromMessage = match?.group(1)?.trim();
   if (fromMessage != null && fromMessage.isNotEmpty) return fromMessage;
   final name = fallback?.trim();
-  return name == null || name.isEmpty ? 'Người khác' : name;
+  return name == null || name.isEmpty ? tr('Người khác', 'Someone else') : name;
 }
 
 final _ticketIdPattern = RegExp(r'^\d{1,19}$');
 
 Failure? _scopeFailure(String workspaceId, [String? ticketId]) {
   if (workspaceId.trim().isEmpty) {
-    return const Failure(
+    return Failure(
       kind: FailureKind.validation,
-      message: 'Chưa chọn workspace.',
+      message: tr('Chưa chọn workspace.', 'No workspace selected.'),
       code: 'CUSTOMER_TICKET_WORKSPACE_REQUIRED',
     );
   }
   if (ticketId != null && !_ticketIdPattern.hasMatch(ticketId.trim())) {
-    return const Failure(
+    return Failure(
       kind: FailureKind.validation,
-      message: 'Mã ticket không hợp lệ.',
+      message: tr('Mã ticket không hợp lệ.', 'Invalid ticket ID.'),
       code: 'CUSTOMER_TICKET_ID_INVALID',
     );
   }
@@ -157,23 +159,29 @@ Failure? validateCustomerTicketReply({
 }) {
   final text = normalizeCustomerTicketReply(message);
   if (text.isEmpty && images.isEmpty) {
-    return const Failure(
+    return Failure(
       kind: FailureKind.validation,
-      message: 'Nhập nội dung trả lời hoặc đính kèm ảnh.',
+      message: tr(
+        'Nhập nội dung trả lời hoặc đính kèm ảnh.',
+        'Enter a reply or attach a photo.',
+      ),
       code: 'CUSTOMER_TICKET_REPLY_EMPTY',
     );
   }
   if (text.runes.length > customerTicketMaxReplyLength) {
-    return const Failure(
+    return Failure(
       kind: FailureKind.validation,
-      message: 'Nội dung trả lời tối đa 4.000 ký tự.',
+      message: tr(
+        'Nội dung trả lời tối đa 4.000 ký tự.',
+        'Replies can be up to 4,000 characters.',
+      ),
       code: 'CUSTOMER_TICKET_REPLY_TOO_LONG',
     );
   }
   if (images.length > customerTicketMaxImages) {
-    return const Failure(
+    return Failure(
       kind: FailureKind.validation,
-      message: 'Tối đa 3 ảnh mỗi lần trả lời.',
+      message: tr('Tối đa 3 ảnh mỗi lần trả lời.', 'Up to 3 photos per reply.'),
       code: 'CUSTOMER_TICKET_TOO_MANY_IMAGES',
     );
   }
@@ -192,13 +200,19 @@ Failure? validateCustomerTicketReply({
 
 String? customerTicketImageProblem(CustomerTicketImageUpload image) {
   if (!customerTicketAllowedImageTypes.contains(image.mimeType)) {
-    return 'Ảnh ${image.name} không được hỗ trợ (chỉ PNG, JPEG, GIF, WEBP).';
+    return tr(
+      'Ảnh ${image.name} không được hỗ trợ (chỉ PNG, JPEG, GIF, WEBP).',
+      'Photo ${image.name} isn\'t supported (PNG, JPEG, GIF or WEBP only).',
+    );
   }
   if (image.byteSize <= 0) {
-    return 'Ảnh ${image.name} trống.';
+    return tr('Ảnh ${image.name} trống.', 'Photo ${image.name} is empty.');
   }
   if (image.byteSize > customerTicketMaxImageBytes) {
-    return 'Ảnh ${image.name} lớn hơn 5 MB.';
+    return tr(
+      'Ảnh ${image.name} lớn hơn 5 MB.',
+      'Photo ${image.name} is larger than 5 MB.',
+    );
   }
   return null;
 }
@@ -218,10 +232,13 @@ final class SetCustomerTicketStatusUseCase {
     if (status != CustomerTicketStatus.answered &&
         status != CustomerTicketStatus.unanswered) {
       return Future.value(
-        const FailureResult(
+        FailureResult(
           Failure(
             kind: FailureKind.validation,
-            message: 'Trạng thái ticket không hợp lệ.',
+            message: tr(
+              'Trạng thái ticket không hợp lệ.',
+              'Invalid ticket status.',
+            ),
             code: 'CUSTOMER_TICKET_STATUS_INVALID',
           ),
         ),
@@ -272,10 +289,13 @@ final class RequestCustomerTicketAiDraftUseCase {
     final text = instruction.trim();
     if (text.runes.length > customerTicketMaxInstructionLength) {
       return Future.value(
-        const FailureResult(
+        FailureResult(
           Failure(
             kind: FailureKind.validation,
-            message: 'Gợi ý cho AI tối đa 1.000 ký tự.',
+            message: tr(
+              'Gợi ý cho AI tối đa 1.000 ký tự.',
+              'AI hints can be up to 1,000 characters.',
+            ),
             code: 'CUSTOMER_TICKET_INSTRUCTION_TOO_LONG',
           ),
         ),
@@ -313,10 +333,13 @@ final class PickCustomerTicketImagesUseCase {
   }) async {
     final remaining = customerTicketMaxImages - alreadySelected;
     if (remaining <= 0) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.validation,
-          message: 'Tối đa 3 ảnh mỗi lần trả lời.',
+          message: tr(
+            'Tối đa 3 ảnh mỗi lần trả lời.',
+            'Up to 3 photos per reply.',
+          ),
           code: 'CUSTOMER_TICKET_TOO_MANY_IMAGES',
         ),
       );
@@ -335,7 +358,10 @@ final class PickCustomerTicketImagesUseCase {
             continue;
           }
           if (accepted.length >= remaining) {
-            rejected ??= 'Tối đa 3 ảnh mỗi lần trả lời.';
+            rejected ??= tr(
+              'Tối đa 3 ảnh mỗi lần trả lời.',
+              'Up to 3 photos per reply.',
+            );
             continue;
           }
           accepted.add(image);

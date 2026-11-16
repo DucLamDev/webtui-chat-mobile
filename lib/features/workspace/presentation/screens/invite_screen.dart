@@ -7,6 +7,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/workspace_invite.dart';
 import '../controllers/invite_controller.dart';
 import '../controllers/workspace_controller.dart';
@@ -32,30 +33,40 @@ class InviteScreen extends ConsumerWidget {
       backgroundColor: WebTuiColors.background,
       appBar: AppBar(
         leading: IconButton(
-          tooltip: 'Đóng',
+          tooltip: tr('Đóng', 'Close'),
           onPressed: () => context.go('/'),
           icon: const Icon(Icons.close_rounded),
         ),
-        title: const Text('Lời mời tham gia'),
+        title: Text(tr('Lời mời tham gia', 'Invitation to join')),
         surfaceTintColor: Colors.transparent,
       ),
       body: SafeArea(
         child: switch (state.phase) {
-          InvitePhase.loading => const WebTuiLoadingState(
-            message: 'Đang tải lời mời...',
+          InvitePhase.loading => WebTuiLoadingState(
+            message: tr('Đang tải lời mời...', 'Loading invitation...'),
           ),
           InvitePhase.error => WebTuiErrorState(
-            title: 'Không tải được lời mời',
-            message: state.errorMessage ?? 'Vui lòng thử lại.',
+            title: tr(
+              'Không tải được lời mời',
+              'Could not load the invitation',
+            ),
+            message:
+                state.errorMessage ??
+                tr('Vui lòng thử lại.', 'Please try again.'),
             onRetry: controller.load,
           ),
           InvitePhase.unavailable => WebTuiEmptyState(
-            title: 'Lời mời không dùng được',
-            message: state.errorMessage ?? 'Lời mời không còn hiệu lực.',
+            title: tr('Lời mời không dùng được', 'Invitation unavailable'),
+            message:
+                state.errorMessage ??
+                tr(
+                  'Lời mời không còn hiệu lực.',
+                  'This invitation is no longer valid.',
+                ),
             icon: Icons.link_off_rounded,
           ),
-          InvitePhase.accepted => const WebTuiLoadingState(
-            message: 'Đang mở workspace...',
+          InvitePhase.accepted => WebTuiLoadingState(
+            message: tr('Đang mở workspace...', 'Opening workspace...'),
           ),
           InvitePhase.ready || InvitePhase.accepting => _InvitePreviewView(
             preview: state.preview!,
@@ -121,7 +132,10 @@ class _InvitePreviewView extends StatelessWidget {
                 WebTuiAvatar(label: preview.workspaceName, size: 64),
                 const SizedBox(height: WebTuiSpacing.md),
                 Text(
-                  'Bạn được mời vào ${preview.workspaceName}',
+                  tr(
+                    'Bạn được mời vào ${preview.workspaceName}',
+                    'You were invited to ${preview.workspaceName}',
+                  ),
                   textAlign: TextAlign.center,
                   style: WebTuiTypography.titleMedium.copyWith(
                     fontWeight: FontWeight.w800,
@@ -139,7 +153,10 @@ class _InvitePreviewView extends StatelessWidget {
                 if (preview.emailHint != null) ...[
                   const SizedBox(height: WebTuiSpacing.sm),
                   Text(
-                    'Lời mời dành cho ${preview.emailHint}',
+                    tr(
+                      'Lời mời dành cho ${preview.emailHint}',
+                      'Invitation for ${preview.emailHint}',
+                    ),
                     textAlign: TextAlign.center,
                     style: WebTuiTypography.bodySmall,
                   ),
@@ -147,9 +164,14 @@ class _InvitePreviewView extends StatelessWidget {
                 if (expiresAt != null) ...[
                   const SizedBox(height: WebTuiSpacing.xs),
                   Text(
-                    'Hết hạn ngày ${expiresAt.day.toString().padLeft(2, '0')}/'
-                    '${expiresAt.month.toString().padLeft(2, '0')}/'
-                    '${expiresAt.year}',
+                    tr(
+                      'Hết hạn ngày ${expiresAt.day.toString().padLeft(2, '0')}/'
+                          '${expiresAt.month.toString().padLeft(2, '0')}/'
+                          '${expiresAt.year}',
+                      'Expires on ${expiresAt.day.toString().padLeft(2, '0')}/'
+                          '${expiresAt.month.toString().padLeft(2, '0')}/'
+                          '${expiresAt.year}',
+                    ),
                     style: WebTuiTypography.bodySmall.copyWith(
                       color: WebTuiColors.textMuted,
                     ),

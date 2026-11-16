@@ -8,6 +8,7 @@ import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/email_verification.dart';
 import '../controllers/login_controller.dart';
 
@@ -97,14 +98,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             : () => _openLegalDocument(
                                 context,
                                 config.termsUrl,
-                                'Điều khoản sử dụng',
+                                tr('Điều khoản sử dụng', 'Terms of Use'),
                               ),
                         onOpenPrivacy: !_isHttpsUrl(config.privacyPolicyUrl)
                             ? null
                             : () => _openLegalDocument(
                                 context,
                                 config.privacyPolicyUrl,
-                                'Chính sách quyền riêng tư',
+                                tr(
+                                  'Chính sách quyền riêng tư',
+                                  'Privacy Policy',
+                                ),
                               ),
                       ),
               ),
@@ -122,9 +126,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   ) async {
     final opened = await ref.read(externalUrlLauncherProvider).open(url);
     if (context.mounted && !opened) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Không mở được $label.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(tr('Không mở được $label.', 'Could not open $label.')),
+        ),
+      );
     }
   }
 }
@@ -142,11 +148,13 @@ class _ServerContent extends StatelessWidget {
       children: [
         const Align(child: _BrandLogo(size: 94)),
         const SizedBox(height: 22),
-        const _AuthTitle(
+        _AuthTitle(
           center: true,
-          title: 'Kết nối tới máy chủ',
-          subtitle:
-              'Nhập domain của tổ chức. Ứng dụng sẽ kiểm tra kết nối trước khi đăng nhập.',
+          title: tr('Kết nối tới máy chủ', 'Connect to a server'),
+          subtitle: tr(
+            'Nhập domain của tổ chức. Ứng dụng sẽ kiểm tra kết nối trước khi đăng nhập.',
+            'Enter your organization domain. The app will check the connection before you sign in.',
+          ),
         ),
         if (state.noticeMessage case final notice?) ...[
           _AuthNotice(message: notice),
@@ -159,7 +167,7 @@ class _ServerContent extends StatelessWidget {
           child: _AuthTextField(
             fieldKey: const Key('server_domain_field'),
             initialValue: state.domain,
-            label: 'Địa chỉ máy chủ',
+            label: tr('Địa chỉ máy chủ', 'Server address'),
             hint: 'chat.example.com',
             icon: Icons.dns_outlined,
             enabled: !state.isLoading,
@@ -171,7 +179,10 @@ class _ServerContent extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Text(
-          'Bạn có thể nhập domain hoặc URL HTTPS đầy đủ.',
+          tr(
+            'Bạn có thể nhập domain hoặc URL HTTPS đầy đủ.',
+            'You can enter a domain or a full HTTPS URL.',
+          ),
           textAlign: TextAlign.center,
           style: WebTuiTypography.bodySmall.copyWith(
             color: WebTuiColors.textMuted,
@@ -179,7 +190,7 @@ class _ServerContent extends StatelessWidget {
         ),
         if (state.recentServers.isNotEmpty) ...[
           const SizedBox(height: 24),
-          const _DividerLabel('Máy chủ gần đây'),
+          _DividerLabel(tr('Máy chủ gần đây', 'Recent servers')),
           const SizedBox(height: 12),
           Wrap(
             alignment: WrapAlignment.center,
@@ -258,8 +269,11 @@ class _LoginContent extends StatelessWidget {
         const SizedBox(height: 18),
         _AuthTitle(
           center: true,
-          title: 'Chào mừng trở lại',
-          subtitle: 'Đăng nhập vào ${state.serverName ?? 'tổ chức của bạn'}',
+          title: tr('Chào mừng trở lại', 'Welcome back'),
+          subtitle: tr(
+            'Đăng nhập vào ${state.serverName ?? 'tổ chức của bạn'}',
+            'Sign in to ${state.serverName ?? 'your organization'}',
+          ),
         ),
         const SizedBox(height: 12),
         _SelectedServerBar(
@@ -277,7 +291,7 @@ class _LoginContent extends StatelessWidget {
           child: _AuthTextField(
             fieldKey: const Key('login_identifier_field'),
             initialValue: state.identifier,
-            label: 'Email hoặc username',
+            label: tr('Email hoặc username', 'Email or username'),
             hint: 'duclamdev',
             icon: Icons.alternate_email_rounded,
             enabled: !state.isLoading,
@@ -290,14 +304,16 @@ class _LoginContent extends StatelessWidget {
         _AuthTextField(
           fieldKey: const Key('login_password_field'),
           initialValue: state.password,
-          label: 'Mật khẩu',
-          hint: 'Nhập mật khẩu',
+          label: tr('Mật khẩu', 'Password'),
+          hint: tr('Nhập mật khẩu', 'Enter your password'),
           icon: Icons.lock_outline_rounded,
           enabled: !state.isLoading,
           obscureText: !state.showPassword,
           textInputAction: TextInputAction.done,
           trailing: IconButton(
-            tooltip: state.showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu',
+            tooltip: state.showPassword
+                ? tr('Ẩn mật khẩu', 'Hide password')
+                : tr('Hiện mật khẩu', 'Show password'),
             onPressed: controller.togglePasswordVisibility,
             icon: Icon(
               state.showPassword
@@ -320,7 +336,7 @@ class _LoginContent extends StatelessWidget {
             ),
             Flexible(
               child: Text(
-                'Ghi nhớ đăng nhập',
+                tr('Ghi nhớ đăng nhập', 'Remember me'),
                 style: WebTuiTypography.bodySmall.copyWith(
                   color: WebTuiColors.textMuted,
                   fontWeight: FontWeight.w600,
@@ -333,19 +349,22 @@ class _LoginContent extends StatelessWidget {
               onPressed: state.isLoading
                   ? null
                   : () => _showPasswordRecoveryGuidance(context, state),
-              child: const Text('Quên mật khẩu?'),
+              child: Text(tr('Quên mật khẩu?', 'Forgot password?')),
             ),
           ],
         ),
         if (hasAlternativeSignIn) ...[
           const SizedBox(height: 24),
-          const _DividerLabel('Hoặc tiếp tục với'),
+          _DividerLabel(tr('Hoặc tiếp tục với', 'Or continue with')),
           const SizedBox(height: 18),
         ],
         for (final provider in state.oidcProviders) ...[
           if (provider != state.oidcProviders.first) const SizedBox(height: 12),
           _SocialButton(
-            label: 'Đăng nhập bằng ${provider.name}',
+            label: tr(
+              'Đăng nhập bằng ${provider.name}',
+              'Sign in with ${provider.name}',
+            ),
             icon: const Icon(Icons.corporate_fare_rounded, size: 21),
             loading: state.loadingOidcProviderId == provider.id,
             onPressed: state.isLoading
@@ -365,15 +384,19 @@ Future<void> _showPasswordRecoveryGuidance(
   return showDialog<void>(
     context: context,
     builder: (dialogContext) => WebTuiDialog(
-      title: 'Khôi phục mật khẩu',
+      title: tr('Khôi phục mật khẩu', 'Reset password'),
       icon: WebTuiIcons.key,
-      message:
-          'Tài khoản được quản lý bởi máy chủ ${state.serverName ?? state.domain}. '
-          'Hãy liên hệ quản trị viên của tổ chức để đặt lại mật khẩu. Nếu tổ chức '
-          'dùng SSO/OIDC, bạn có thể quay lại và chọn nhà cung cấp đăng nhập tương ứng.',
+      message: tr(
+        'Tài khoản được quản lý bởi máy chủ ${state.serverName ?? state.domain}. '
+            'Hãy liên hệ quản trị viên của tổ chức để đặt lại mật khẩu. Nếu tổ chức '
+            'dùng SSO/OIDC, bạn có thể quay lại và chọn nhà cung cấp đăng nhập tương ứng.',
+        'Your account is managed by server ${state.serverName ?? state.domain}. '
+            'Contact your organization administrator to reset your password. If your '
+            'organization uses SSO/OIDC, you can go back and choose the matching sign-in provider.',
+      ),
       actions: [
         WebTuiDialogAction(
-          label: 'Đã hiểu',
+          label: tr('Đã hiểu', 'Got it'),
           primary: true,
           onPressed: () => Navigator.pop(dialogContext),
         ),
@@ -419,8 +442,11 @@ class _RegisterContent extends StatelessWidget {
         const SizedBox(height: 16),
         _AuthTitle(
           center: true,
-          title: 'Tạo tài khoản mới',
-          subtitle: 'Tài khoản được tạo tại ${state.serverName ?? 'tổ chức'}',
+          title: tr('Tạo tài khoản mới', 'Create a new account'),
+          subtitle: tr(
+            'Tài khoản được tạo tại ${state.serverName ?? 'tổ chức'}',
+            'Your account will be created at ${state.serverName ?? 'the organization'}',
+          ),
         ),
         const SizedBox(height: 10),
         _SelectedServerBar(
@@ -431,8 +457,8 @@ class _RegisterContent extends StatelessWidget {
         _AuthTextField(
           fieldKey: const Key('register_display_name_field'),
           initialValue: state.displayName,
-          label: 'Họ và tên',
-          hint: 'Nguyễn Văn A',
+          label: tr('Họ và tên', 'Full name'),
+          hint: tr('Nguyễn Văn A', 'Jane Doe'),
           icon: Icons.badge_outlined,
           enabled: !state.isLoading,
           textInputAction: TextInputAction.next,
@@ -454,8 +480,11 @@ class _RegisterContent extends StatelessWidget {
         _AuthTextField(
           fieldKey: const Key('register_username_field'),
           initialValue: state.username,
-          label: 'Tên đăng nhập',
-          hint: 'Ví dụ: duclam24 (không cần ký tự đặc biệt)',
+          label: tr('Tên đăng nhập', 'Username'),
+          hint: tr(
+            'Ví dụ: duclam24 (không cần ký tự đặc biệt)',
+            'Example: jane24 (no special characters needed)',
+          ),
           icon: Icons.person_outline_rounded,
           enabled: !state.isLoading,
           textInputAction: TextInputAction.next,
@@ -467,8 +496,11 @@ class _RegisterContent extends StatelessWidget {
           child: _AuthTextField(
             fieldKey: const Key('register_invite_token_field'),
             initialValue: state.inviteToken,
-            label: 'Mã lời mời',
-            hint: 'Nhập mã nếu server yêu cầu',
+            label: tr('Mã lời mời', 'Invite code'),
+            hint: tr(
+              'Nhập mã nếu server yêu cầu',
+              'Enter the code if the server requires it',
+            ),
             icon: Icons.key_rounded,
             enabled: !state.isLoading,
             keyboardType: TextInputType.text,
@@ -480,14 +512,16 @@ class _RegisterContent extends StatelessWidget {
         _AuthTextField(
           fieldKey: const Key('register_password_field'),
           initialValue: state.password,
-          label: 'Mật khẩu',
-          hint: 'Tối thiểu 8 ký tự',
+          label: tr('Mật khẩu', 'Password'),
+          hint: tr('Tối thiểu 8 ký tự', 'At least 8 characters'),
           icon: Icons.lock_outline_rounded,
           enabled: !state.isLoading,
           obscureText: !state.showPassword,
           textInputAction: TextInputAction.next,
           trailing: IconButton(
-            tooltip: state.showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu',
+            tooltip: state.showPassword
+                ? tr('Ẩn mật khẩu', 'Hide password')
+                : tr('Hiện mật khẩu', 'Show password'),
             onPressed: controller.togglePasswordVisibility,
             icon: Icon(
               state.showPassword
@@ -501,16 +535,16 @@ class _RegisterContent extends StatelessWidget {
         _AuthTextField(
           fieldKey: const Key('register_confirm_password_field'),
           initialValue: state.confirmPassword,
-          label: 'Xác nhận mật khẩu',
-          hint: 'Nhập lại mật khẩu',
+          label: tr('Xác nhận mật khẩu', 'Confirm password'),
+          hint: tr('Nhập lại mật khẩu', 'Re-enter your password'),
           icon: Icons.verified_user_outlined,
           enabled: !state.isLoading,
           obscureText: !state.showConfirmPassword,
           textInputAction: TextInputAction.done,
           trailing: IconButton(
             tooltip: state.showConfirmPassword
-                ? 'Ẩn mật khẩu'
-                : 'Hiện mật khẩu',
+                ? tr('Ẩn mật khẩu', 'Hide password')
+                : tr('Hiện mật khẩu', 'Show password'),
             onPressed: controller.toggleConfirmPasswordVisibility,
             icon: Icon(
               state.showConfirmPassword
@@ -562,7 +596,10 @@ class _RegisterContent extends StatelessWidget {
                       child: Padding(
                         padding: const EdgeInsets.only(top: 10),
                         child: Text(
-                          'Tôi đã đọc và đồng ý với Điều khoản sử dụng và Chính sách quyền riêng tư.',
+                          tr(
+                            'Tôi đã đọc và đồng ý với Điều khoản sử dụng và Chính sách quyền riêng tư.',
+                            'I have read and agree to the Terms of Use and Privacy Policy.',
+                          ),
                           style: WebTuiTypography.bodySmall.copyWith(
                             color: WebTuiColors.textPrimary,
                             height: 1.4,
@@ -581,19 +618,22 @@ class _RegisterContent extends StatelessWidget {
                       key: const Key('register_terms_link'),
                       onPressed: onOpenTerms,
                       icon: const Icon(Icons.gavel_outlined, size: 16),
-                      label: const Text('Điều khoản sử dụng'),
+                      label: Text(tr('Điều khoản sử dụng', 'Terms of Use')),
                     ),
                     TextButton.icon(
                       key: const Key('register_privacy_link'),
                       onPressed: onOpenPrivacy,
                       icon: const Icon(Icons.policy_outlined, size: 16),
-                      label: const Text('Chính sách riêng tư'),
+                      label: Text(tr('Chính sách riêng tư', 'Privacy Policy')),
                     ),
                   ],
                 ),
                 if (!legalLinksConfigured)
                   Text(
-                    'Bản dựng chưa cấu hình đủ hai URL HTTPS. Đăng ký được tạm khóa để bảo vệ sự đồng ý của người dùng.',
+                    tr(
+                      'Bản dựng chưa cấu hình đủ hai URL HTTPS. Đăng ký được tạm khóa để bảo vệ sự đồng ý của người dùng.',
+                      'This build does not have both HTTPS URLs configured. Registration is locked to protect user consent.',
+                    ),
                     textAlign: TextAlign.center,
                     style: WebTuiTypography.bodySmall.copyWith(
                       color: const Color(0xFF8A5A00),
@@ -603,7 +643,7 @@ class _RegisterContent extends StatelessWidget {
                 else if (state.legalDocumentsStatus ==
                         LegalDocumentsStatus.loading ||
                     state.legalDocumentsStatus == LegalDocumentsStatus.idle)
-                  const Row(
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       SizedBox(
@@ -614,7 +654,10 @@ class _RegisterContent extends StatelessWidget {
                       SizedBox(width: 10),
                       Flexible(
                         child: Text(
-                          'Đang xác minh phiên bản điều khoản từ máy chủ...',
+                          tr(
+                            'Đang xác minh phiên bản điều khoản từ máy chủ...',
+                            'Checking the terms version with the server...',
+                          ),
                           key: Key('register_legal_versions_loading'),
                           textAlign: TextAlign.center,
                         ),
@@ -627,7 +670,10 @@ class _RegisterContent extends StatelessWidget {
                     children: [
                       Text(
                         state.legalDocumentsError ??
-                            'Không tải được phiên bản tài liệu pháp lý.',
+                            tr(
+                              'Không tải được phiên bản tài liệu pháp lý.',
+                              'Could not load the legal document versions.',
+                            ),
                         key: const Key('register_legal_versions_error'),
                         textAlign: TextAlign.center,
                         style: WebTuiTypography.bodySmall.copyWith(
@@ -641,14 +687,20 @@ class _RegisterContent extends StatelessWidget {
                             ? null
                             : controller.refreshLegalDocumentVersions,
                         icon: const Icon(Icons.refresh_rounded, size: 18),
-                        label: const Text('Thử tải lại điều khoản'),
+                        label: Text(
+                          tr('Thử tải lại điều khoản', 'Reload terms'),
+                        ),
                       ),
                     ],
                   )
                 else if (state.legalDocumentVersions case final versions?)
                   Text(
-                    'Phiên bản Điều khoản: ${versions.termsVersion} · '
-                    'Quyền riêng tư: ${versions.privacyVersion}',
+                    tr(
+                      'Phiên bản Điều khoản: ${versions.termsVersion} · '
+                          'Quyền riêng tư: ${versions.privacyVersion}',
+                      'Terms version: ${versions.termsVersion} · '
+                          'Privacy: ${versions.privacyVersion}',
+                    ),
                     key: const Key('register_legal_versions_ready'),
                     textAlign: TextAlign.center,
                     style: WebTuiTypography.bodySmall.copyWith(
@@ -718,15 +770,15 @@ class _AuthFooter extends StatelessWidget {
                       ? Icons.login_rounded
                       : Icons.person_add_alt_1_rounded,
                   loadingLabel: !state.serverConnected
-                      ? 'Đang kiểm tra máy chủ...'
+                      ? tr('Đang kiểm tra máy chủ...', 'Checking server...')
                       : state.isLogin
-                      ? 'Đang đăng nhập...'
-                      : 'Đang đăng ký...',
+                      ? tr('Đang đăng nhập...', 'Signing in...')
+                      : tr('Đang đăng ký...', 'Signing up...'),
                   label: !state.serverConnected
-                      ? 'Kết nối'
+                      ? tr('Kết nối', 'Connect')
                       : state.isLogin
-                      ? 'Đăng nhập'
-                      : 'Tạo tài khoản',
+                      ? tr('Đăng nhập', 'Sign in')
+                      : tr('Tạo tài khoản', 'Create account'),
                   onPressed: state.serverConnected
                       ? controller.submit
                       : controller.connectServer,
@@ -734,9 +786,11 @@ class _AuthFooter extends StatelessWidget {
                 if (state.serverConnected)
                   _ModeSwitch(
                     leading: state.isLogin
-                        ? 'Chưa có tài khoản?'
-                        : 'Đã có tài khoản?',
-                    action: state.isLogin ? 'Đăng ký ngay' : 'Đăng nhập ngay',
+                        ? tr('Chưa có tài khoản?', 'Do not have an account?')
+                        : tr('Đã có tài khoản?', 'Already have an account?'),
+                    action: state.isLogin
+                        ? tr('Đăng ký ngay', 'Sign up now')
+                        : tr('Đăng nhập ngay', 'Sign in now'),
                     onPressed: state.isLoading
                         ? null
                         : state.isLogin
@@ -905,7 +959,7 @@ class _BrandLogo extends StatelessWidget {
     return Image.asset(
       'assets/branding/logo_webtui.png',
       fit: BoxFit.contain,
-      semanticLabel: 'Ứng dụng chat',
+      semanticLabel: tr('Ứng dụng chat', 'Chat app'),
     );
   }
 
@@ -974,7 +1028,7 @@ class _RegisterMark extends StatelessWidget {
               size: 20,
             ),
           ),
-          const Positioned(
+          Positioned(
             left: 82,
             bottom: 10,
             child: Icon(
@@ -997,7 +1051,7 @@ class _BackButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton.filledTonal(
-      tooltip: 'Quay lại',
+      tooltip: tr('Quay lại', 'Back'),
       onPressed: onPressed,
       style: IconButton.styleFrom(
         backgroundColor: Colors.white,
@@ -1027,7 +1081,7 @@ class _SelectedServerBar extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
         child: Row(
           children: [
-            const Icon(
+            Icon(
               Icons.verified_rounded,
               color: WebTuiColors.accentGreen,
               size: 19,
@@ -1044,7 +1098,10 @@ class _SelectedServerBar extends StatelessWidget {
                 ),
               ),
             ),
-            TextButton(onPressed: onChange, child: const Text('Đổi máy chủ')),
+            TextButton(
+              onPressed: onChange,
+              child: Text(tr('Đổi máy chủ', 'Change server')),
+            ),
           ],
         ),
       ),
@@ -1177,7 +1234,7 @@ class _SubmitButton extends StatelessWidget {
           ),
         ),
         icon: loading
-            ? const SizedBox.square(
+            ? SizedBox.square(
                 dimension: 18,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.2,
@@ -1232,8 +1289,14 @@ class _AuthStatus extends StatelessWidget {
                 child: Text(
                   message ??
                       (state.isLogin
-                          ? 'Đăng nhập thành công.'
-                          : 'Đăng ký thành công.'),
+                          ? tr(
+                              'Đăng nhập thành công.',
+                              'Signed in successfully.',
+                            )
+                          : tr(
+                              'Đăng ký thành công.',
+                              'Signed up successfully.',
+                            )),
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: WebTuiTypography.bodySmall.copyWith(
@@ -1302,7 +1365,7 @@ class _DividerLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Expanded(child: Divider(color: WebTuiColors.border)),
+        Expanded(child: Divider(color: WebTuiColors.border)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Text(
@@ -1313,7 +1376,7 @@ class _DividerLabel extends StatelessWidget {
             ),
           ),
         ),
-        const Expanded(child: Divider(color: WebTuiColors.border)),
+        Expanded(child: Divider(color: WebTuiColors.border)),
       ],
     );
   }
@@ -1340,7 +1403,7 @@ class _SocialButton extends StatelessWidget {
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF1D2433),
         minimumSize: const Size.fromHeight(54),
-        side: const BorderSide(color: WebTuiColors.border),
+        side: BorderSide(color: WebTuiColors.border),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
         textStyle: WebTuiTypography.bodyMedium.copyWith(
           fontWeight: FontWeight.w800,
@@ -1352,7 +1415,7 @@ class _SocialButton extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           : icon,
-      label: Text(loading ? 'Đang mở...' : label),
+      label: Text(loading ? tr('Đang mở...', 'Opening...') : label),
     );
   }
 }

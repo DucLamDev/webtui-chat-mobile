@@ -1,5 +1,6 @@
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/mobile_notification.dart';
 import '../../domain/repositories/channel_notification_preference_repository.dart';
 
@@ -32,10 +33,13 @@ final class SetChannelNotificationMutedUseCase {
     required bool muted,
   }) async {
     if (workspaceId.trim().isEmpty || channelId.trim().isEmpty) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.validation,
-          message: 'Không xác định được kênh cần đổi cài đặt thông báo.',
+          message: tr(
+            'Không xác định được kênh cần đổi cài đặt thông báo.',
+            'Could not identify the channel whose notification setting should change.',
+          ),
           code: 'CHANNEL_REQUIRED',
         ),
       );

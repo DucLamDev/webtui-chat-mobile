@@ -1,3 +1,5 @@
+import '../../l10n/app_strings.dart';
+
 Uri parseSelfHostedServerUri(String value) {
   var input = value.trim();
   if (!input.contains('://')) {
@@ -11,7 +13,9 @@ Uri parseSelfHostedServerUri(String value) {
       parsed.path.replaceAll('/', '').isNotEmpty ||
       parsed.query.isNotEmpty ||
       parsed.fragment.isNotEmpty) {
-    throw const FormatException('Địa chỉ server không hợp lệ.');
+    throw FormatException(
+      tr('Địa chỉ server không hợp lệ.', 'Invalid server address.'),
+    );
   }
 
   final isLocal =
@@ -19,7 +23,12 @@ Uri parseSelfHostedServerUri(String value) {
       parsed.host == '127.0.0.1' ||
       parsed.host.endsWith('.localhost');
   if (parsed.scheme != 'https' && !(isLocal && parsed.scheme == 'http')) {
-    throw const FormatException('Server public phải sử dụng HTTPS.');
+    throw FormatException(
+      tr(
+        'Server public phải sử dụng HTTPS.',
+        'A public server must use HTTPS.',
+      ),
+    );
   }
 
   return Uri(

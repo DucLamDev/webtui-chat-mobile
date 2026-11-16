@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/error/failure.dart';
@@ -300,8 +301,11 @@ final class CustomerTicketDetailController
     bool force = false,
   }) async {
     if (state.isSending) {
-      return const CustomerTicketActionOutcome.failed(
-        'Đang gửi câu trả lời trước.',
+      return CustomerTicketActionOutcome.failed(
+        tr(
+          'Đang gửi câu trả lời trước.',
+          'The previous reply is still sending.',
+        ),
       );
     }
     state = state.copyWith(isSending: true);
@@ -319,8 +323,11 @@ final class CustomerTicketDetailController
         unawaited(load(silent: true));
         return CustomerTicketActionOutcome.done(
           reply.duplicate
-              ? 'Câu trả lời này đã được gửi trước đó.'
-              : 'Đã gửi trả lời cho khách.',
+              ? tr(
+                  'Câu trả lời này đã được gửi trước đó.',
+                  'This reply was already sent.',
+                )
+              : tr('Đã gửi trả lời cho khách.', 'Reply sent to the customer.'),
         );
       case FailureResult(failure: final failure):
         state = state.copyWith(isSending: false);
@@ -351,8 +358,8 @@ final class CustomerTicketDetailController
         unawaited(load(silent: true));
         return CustomerTicketActionOutcome.done(
           saved == CustomerTicketStatus.answered
-              ? 'Đã đánh dấu ticket là đã xử lý.'
-              : 'Đã mở lại ticket.',
+              ? tr('Đã đánh dấu ticket là đã xử lý.', 'Ticket marked as done.')
+              : tr('Đã mở lại ticket.', 'Ticket reopened.'),
         );
       case FailureResult(failure: final failure):
         state = state.copyWith(isUpdatingStatus: false);
@@ -391,7 +398,12 @@ final class CustomerTicketDetailController
         );
         unawaited(load(silent: true));
         return CustomerTicketActionOutcome.done(
-          release ? 'Đã bỏ nhận ticket.' : 'Bạn đã nhận xử lý ticket.',
+          release
+              ? tr('Đã bỏ nhận ticket.', 'Ticket unassigned.')
+              : tr(
+                  'Bạn đã nhận xử lý ticket.',
+                  'You\'re now handling the ticket.',
+                ),
         );
       case FailureResult(failure: final failure):
         state = state.copyWith(isClaiming: false);
@@ -422,8 +434,8 @@ final class CustomerTicketDetailController
     switch (result) {
       case Success():
         if (state.isDraftPending) _startDraftTimers();
-        return const CustomerTicketActionOutcome.done(
-          'AI đang soạn câu trả lời...',
+        return CustomerTicketActionOutcome.done(
+          tr('AI đang soạn câu trả lời...', 'AI is drafting a reply...'),
         );
       case FailureResult(failure: final failure):
         _stopDraftPending();
@@ -487,7 +499,10 @@ final class CustomerTicketDetailController
         state = state.copyWith(
           aiErrorMessage: event.error?.trim().isNotEmpty == true
               ? event.error!.trim()
-              : 'AI chưa soạn được câu trả lời. Thử lại sau.',
+              : tr(
+                  'AI chưa soạn được câu trả lời. Thử lại sau.',
+                  'The AI couldn\'t draft a reply. Try again later.',
+                ),
         );
       } else if (state.isDraftPending) {
         // Máy chủ chỉ chạy một lượt soạn cho mỗi ticket: lượt mình đang chờ
@@ -520,7 +535,10 @@ final class CustomerTicketDetailController
       if (!mounted || !state.isDraftPending) return;
       _stopDraftPending();
       state = state.copyWith(
-        aiErrorMessage: 'AI chưa soạn xong. Thử lại sau ít phút.',
+        aiErrorMessage: tr(
+          'AI chưa soạn xong. Thử lại sau ít phút.',
+          'The AI hasn\'t finished drafting. Try again in a few minutes.',
+        ),
       );
     });
   }

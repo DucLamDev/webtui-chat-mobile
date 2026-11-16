@@ -11,6 +11,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
+import '../../../../core/audio/playable_audio.dart';
 import '../../../../core/network/redirect_safe_file_downloader.dart';
 import '../../../../core/security/instance_scope.dart';
 import '../../../../design_system/components/webtui_owned_decoded_image.dart';
@@ -19,6 +20,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../auth/domain/repositories/auth_token_repository.dart';
 import '../../application/use_cases/message_attachment_use_cases.dart';
 import '../../data/files/scoped_attachment_file_store.dart';
@@ -32,7 +34,7 @@ Future<void> openMessageImageGallery(
   required List<MessageAttachment> attachments,
   required int initialIndex,
   Uri? apiBaseUri,
-  String title = 'Ảnh đã gửi',
+  String? title,
 }) {
   if (attachments.isEmpty) return Future.value();
   return Navigator.of(context).push<void>(
@@ -42,7 +44,7 @@ Future<void> openMessageImageGallery(
         apiBaseUri: apiBaseUri,
         attachments: attachments,
         initialIndex: initialIndex.clamp(0, attachments.length - 1),
-        title: title,
+        title: title ?? tr('Ảnh đã gửi', 'Sent photos'),
       ),
     ),
   );
@@ -483,7 +485,10 @@ class _MessageImageAttachmentViewState
           );
     return Semantics(
       button: widget.onPressed != null,
-      label: 'Mở ảnh ${widget.attachment.file.name}',
+      label: tr(
+        'Mở ảnh ${widget.attachment.file.name}',
+        'Open photo ${widget.attachment.file.name}',
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(WebTuiRadii.lg),
         onTap: widget.onPressed,
@@ -572,6 +577,7 @@ class _MessageVoiceAttachmentViewState
   final GlobalKey _waveformKey = GlobalKey();
   final List<StreamSubscription<dynamic>> _subscriptions = [];
   File? _audioFile;
+  String? _playablePath;
   _AttachmentDownloadBinding? _binding;
   int _loadGeneration = 0;
   Duration _duration = Duration.zero;
@@ -642,6 +648,7 @@ class _MessageVoiceAttachmentViewState
       _loadGeneration += 1;
       final previousFile = _audioFile;
       _audioFile = null;
+      _playablePath = null;
       _binding = null;
       _loading = false;
       _failed = false;
@@ -669,8 +676,10 @@ class _MessageVoiceAttachmentViewState
     if (_playerState == PlayerState.completed) {
       await _player.play(
         DeviceFileSource(
-          _audioFile!.path,
-          mimeType: widget.attachment.file.mimeType,
+          _playablePath ?? _audioFile!.path,
+          mimeType: _playablePath == null
+              ? widget.attachment.file.mimeType
+              : 'audio/wav',
         ),
       );
       return;
@@ -737,14 +746,41 @@ class _MessageVoiceAttachmentViewState
           !await operationIsCurrent()) {
         throw StateError('instance binding changed');
       }
+      // iPhone: AVPlayer không đọc được WebM / Ogg, đổi sang WAV trước khi phát.
+      String? playablePath;
+      if (audioNeedsTranscode(
+        name: widget.attachment.file.name,
+        mimeType: widget.attachment.file.mimeType,
+      )) {
+        final playable = await playableAudioFile(
+          source: readyFile,
+          cacheKey: 'chat-${widget.attachment.fileId}',
+          // WAV nằm trong kho theo máy chủ + phiên: đăng xuất / đổi máy chủ /
+          // thu hồi phiên xoá cùng tệp đính kèm.
+          cacheDirectory: await _fileStore.directoryFor(
+            instanceScope: binding.instanceScope,
+            sessionGeneration: binding.guard.generation,
+            purpose: 'playable-audio',
+          ),
+        );
+        if (playable.path != readyFile.path) playablePath = playable.path;
+        if (!mounted ||
+            generation != _loadGeneration ||
+            !await operationIsCurrent()) {
+          throw StateError('instance binding changed');
+        }
+      }
       final previousFile = _audioFile;
       _audioFile = readyFile;
+      _playablePath = playablePath;
       _binding = binding;
       setState(() => _loading = false);
       await _player.play(
         DeviceFileSource(
-          readyFile.path,
-          mimeType: widget.attachment.file.mimeType,
+          playablePath ?? readyFile.path,
+          mimeType: playablePath == null
+              ? widget.attachment.file.mimeType
+              : 'audio/wav',
         ),
       );
       if (previousFile != null && previousFile.path != readyFile.path) {
@@ -831,7 +867,9 @@ class _MessageVoiceAttachmentViewState
               SizedBox.square(
                 dimension: 36,
                 child: IconButton.filled(
-                  tooltip: _playing ? 'Tạm dừng' : 'Phát tin nhắn thoại',
+                  tooltip: _playing
+                      ? tr('Tạm dừng', 'Pause')
+                      : tr('Phát tin nhắn thoại', 'Play voice message'),
                   padding: EdgeInsets.zero,
                   style: IconButton.styleFrom(
                     backgroundColor: WebTuiColors.primary,
@@ -1320,8 +1358,8 @@ class _MessageVideoAttachmentViewState
   /// Ảnh bìa + nút phát lớn giữa + thời lượng ở góc. Chỉ bấm mới tải video.
   Widget _buildThumbnailCover(Uri thumbnailUri, String? durationText) {
     final label = durationText == null
-        ? 'Phát video'
-        : 'Phát video, $durationText';
+        ? tr('Phát video', 'Play video')
+        : tr('Phát video, $durationText', 'Play video, $durationText');
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -1340,7 +1378,9 @@ class _MessageVideoAttachmentViewState
               : Semantics(
                   button: true,
                   enabled: !_failed,
-                  label: _failed ? 'Không phát được video' : label,
+                  label: _failed
+                      ? tr('Không phát được video', 'Can\'t play video')
+                      : label,
                   excludeSemantics: true,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
@@ -1444,7 +1484,9 @@ class _MessageVideoAttachmentViewState
               : Semantics(
                   button: true,
                   enabled: !_failed,
-                  label: _failed ? 'Không phát được video' : 'Phát video',
+                  label: _failed
+                      ? tr('Không phát được video', 'Can\'t play video')
+                      : tr('Phát video', 'Play video'),
                   excludeSemantics: true,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
@@ -1480,7 +1522,7 @@ class _MessageVideoAttachmentViewState
             right: durationText == null ? 10 : 64,
             bottom: 8,
             child: Text(
-              _failed ? 'Không phát được video' : name,
+              _failed ? tr('Không phát được video', 'Can\'t play video') : name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: WebTuiTypography.labelSmall.copyWith(
@@ -1573,8 +1615,8 @@ class _MessageVideoAttachmentViewState
                       Center(
                         child: IconButton.filled(
                           tooltip: activeController.value.isPlaying
-                              ? 'Tạm dừng'
-                              : 'Phát video',
+                              ? tr('Tạm dừng', 'Pause')
+                              : tr('Phát video', 'Play video'),
                           onPressed: _togglePlayback,
                           style: IconButton.styleFrom(
                             backgroundColor: Colors.black54,
@@ -1600,7 +1642,7 @@ class _MessageVideoAttachmentViewState
                         right: 6,
                         top: 6,
                         child: IconButton.filledTonal(
-                          tooltip: 'Toàn màn hình',
+                          tooltip: tr('Toàn màn hình', 'Full screen'),
                           onPressed: _openFullscreen,
                           icon: const Icon(
                             CupertinoIcons.arrow_up_left_arrow_down_right,
@@ -1617,7 +1659,7 @@ class _MessageVideoAttachmentViewState
                 VideoProgressIndicator(
                   activeController,
                   allowScrubbing: true,
-                  colors: const VideoProgressColors(
+                  colors: VideoProgressColors(
                     playedColor: WebTuiColors.primary,
                     bufferedColor: Colors.white38,
                     backgroundColor: Colors.white12,
@@ -1640,7 +1682,7 @@ class _MessageVideoAttachmentViewState
                       Expanded(
                         child: Text(
                           _failed
-                              ? 'Không phát được video'
+                              ? tr('Không phát được video', 'Can\'t play video')
                               : widget.attachment.file.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -1858,7 +1900,9 @@ class _MessageLocalVideoPreviewState extends State<MessageLocalVideoPreview> {
     final progress = widget.progress;
     final compressing = widget.stage == 'compressing';
     final percent = ((progress ?? 0) * 100).clamp(0, 100).round();
-    final label = compressing ? 'Đang nén…' : 'Đang tải lên $percent%';
+    final label = compressing
+        ? tr('Đang nén…', 'Compressing…')
+        : tr('Đang tải lên $percent%', 'Uploading $percent%');
     return SizedBox(
       width: width,
       child: ClipRRect(
@@ -1953,7 +1997,7 @@ class _MessageFileAttachmentViewState
     if (_opening) return;
     final uri = attachmentDownloadUri(widget.attachment, widget.apiBaseUri);
     if (uri == null) {
-      _showFailure('Đường dẫn tệp không hợp lệ.');
+      _showFailure(tr('Đường dẫn tệp không hợp lệ.', 'Invalid file path.'));
       return;
     }
     setState(() => _opening = true);
@@ -1993,7 +2037,12 @@ class _MessageFileAttachmentViewState
         throw StateError(opened.message);
       }
     } on Object {
-      _showFailure('Không thể tải hoặc mở tệp này trên thiết bị.');
+      _showFailure(
+        tr(
+          'Không thể tải hoặc mở tệp này trên thiết bị.',
+          'Couldn\'t download or open this file on your device.',
+        ),
+      );
     } finally {
       if (mounted) setState(() => _opening = false);
     }
@@ -2036,7 +2085,7 @@ class _MessageFileAttachmentViewState
                               dimension: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(
+                          : Icon(
                               CupertinoIcons.doc_fill,
                               size: 20,
                               color: WebTuiColors.primary,
@@ -2060,7 +2109,7 @@ class _MessageFileAttachmentViewState
                         ),
                       ),
                       Text(
-                        '${_formatByteSize(widget.attachment.file.byteSize)} · Nhấn để mở',
+                        '${_formatByteSize(widget.attachment.file.byteSize)} · ${tr('Nhấn để mở', 'Tap to open')}',
                         style: WebTuiTypography.labelSmall.copyWith(
                           color: WebTuiColors.textMuted,
                         ),
@@ -2101,7 +2150,7 @@ class _ImagePlaceholder extends StatelessWidget {
                   dimension: 22,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Icon(
+              : Icon(
                   CupertinoIcons.photo,
                   color: WebTuiColors.primary,
                   size: 28,

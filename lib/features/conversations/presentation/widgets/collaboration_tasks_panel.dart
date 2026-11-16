@@ -8,6 +8,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/collaboration_room.dart';
 import '../controllers/collaboration_task_controller.dart';
 import '../models/task_due_label.dart';
@@ -68,7 +69,7 @@ class _CollaborationTasksPanelState
             children: [
               Expanded(
                 child: Text(
-                  'Việc của phòng',
+                  tr('Việc của phòng', 'Room tasks'),
                   style: WebTuiTypography.titleMedium.copyWith(
                     color: WebTuiColors.textPrimary,
                     fontWeight: FontWeight.w800,
@@ -79,7 +80,7 @@ class _CollaborationTasksPanelState
                 key: const Key('tasks_add'),
                 onPressed: () => _openEditor(context),
                 icon: const Icon(Icons.add_rounded),
-                label: const Text('Giao việc'),
+                label: Text(tr('Giao việc', 'Assign task')),
               ),
             ],
           ),
@@ -113,20 +114,34 @@ class _CollaborationTasksPanelState
             )
           else if (state.errorMessage != null && state.tasks.isEmpty)
             WebTuiErrorState(
-              title: 'Chưa tải được công việc',
+              title: tr('Chưa tải được công việc', "Couldn't load tasks"),
               message: state.errorMessage!,
               onRetry: controller.load,
             )
           else if (visible.isEmpty)
             WebTuiEmptyState(
               title: switch (state.filter) {
-                TaskListFilter.all => 'Phòng chưa có việc nào',
-                TaskListFilter.assignedToMe => 'Chưa có việc giao cho bạn',
-                TaskListFilter.createdByMe => 'Bạn chưa giao việc nào',
-                TaskListFilter.overdue => 'Không có việc quá hạn',
+                TaskListFilter.all => tr(
+                  'Phòng chưa có việc nào',
+                  'No tasks in this room yet',
+                ),
+                TaskListFilter.assignedToMe => tr(
+                  'Chưa có việc giao cho bạn',
+                  'No tasks assigned to you',
+                ),
+                TaskListFilter.createdByMe => tr(
+                  'Bạn chưa giao việc nào',
+                  "You haven't assigned any tasks",
+                ),
+                TaskListFilter.overdue => tr(
+                  'Không có việc quá hạn',
+                  'No overdue tasks',
+                ),
               },
-              message:
-                  'Bấm "Giao việc" để tạo việc, chọn người làm và hạn chót.',
+              message: tr(
+                'Bấm "Giao việc" để tạo việc, chọn người làm và hạn chót.',
+                'Tap "Assign task" to create a task, pick an assignee and a due date.',
+              ),
               icon: Icons.task_alt_rounded,
             )
           else
@@ -335,8 +350,8 @@ class TaskTile extends StatelessWidget {
                     : IconButton(
                         key: Key('task_toggle_${task.id}'),
                         tooltip: status == CollaborationTaskStatus.done
-                            ? 'Mở lại'
-                            : 'Đánh dấu xong',
+                            ? tr('Mở lại', 'Reopen')
+                            : tr('Đánh dấu xong', 'Mark as done'),
                         onPressed: canChangeStatus
                             ? () => onStatus(
                                 status == CollaborationTaskStatus.done
@@ -399,7 +414,7 @@ class TaskTile extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               if (assignee == null)
-                                const Icon(
+                                Icon(
                                   Icons.person_outline_rounded,
                                   size: 16,
                                   color: WebTuiColors.textMuted,
@@ -415,8 +430,11 @@ class TaskTile extends StatelessWidget {
                                 child: Text(
                                   assignee?.name ??
                                       (task.assigneeUserId == null
-                                          ? 'Chưa giao'
-                                          : 'Người đã rời phòng'),
+                                          ? tr('Chưa giao', 'Unassigned')
+                                          : tr(
+                                              'Người đã rời phòng',
+                                              'Left the room',
+                                            )),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: WebTuiTypography.bodySmall.copyWith(
@@ -441,7 +459,10 @@ class TaskTile extends StatelessWidget {
                                 Flexible(
                                   child: Text(
                                     urgency == TaskDueUrgency.overdue
-                                        ? 'Quá hạn · ${formatTaskDue(task.dueAt!, now)}'
+                                        ? tr(
+                                            'Quá hạn · ${formatTaskDue(task.dueAt!, now)}',
+                                            'Overdue · ${formatTaskDue(task.dueAt!, now)}',
+                                          )
                                         : formatTaskDue(task.dueAt!, now),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -464,7 +485,7 @@ class TaskTile extends StatelessWidget {
               if (canChangeStatus)
                 PopupMenuButton<CollaborationTaskStatus>(
                   key: Key('task_menu_${task.id}'),
-                  tooltip: 'Đổi trạng thái',
+                  tooltip: tr('Đổi trạng thái', 'Change status'),
                   onSelected: onStatus,
                   itemBuilder: (_) => [
                     for (final option in CollaborationTaskStatus.values)
@@ -472,10 +493,22 @@ class TaskTile extends StatelessWidget {
                         PopupMenuItem(
                           value: option,
                           child: Text(switch (option) {
-                            CollaborationTaskStatus.open => 'Chuyển về Cần làm',
-                            CollaborationTaskStatus.inProgress => 'Đang làm',
-                            CollaborationTaskStatus.done => 'Đánh dấu xong',
-                            CollaborationTaskStatus.cancelled => 'Huỷ việc',
+                            CollaborationTaskStatus.open => tr(
+                              'Chuyển về Cần làm',
+                              'Move to To do',
+                            ),
+                            CollaborationTaskStatus.inProgress => tr(
+                              'Đang làm',
+                              'In progress',
+                            ),
+                            CollaborationTaskStatus.done => tr(
+                              'Đánh dấu xong',
+                              'Mark as done',
+                            ),
+                            CollaborationTaskStatus.cancelled => tr(
+                              'Huỷ việc',
+                              'Cancel task',
+                            ),
                           }),
                         ),
                   ],

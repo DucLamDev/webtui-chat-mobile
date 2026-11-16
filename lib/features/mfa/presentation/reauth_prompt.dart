@@ -4,6 +4,7 @@ import '../../../app/providers/foundation_providers.dart';
 import '../../../design_system/components/webtui_components.dart';
 import '../../../design_system/icons/webtui_icons.dart';
 import '../../../design_system/tokens/webtui_spacing.dart';
+import '../../../l10n/app_strings.dart';
 
 /// Mỗi thao tác xác thực riêng; không lưu token ra đĩa hoặc dùng lại sau đổi tài khoản.
 Future<String?> requestReauthToken(
@@ -68,22 +69,29 @@ class _ReauthDialogState extends ConsumerState<_ReauthDialog> {
   Future<void> _focusWithBiometric() async {
     final ok = await ref
         .read(biometricAuthServiceProvider)
-        .authenticate(reason: 'Mở ô xác thực lại');
+        .authenticate(
+          reason: tr('Mở ô xác thực lại', 'Open re-authentication'),
+        );
     if (mounted && ok) _focus.requestFocus();
   }
 
-  static const _methods = <(String, String)>[
-    ('password', 'Mật khẩu'),
-    ('totp', 'Mã OTP'),
-    ('recovery_code', 'Khôi phục'),
+  static List<(String, String)> get _methods => [
+    ('password', tr('Mật khẩu', 'Password')),
+    ('totp', tr('Mã OTP', 'OTP code')),
+    ('recovery_code', tr('Khôi phục', 'Recovery')),
   ];
 
   @override
   Widget build(BuildContext context) {
     final password = _method == 'password';
     return WebTuiDialog(
-      title: 'Xác thực lại',
-      message: widget.reason ?? 'Nhập mật khẩu hoặc mã xác thực để tiếp tục.',
+      title: tr('Xác thực lại', 'Verify again'),
+      message:
+          widget.reason ??
+          tr(
+            'Nhập mật khẩu hoặc mã xác thực để tiếp tục.',
+            'Enter your password or verification code to continue.',
+          ),
       icon: WebTuiIcons.lock,
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -123,7 +131,9 @@ class _ReauthDialogState extends ConsumerState<_ReauthDialog> {
             enabled: !_busy,
             autocorrect: false,
             enableSuggestions: false,
-            label: password ? 'Mật khẩu' : 'Mã xác thực',
+            label: password
+                ? tr('Mật khẩu', 'Password')
+                : tr('Mã xác thực', 'Verification code'),
             autofocus: true,
             obscureText: password && !_showPassword,
             keyboardType: _method == 'totp'
@@ -134,7 +144,9 @@ class _ReauthDialogState extends ConsumerState<_ReauthDialog> {
             suffix: password
                 ? IconButton(
                     key: const Key('reauth_toggle_password'),
-                    tooltip: _showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu',
+                    tooltip: _showPassword
+                        ? tr('Ẩn mật khẩu', 'Hide password')
+                        : tr('Hiện mật khẩu', 'Show password'),
                     icon: Icon(
                       _showPassword ? WebTuiIcons.lock : WebTuiIcons.view,
                       size: 20,
@@ -151,7 +163,7 @@ class _ReauthDialogState extends ConsumerState<_ReauthDialog> {
               key: const Key('reauth_biometric'),
               onPressed: _busy ? null : _focusWithBiometric,
               icon: const Icon(WebTuiIcons.fingerprint, size: 20),
-              label: const Text('Mở ô nhập bằng vân tay'),
+              label: Text(tr('Mở ô nhập bằng vân tay', 'Use fingerprint')),
             ),
           ),
         ],
@@ -159,12 +171,12 @@ class _ReauthDialogState extends ConsumerState<_ReauthDialog> {
       actions: [
         WebTuiDialogAction(
           key: const Key('reauth_cancel'),
-          label: 'Huỷ',
+          label: tr('Huỷ', 'Cancel'),
           onPressed: () => Navigator.pop(context),
         ),
         WebTuiDialogAction(
           key: const Key('reauth_confirm'),
-          label: 'Xác nhận',
+          label: tr('Xác nhận', 'Confirm'),
           primary: true,
           loading: _busy,
           onPressed: _busy ? null : _submit,

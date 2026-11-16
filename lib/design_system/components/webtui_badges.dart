@@ -31,7 +31,11 @@ class WebTuiUnreadBadge extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.xs),
+          // Hệ số 1: không giãn theo chiều cao / rộng chỗ chứa (vd dòng cao cố
+          // định), huy hiệu luôn gọn.
           child: Center(
+            widthFactor: 1,
+            heightFactor: 1,
             child: Text(
               label,
               maxLines: 1,
@@ -50,17 +54,14 @@ class WebTuiUnreadBadge extends StatelessWidget {
 }
 
 class WebTuiStatusPill extends StatelessWidget {
-  const WebTuiStatusPill({
-    required this.label,
-    this.color = WebTuiColors.primary,
-    super.key,
-  });
+  const WebTuiStatusPill({required this.label, this.color, super.key});
 
   final String label;
-  final Color color;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
+    final color = this.color ?? WebTuiColors.primary;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),

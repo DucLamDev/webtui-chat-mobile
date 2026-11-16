@@ -14,6 +14,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../meetings/application/meeting_join_flow.dart';
 import '../../../meetings/application/meeting_providers.dart';
 import '../../../meetings/domain/meeting_models.dart';
@@ -264,7 +265,7 @@ class _CollaborationRoomSheetState
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.cloud_off_rounded,
                           color: WebTuiColors.textMuted,
                           size: 38,
@@ -278,7 +279,7 @@ class _CollaborationRoomSheetState
                         const SizedBox(height: WebTuiSpacing.md),
                         FilledButton(
                           onPressed: _load,
-                          child: const Text('Thử lại'),
+                          child: Text(tr('Thử lại', 'Try again')),
                         ),
                       ],
                     ),
@@ -325,7 +326,7 @@ class _CollaborationRoomSheetState
               color: WebTuiColors.primarySoft,
               borderRadius: BorderRadius.circular(WebTuiRadii.lg),
             ),
-            child: const Icon(
+            child: Icon(
               CupertinoIcons.video_camera_solid,
               color: WebTuiColors.primary,
             ),
@@ -346,12 +347,12 @@ class _CollaborationRoomSheetState
                 ),
                 Text(
                   mode == CollaborationRoomMode.webinar
-                      ? 'Hội thảo'
+                      ? tr('Hội thảo', 'Webinar')
                       : mode == CollaborationRoomMode.public
-                      ? 'Phòng có khách ngoài'
+                      ? tr('Phòng có khách ngoài', 'Room with external guests')
                       : _settings?.isDirect == true
-                      ? 'Hội thoại 1-1 riêng tư'
-                      : 'Phòng nhóm nội bộ',
+                      ? tr('Hội thoại 1-1 riêng tư', 'Private 1-1 conversation')
+                      : tr('Phòng nhóm nội bộ', 'Internal group room'),
                   style: WebTuiTypography.bodySmall.copyWith(
                     color: WebTuiColors.textSecondary,
                   ),
@@ -360,7 +361,7 @@ class _CollaborationRoomSheetState
             ),
           ),
           IconButton(
-            tooltip: 'Đóng',
+            tooltip: tr('Đóng', 'Close'),
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(Icons.close_rounded),
           ),
@@ -370,16 +371,16 @@ class _CollaborationRoomSheetState
   }
 
   Widget _buildTabs() {
-    const tabs = [
-      (Icons.home_outlined, 'Tổng quan'),
-      (Icons.video_call_outlined, 'Họp'),
-      (Icons.folder_copy_outlined, 'Đã chia sẻ'),
-      (Icons.description_outlined, 'Biên bản'),
-      (Icons.draw_outlined, 'Bảng trắng'),
+    final tabs = [
+      (Icons.home_outlined, tr('Tổng quan', 'Overview')),
+      (Icons.video_call_outlined, tr('Họp', 'Meeting')),
+      (Icons.folder_copy_outlined, tr('Đã chia sẻ', 'Shared')),
+      (Icons.description_outlined, tr('Biên bản', 'Minutes')),
+      (Icons.draw_outlined, tr('Bảng trắng', 'Whiteboard')),
       (Icons.task_alt_outlined, 'Task'),
     ];
     return DecoratedBox(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: WebTuiColors.surface,
         border: Border(bottom: BorderSide(color: WebTuiColors.border)),
       ),
@@ -422,11 +423,16 @@ class _CollaborationRoomSheetState
         children: [
           _sectionCard(
             icon: Icons.event_available_outlined,
-            title: 'Sắp diễn ra',
+            title: tr('Sắp diễn ra', 'Upcoming'),
             child: home == null
                 ? const Center(child: CircularProgressIndicator())
                 : home.upcomingMeetings.isEmpty
-                ? const Text('Chưa có cuộc họp nào được lên lịch.')
+                ? Text(
+                    tr(
+                      'Chưa có cuộc họp nào được lên lịch.',
+                      'No meetings scheduled.',
+                    ),
+                  )
                 : Column(
                     children: [
                       for (final meeting in home.upcomingMeetings.take(4))
@@ -438,7 +444,7 @@ class _CollaborationRoomSheetState
             const SizedBox(height: WebTuiSpacing.md),
             _sectionCard(
               icon: Icons.hub_outlined,
-              title: 'Năng lực máy chủ',
+              title: tr('Năng lực máy chủ', 'Server capabilities'),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -450,13 +456,13 @@ class _CollaborationRoomSheetState
                         icon: Icons.auto_awesome_outlined,
                         label: integration.aiEnabled
                             ? 'AI ${integration.aiProvider}'
-                            : 'AI chưa bật',
+                            : tr('AI chưa bật', 'AI is off'),
                       ),
                       _CapabilityChip(
                         icon: Icons.lock_outline_rounded,
                         label: integration.e2eeCallsEnabled
                             ? 'E2EE call'
-                            : 'WebRTC bảo mật',
+                            : tr('WebRTC bảo mật', 'Secure WebRTC'),
                       ),
                       if (integration.federationEnabled)
                         const _CapabilityChip(
@@ -477,7 +483,12 @@ class _CollaborationRoomSheetState
                       child: FilledButton.tonalIcon(
                         onPressed: _saving ? null : _summarizeChannel,
                         icon: const Icon(Icons.auto_awesome_rounded),
-                        label: const Text('Tóm tắt tin nhắn bằng AI nội bộ'),
+                        label: Text(
+                          tr(
+                            'Tóm tắt tin nhắn bằng AI nội bộ',
+                            'Summarize messages with internal AI',
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -499,12 +510,17 @@ class _CollaborationRoomSheetState
         children: [
           _sectionCard(
             icon: Icons.folder_copy_outlined,
-            title: 'Nội dung được chia sẻ',
+            title: tr('Nội dung được chia sẻ', 'Shared content'),
             child: _sharedItems.isEmpty
-                ? const Padding(
+                ? Padding(
                     padding: EdgeInsets.symmetric(vertical: WebTuiSpacing.lg),
                     child: Center(
-                      child: Text('Chưa có file, poll, task hoặc bản ghi.'),
+                      child: Text(
+                        tr(
+                          'Chưa có file, poll, task hoặc bản ghi.',
+                          'No files, polls, tasks or recordings yet.',
+                        ),
+                      ),
                     ),
                   )
                 : Column(
@@ -563,25 +579,30 @@ class _CollaborationRoomSheetState
         if (settings.isDirect)
           _sectionCard(
             icon: Icons.lock_person_outlined,
-            title: 'Hội thoại 1-1 riêng tư',
+            title: tr('Hội thoại 1-1 riêng tư', 'Private 1-1 conversation'),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Chat chữ, voice, file và gọi thoại/video được giữ riêng tư. Muốn có link khách, hãy Promote thành phòng nhóm.',
+                Text(
+                  tr(
+                    'Chat chữ, voice, file và gọi thoại/video được giữ riêng tư. Muốn có link khách, hãy Promote thành phòng nhóm.',
+                    'Text chat, voice, files and voice/video calls stay private. To get a guest link, promote this to a group room.',
+                  ),
                 ),
                 const SizedBox(height: WebTuiSpacing.md),
                 TextField(
                   controller: _promoteController,
-                  decoration: const InputDecoration(
-                    labelText: 'Tên phòng nhóm',
+                  decoration: InputDecoration(
+                    labelText: tr('Tên phòng nhóm', 'Group room name'),
                   ),
                 ),
                 const SizedBox(height: WebTuiSpacing.sm),
                 FilledButton.icon(
                   onPressed: _saving ? null : _promote,
                   icon: const Icon(Icons.group_add_rounded),
-                  label: const Text('Promote thành phòng nhóm'),
+                  label: Text(
+                    tr('Promote thành phòng nhóm', 'Promote to group room'),
+                  ),
                 ),
               ],
             ),
@@ -589,11 +610,11 @@ class _CollaborationRoomSheetState
         else ...[
           _sectionCard(
             icon: CupertinoIcons.video_camera_solid,
-            title: 'Họp video nhóm',
+            title: tr('Họp video nhóm', 'Group video meeting'),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Wrap(
+                Wrap(
                   spacing: 7,
                   runSpacing: 7,
                   children: [
@@ -603,15 +624,18 @@ class _CollaborationRoomSheetState
                     ),
                     _CapabilityChip(
                       icon: Icons.back_hand_outlined,
-                      label: 'Giơ tay',
+                      label: tr('Giơ tay', 'Raise hand'),
                     ),
                     _CapabilityChip(
                       icon: Icons.blur_on_rounded,
-                      label: 'Blur nền',
+                      label: tr('Blur nền', 'Blur background'),
                     ),
                     _CapabilityChip(
                       icon: Icons.privacy_tip_outlined,
-                      label: 'Quyền media theo ngữ cảnh',
+                      label: tr(
+                        'Quyền media theo ngữ cảnh',
+                        'Context-aware media permissions',
+                      ),
                     ),
                   ],
                 ),
@@ -623,8 +647,11 @@ class _CollaborationRoomSheetState
                   icon: const Icon(CupertinoIcons.video_camera_solid),
                   label: Text(
                     settings.canOpenMeeting
-                        ? 'Vào phòng họp'
-                        : 'Media server chưa cấu hình',
+                        ? tr('Vào phòng họp', 'Join meeting room')
+                        : tr(
+                            'Media server chưa cấu hình',
+                            'Media server not configured',
+                          ),
                   ),
                 ),
                 if (settings.canOpenMeeting && !settings.isDirect && _canManage)
@@ -673,8 +700,14 @@ class _CollaborationRoomSheetState
           Expanded(
             child: Text(
               active
-                  ? 'Đang mở · thành viên có thể tham gia ngay.'
-                  : 'Mở một không gian nói chuyện nhanh, không cần lên lịch.',
+                  ? tr(
+                      'Đang mở · thành viên có thể tham gia ngay.',
+                      'Open · members can join right away.',
+                    )
+                  : tr(
+                      'Mở một không gian nói chuyện nhanh, không cần lên lịch.',
+                      'Open a quick space to talk, no scheduling needed.',
+                    ),
               style: WebTuiTypography.bodySmall.copyWith(
                 color: active
                     ? WebTuiColors.accentGreen
@@ -686,7 +719,9 @@ class _CollaborationRoomSheetState
           FilledButton.icon(
             onPressed: _saving ? null : () => _setVoiceRoom(!active),
             icon: Icon(active ? Icons.stop_circle_outlined : Icons.mic_rounded),
-            label: Text(active ? 'Kết thúc' : 'Bắt đầu'),
+            label: Text(
+              active ? tr('Kết thúc', 'End') : tr('Bắt đầu', 'Start'),
+            ),
           ),
         ],
       ),
@@ -709,7 +744,7 @@ class _CollaborationRoomSheetState
         .toList(growable: false);
     return _sectionCard(
       icon: Icons.calendar_month_outlined,
-      title: 'Lịch họp',
+      title: tr('Lịch họp', 'Meeting schedule'),
       child: Column(
         children: [
           if (_canManage) ...[
@@ -718,15 +753,17 @@ class _CollaborationRoomSheetState
               child: FilledButton.icon(
                 onPressed: _saving ? null : _createMeeting,
                 icon: const Icon(Icons.event_available_rounded),
-                label: const Text('Tạo lịch họp'),
+                label: Text(tr('Tạo lịch họp', 'Schedule a meeting')),
               ),
             ),
             const Divider(height: WebTuiSpacing.xl),
           ],
           if (upcoming.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: WebTuiSpacing.sm),
-              child: Text('Chưa có cuộc họp sắp diễn ra.'),
+              child: Text(
+                tr('Chưa có cuộc họp sắp diễn ra.', 'No upcoming meetings.'),
+              ),
             )
           else
             for (final meeting in upcoming.take(10))
@@ -736,7 +773,10 @@ class _CollaborationRoomSheetState
               tilePadding: EdgeInsets.zero,
               childrenPadding: EdgeInsets.zero,
               title: Text(
-                'Lịch sử gần đây (${history.length})',
+                tr(
+                  'Lịch sử gần đây (${history.length})',
+                  'Recent history (${history.length})',
+                ),
                 style: WebTuiTypography.bodySmall.copyWith(
                   color: WebTuiColors.textSecondary,
                   fontWeight: FontWeight.w700,
@@ -768,11 +808,11 @@ class _CollaborationRoomSheetState
       title: Text(meeting.title),
       subtitle: Text(
         meeting.isLive
-            ? 'Đang diễn ra · Chạm để vào họp'
+            ? tr('Đang diễn ra · Chạm để vào họp', 'In progress · Tap to join')
             : meeting.status == 'cancelled'
-            ? 'Đã hủy · $time'
+            ? tr('Đã hủy · $time', 'Cancelled · $time')
             : meeting.status == 'ended'
-            ? 'Đã kết thúc · $time'
+            ? tr('Đã kết thúc · $time', 'Ended · $time')
             : meeting.description.isEmpty
             ? time
             : '$time · ${meeting.description}',
@@ -790,11 +830,20 @@ class _CollaborationRoomSheetState
               onSelected: (action) => _transitionMeeting(meeting, action),
               itemBuilder: (context) => [
                 if (meeting.canStart)
-                  const PopupMenuItem(value: 'start', child: Text('Bắt đầu')),
+                  PopupMenuItem(
+                    value: 'start',
+                    child: Text(tr('Bắt đầu', 'Start')),
+                  ),
                 if (meeting.isLive)
-                  const PopupMenuItem(value: 'end', child: Text('Kết thúc')),
+                  PopupMenuItem(
+                    value: 'end',
+                    child: Text(tr('Kết thúc', 'End')),
+                  ),
                 if (meeting.canStart)
-                  const PopupMenuItem(value: 'cancel', child: Text('Hủy lịch')),
+                  PopupMenuItem(
+                    value: 'cancel',
+                    child: Text(tr('Hủy lịch', 'Cancel meeting')),
+                  ),
               ],
             )
           : null,
@@ -806,18 +855,26 @@ class _CollaborationRoomSheetState
     final active = _recordings.where((item) => item.isActive).firstOrNull;
     return _sectionCard(
       icon: Icons.fiber_manual_record_rounded,
-      title: 'Ghi hình & AI meeting notes',
+      title: tr('Ghi hình & AI meeting notes', 'Recording & AI meeting notes'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_canManage)
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Cho phép ghi cuộc họp'),
+              title: Text(
+                tr('Cho phép ghi cuộc họp', 'Allow meeting recording'),
+              ),
               subtitle: Text(
                 policy.consentRequired
-                    ? 'Yêu cầu mọi người đồng ý · lưu ${policy.retentionDays} ngày'
-                    : 'Lưu ${policy.retentionDays} ngày',
+                    ? tr(
+                        'Yêu cầu mọi người đồng ý · lưu ${policy.retentionDays} ngày',
+                        'Everyone must consent · kept for ${policy.retentionDays} days',
+                      )
+                    : tr(
+                        'Lưu ${policy.retentionDays} ngày',
+                        'Kept for ${policy.retentionDays} days',
+                      ),
               ),
               value: policy.enabled,
               onChanged: _saving ? null : _toggleRecordingPolicy,
@@ -838,7 +895,10 @@ class _CollaborationRoomSheetState
                 ),
               _CapabilityChip(
                 icon: Icons.storage_outlined,
-                label: '${policy.retentionDays} ngày',
+                label: tr(
+                  '${policy.retentionDays} ngày',
+                  '${policy.retentionDays} days',
+                ),
               ),
             ],
           ),
@@ -847,13 +907,19 @@ class _CollaborationRoomSheetState
             FilledButton.icon(
               onPressed: _saving ? null : _startRecording,
               icon: const Icon(Icons.fiber_manual_record_rounded),
-              label: const Text('Yêu cầu ghi hình'),
+              label: Text(tr('Yêu cầu ghi hình', 'Request recording')),
             )
           else if (active != null) ...[
             Text(
               active.status == 'pending'
-                  ? 'Đang chờ đồng ý: ${active.consentCount}/${active.participantCount}'
-                  : 'Bản ghi đang ở trạng thái ${active.status}.',
+                  ? tr(
+                      'Đang chờ đồng ý: ${active.consentCount}/${active.participantCount}',
+                      'Waiting for consent: ${active.consentCount}/${active.participantCount}',
+                    )
+                  : tr(
+                      'Bản ghi đang ở trạng thái ${active.status}.',
+                      'Recording status: ${active.status}.',
+                    ),
             ),
             const SizedBox(height: WebTuiSpacing.sm),
             Wrap(
@@ -865,13 +931,13 @@ class _CollaborationRoomSheetState
                         ? null
                         : () => _setRecordingConsent(active, true),
                     icon: const Icon(Icons.check_circle_outline_rounded),
-                    label: const Text('Tôi đồng ý'),
+                    label: Text(tr('Tôi đồng ý', 'I agree')),
                   ),
                 if (_canManage)
                   OutlinedButton.icon(
                     onPressed: _saving ? null : () => _stopRecording(active),
                     icon: const Icon(Icons.stop_circle_outlined),
-                    label: const Text('Dừng'),
+                    label: Text(tr('Dừng', 'Stop')),
                   ),
               ],
             ),
@@ -884,20 +950,22 @@ class _CollaborationRoomSheetState
   Widget _meetingPolicies(CollaborationSettings settings) {
     return _sectionCard(
       icon: Icons.admin_panel_settings_outlined,
-      title: 'Quyền và chế độ phòng',
+      title: tr('Quyền và chế độ phòng', 'Room permissions and mode'),
       child: Column(
         children: [
           DropdownButtonFormField<CollaborationRoomMode>(
             initialValue: settings.roomMode,
-            decoration: const InputDecoration(labelText: 'Loại phòng'),
-            items: const [
+            decoration: InputDecoration(
+              labelText: tr('Loại phòng', 'Room type'),
+            ),
+            items: [
               DropdownMenuItem(
                 value: CollaborationRoomMode.internal,
-                child: Text('Nhóm nội bộ'),
+                child: Text(tr('Nhóm nội bộ', 'Internal group')),
               ),
               DropdownMenuItem(
                 value: CollaborationRoomMode.public,
-                child: Text('Khách ngoài'),
+                child: Text(tr('Khách ngoài', 'External guests')),
               ),
               DropdownMenuItem(
                 value: CollaborationRoomMode.webinar,
@@ -910,27 +978,36 @@ class _CollaborationRoomSheetState
           ),
           SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Phòng chờ'),
-            subtitle: const Text('Host duyệt khách trước khi vào'),
+            title: Text(tr('Phòng chờ', 'Waiting room')),
+            subtitle: Text(
+              tr(
+                'Host duyệt khách trước khi vào',
+                'Host approves guests before they join',
+              ),
+            ),
             value: settings.lobbyEnabled,
             onChanged: (value) => _updateSettings(lobbyEnabled: value),
           ),
           SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Khóa chat khách'),
+            title: Text(tr('Khóa chat khách', 'Lock guest chat')),
             value: settings.chatLocked,
             onChanged: (value) => _updateSettings(chatLocked: value),
           ),
           SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Mic khách mặc định bật'),
+            title: Text(
+              tr('Mic khách mặc định bật', 'Guest mic on by default'),
+            ),
             value: settings.guestMicrophoneEnabled,
             onChanged: (value) =>
                 _updateSettings(guestMicrophoneEnabled: value),
           ),
           SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Camera khách mặc định bật'),
+            title: Text(
+              tr('Camera khách mặc định bật', 'Guest camera on by default'),
+            ),
             value: settings.guestCameraEnabled,
             onChanged: (value) => _updateSettings(guestCameraEnabled: value),
           ),
@@ -942,13 +1019,16 @@ class _CollaborationRoomSheetState
   Widget _publicLinkCard(CollaborationSettings settings) {
     return _sectionCard(
       icon: Icons.public_rounded,
-      title: 'Link khách ngoài',
+      title: tr('Link khách ngoài', 'External guest link'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (settings.publicAccessEnabled)
             Text(
-              'Link đang hoạt động · ${settings.publicTokenPrefix ?? ''}…',
+              tr(
+                'Link đang hoạt động · ${settings.publicTokenPrefix ?? ''}…',
+                'Link active · ${settings.publicTokenPrefix ?? ''}…',
+              ),
               style: WebTuiTypography.bodySmall.copyWith(
                 color: WebTuiColors.accentGreen,
               ),
@@ -961,14 +1041,16 @@ class _CollaborationRoomSheetState
                   onPressed: _saving ? null : _createPublicLink,
                   icon: const Icon(Icons.link_rounded),
                   label: Text(
-                    settings.publicAccessEnabled ? 'Tạo link mới' : 'Tạo link',
+                    settings.publicAccessEnabled
+                        ? tr('Tạo link mới', 'Create new link')
+                        : tr('Tạo link', 'Create link'),
                   ),
                 ),
               ),
               if (settings.publicAccessEnabled) ...[
                 const SizedBox(width: WebTuiSpacing.sm),
                 IconButton.outlined(
-                  tooltip: 'Thu hồi link',
+                  tooltip: tr('Thu hồi link', 'Revoke link'),
                   onPressed: _saving ? null : _disablePublicLink,
                   icon: const Icon(Icons.link_off_rounded),
                 ),
@@ -983,12 +1065,14 @@ class _CollaborationRoomSheetState
   Widget _userGroupCard() {
     return _sectionCard(
       icon: Icons.groups_2_outlined,
-      title: 'Thêm theo nhóm người dùng',
+      title: tr('Thêm theo nhóm người dùng', 'Add by user group'),
       child: Column(
         children: [
           DropdownButtonFormField<String>(
             initialValue: _selectedUserGroupId,
-            decoration: const InputDecoration(labelText: 'Phòng ban nội bộ'),
+            decoration: InputDecoration(
+              labelText: tr('Phòng ban nội bộ', 'Internal department'),
+            ),
             items: [
               for (final group in _userGroups)
                 DropdownMenuItem(
@@ -1006,7 +1090,7 @@ class _CollaborationRoomSheetState
                   ? null
                   : _importUserGroup,
               icon: const Icon(Icons.group_add_outlined),
-              label: const Text('Thêm toàn bộ thành viên'),
+              label: Text(tr('Thêm toàn bộ thành viên', 'Add all members')),
             ),
           ),
         ],
@@ -1020,7 +1104,10 @@ class _CollaborationRoomSheetState
         .toList(growable: false);
     return _sectionCard(
       icon: Icons.meeting_room_outlined,
-      title: 'Phòng chờ (${waiting.length})',
+      title: tr(
+        'Phòng chờ (${waiting.length})',
+        'Waiting room (${waiting.length})',
+      ),
       child: Column(
         children: [
           for (final guest in waiting)
@@ -1031,17 +1118,17 @@ class _CollaborationRoomSheetState
               trailing: Wrap(
                 children: [
                   IconButton(
-                    tooltip: 'Duyệt',
+                    tooltip: tr('Duyệt', 'Approve'),
                     onPressed: () => _moderateGuest(guest.id, true),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.check_circle_rounded,
                       color: WebTuiColors.accentGreen,
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Từ chối',
+                    tooltip: tr('Từ chối', 'Decline'),
                     onPressed: () => _moderateGuest(guest.id, false),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.cancel_outlined,
                       color: WebTuiColors.danger,
                     ),
@@ -1057,7 +1144,7 @@ class _CollaborationRoomSheetState
   Widget _rolesCard() {
     return _sectionCard(
       icon: Icons.campaign_outlined,
-      title: 'Diễn giả và khán giả',
+      title: tr('Diễn giả và khán giả', 'Speakers and audience'),
       child: Column(
         children: [
           for (final role in _roles)
@@ -1068,22 +1155,22 @@ class _CollaborationRoomSheetState
               subtitle: Text('@${role.username}'),
               trailing: DropdownButton<CollaborationParticipantRole>(
                 value: role.role,
-                items: const [
+                items: [
                   DropdownMenuItem(
                     value: CollaborationParticipantRole.moderator,
-                    child: Text('Chủ trì'),
+                    child: Text(tr('Chủ trì', 'Host')),
                   ),
                   DropdownMenuItem(
                     value: CollaborationParticipantRole.presenter,
-                    child: Text('Diễn giả'),
+                    child: Text(tr('Diễn giả', 'Speaker')),
                   ),
                   DropdownMenuItem(
                     value: CollaborationParticipantRole.member,
-                    child: Text('Thành viên'),
+                    child: Text(tr('Thành viên', 'Member')),
                   ),
                   DropdownMenuItem(
                     value: CollaborationParticipantRole.listener,
-                    child: Text('Khán giả'),
+                    child: Text(tr('Khán giả', 'Audience')),
                   ),
                 ],
                 onChanged: _canManage
@@ -1118,8 +1205,12 @@ class _CollaborationRoomSheetState
               leading: const Icon(Icons.groups_2_outlined),
               title: Text(room.name),
               subtitle: Text(
-                '${room.assignedUserIds.length} thành viên · '
-                '${room.status == 'prepared' ? 'đã chuẩn bị' : 'đang mở'}',
+                tr(
+                  '${room.assignedUserIds.length} thành viên · '
+                      '${room.status == 'prepared' ? 'đã chuẩn bị' : 'đang mở'}',
+                  '${room.assignedUserIds.length} members · '
+                      '${room.status == 'prepared' ? 'prepared' : 'open'}',
+                ),
               ),
               trailing: room.isActive
                   ? TextButton(
@@ -1140,19 +1231,19 @@ class _CollaborationRoomSheetState
                       ? null
                       : () => _setupBreakouts('automatic'),
                   icon: const Icon(Icons.shuffle_rounded),
-                  label: const Text('Chia tự động'),
+                  label: Text(tr('Chia tự động', 'Auto-assign')),
                 ),
                 OutlinedButton.icon(
                   onPressed: _saving
                       ? null
                       : () => _setupBreakouts('self_select'),
                   icon: const Icon(Icons.how_to_reg_outlined),
-                  label: const Text('Tự chọn phòng'),
+                  label: Text(tr('Tự chọn phòng', 'Choose own room')),
                 ),
                 OutlinedButton.icon(
                   onPressed: _saving ? null : _createBreakout,
                   icon: const Icon(Icons.add_rounded),
-                  label: const Text('Tạo thủ công'),
+                  label: Text(tr('Tạo thủ công', 'Create manually')),
                 ),
               ],
             ),
@@ -1163,7 +1254,9 @@ class _CollaborationRoomSheetState
                 child: FilledButton.icon(
                   onPressed: _saving ? null : _startBreakouts,
                   icon: const Icon(Icons.play_circle_outline_rounded),
-                  label: const Text('Mở tất cả phòng nhỏ'),
+                  label: Text(
+                    tr('Mở tất cả phòng nhỏ', 'Open all breakout rooms'),
+                  ),
                 ),
               ),
             ],
@@ -1171,9 +1264,15 @@ class _CollaborationRoomSheetState
               const Divider(height: WebTuiSpacing.xl),
               TextField(
                 controller: _breakoutBroadcastController,
-                decoration: const InputDecoration(
-                  labelText: 'Thông báo đến mọi phòng',
-                  hintText: 'Còn 5 phút thảo luận…',
+                decoration: InputDecoration(
+                  labelText: tr(
+                    'Thông báo đến mọi phòng',
+                    'Announcement to all rooms',
+                  ),
+                  hintText: tr(
+                    'Còn 5 phút thảo luận…',
+                    '5 minutes left to discuss…',
+                  ),
                 ),
                 onSubmitted: (_) => _broadcastBreakouts(),
               ),
@@ -1184,13 +1283,15 @@ class _CollaborationRoomSheetState
                     child: OutlinedButton.icon(
                       onPressed: _saving ? null : _broadcastBreakouts,
                       icon: const Icon(Icons.campaign_outlined),
-                      label: const Text('Phát thông báo'),
+                      label: Text(
+                        tr('Phát thông báo', 'Broadcast announcement'),
+                      ),
                     ),
                   ),
                   const SizedBox(width: WebTuiSpacing.sm),
                   OutlinedButton(
                     onPressed: _saving ? null : _returnBreakouts,
-                    child: const Text('Gọi tất cả về'),
+                    child: Text(tr('Gọi tất cả về', 'Call everyone back')),
                   ),
                 ],
               ),
@@ -1214,9 +1315,11 @@ class _CollaborationRoomSheetState
                 controller: _notesController,
                 minLines: 12,
                 maxLines: 24,
-                decoration: const InputDecoration(
-                  hintText:
-                      '# Nội dung cuộc họp\n\n- Quyết định\n- Việc cần làm\n- Người phụ trách',
+                decoration: InputDecoration(
+                  hintText: tr(
+                    '# Nội dung cuộc họp\n\n- Quyết định\n- Việc cần làm\n- Người phụ trách',
+                    '# Meeting content\n\n- Decisions\n- Tasks\n- Owner',
+                  ),
                   alignLabelWithHint: true,
                   border: OutlineInputBorder(),
                 ),
@@ -1227,7 +1330,7 @@ class _CollaborationRoomSheetState
                 child: FilledButton.icon(
                   onPressed: _saving ? null : _saveNotes,
                   icon: const Icon(Icons.cloud_upload_outlined),
-                  label: const Text('Lưu biên bản'),
+                  label: Text(tr('Lưu biên bản', 'Save minutes')),
                 ),
               ),
             ],
@@ -1318,7 +1421,12 @@ class _CollaborationRoomSheetState
             name: name,
           );
       await _load();
-      _notice('Đã chuyển thành phòng nhóm nội bộ.');
+      _notice(
+        tr(
+          'Đã chuyển thành phòng nhóm nội bộ.',
+          'Converted to an internal group room.',
+        ),
+      );
     });
   }
 
@@ -1376,8 +1484,16 @@ class _CollaborationRoomSheetState
       await _load();
       _notice(
         missing.isEmpty
-            ? 'Tất cả thành viên nhóm đã có trong phòng.'
-            : 'Đã thêm ${missing.length} thành viên từ nhóm.',
+            ? tr(
+                'Tất cả thành viên nhóm đã có trong phòng.',
+                'All group members are already in the room.',
+              )
+            : tr(
+                'Đã thêm ${missing.length} thành viên từ nhóm.',
+                missing.length == 1
+                    ? 'Added 1 member from the group.'
+                    : 'Added ${missing.length} members from the group.',
+              ),
       );
     });
   }
@@ -1389,7 +1505,7 @@ class _CollaborationRoomSheetState
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => WebTuiDialog(
-          title: 'Tạo link khách ngoài',
+          title: tr('Tạo link khách ngoài', 'Create external guest link'),
           icon: WebTuiIcons.share,
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1403,20 +1519,23 @@ class _CollaborationRoomSheetState
               TextField(
                 controller: passwordController,
                 obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Mật khẩu tùy chọn',
-                  helperText: 'Nếu nhập, tối thiểu 8 ký tự',
+                decoration: InputDecoration(
+                  labelText: tr('Mật khẩu tùy chọn', 'Optional password'),
+                  helperText: tr(
+                    'Nếu nhập, tối thiểu 8 ký tự',
+                    'If entered, at least 8 characters',
+                  ),
                 ),
               ),
             ],
           ),
           actions: [
             WebTuiDialogAction(
-              label: 'Hủy',
+              label: tr('Hủy', 'Cancel'),
               onPressed: () => Navigator.of(context).pop(false),
             ),
             WebTuiDialogAction(
-              label: 'Tạo link',
+              label: tr('Tạo link', 'Create link'),
               primary: true,
               onPressed: () => Navigator.of(context).pop(true),
             ),
@@ -1453,7 +1572,9 @@ class _CollaborationRoomSheetState
       ).toString();
       await Clipboard.setData(ClipboardData(text: url));
       if (mounted) setState(() => _settings = link.settings);
-      _notice('Đã tạo và sao chép link khách.');
+      _notice(
+        tr('Đã tạo và sao chép link khách.', 'Guest link created and copied.'),
+      );
     });
   }
 
@@ -1466,7 +1587,7 @@ class _CollaborationRoomSheetState
             channelId: widget.channelId,
           );
       if (mounted) setState(() => _settings = updated);
-      _notice('Đã thu hồi link khách.');
+      _notice(tr('Đã thu hồi link khách.', 'Guest link revoked.'));
     });
   }
 
@@ -1523,7 +1644,11 @@ class _CollaborationRoomSheetState
             active: active,
           );
       if (mounted) setState(() => _voiceRoom = room);
-      _notice(active ? 'Voice room đã bắt đầu.' : 'Voice room đã kết thúc.');
+      _notice(
+        active
+            ? tr('Voice room đã bắt đầu.', 'Voice room started.')
+            : tr('Voice room đã kết thúc.', 'Voice room ended.'),
+      );
     });
   }
 
@@ -1554,7 +1679,7 @@ class _CollaborationRoomSheetState
             channelId: widget.channelId,
           );
       if (mounted) setState(() => _meetings = meetings);
-      _notice('Đã lên lịch cuộc họp.');
+      _notice(tr('Đã lên lịch cuộc họp.', 'Meeting scheduled.'));
     });
   }
 
@@ -1610,7 +1735,12 @@ class _CollaborationRoomSheetState
             meetingId: activeMeeting?.id,
           );
       await _refreshRecordings();
-      _notice('Đã gửi yêu cầu đồng ý ghi hình tới các thành viên.');
+      _notice(
+        tr(
+          'Đã gửi yêu cầu đồng ý ghi hình tới các thành viên.',
+          'Recording consent request sent to members.',
+        ),
+      );
     });
   }
 
@@ -1707,7 +1837,12 @@ class _CollaborationRoomSheetState
             body: body,
           );
       _breakoutBroadcastController.clear();
-      _notice('Đã gửi thông báo đến mọi phòng nhỏ.');
+      _notice(
+        tr(
+          'Đã gửi thông báo đến mọi phòng nhỏ.',
+          'Announcement sent to all breakout rooms.',
+        ),
+      );
     });
   }
 
@@ -1716,20 +1851,20 @@ class _CollaborationRoomSheetState
     final name = await showDialog<String>(
       context: context,
       builder: (context) => WebTuiDialog(
-        title: 'Tạo phòng nhỏ',
+        title: tr('Tạo phòng nhỏ', 'Create breakout room'),
         icon: WebTuiIcons.group,
         content: WebTuiDialogTextField(
           controller: controller,
           autofocus: true,
-          label: 'Tên phòng',
+          label: tr('Tên phòng', 'Room name'),
         ),
         actions: [
           WebTuiDialogAction(
-            label: 'Hủy',
+            label: tr('Hủy', 'Cancel'),
             onPressed: () => Navigator.of(context).pop(),
           ),
           WebTuiDialogAction(
-            label: 'Tạo',
+            label: tr('Tạo', 'Create'),
             primary: true,
             onPressed: () => Navigator.of(context).pop(controller.text.trim()),
           ),
@@ -1766,7 +1901,12 @@ class _CollaborationRoomSheetState
             channelId: widget.channelId,
           );
       if (mounted) setState(() => _breakouts = rooms);
-      _notice('Đã gọi tất cả thành viên về phòng chính.');
+      _notice(
+        tr(
+          'Đã gọi tất cả thành viên về phòng chính.',
+          'Called all members back to the main room.',
+        ),
+      );
     });
   }
 
@@ -1792,9 +1932,16 @@ class _CollaborationRoomSheetState
       );
       final live = _liveMeeting;
       if (!inApp) {
-        _notice('Máy chủ chưa bật họp trực tuyến trong ứng dụng.');
+        _notice(
+          tr(
+            'Máy chủ chưa bật họp trực tuyến trong ứng dụng.',
+            'The server has not enabled in-app online meetings.',
+          ),
+        );
       } else if (live == null) {
-        _notice('Chưa có cuộc họp nào đang diễn ra.');
+        _notice(
+          tr('Chưa có cuộc họp nào đang diễn ra.', 'No meeting in progress.'),
+        );
       } else {
         await _openLiveKitMeeting(live.id, live.title);
       }
@@ -1803,7 +1950,12 @@ class _CollaborationRoomSheetState
     final baseUrl = settings.meetingBaseUrl?.trim() ?? '';
     final base = Uri.tryParse(baseUrl);
     if (baseUrl.isEmpty || base == null) {
-      _notice('Media server chưa được cấu hình.');
+      _notice(
+        tr(
+          'Media server chưa được cấu hình.',
+          'Media server is not configured.',
+        ),
+      );
       return;
     }
     final role = _roles
@@ -1856,7 +2008,14 @@ class _CollaborationRoomSheetState
     final opened = await ref
         .read(externalUrlLauncherProvider)
         .open(roomUri.toString());
-    if (!opened) _notice('Không mở được phòng họp trên thiết bị này.');
+    if (!opened) {
+      _notice(
+        tr(
+          'Không mở được phòng họp trên thiết bị này.',
+          'Could not open the meeting room on this device.',
+        ),
+      );
+    }
   }
 
   Future<void> _openLiveKitMeeting(
@@ -1896,7 +2055,12 @@ class _CollaborationRoomSheetState
   Future<void> _startGroupCall(String kind) async {
     final live = _liveMeeting;
     if (live == null) {
-      _notice('Hãy bắt đầu cuộc họp trước khi gọi cả nhóm.');
+      _notice(
+        tr(
+          'Hãy bắt đầu cuộc họp trước khi gọi cả nhóm.',
+          'Start the meeting before calling the whole group.',
+        ),
+      );
       return;
     }
     await _guard(() async {
@@ -1909,8 +2073,11 @@ class _CollaborationRoomSheetState
       );
       _notice(
         call.ringTruncated
-            ? 'Đang đổ chuông 50 thành viên hoạt động gần nhất.'
-            : 'Đang đổ chuông cả nhóm.',
+            ? tr(
+                'Đang đổ chuông 50 thành viên hoạt động gần nhất.',
+                'Ringing the 50 most recently active members.',
+              )
+            : tr('Đang đổ chuông cả nhóm.', 'Ringing the whole group.'),
       );
       await _openMeeting(_settings!.meetingRoomKey ?? '');
     });
@@ -1929,7 +2096,7 @@ class _CollaborationRoomSheetState
             expectedVersion: notes.version,
           );
       if (mounted) setState(() => _notes = updated);
-      _notice('Đã lưu biên bản.');
+      _notice(tr('Đã lưu biên bản.', 'Minutes saved.'));
     });
   }
 
@@ -1946,7 +2113,7 @@ class _CollaborationRoomSheetState
       await showDialog<void>(
         context: context,
         builder: (context) => WebTuiDialog(
-          title: 'Tóm tắt AI nội bộ',
+          title: tr('Tóm tắt AI nội bộ', 'Internal AI summary'),
           icon: WebTuiIcons.bot,
           content: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1955,23 +2122,28 @@ class _CollaborationRoomSheetState
               Text(summary.summary),
               if (summary.decisions.isNotEmpty) ...[
                 const SizedBox(height: WebTuiSpacing.md),
-                const Text(
-                  'Quyết định',
+                Text(
+                  tr('Quyết định', 'Decisions'),
                   style: TextStyle(fontWeight: FontWeight.w800),
                 ),
                 for (final item in summary.decisions) Text('• $item'),
               ],
               if (summary.actionItems.isNotEmpty) ...[
                 const SizedBox(height: WebTuiSpacing.md),
-                const Text(
-                  'Việc cần làm',
+                Text(
+                  tr('Việc cần làm', 'Tasks'),
                   style: TextStyle(fontWeight: FontWeight.w800),
                 ),
                 for (final item in summary.actionItems) Text('• $item'),
               ],
               const SizedBox(height: WebTuiSpacing.md),
               Text(
-                '${summary.messageCount} tin nhắn · ${summary.model}',
+                tr(
+                  '${summary.messageCount} tin nhắn · ${summary.model}',
+                  summary.messageCount == 1
+                      ? '1 message · ${summary.model}'
+                      : '${summary.messageCount} messages · ${summary.model}',
+                ),
                 style: WebTuiTypography.bodySmall.copyWith(
                   color: WebTuiColors.textSecondary,
                 ),
@@ -1980,7 +2152,7 @@ class _CollaborationRoomSheetState
           ),
           actions: [
             WebTuiDialogAction(
-              label: 'Đóng',
+              label: tr('Đóng', 'Close'),
               primary: true,
               onPressed: () => Navigator.of(context).pop(),
             ),
@@ -2043,11 +2215,11 @@ IconData _sharedItemIcon(String kind) {
 String _sharedItemLabel(String kind) {
   return switch (kind) {
     'file' => 'File',
-    'pin' => 'Tin nhắn đã ghim',
-    'poll' => 'Bình chọn',
+    'pin' => tr('Tin nhắn đã ghim', 'Pinned messages'),
+    'poll' => tr('Bình chọn', 'Poll'),
     'task' => 'Task',
-    'recording' => 'Bản ghi cuộc họp',
-    _ => 'Nội dung chia sẻ',
+    'recording' => tr('Bản ghi cuộc họp', 'Meeting recording'),
+    _ => tr('Nội dung chia sẻ', 'Shared content'),
   };
 }
 

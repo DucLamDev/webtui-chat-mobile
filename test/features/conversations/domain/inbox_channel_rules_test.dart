@@ -82,6 +82,16 @@ void main() {
       );
     });
 
+    test('nhóm riêng tư đã tham gia: hiện ngay dù chưa có tin', () {
+      expect(shouldShowChannelInInbox(_channel('nhom', private: true)), isTrue);
+      expect(
+        shouldShowChannelInInbox(
+          _channel('nhom', private: true, member: false),
+        ),
+        isFalse,
+      );
+    });
+
     test('kênh nội bộ vẫn luôn hiện', () {
       expect(
         shouldShowChannelInInbox(_channel('g', slug: 'thong-bao')),
@@ -155,6 +165,7 @@ ConversationSummary _channel(
   bool notice = false,
   bool privateSession = false,
   bool favorite = false,
+  bool private = false,
   int unread = 0,
 }) {
   final lastMessageAt = lastHour == null
@@ -169,6 +180,9 @@ ConversationSummary _channel(
     preview: '',
     updatedAt: lastMessageAt ?? DateTime.utc(2026, 11, 15, updatedHour),
     membershipStatus: member ? MembershipStatus.active : MembershipStatus.none,
+    channelVisibility: private
+        ? ChannelVisibility.private
+        : ChannelVisibility.public,
     isAutomation: automation,
     noticeBot: notice,
     privateSessionMode: privateSession,

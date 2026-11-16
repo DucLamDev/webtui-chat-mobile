@@ -100,6 +100,7 @@ final class ConversationSummary {
   ConversationSummary copyWith({
     int? unreadCount,
     MembershipStatus? membershipStatus,
+    int? memberCount,
   }) {
     return ConversationSummary(
       id: id,
@@ -115,7 +116,7 @@ final class ConversationSummary {
       unreadCount: unreadCount ?? this.unreadCount,
       favorite: favorite,
       muted: muted,
-      memberCount: memberCount,
+      memberCount: memberCount ?? this.memberCount,
       participantIds: participantIds,
       channelVisibility: channelVisibility,
       membershipStatus: membershipStatus ?? this.membershipStatus,

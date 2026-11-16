@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
@@ -31,7 +32,7 @@ class CustomerTicketListScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: WebTuiColors.background,
       appBar: AppBar(
-        title: const Text('Ticket khách'),
+        title: Text(tr('Ticket khách', 'Customer tickets')),
         surfaceTintColor: Colors.transparent,
       ),
       body: SafeArea(
@@ -39,9 +40,12 @@ class CustomerTicketListScreen extends ConsumerWidget {
         child:
             gate ??
             (resolvedWorkspaceId.isEmpty
-                ? const WebTuiEmptyState(
-                    title: 'Chưa chọn workspace',
-                    message: 'Chọn workspace trước khi xem ticket khách.',
+                ? WebTuiEmptyState(
+                    title: tr('Chưa chọn workspace', 'No workspace selected'),
+                    message: tr(
+                      'Chọn workspace trước khi xem ticket khách.',
+                      'Select a workspace before viewing customer tickets.',
+                    ),
                     icon: Icons.confirmation_number_outlined,
                   )
                 : _CustomerTicketListBody(workspaceId: resolvedWorkspaceId)),
@@ -82,9 +86,11 @@ class _CustomerTicketListBody extends ConsumerWidget {
     final now = ref.watch(customerTicketClockProvider)();
     final unanswered = state.counts.unanswered;
     final tabs = [
-      unanswered > 0 ? 'Chưa trả lời $unanswered' : 'Chưa trả lời',
-      'Đã trả lời',
-      'Tất cả',
+      unanswered > 0
+          ? tr('Chưa trả lời $unanswered', 'Unanswered $unanswered')
+          : tr('Chưa trả lời', 'Unanswered'),
+      tr('Đã trả lời', 'Answered'),
+      tr('Tất cả', 'All'),
     ];
     final selectedIndex = _filters.indexOf(state.filter);
 
@@ -112,7 +118,10 @@ class _CustomerTicketListBody extends ConsumerWidget {
                   WebTuiSpacing.sm,
                 ),
                 child: WebTuiSearchBar(
-                  hintText: 'Tìm mã ticket, tên, email khách...',
+                  hintText: tr(
+                    'Tìm mã ticket, tên, email khách...',
+                    'Search ticket ID, name, customer email...',
+                  ),
                   debounceDuration: const Duration(milliseconds: 350),
                   onChanged: (value) => unawaited(controller.setSearch(value)),
                 ),
@@ -154,9 +163,11 @@ class _CustomerTicketListBody extends ConsumerWidget {
       ];
     }
     if (state.isLoading && state.items.isEmpty) {
-      return const [
+      return [
         SliverToBoxAdapter(
-          child: WebTuiLoadingState(message: 'Đang tải ticket...'),
+          child: WebTuiLoadingState(
+            message: tr('Đang tải ticket...', 'Loading ticket...'),
+          ),
         ),
       ];
     }
@@ -165,7 +176,7 @@ class _CustomerTicketListBody extends ConsumerWidget {
       return [
         SliverToBoxAdapter(
           child: WebTuiErrorState(
-            title: 'Không tải được ticket',
+            title: tr('Không tải được ticket', 'Couldn\'t load the ticket'),
             message: error,
             onRetry: () => unawaited(controller.load()),
           ),
@@ -177,16 +188,30 @@ class _CustomerTicketListBody extends ConsumerWidget {
         SliverToBoxAdapter(
           child: WebTuiEmptyState(
             title: state.search.isNotEmpty
-                ? 'Không tìm thấy ticket'
+                ? tr('Không tìm thấy ticket', 'No tickets found')
                 : switch (state.filter) {
-                    CustomerTicketFilter.unanswered => 'Đã trả lời hết',
-                    CustomerTicketFilter.answered =>
+                    CustomerTicketFilter.unanswered => tr(
+                      'Đã trả lời hết',
+                      'All answered',
+                    ),
+                    CustomerTicketFilter.answered => tr(
                       'Chưa có ticket đã trả lời',
-                    CustomerTicketFilter.all => 'Chưa có ticket',
+                      'No answered tickets yet',
+                    ),
+                    CustomerTicketFilter.all => tr(
+                      'Chưa có ticket',
+                      'No tickets yet',
+                    ),
                   },
             message: state.search.isNotEmpty
-                ? 'Thử tìm bằng mã ticket, tên hoặc email khác.'
-                : 'Ticket khách gửi trên hệ thống order sẽ hiện ở đây.',
+                ? tr(
+                    'Thử tìm bằng mã ticket, tên hoặc email khác.',
+                    'Try a different ticket ID, name or email.',
+                  )
+                : tr(
+                    'Ticket khách gửi trên hệ thống order sẽ hiện ở đây.',
+                    'Customer tickets sent through the order system will appear here.',
+                  ),
             icon: Icons.confirmation_number_outlined,
           ),
         ),
@@ -225,8 +250,8 @@ class _CustomerTicketListBody extends ConsumerWidget {
               icon: const Icon(Icons.expand_more_rounded),
               label: Text(
                 state.loadMoreErrorMessage != null
-                    ? 'Tải thêm lỗi, thử lại'
-                    : 'Tải thêm',
+                    ? tr('Tải thêm lỗi, thử lại', 'Couldn\'t load more, retry')
+                    : tr('Tải thêm', 'Load more'),
               ),
             ),
           ),
@@ -271,10 +296,10 @@ class CustomerTicketTile extends StatelessWidget {
     final tone = customerTicketWaitingTone(waiting);
     final assignee = ticket.assignee;
     final staffPrefix = ticket.lastSender == CustomerTicketSender.staff
-        ? '${ticket.lastStaffName.isEmpty ? 'Nhân viên' : ticket.lastStaffName}: '
+        ? '${ticket.lastStaffName.isEmpty ? tr('Nhân viên', 'Staff') : ticket.lastStaffName}: '
         : '';
     final preview = ticket.preview.isEmpty
-        ? '(không có nội dung)'
+        ? tr('(không có nội dung)', '(no content)')
         : ticket.preview;
     return Material(
       color: WebTuiColors.surface,
@@ -331,7 +356,7 @@ class CustomerTicketTile extends StatelessWidget {
                           if (staffPrefix.isNotEmpty)
                             TextSpan(
                               text: staffPrefix,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 color: WebTuiColors.textSecondary,
                               ),
@@ -368,29 +393,35 @@ class CustomerTicketTile extends StatelessWidget {
                             },
                           )
                         else if (ticket.status == CustomerTicketStatus.answered)
-                          const WebTuiStatusPill(
-                            label: 'Đã trả lời',
+                          WebTuiStatusPill(
+                            label: tr('Đã trả lời', 'Answered'),
                             color: WebTuiColors.accentGreen,
                           ),
                         if (ticket.isUnanswered && ticket.newMessageCount > 0)
                           WebTuiStatusPill(
-                            label: '${ticket.newMessageCount} tin mới',
+                            label: tr(
+                              '${ticket.newMessageCount} tin mới',
+                              '${ticket.newMessageCount} new',
+                            ),
                             color: WebTuiColors.danger,
                           ),
                         if (assignee != null)
                           assignee.isUser(currentUserId)
-                              ? const WebTuiStatusPill(
-                                  label: 'Bạn đang xử lý',
+                              ? WebTuiStatusPill(
+                                  label: tr(
+                                    'Bạn đang xử lý',
+                                    'You\'re handling it',
+                                  ),
                                   color: WebTuiColors.accentGreen,
                                 )
                               : WebTuiStatusPill(
                                   label:
-                                      '${assignee.name.isEmpty ? 'Người khác' : assignee.name} đang xử lý',
+                                      '${assignee.name.isEmpty ? tr('Người khác', 'Someone else') : assignee.name} đang xử lý',
                                   color: WebTuiColors.textSecondary,
                                 ),
                         if (ticket.hasAiDraft)
-                          const WebTuiStatusPill(
-                            label: 'Có nháp AI',
+                          WebTuiStatusPill(
+                            label: tr('Có nháp AI', 'AI draft ready'),
                             color: WebTuiColors.primary,
                           ),
                       ],

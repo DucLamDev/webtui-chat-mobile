@@ -12,6 +12,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../features/auth/domain/entities/user_session.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../auth/application/use_cases/session_use_cases.dart';
 import '../../../auth/presentation/auth_formatters.dart';
 import '../../../auth/presentation/widgets/pending_device_approvals_section.dart';
@@ -50,11 +51,11 @@ class PrivacySessionsScreen extends ConsumerWidget {
       backgroundColor: WebTuiColors.background,
       appBar: AppBar(
         leading: IconButton(
-          tooltip: 'Quay lại',
+          tooltip: tr('Quay lại', 'Back'),
           onPressed: () => _goBackOrHome(context),
           icon: const Icon(Icons.arrow_back_rounded),
         ),
-        title: const Text('Quyền riêng tư'),
+        title: Text(tr('Quyền riêng tư', 'Privacy')),
         surfaceTintColor: Colors.transparent,
         shape: Border(
           bottom: BorderSide(color: WebTuiColors.border.withValues(alpha: 0.7)),
@@ -65,7 +66,7 @@ class PrivacySessionsScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.only(bottom: WebTuiSpacing.xl),
           children: [
-            const WebTuiSectionLabel('Phiên đăng nhập'),
+            WebTuiSectionLabel(tr('Phiên đăng nhập', 'Sessions')),
             sessions.when(
               data: (result) {
                 return switch (result) {
@@ -75,35 +76,51 @@ class PrivacySessionsScreen extends ConsumerWidget {
                     failure.requiresLogin
                         ? _RequiresLoginState(message: failure.message)
                         : WebTuiErrorState(
-                            title: 'Không tải được phiên',
+                            title: tr(
+                              'Không tải được phiên',
+                              'Could not load sessions',
+                            ),
                             message: failure.message,
                             onRetry: () => ref.invalidate(sessionListProvider),
                           ),
                 };
               },
               error: (_, _) => WebTuiErrorState(
-                title: 'Không tải được phiên',
-                message: 'Vui lòng thử lại sau.',
+                title: tr('Không tải được phiên', 'Could not load sessions'),
+                message: tr('Vui lòng thử lại sau.', 'Please try again later.'),
                 onRetry: () => ref.invalidate(sessionListProvider),
               ),
-              loading: () => const WebTuiLoadingState(
-                message: 'Đang tải phiên đăng nhập...',
+              loading: () => WebTuiLoadingState(
+                message: tr(
+                  'Đang tải phiên đăng nhập...',
+                  'Loading sessions...',
+                ),
               ),
             ),
             if (deviceApprovalEnabled) ...[
-              const WebTuiSectionLabel('Thiết bị chờ duyệt'),
+              WebTuiSectionLabel(
+                tr('Thiết bị chờ duyệt', 'Devices waiting for approval'),
+              ),
               const PendingDeviceApprovalsSection(),
             ],
             if (showSessionActions) ...[
-              const WebTuiSectionLabel('Thao tác phiên'),
+              WebTuiSectionLabel(tr('Thao tác phiên', 'Session actions')),
               const _SessionActions(),
             ],
-            const WebTuiSectionLabel('Riêng tư khi chuyển ứng dụng'),
+            WebTuiSectionLabel(
+              tr('Riêng tư khi chuyển ứng dụng', 'Privacy when switching apps'),
+            ),
             WebTuiListSurface(
-              children: const [
+              children: [
                 WebTuiSettingRow(
-                  title: 'Ẩn nội dung khi app vào nền',
-                  subtitle: 'Che nội dung trong trình chuyển ứng dụng',
+                  title: tr(
+                    'Ẩn nội dung khi app vào nền',
+                    'Hide content when the app is in the background',
+                  ),
+                  subtitle: tr(
+                    'Che nội dung trong trình chuyển ứng dụng',
+                    'Cover content in the app switcher',
+                  ),
                   icon: Icons.screenshot_monitor_outlined,
                   trailing: Icon(
                     Icons.check_circle_rounded,
@@ -113,17 +130,25 @@ class PrivacySessionsScreen extends ConsumerWidget {
               ],
             ),
             if (workspaceId?.trim().isNotEmpty == true) ...[
-              const WebTuiSectionLabel('An toàn cộng đồng'),
+              WebTuiSectionLabel(tr('An toàn cộng đồng', 'Community safety')),
               _BlockedUsersSection(workspaceId: workspaceId!),
             ],
-            const WebTuiSectionLabel('Chính sách và dữ liệu'),
+            WebTuiSectionLabel(
+              tr('Chính sách và dữ liệu', 'Policies and data'),
+            ),
             WebTuiListSurface(
               children: [
                 WebTuiSettingRow(
-                  title: 'Điều khoản sử dụng',
+                  title: tr('Điều khoản sử dụng', 'Terms of Use'),
                   subtitle: _isHttpsUrl(config.termsUrl)
-                      ? 'Quy tắc sử dụng và nội dung được phép'
-                      : 'Chưa được cấu hình cho bản dựng này',
+                      ? tr(
+                          'Quy tắc sử dụng và nội dung được phép',
+                          'Usage rules and allowed content',
+                        )
+                      : tr(
+                          'Chưa được cấu hình cho bản dựng này',
+                          'Not configured for this build',
+                        ),
                   icon: Icons.gavel_outlined,
                   trailing: TextButton(
                     onPressed: _isHttpsUrl(config.termsUrl)
@@ -131,17 +156,23 @@ class PrivacySessionsScreen extends ConsumerWidget {
                             context,
                             ref,
                             config.termsUrl,
-                            'Điều khoản sử dụng',
+                            tr('Điều khoản sử dụng', 'Terms of Use'),
                           )
                         : null,
                     child: const Text('Xem'),
                   ),
                 ),
                 WebTuiSettingRow(
-                  title: 'Chính sách quyền riêng tư',
+                  title: tr('Chính sách quyền riêng tư', 'Privacy Policy'),
                   subtitle: _isHttpsUrl(config.privacyPolicyUrl)
-                      ? 'Xem cách dữ liệu tài khoản và tin nhắn được xử lý'
-                      : 'Chưa được cấu hình cho bản dựng này',
+                      ? tr(
+                          'Xem cách dữ liệu tài khoản và tin nhắn được xử lý',
+                          'See how account and message data is handled',
+                        )
+                      : tr(
+                          'Chưa được cấu hình cho bản dựng này',
+                          'Not configured for this build',
+                        ),
                   icon: Icons.policy_outlined,
                   trailing: TextButton(
                     onPressed: _isHttpsUrl(config.privacyPolicyUrl)
@@ -149,7 +180,7 @@ class PrivacySessionsScreen extends ConsumerWidget {
                             context,
                             ref,
                             config.privacyPolicyUrl,
-                            'Chính sách quyền riêng tư',
+                            tr('Chính sách quyền riêng tư', 'Privacy Policy'),
                           )
                         : null,
                     child: const Text('Xem'),
@@ -157,7 +188,7 @@ class PrivacySessionsScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            const WebTuiSectionLabel('Tài khoản'),
+            WebTuiSectionLabel(tr('Tài khoản', 'Account')),
             const _DeleteAccountAction(),
           ],
         ),
@@ -177,24 +208,32 @@ class _BlockedUsersSection extends ConsumerWidget {
     final state = ref.watch(provider);
     final controller = ref.read(provider.notifier);
     if (state.isLoadingBlockedUsers && state.blockedUsers.isEmpty) {
-      return const WebTuiLoadingState(
-        message: 'Đang tải danh sách người dùng đã chặn...',
+      return WebTuiLoadingState(
+        message: tr(
+          'Đang tải danh sách người dùng đã chặn...',
+          'Loading blocked users...',
+        ),
       );
     }
     if (state.errorMessage != null && state.blockedUsers.isEmpty) {
       return WebTuiErrorState(
-        title: 'Không tải được danh sách đã chặn',
+        title: tr(
+          'Không tải được danh sách đã chặn',
+          'Could not load the blocked list',
+        ),
         message: state.errorMessage!,
         onRetry: controller.loadBlockedUsers,
       );
     }
     if (state.blockedUsers.isEmpty) {
       return WebTuiListSurface(
-        children: const [
+        children: [
           WebTuiSettingRow(
-            title: 'Không có người dùng bị chặn',
-            subtitle:
-                'Bạn có thể chặn từ thao tác tin nhắn hoặc trang thành viên.',
+            title: tr('Không có người dùng bị chặn', 'No blocked users'),
+            subtitle: tr(
+              'Bạn có thể chặn từ thao tác tin nhắn hoặc trang thành viên.',
+              'You can block people from a message action or a member page.',
+            ),
             icon: Icons.shield_outlined,
           ),
         ],
@@ -206,8 +245,14 @@ class _BlockedUsersSection extends ConsumerWidget {
           WebTuiSettingRow(
             title: blockedUser.label,
             subtitle: blockedUser.reason?.trim().isNotEmpty == true
-                ? 'Đã chặn · ${blockedUser.reason}'
-                : 'Nội dung từ người dùng này đang được ẩn',
+                ? tr(
+                    'Đã chặn · ${blockedUser.reason}',
+                    'Blocked · ${blockedUser.reason}',
+                  )
+                : tr(
+                    'Nội dung từ người dùng này đang được ẩn',
+                    'Content from this user is hidden',
+                  ),
             icon: Icons.block_rounded,
             trailing: TextButton(
               onPressed: () => toggleUserBlock(
@@ -217,7 +262,7 @@ class _BlockedUsersSection extends ConsumerWidget {
                 userId: blockedUser.blockedUserId,
                 userLabel: blockedUser.label,
               ),
-              child: const Text('Bỏ chặn'),
+              child: Text(tr('Bỏ chặn', 'Unblock')),
             ),
           ),
       ],
@@ -233,7 +278,10 @@ Future<void> _openLegalUrl(
 ) async {
   final opened = await ref.read(externalUrlLauncherProvider).open(url);
   if (context.mounted && !opened) {
-    _showSnackBar(context, 'Không mở được $label.');
+    _showSnackBar(
+      context,
+      tr('Không mở được $label.', 'Could not open $label.'),
+    );
   }
 }
 
@@ -258,8 +306,11 @@ class _DeleteAccountActionState extends ConsumerState<_DeleteAccountAction> {
     return WebTuiListSurface(
       children: [
         WebTuiSettingRow(
-          title: 'Xóa tài khoản',
-          subtitle: 'Xóa vĩnh viễn tài khoản và yêu cầu xóa dữ liệu liên quan',
+          title: tr('Xóa tài khoản', 'Delete account'),
+          subtitle: tr(
+            'Xóa vĩnh viễn tài khoản và yêu cầu xóa dữ liệu liên quan',
+            'Permanently delete your account and request deletion of related data',
+          ),
           icon: Icons.delete_forever_outlined,
           trailing: TextButton(
             onPressed: _isDeleting ? null : _deleteAccount,
@@ -269,7 +320,7 @@ class _DeleteAccountActionState extends ConsumerState<_DeleteAccountAction> {
                     dimension: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Xóa'),
+                : Text(tr('Xóa', 'Delete')),
           ),
         ),
       ],
@@ -321,11 +372,16 @@ _confirmAccountDeletion(BuildContext context) {
           final canDelete =
               confirmationController.text.trim().toUpperCase() == 'DELETE';
           return WebTuiDialog(
-            title: 'Xóa vĩnh viễn tài khoản?',
+            title: tr(
+              'Xóa vĩnh viễn tài khoản?',
+              'Permanently delete your account?',
+            ),
             tone: WebTuiDialogTone.danger,
             icon: WebTuiIcons.delete,
-            message:
-                'Thao tác này không thể hoàn tác. Các phiên đăng nhập sẽ bị thu hồi; dữ liệu phải lưu theo quy định pháp luật hoặc chính sách tổ chức có thể được giữ lại trong thời hạn đã công bố.',
+            message: tr(
+              'Thao tác này không thể hoàn tác. Các phiên đăng nhập sẽ bị thu hồi; dữ liệu phải lưu theo quy định pháp luật hoặc chính sách tổ chức có thể được giữ lại trong thời hạn đã công bố.',
+              'This cannot be undone. Your sessions will be revoked; data that must be kept by law or organization policy may be retained for the published period.',
+            ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -335,14 +391,23 @@ _confirmAccountDeletion(BuildContext context) {
                   autocorrect: false,
                   enableSuggestions: false,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email thành viên nhận quyền',
-                    hintText: 'Chỉ nhập nếu bạn là owner',
+                  decoration: InputDecoration(
+                    labelText: tr(
+                      'Email thành viên nhận quyền',
+                      'Email of the member receiving ownership',
+                    ),
+                    hintText: tr(
+                      'Chỉ nhập nếu bạn là owner',
+                      'Only enter if you are an owner',
+                    ),
                   ),
                 ),
                 const SizedBox(height: WebTuiSpacing.xs),
                 Text(
-                  'Người nhận phải đang hoạt động trong mọi workspace bạn sở hữu.',
+                  tr(
+                    'Người nhận phải đang hoạt động trong mọi workspace bạn sở hữu.',
+                    'The recipient must be active in every workspace you own.',
+                  ),
                   style: WebTuiTypography.bodySmall.copyWith(
                     color: WebTuiColors.textMuted,
                   ),
@@ -354,8 +419,11 @@ _confirmAccountDeletion(BuildContext context) {
                   autocorrect: false,
                   enableSuggestions: false,
                   textCapitalization: TextCapitalization.characters,
-                  decoration: const InputDecoration(
-                    labelText: 'Nhập DELETE để xác nhận',
+                  decoration: InputDecoration(
+                    labelText: tr(
+                      'Nhập DELETE để xác nhận',
+                      'Type DELETE to confirm',
+                    ),
                     hintText: 'DELETE',
                   ),
                   onChanged: (_) => setDialogState(() {}),
@@ -364,11 +432,11 @@ _confirmAccountDeletion(BuildContext context) {
             ),
             actions: [
               WebTuiDialogAction(
-                label: 'Hủy',
+                label: tr('Hủy', 'Cancel'),
                 onPressed: () => Navigator.pop(dialogContext),
               ),
               WebTuiDialogAction(
-                label: 'Xóa tài khoản',
+                label: tr('Xóa tài khoản', 'Delete account'),
                 primary: true,
                 destructive: true,
                 onPressed: canDelete
@@ -399,17 +467,20 @@ Future<void> _showAccountDeletionConflict(
   String serverMessage,
 ) {
   final message = serverMessage.trim().isEmpty
-      ? 'Bạn đang sở hữu workspace. Hãy nhập email của một thành viên đang hoạt động để chuyển quyền rồi thử lại.'
+      ? tr(
+          'Bạn đang sở hữu workspace. Hãy nhập email của một thành viên đang hoạt động để chuyển quyền rồi thử lại.',
+          'You own a workspace. Enter the email of an active member to transfer ownership, then try again.',
+        )
       : serverMessage;
   return showDialog<void>(
     context: context,
     builder: (dialogContext) => WebTuiDialog(
-      title: 'Cần chuyển quyền sở hữu',
+      title: tr('Cần chuyển quyền sở hữu', 'Ownership transfer needed'),
       icon: WebTuiIcons.key,
       message: message,
       actions: [
         WebTuiDialogAction(
-          label: 'Đã hiểu',
+          label: tr('Đã hiểu', 'Got it'),
           primary: true,
           onPressed: () => Navigator.pop(dialogContext),
         ),
@@ -438,14 +509,14 @@ class _RequiresLoginState extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+              Icon(
                 Icons.lock_clock_rounded,
                 color: WebTuiColors.danger,
                 size: 28,
               ),
               const SizedBox(height: WebTuiSpacing.sm),
               Text(
-                'Cần đăng nhập lại',
+                tr('Cần đăng nhập lại', 'Sign in again'),
                 textAlign: TextAlign.center,
                 style: WebTuiTypography.bodyMedium.copyWith(
                   color: WebTuiColors.textPrimary,
@@ -454,7 +525,12 @@ class _RequiresLoginState extends ConsumerWidget {
               ),
               const SizedBox(height: WebTuiSpacing.xs),
               Text(
-                message.isEmpty ? 'Phiên đăng nhập đã hết hạn.' : message,
+                message.isEmpty
+                    ? tr(
+                        'Phiên đăng nhập đã hết hạn.',
+                        'Your session has expired.',
+                      )
+                    : message,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
@@ -468,7 +544,7 @@ class _RequiresLoginState extends ConsumerWidget {
                 children: [
                   TextButton(
                     onPressed: () => _goBackOrHome(context),
-                    child: const Text('Quay lại'),
+                    child: Text(tr('Quay lại', 'Back')),
                   ),
                   const SizedBox(width: WebTuiSpacing.sm),
                   FilledButton.icon(
@@ -479,7 +555,7 @@ class _RequiresLoginState extends ConsumerWidget {
                       }
                     },
                     icon: const Icon(Icons.login_rounded, size: 18),
-                    label: const Text('Đăng nhập lại'),
+                    label: Text(tr('Đăng nhập lại', 'Sign in again')),
                   ),
                 ],
               ),
@@ -509,9 +585,12 @@ class _SessionListSectionState extends ConsumerState<SessionListSection> {
   Widget build(BuildContext context) {
     final sessions = widget.sessions;
     if (sessions.isEmpty) {
-      return const WebTuiEmptyState(
-        title: 'Chưa có phiên khác',
-        message: 'Các thiết bị đăng nhập sẽ xuất hiện ở đây.',
+      return WebTuiEmptyState(
+        title: tr('Chưa có phiên khác', 'No other sessions'),
+        message: tr(
+          'Các thiết bị đăng nhập sẽ xuất hiện ở đây.',
+          'Signed-in devices will appear here.',
+        ),
         icon: Icons.devices_other_outlined,
       );
     }
@@ -548,7 +627,12 @@ class _SessionListSectionState extends ConsumerState<SessionListSection> {
                       : Icons.expand_more_rounded,
                 ),
                 label: Text(
-                  _expanded ? 'Thu gọn' : 'Xem tất cả ${sessions.length} phiên',
+                  _expanded
+                      ? tr('Thu gọn', 'Show less')
+                      : tr(
+                          'Xem tất cả ${sessions.length} phiên',
+                          'Show all ${sessions.length} sessions',
+                        ),
                 ),
               ),
             ),
@@ -567,13 +651,22 @@ class _SessionListSectionState extends ConsumerState<SessionListSection> {
     final confirmed = await _confirmDestructiveAction(
       context,
       title: session.isCurrent
-          ? 'Đăng xuất thiết bị này?'
-          : 'Thu hồi phiên này?',
+          ? tr('Đăng xuất thiết bị này?', 'Sign out of this device?')
+          : tr('Thu hồi phiên này?', 'Revoke this session?'),
       message: session.isCurrent
-          ? 'Đây là thiết bị bạn đang dùng. Bạn sẽ bị đăng xuất ngay.'
-          : 'Thiết bị "${session.deviceName ?? 'không xác định'}" sẽ bị đăng '
-                'xuất và phải đăng nhập lại.',
-      confirmLabel: session.isCurrent ? 'Đăng xuất' : 'Thu hồi',
+          ? tr(
+              'Đây là thiết bị bạn đang dùng. Bạn sẽ bị đăng xuất ngay.',
+              'This is the device you are using. You will be signed out right away.',
+            )
+          : tr(
+              'Thiết bị "${session.deviceName ?? 'không xác định'}" sẽ bị đăng '
+                  'xuất và phải đăng nhập lại.',
+              'Device "${session.deviceName ?? 'unknown'}" will be signed out and '
+                  'will need to sign in again.',
+            ),
+      confirmLabel: session.isCurrent
+          ? tr('Đăng xuất', 'Sign out')
+          : tr('Thu hồi', 'Revoke'),
     );
     if (!confirmed || !context.mounted) {
       return;
@@ -593,7 +686,7 @@ class _SessionListSectionState extends ConsumerState<SessionListSection> {
         context.go('/login');
       case Success<SessionRevokeOutcome>():
         ref.invalidate(sessionListProvider);
-        _showSnackBar(context, 'Đã thu hồi phiên.');
+        _showSnackBar(context, tr('Đã thu hồi phiên.', 'Session revoked.'));
       case FailureResult<SessionRevokeOutcome>(failure: final failure):
         _showSnackBar(context, failure.message);
     }
@@ -665,11 +758,14 @@ class _SessionTile extends StatelessWidget {
     final method = authMethodLabel(session.authMethod);
     final details = <String>[
       if (session.revokedAt != null)
-        'Đã thu hồi'
+        tr('Đã thu hồi', 'Revoked')
       else if (!session.isActive)
-        'Đã hết hạn'
+        tr('Đã hết hạn', 'Expired')
       else
-        'Hoạt động lần cuối: ${formatLastActive(session.lastActivityAt, now)}',
+        tr(
+          'Hoạt động lần cuối: ${formatLastActive(session.lastActivityAt, now)}',
+          'Last active: ${formatLastActive(session.lastActivityAt, now)}',
+        ),
       if (session.ipAddress?.trim().isNotEmpty == true)
         'IP ${session.ipAddress}',
       if (method.isNotEmpty) method,
@@ -700,20 +796,21 @@ class _SessionTile extends StatelessWidget {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
-                      session.deviceName ?? 'Thiết bị không xác định',
+                      session.deviceName ??
+                          tr('Thiết bị không xác định', 'Unknown device'),
                       style: WebTuiTypography.bodyMedium.copyWith(
                         color: WebTuiColors.textPrimary,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     if (session.isCurrent)
-                      const _SessionBadge(
-                        label: 'Máy này',
+                      _SessionBadge(
+                        label: tr('Máy này', 'This device'),
                         color: WebTuiColors.primary,
                       ),
                     if (session.isPendingApproval)
-                      const _SessionBadge(
-                        label: 'Chờ duyệt',
+                      _SessionBadge(
+                        label: tr('Chờ duyệt', 'Pending'),
                         color: Color(0xFF8A5A00),
                       ),
                   ],
@@ -731,8 +828,8 @@ class _SessionTile extends StatelessWidget {
           if (onRevoke != null)
             IconButton(
               tooltip: session.isCurrent
-                  ? 'Đăng xuất thiết bị này'
-                  : 'Thu hồi phiên',
+                  ? tr('Đăng xuất thiết bị này', 'Sign out of this device')
+                  : tr('Thu hồi phiên', 'Revoke session'),
               onPressed: onRevoke,
               icon: const Icon(Icons.logout_rounded),
             ),
@@ -778,17 +875,25 @@ class _SessionActions extends ConsumerWidget {
     return WebTuiListSurface(
       children: [
         WebTuiSettingRow(
-          title: 'Đăng xuất tất cả thiết bị',
-          subtitle: 'Thu hồi mọi phiên và quay lại màn đăng nhập',
+          title: tr('Đăng xuất tất cả thiết bị', 'Sign out of all devices'),
+          subtitle: tr(
+            'Thu hồi mọi phiên và quay lại màn đăng nhập',
+            'Revoke all sessions and return to sign in',
+          ),
           icon: Icons.logout_rounded,
           trailing: TextButton.icon(
             onPressed: () async {
               final confirmed = await _confirmDestructiveAction(
                 context,
-                title: 'Đăng xuất tất cả thiết bị?',
-                message:
-                    'Tất cả phiên đăng nhập sẽ bị thu hồi. Bạn cần đăng nhập lại trên thiết bị này.',
-                confirmLabel: 'Đăng xuất',
+                title: tr(
+                  'Đăng xuất tất cả thiết bị?',
+                  'Sign out of all devices?',
+                ),
+                message: tr(
+                  'Tất cả phiên đăng nhập sẽ bị thu hồi. Bạn cần đăng nhập lại trên thiết bị này.',
+                  'All sessions will be revoked. You will need to sign in again on this device.',
+                ),
+                confirmLabel: tr('Đăng xuất', 'Sign out'),
               );
               if (!confirmed || !context.mounted) {
                 return;
@@ -811,7 +916,7 @@ class _SessionActions extends ConsumerWidget {
               }
             },
             icon: const Icon(Icons.logout_rounded),
-            label: const Text('Đăng xuất'),
+            label: Text(tr('Đăng xuất', 'Sign out')),
           ),
         ),
       ],
@@ -830,7 +935,7 @@ Future<bool> _confirmDestructiveAction(
     title: title,
     message: message,
     confirmLabel: confirmLabel,
-    cancelLabel: 'Hủy',
+    cancelLabel: tr('Hủy', 'Cancel'),
     destructive: true,
     icon: WebTuiIcons.shieldCheck,
   );

@@ -9,6 +9,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/avatar_upload.dart';
 import '../controllers/profile_controller.dart';
 
@@ -54,6 +55,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final state = ref.watch(profileControllerProvider);
     final controller = ref.read(profileControllerProvider.notifier);
     final profile = state.profile;
+    final strings = context.strings;
 
     return Scaffold(
       backgroundColor: WebTuiColors.background,
@@ -63,7 +65,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           bottom: BorderSide(color: WebTuiColors.border.withValues(alpha: 0.7)),
         ),
         leading: IconButton(
-          tooltip: 'Quay lại',
+          tooltip: strings.back,
           onPressed: () {
             final navigator = Navigator.of(context);
             if (navigator.canPop()) {
@@ -74,10 +76,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           },
           icon: const Icon(CupertinoIcons.back),
         ),
-        title: const Text('Hồ sơ cá nhân'),
+        title: Text(strings.profileTitle),
         actions: [
           IconButton(
-            tooltip: 'Lưu',
+            tooltip: strings.save,
             onPressed: state.isSaving
                 ? null
                 : () => controller.save(
@@ -96,11 +98,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         child: Builder(
           builder: (context) {
             if (state.isLoading && profile == null) {
-              return const WebTuiLoadingState(message: 'Đang tải hồ sơ...');
+              return WebTuiLoadingState(message: strings.profileLoading);
             }
             if (state.errorMessage != null && profile == null) {
               return WebTuiErrorState(
-                title: 'Không tải được hồ sơ',
+                title: strings.profileLoadFailed,
                 message: state.errorMessage!,
                 onRetry: controller.load,
               );
@@ -171,7 +173,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           ),
                         ),
                         IconButton.filledTonal(
-                          tooltip: 'Đổi ảnh đại diện',
+                          tooltip: strings.changeAvatar,
                           onPressed: state.isSaving
                               ? null
                               : () => _showAvatarSheet(context, controller),
@@ -183,28 +185,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 const SizedBox(height: WebTuiSpacing.lg),
                 _ProfileField(
-                  label: 'Tên hiển thị',
+                  label: strings.fieldDisplayName,
                   controller: _displayNameController,
                   icon: Icons.badge_outlined,
                 ),
                 _ProfileField(
-                  label: 'Chức danh',
+                  label: strings.fieldJobTitle,
                   controller: _titleController,
                   icon: Icons.work_outline_rounded,
                 ),
                 _ProfileField(
-                  label: 'Số điện thoại',
+                  label: strings.fieldPhone,
                   controller: _phoneController,
                   icon: Icons.phone_outlined,
                   keyboardType: TextInputType.phone,
                 ),
                 _ProfileField(
-                  label: 'Ngôn ngữ',
+                  label: strings.fieldLanguage,
                   controller: _localeController,
                   icon: Icons.language_rounded,
                 ),
                 _ProfileField(
-                  label: 'Múi giờ',
+                  label: strings.fieldTimezone,
                   controller: _timezoneController,
                   icon: Icons.schedule_rounded,
                 ),
@@ -212,6 +214,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   _MessageBanner(message: state.errorMessage!, error: true),
                 if (state.successMessage != null)
                   _MessageBanner(message: state.successMessage!),
+                const SizedBox(height: WebTuiSpacing.lg),
+                WebTuiSectionLabel(strings.accountSecurityGroup),
+                WebTuiListSurface(
+                  children: [
+                    WebTuiSettingRow(
+                      key: const Key('profile_account_security_row'),
+                      title: strings.accountSecurityTitle,
+                      subtitle: strings.accountSecuritySubtitle,
+                      icon: Icons.account_circle_outlined,
+                      onTap: () => context.push('/privacy'),
+                    ),
+                  ],
+                ),
               ],
             );
           },
@@ -222,15 +237,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 }
 
 void _showAvatarSheet(BuildContext context, ProfileController controller) {
+  final strings = context.strings;
   showWebTuiSheet<void>(
     context: context,
     builder: (context) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const WebTuiSheetHeader(title: 'Ảnh đại diện'),
+          WebTuiSheetHeader(title: strings.avatarSheetTitle),
           WebTuiSheetActionTile(
-            title: 'Chụp ảnh mới',
+            title: strings.takePhoto,
             icon: WebTuiIcons.image,
             onTap: () {
               Navigator.of(context).pop();
@@ -238,7 +254,7 @@ void _showAvatarSheet(BuildContext context, ProfileController controller) {
             },
           ),
           WebTuiSheetActionTile(
-            title: 'Chọn từ thư viện',
+            title: strings.pickFromLibrary,
             icon: WebTuiIcons.imageFile,
             onTap: () {
               Navigator.of(context).pop();

@@ -1,15 +1,17 @@
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/call_privacy.dart';
 import '../../domain/repositories/call_privacy_repository.dart';
 
-const _missingWorkspace = FailureResult<WhoCanCallMe>(
-  Failure(
-    kind: FailureKind.validation,
-    message: 'Chưa chọn workspace.',
-    code: 'WORKSPACE_REQUIRED',
-  ),
-);
+FailureResult<WhoCanCallMe> get _missingWorkspace =>
+    FailureResult<WhoCanCallMe>(
+      Failure(
+        kind: FailureKind.validation,
+        message: tr('Chưa chọn workspace.', 'No workspace selected.'),
+        code: 'WORKSPACE_REQUIRED',
+      ),
+    );
 
 final class LoadCallPrivacyUseCase {
   const LoadCallPrivacyUseCase(this._repository);

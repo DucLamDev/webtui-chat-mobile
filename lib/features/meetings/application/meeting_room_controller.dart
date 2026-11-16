@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../core/error/error_mapper.dart';
 import '../domain/meeting_models.dart';
@@ -173,7 +174,10 @@ class MeetingRoomController extends ChangeNotifier {
     try {
       await _client.flipCamera();
     } on Object {
-      _mediaNotice = 'Không đổi được camera.';
+      _mediaNotice = tr(
+        'Không đổi được camera.',
+        'Couldn\'t switch the camera.',
+      );
       _notify();
     } finally {
       _busy = false;
@@ -186,7 +190,7 @@ class MeetingRoomController extends ChangeNotifier {
       await _client.setSpeakerphone(next);
       _speakerOn = next;
     } on Object {
-      _mediaNotice = 'Không đổi được loa.';
+      _mediaNotice = tr('Không đổi được loa.', 'Couldn\'t switch the speaker.');
     }
     _notify();
   }
@@ -212,10 +216,15 @@ class MeetingRoomController extends ChangeNotifier {
       _micOn = enabled;
       _mediaNotice = null;
     } on MeetingMediaPermissionException {
-      _mediaNotice =
-          'Chưa có quyền dùng micro. Hãy cấp quyền trong Cài đặt của máy.';
+      _mediaNotice = tr(
+        'Chưa có quyền dùng micro. Hãy cấp quyền trong Cài đặt của máy.',
+        'Microphone access isn\'t allowed. Grant it in your device settings.',
+      );
     } on Object {
-      _mediaNotice = 'Không bật được micro.';
+      _mediaNotice = tr(
+        'Không bật được micro.',
+        'Couldn\'t turn on the microphone.',
+      );
     } finally {
       _busy = false;
     }
@@ -229,10 +238,15 @@ class MeetingRoomController extends ChangeNotifier {
       _cameraOn = enabled;
       _mediaNotice = null;
     } on MeetingMediaPermissionException {
-      _mediaNotice =
-          'Chưa có quyền dùng camera. Hãy cấp quyền trong Cài đặt của máy.';
+      _mediaNotice = tr(
+        'Chưa có quyền dùng camera. Hãy cấp quyền trong Cài đặt của máy.',
+        'Camera access isn\'t allowed. Grant it in your device settings.',
+      );
     } on Object {
-      _mediaNotice = 'Không bật được camera.';
+      _mediaNotice = tr(
+        'Không bật được camera.',
+        'Couldn\'t turn on the camera.',
+      );
     } finally {
       _busy = false;
     }
@@ -253,7 +267,10 @@ class MeetingRoomController extends ChangeNotifier {
           _cameraOn = false;
           _set(
             MeetingConnectionState.disconnected,
-            error: 'Mất kết nối với cuộc họp.',
+            error: tr(
+              'Mất kết nối với cuộc họp.',
+              'Lost connection to the meeting.',
+            ),
           );
         }
       case MeetingRoomSignal.participantsChanged:

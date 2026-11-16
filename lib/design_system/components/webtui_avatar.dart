@@ -62,8 +62,8 @@ class WebTuiAvatar extends StatelessWidget {
     this.icon,
     this.imageUrl,
     this.status,
-    this.color = WebTuiColors.primarySoft,
-    this.foregroundColor = WebTuiColors.primary,
+    this.color,
+    this.foregroundColor,
     this.size = WebTuiListDensity.avatarSize,
     this.allowPublicRequest = false,
     this.square = false,
@@ -79,8 +79,8 @@ class WebTuiAvatar extends StatelessWidget {
   final IconData? icon;
   final String? imageUrl;
   final WebTuiPresenceStatus? status;
-  final Color color;
-  final Color foregroundColor;
+  final Color? color;
+  final Color? foregroundColor;
   final double size;
 
   @override
@@ -93,7 +93,9 @@ class WebTuiAvatar extends StatelessWidget {
           Positioned.fill(
             child: _clip(
               DecoratedBox(
-                decoration: BoxDecoration(color: color),
+                decoration: BoxDecoration(
+                  color: color ?? WebTuiColors.primarySoft,
+                ),
                 child: WebTuiBoundedNetworkImage(
                   imageUrl: imageUrl,
                   width: size,
@@ -156,11 +158,15 @@ class WebTuiAvatar extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.clip,
               style: WebTuiTypography.bodyMedium.copyWith(
-                color: foregroundColor,
+                color: foregroundColor ?? WebTuiColors.primary,
                 fontWeight: FontWeight.w800,
               ),
             )
-          : Icon(icon, color: foregroundColor, size: size * 0.5),
+          : Icon(
+              icon,
+              color: foregroundColor ?? WebTuiColors.primary,
+              size: size * 0.5,
+            ),
     );
   }
 }

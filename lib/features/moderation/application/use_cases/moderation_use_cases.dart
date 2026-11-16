@@ -1,3 +1,5 @@
+import 'package:webtui_chat/l10n/app_strings.dart';
+
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
 import '../../domain/entities/moderation.dart';
@@ -20,10 +22,13 @@ final class CreateModerationReportUseCase {
     final normalizedDetails = details?.trim();
     if (normalizedWorkspaceId.isEmpty || normalizedTargetId.isEmpty) {
       return Future.value(
-        const FailureResult(
+        FailureResult(
           Failure(
             kind: FailureKind.validation,
-            message: 'Không xác định được nội dung cần báo cáo.',
+            message: tr(
+              'Không xác định được nội dung cần báo cáo.',
+              'Couldn\'t identify the content to report.',
+            ),
             code: 'MODERATION_TARGET_REQUIRED',
           ),
         ),
@@ -31,10 +36,13 @@ final class CreateModerationReportUseCase {
     }
     if ((normalizedDetails?.length ?? 0) > 2000) {
       return Future.value(
-        const FailureResult(
+        FailureResult(
           Failure(
             kind: FailureKind.validation,
-            message: 'Chi tiết báo cáo không được vượt quá 2.000 ký tự.',
+            message: tr(
+              'Chi tiết báo cáo không được vượt quá 2.000 ký tự.',
+              'Report details can\'t exceed 2,000 characters.',
+            ),
             code: 'MODERATION_DETAILS_TOO_LONG',
           ),
         ),
@@ -59,10 +67,10 @@ final class ListBlockedUsersUseCase {
     final normalizedWorkspaceId = workspaceId.trim();
     if (normalizedWorkspaceId.isEmpty) {
       return Future.value(
-        const FailureResult(
+        FailureResult(
           Failure(
             kind: FailureKind.validation,
-            message: 'Chưa chọn workspace.',
+            message: tr('Chưa chọn workspace.', 'No workspace selected.'),
             code: 'MODERATION_WORKSPACE_REQUIRED',
           ),
         ),
@@ -86,10 +94,13 @@ final class BlockUserUseCase {
     final normalizedUserId = userId.trim();
     if (normalizedWorkspaceId.isEmpty || normalizedUserId.isEmpty) {
       return Future.value(
-        const FailureResult(
+        FailureResult(
           Failure(
             kind: FailureKind.validation,
-            message: 'Không xác định được người dùng cần chặn.',
+            message: tr(
+              'Không xác định được người dùng cần chặn.',
+              'Couldn\'t identify the user to block.',
+            ),
             code: 'BLOCK_TARGET_REQUIRED',
           ),
         ),
@@ -116,10 +127,13 @@ final class UnblockUserUseCase {
     final normalizedUserId = userId.trim();
     if (normalizedWorkspaceId.isEmpty || normalizedUserId.isEmpty) {
       return Future.value(
-        const FailureResult(
+        FailureResult(
           Failure(
             kind: FailureKind.validation,
-            message: 'Không xác định được người dùng cần bỏ chặn.',
+            message: tr(
+              'Không xác định được người dùng cần bỏ chặn.',
+              'Couldn\'t identify the user to unblock.',
+            ),
             code: 'UNBLOCK_TARGET_REQUIRED',
           ),
         ),

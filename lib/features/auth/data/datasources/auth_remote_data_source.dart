@@ -1,6 +1,7 @@
 import '../../../../core/error/failure.dart';
 import '../../../../core/network/api_response.dart';
 import '../../../../core/network/api_transport.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/auth_session.dart';
 import '../../domain/entities/auth_tokens.dart';
 import '../../domain/entities/auth_user.dart';
@@ -125,7 +126,10 @@ final class AuthRemoteDataSource {
       throw FailureException(
         Failure(
           kind: FailureKind.forbidden,
-          message: 'Hãy nhập mã xác minh đã gửi tới email của bạn.',
+          message: tr(
+            'Hãy nhập mã xác minh đã gửi tới email của bạn.',
+            'Enter the verification code sent to your email.',
+          ),
           code: EmailVerificationErrorCode.required,
           details: Map<String, Object?>.unmodifiable(verification),
         ),

@@ -7,6 +7,7 @@ import '../../../../app/flavor/app_config.dart';
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../app/router/app_router.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
+import '../../../../l10n/app_strings.dart';
 import '../controllers/legal_acceptance_controller.dart';
 
 class LegalAcceptanceGate extends ConsumerStatefulWidget {
@@ -137,8 +138,14 @@ class _LegalAcceptanceGateState extends ConsumerState<LegalAcceptanceGate> {
                       Expanded(
                         child: Text(
                           checkFailed
-                              ? 'Chưa kiểm tra được Điều khoản, tạm thời chỉ xem được tin.'
-                              : 'Chế độ chỉ đọc: cần đồng ý chính sách trước khi tạo nội dung.',
+                              ? tr(
+                                  'Chưa kiểm tra được Điều khoản, tạm thời chỉ xem được tin.',
+                                  'Could not check the Terms yet; you can only read messages for now.',
+                                )
+                              : tr(
+                                  'Chế độ chỉ đọc: cần đồng ý chính sách trước khi tạo nội dung.',
+                                  'Read-only mode: accept the policy before creating content.',
+                                ),
                         ),
                       ),
                       if (checkFailed)
@@ -151,7 +158,7 @@ class _LegalAcceptanceGateState extends ConsumerState<LegalAcceptanceGate> {
                                 )
                                 .retry(showGate: false),
                           ),
-                          child: const Text('Thử lại'),
+                          child: Text(tr('Thử lại', 'Retry')),
                         )
                       else
                         TextButton(
@@ -159,7 +166,7 @@ class _LegalAcceptanceGateState extends ConsumerState<LegalAcceptanceGate> {
                           onPressed: () => ref
                               .read(legalAcceptanceControllerProvider.notifier)
                               .openGate(),
-                          child: const Text('Xem lại'),
+                          child: Text(tr('Xem lại', 'Review')),
                         ),
                     ],
                   ),
@@ -176,11 +183,11 @@ class _LegalAcceptanceGateState extends ConsumerState<LegalAcceptanceGate> {
                 loggingOut: _loggingOut,
                 onOpenTerms: () => _openLegalDocument(
                   ref.read(appConfigProvider).termsUrl,
-                  'Điều khoản sử dụng',
+                  tr('Điều khoản sử dụng', 'Terms of Use'),
                 ),
                 onOpenPrivacy: () => _openLegalDocument(
                   ref.read(appConfigProvider).privacyPolicyUrl,
-                  'Chính sách quyền riêng tư',
+                  tr('Chính sách quyền riêng tư', 'Privacy Policy'),
                 ),
                 onAcceptedChanged: ref
                     .read(legalAcceptanceControllerProvider.notifier)
@@ -213,9 +220,11 @@ class _LegalAcceptanceGateState extends ConsumerState<LegalAcceptanceGate> {
   Future<void> _openLegalDocument(String url, String label) async {
     final opened = await ref.read(externalUrlLauncherProvider).open(url);
     if (!mounted || opened) return;
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text('Không mở được $label.')));
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text(tr('Không mở được $label.', 'Could not open $label.')),
+      ),
+    );
   }
 
   Future<void> _logout() async {
@@ -288,13 +297,16 @@ class _LegalAcceptancePanel extends ConsumerWidget {
                 const Icon(Icons.policy_outlined, size: 44),
                 const SizedBox(height: WebTuiSpacing.md),
                 Text(
-                  'Điều khoản và quyền riêng tư',
+                  tr('Điều khoản và quyền riêng tư', 'Terms and privacy'),
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: WebTuiSpacing.sm),
-                const Text(
-                  'Tài khoản cũ cần xác nhận chính sách hiện hành trước khi gửi tin nhắn, tải tệp, tạo kênh hoặc bắt đầu/nhận cuộc gọi. Bạn vẫn có thể đọc, báo cáo, chặn, mở Cài đặt, xóa tài khoản hoặc đăng xuất.',
+                Text(
+                  tr(
+                    'Tài khoản cũ cần xác nhận chính sách hiện hành trước khi gửi tin nhắn, tải tệp, tạo kênh hoặc bắt đầu/nhận cuộc gọi. Bạn vẫn có thể đọc, báo cáo, chặn, mở Cài đặt, xóa tài khoản hoặc đăng xuất.',
+                    'Existing accounts need to accept the current policy before sending messages, uploading files, creating channels or starting/receiving calls. You can still read, report, block, open Settings, delete your account or sign out.',
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: WebTuiSpacing.lg),
@@ -307,14 +319,22 @@ class _LegalAcceptancePanel extends ConsumerWidget {
                       key: const Key('legal_gate_terms_link'),
                       onPressed: onOpenTerms,
                       icon: const Icon(Icons.open_in_new, size: 18),
-                      label: Text('Điều khoản · ${config.termsVersion}'),
+                      label: Text(
+                        tr(
+                          'Điều khoản · ${config.termsVersion}',
+                          'Terms · ${config.termsVersion}',
+                        ),
+                      ),
                     ),
                     OutlinedButton.icon(
                       key: const Key('legal_gate_privacy_link'),
                       onPressed: onOpenPrivacy,
                       icon: const Icon(Icons.open_in_new, size: 18),
                       label: Text(
-                        'Quyền riêng tư · ${config.privacyPolicyVersion}',
+                        tr(
+                          'Quyền riêng tư · ${config.privacyPolicyVersion}',
+                          'Privacy · ${config.privacyPolicyVersion}',
+                        ),
                       ),
                     ),
                   ],
@@ -329,8 +349,14 @@ class _LegalAcceptancePanel extends ConsumerWidget {
                         const SizedBox(height: WebTuiSpacing.sm),
                         Text(
                           isSubmitting
-                              ? 'Đang ghi nhận lựa chọn...'
-                              : 'Đang kiểm tra trạng thái chính sách...',
+                              ? tr(
+                                  'Đang ghi nhận lựa chọn...',
+                                  'Recording your choice...',
+                                )
+                              : tr(
+                                  'Đang kiểm tra trạng thái chính sách...',
+                                  'Checking the policy status...',
+                                ),
                         ),
                       ],
                     ),
@@ -343,8 +369,11 @@ class _LegalAcceptancePanel extends ConsumerWidget {
                     onChanged: (value) => onAcceptedChanged(value ?? false),
                     controlAffinity: ListTileControlAffinity.leading,
                     contentPadding: EdgeInsets.zero,
-                    title: const Text(
-                      'Tôi đã đọc và đồng ý Điều khoản sử dụng cùng Chính sách quyền riêng tư.',
+                    title: Text(
+                      tr(
+                        'Tôi đã đọc và đồng ý Điều khoản sử dụng cùng Chính sách quyền riêng tư.',
+                        'I have read and agree to the Terms of Use and Privacy Policy.',
+                      ),
                     ),
                   ),
                   const SizedBox(height: WebTuiSpacing.sm),
@@ -352,7 +381,9 @@ class _LegalAcceptancePanel extends ConsumerWidget {
                     key: const Key('legal_gate_accept'),
                     onPressed: state.acceptedBoth ? onAccept : null,
                     icon: const Icon(Icons.check_circle_outline),
-                    label: const Text('Đồng ý và tiếp tục'),
+                    label: Text(
+                      tr('Đồng ý và tiếp tục', 'Accept and continue'),
+                    ),
                   ),
                 ] else ...[
                   const SizedBox(height: WebTuiSpacing.lg),
@@ -360,7 +391,7 @@ class _LegalAcceptancePanel extends ConsumerWidget {
                     key: const Key('legal_gate_retry'),
                     onPressed: onRetry,
                     icon: const Icon(Icons.refresh),
-                    label: const Text('Thử kiểm tra lại'),
+                    label: Text(tr('Thử kiểm tra lại', 'Check again')),
                   ),
                 ],
                 if (state.errorMessage case final error?) ...[
@@ -386,13 +417,18 @@ class _LegalAcceptancePanel extends ConsumerWidget {
                       key: const Key('legal_gate_settings'),
                       onPressed: onSettings,
                       icon: const Icon(Icons.settings_outlined),
-                      label: const Text('Cài đặt'),
+                      label: Text(tr('Cài đặt', 'Settings')),
                     ),
                     TextButton.icon(
                       key: const Key('legal_gate_account'),
                       onPressed: onPrivacyAndAccount,
                       icon: const Icon(Icons.manage_accounts_outlined),
-                      label: const Text('Tài khoản & xóa dữ liệu'),
+                      label: Text(
+                        tr(
+                          'Tài khoản & xóa dữ liệu',
+                          'Account and data deletion',
+                        ),
+                      ),
                     ),
                     TextButton.icon(
                       key: const Key('legal_gate_logout'),
@@ -403,7 +439,7 @@ class _LegalAcceptancePanel extends ConsumerWidget {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.logout),
-                      label: const Text('Đăng xuất'),
+                      label: Text(tr('Đăng xuất', 'Sign out')),
                     ),
                   ],
                 ),
@@ -412,7 +448,12 @@ class _LegalAcceptancePanel extends ConsumerWidget {
                   TextButton(
                     key: const Key('legal_gate_read_only'),
                     onPressed: onReadOnly,
-                    child: const Text('Tiếp tục ở chế độ chỉ đọc'),
+                    child: Text(
+                      tr(
+                        'Tiếp tục ở chế độ chỉ đọc',
+                        'Continue in read-only mode',
+                      ),
+                    ),
                   ),
                 ],
               ],

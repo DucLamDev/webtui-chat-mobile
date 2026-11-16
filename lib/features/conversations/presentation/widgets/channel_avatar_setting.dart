@@ -5,6 +5,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/channel_avatar_policy.dart';
 import '../../domain/entities/conversation_summary.dart';
 
@@ -66,12 +67,18 @@ class ChannelAvatarSetting extends StatelessWidget {
             children: [
               WebTuiSettingRow(
                 key: const ValueKey('channel-change-avatar'),
-                title: 'Đổi ảnh nhóm',
+                title: tr('Đổi ảnh nhóm', 'Change group photo'),
                 subtitle: updating
-                    ? 'Đang tải ảnh lên...'
+                    ? tr('Đang tải ảnh lên...', 'Uploading photo...')
                     : channel?.channelVisibility == ChannelVisibility.private
-                    ? 'Thành viên nào của nhóm cũng đổi được'
-                    : 'Chỉ người quản lý kênh đổi được',
+                    ? tr(
+                        'Thành viên nào của nhóm cũng đổi được',
+                        'Any group member can change it',
+                      )
+                    : tr(
+                        'Chỉ người quản lý kênh đổi được',
+                        'Only channel managers can change it',
+                      ),
                 icon: Icons.photo_camera_outlined,
                 trailing: updating
                     ? const SizedBox.square(

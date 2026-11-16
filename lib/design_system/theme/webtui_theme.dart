@@ -8,10 +8,27 @@ import '../tokens/webtui_typography.dart';
 final class WebTuiTheme {
   const WebTuiTheme._();
 
-  static ThemeData light() {
+  static ThemeData light() => _withPalette(Brightness.light);
+
+  static ThemeData dark() => _withPalette(Brightness.dark);
+
+  /// Dựng theme từ bảng màu của [brightness], rồi trả bảng màu đang áp dụng
+  /// về như cũ (chỉ [WebTuiColors.apply] mới đổi bảng màu của app).
+  static ThemeData _withPalette(Brightness brightness) {
+    final previous = WebTuiColors.brightness;
+    WebTuiColors.apply(brightness);
+    try {
+      return _build(brightness);
+    } finally {
+      WebTuiColors.apply(previous);
+    }
+  }
+
+  static ThemeData _build(Brightness brightness) {
+    final isDark = brightness == Brightness.dark;
     final colorScheme = ColorScheme.fromSeed(
       seedColor: WebTuiColors.primary,
-      brightness: Brightness.light,
+      brightness: brightness,
       primary: WebTuiColors.primary,
       surface: WebTuiColors.surface,
       // Màu "tonal" (nút FilledButton.tonal, chip...) theo xanh nhạt của app
@@ -19,6 +36,8 @@ final class WebTuiTheme {
       secondaryContainer: WebTuiColors.primarySoft,
       onSecondaryContainer: WebTuiColors.primary,
       outlineVariant: WebTuiColors.border,
+      onSurface: isDark ? WebTuiColors.textPrimary : null,
+      onSurfaceVariant: isDark ? WebTuiColors.textSecondary : null,
     ).copyWith(surfaceTint: Colors.transparent);
     final dialogShape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(WebTuiRadii.dialog),
@@ -31,13 +50,13 @@ final class WebTuiTheme {
       materialTapTargetSize: MaterialTapTargetSize.padded,
       visualDensity: VisualDensity.standard,
       textTheme: WebTuiTypography.textTheme,
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         backgroundColor: WebTuiColors.surface,
         foregroundColor: WebTuiColors.textPrimary,
         elevation: 0,
         centerTitle: false,
       ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: WebTuiColors.primary,
         foregroundColor: WebTuiColors.textOnPrimary,
         elevation: 0,
@@ -75,14 +94,16 @@ final class WebTuiTheme {
           WebTuiSpacing.xl,
         ),
       ),
-      bottomSheetTheme: const BottomSheetThemeData(
+      bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: WebTuiColors.surface,
         modalBackgroundColor: WebTuiColors.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         modalElevation: 0,
         showDragHandle: true,
-        dragHandleColor: Color(0xFFCBD5E1),
+        dragHandleColor: isDark
+            ? const Color(0xFF475569)
+            : const Color(0xFFCBD5E1),
         dragHandleSize: Size(40, 4),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
@@ -120,7 +141,7 @@ final class WebTuiTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: WebTuiColors.textPrimary,
           minimumSize: const Size(48, 46),
-          side: const BorderSide(color: WebTuiColors.border),
+          side: BorderSide(color: WebTuiColors.border),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(WebTuiRadii.md),
           ),
@@ -129,7 +150,7 @@ final class WebTuiTheme {
           ),
         ),
       ),
-      dividerTheme: const DividerThemeData(
+      dividerTheme: DividerThemeData(
         color: WebTuiColors.border,
         thickness: 1,
         space: 1,
@@ -149,15 +170,15 @@ final class WebTuiTheme {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(WebTuiRadii.md),
-          borderSide: const BorderSide(color: WebTuiColors.border),
+          borderSide: BorderSide(color: WebTuiColors.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(WebTuiRadii.md),
-          borderSide: const BorderSide(color: WebTuiColors.border),
+          borderSide: BorderSide(color: WebTuiColors.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(WebTuiRadii.md),
-          borderSide: const BorderSide(color: WebTuiColors.primary, width: 1.4),
+          borderSide: BorderSide(color: WebTuiColors.primary, width: 1.4),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(

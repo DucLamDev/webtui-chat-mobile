@@ -116,6 +116,7 @@ final class ConversationRealtimeReducer {
       ConversationRealtimeEventType.contactRequestUpdated ||
       ConversationRealtimeEventType.contactRequestCancelled ||
       ConversationRealtimeEventType.noticeChannelCreated ||
+      ConversationRealtimeEventType.channelMemberAdded ||
       ConversationRealtimeEventType.channelUpdated ||
       ConversationRealtimeEventType.groupCallStarted ||
       ConversationRealtimeEventType.groupCallRingStopped ||

@@ -6,6 +6,7 @@ import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../../l10n/app_strings.dart';
 import '../../../application/use_cases/message_card_form_validator.dart';
 import '../../../domain/entities/message_card.dart';
 import 'card_common.dart';
@@ -38,7 +39,9 @@ class _MessageCardChartViewState extends State<MessageCardChartView> {
   Widget build(BuildContext context) {
     final chart = widget.chart;
     if (!chart.hasData || chart.categoryCount == 0) {
-      return const MessageCardEmptyNote('Chưa có dữ liệu biểu đồ.');
+      return MessageCardEmptyNote(
+        tr('Chưa có dữ liệu biểu đồ.', 'No chart data yet.'),
+      );
     }
     final isPie = chart.kind == MessageCardChartKind.pie;
     final textStyle = WebTuiTypography.labelSmall.copyWith(
@@ -57,7 +60,7 @@ class _MessageCardChartViewState extends State<MessageCardChartView> {
             Padding(
               padding: const EdgeInsets.only(bottom: WebTuiSpacing.xs),
               child: Text(
-                'Đơn vị: ${chart.unit}',
+                tr('Đơn vị: ${chart.unit}', 'Unit: ${chart.unit}'),
                 style: WebTuiTypography.labelSmall.copyWith(
                   color: WebTuiColors.textSecondary,
                 ),
@@ -126,7 +129,11 @@ class _MessageCardChartViewState extends State<MessageCardChartView> {
                     : Icons.table_rows_outlined,
                 size: 18,
               ),
-              label: Text(_showTable ? 'Ẩn số liệu' : 'Xem số liệu'),
+              label: Text(
+                _showTable
+                    ? tr('Ẩn số liệu', 'Hide data')
+                    : tr('Xem số liệu', 'Show data'),
+              ),
             ),
           ),
           if (_showTable) MessageCardTableView(table: chartAsTable(chart)),
@@ -148,21 +155,26 @@ class _MessageCardChartViewState extends State<MessageCardChartView> {
     final parts = <String>[
       for (final series in chart.series)
         if (index < series.values.length && series.values[index] != null)
-          '${series.name.isEmpty ? 'Giá trị' : series.name}: '
+          '${series.name.isEmpty ? tr('Giá trị', 'Value') : series.name}: '
               '${formatMessageCardNumber(series.values[index]!)}$unit',
     ];
-    final values = parts.isEmpty ? 'Không có số liệu' : parts.join(' · ');
+    final values = parts.isEmpty
+        ? tr('Không có số liệu', 'No data')
+        : parts.join(' · ');
     return '${chart.labelAt(index)} — $values';
   }
 }
 
 String _semanticLabel(MessageCardChart chart) {
   final kind = switch (chart.kind) {
-    MessageCardChartKind.bar => 'Biểu đồ cột',
-    MessageCardChartKind.line => 'Biểu đồ đường',
-    MessageCardChartKind.pie => 'Biểu đồ tròn',
+    MessageCardChartKind.bar => tr('Biểu đồ cột', 'Bar chart'),
+    MessageCardChartKind.line => tr('Biểu đồ đường', 'Line chart'),
+    MessageCardChartKind.pie => tr('Biểu đồ tròn', 'Pie chart'),
   };
-  return '$kind, ${chart.categoryCount} mục, ${chart.series.length} dãy số liệu';
+  return tr(
+    '$kind, ${chart.categoryCount} mục, ${chart.series.length} dãy số liệu',
+    '$kind, ${chart.categoryCount} items, ${chart.series.length} data series',
+  );
 }
 
 double _cartesianMinWidth(MessageCardChart chart, double available) {
@@ -238,7 +250,7 @@ List<MessageCardPieSlice> pieSlicesOf(MessageCardChart chart) {
       ),
     if (rest.isNotEmpty)
       MessageCardPieSlice(
-        label: 'Khác',
+        label: tr('Khác', 'Other'),
         value: rest.fold<double>(0, (sum, entry) => sum + entry.$2),
         fraction: rest.fold<double>(0, (sum, entry) => sum + entry.$2) / total,
         colorIndex: maxSlices - 1,
@@ -253,9 +265,9 @@ MessageCardTable chartAsTable(MessageCardChart chart) {
   final unit = chart.unit == null ? '' : ' (${chart.unit})';
   return MessageCardTable(
     columns: [
-      'Mục',
+      tr('Mục', 'Item'),
       for (final series in chart.series)
-        '${series.name.isEmpty ? 'Giá trị' : series.name}$unit',
+        '${series.name.isEmpty ? tr('Giá trị', 'Value') : series.name}$unit',
     ],
     rows: [
       for (var index = 0; index < count; index++)
@@ -292,7 +304,7 @@ class _ChartLegend extends StatelessWidget {
               (
                 messageCardSeriesColors[index % messageCardSeriesColors.length],
                 chart.series[index].name.isEmpty
-                    ? 'Dãy ${index + 1}'
+                    ? tr('Dãy ${index + 1}', 'Series ${index + 1}')
                     : chart.series[index].name,
               ),
           ];

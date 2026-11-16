@@ -7,6 +7,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../application/use_cases/collaboration_task_use_cases.dart';
 import '../../domain/entities/collaboration_room.dart';
 import '../../domain/repositories/collaboration_task_repository.dart';
@@ -105,8 +106,10 @@ class _TaskEditorSheetState extends ConsumerState<TaskEditorSheet> {
         children: [
           Text(
             _creating
-                ? 'Giao việc mới'
-                : (canEdit ? 'Sửa công việc' : 'Chi tiết công việc'),
+                ? tr('Giao việc mới', 'New task')
+                : (canEdit
+                      ? tr('Sửa công việc', 'Edit task')
+                      : tr('Chi tiết công việc', 'Task details')),
             style: WebTuiTypography.titleMedium.copyWith(
               color: WebTuiColors.textPrimary,
               fontWeight: FontWeight.w800,
@@ -116,8 +119,14 @@ class _TaskEditorSheetState extends ConsumerState<TaskEditorSheet> {
             const SizedBox(height: WebTuiSpacing.xs),
             Text(
               canChangeStatus
-                  ? 'Bạn được giao việc này: chỉ đổi được trạng thái.'
-                  : 'Chỉ người tạo việc, người tạo phòng hoặc quản trị mới sửa được việc này.',
+                  ? tr(
+                      'Bạn được giao việc này: chỉ đổi được trạng thái.',
+                      'This task is assigned to you: you can only change its status.',
+                    )
+                  : tr(
+                      'Chỉ người tạo việc, người tạo phòng hoặc quản trị mới sửa được việc này.',
+                      'Only the task creator, the room creator or an admin can edit this task.',
+                    ),
               style: WebTuiTypography.bodySmall.copyWith(
                 color: WebTuiColors.textSecondary,
               ),
@@ -130,9 +139,12 @@ class _TaskEditorSheetState extends ConsumerState<TaskEditorSheet> {
             enabled: canEdit,
             maxLength: maxTaskTitleLength,
             textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: 'Tên công việc',
-              hintText: 'Ví dụ: Gửi báo giá cho khách',
+            decoration: InputDecoration(
+              labelText: tr('Tên công việc', 'Task name'),
+              hintText: tr(
+                'Ví dụ: Gửi báo giá cho khách',
+                'For example: Send the quote to the client',
+              ),
               border: OutlineInputBorder(),
             ),
           ),
@@ -144,19 +156,19 @@ class _TaskEditorSheetState extends ConsumerState<TaskEditorSheet> {
             minLines: 2,
             maxLines: 6,
             maxLength: maxTaskDescriptionLength,
-            decoration: const InputDecoration(
-              labelText: 'Mô tả (không bắt buộc)',
+            decoration: InputDecoration(
+              labelText: tr('Mô tả (không bắt buộc)', 'Description (optional)'),
               alignLabelWithHint: true,
               border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: WebTuiSpacing.sm),
-          _FieldLabel(text: 'Người làm'),
+          _FieldLabel(text: tr('Người làm', 'Assignee')),
           Material(
             color: WebTuiColors.surface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(WebTuiRadii.md),
-              side: const BorderSide(color: WebTuiColors.border),
+              side: BorderSide(color: WebTuiColors.border),
             ),
             child: ListTile(
               key: const Key('task_editor_assignee'),
@@ -169,22 +181,29 @@ class _TaskEditorSheetState extends ConsumerState<TaskEditorSheet> {
                       imageUrl: assignee.avatarUrl,
                       size: 32,
                     ),
-              title: Text(assignee?.name ?? 'Chưa giao cho ai'),
+              title: Text(
+                assignee?.name ?? tr('Chưa giao cho ai', 'Unassigned'),
+              ),
               subtitle: assignee == null && canEdit
-                  ? const Text('Chạm để chọn người trong phòng')
+                  ? Text(
+                      tr(
+                        'Chạm để chọn người trong phòng',
+                        'Tap to pick someone in the room',
+                      ),
+                    )
                   : null,
               trailing: canEdit ? const Icon(WebTuiIcons.forward) : null,
               onTap: () => _pickAssignee(state.members),
             ),
           ),
           const SizedBox(height: WebTuiSpacing.md),
-          _FieldLabel(text: 'Hạn chót'),
+          _FieldLabel(text: tr('Hạn chót', 'Due date')),
           Wrap(
             spacing: WebTuiSpacing.xs,
             runSpacing: WebTuiSpacing.xs,
             children: [
               ChoiceChip(
-                label: const Text('Không có hạn'),
+                label: Text(tr('Không có hạn', 'No due date')),
                 selected: _dueAt == null,
                 onSelected: canEdit
                     ? (_) => setState(() => _dueAt = null)
@@ -203,7 +222,7 @@ class _TaskEditorSheetState extends ConsumerState<TaskEditorSheet> {
                 avatar: const Icon(WebTuiIcons.meetings, size: 18),
                 label: Text(
                   _dueAt == null
-                      ? 'Chọn ngày giờ'
+                      ? tr('Chọn ngày giờ', 'Pick date and time')
                       : formatTaskDue(_dueAt!, now),
                 ),
                 onPressed: canEdit ? _pickDue : null,
@@ -212,7 +231,7 @@ class _TaskEditorSheetState extends ConsumerState<TaskEditorSheet> {
           ),
           if (!_creating) ...[
             const SizedBox(height: WebTuiSpacing.md),
-            _FieldLabel(text: 'Trạng thái'),
+            _FieldLabel(text: tr('Trạng thái', 'Status')),
             Wrap(
               spacing: WebTuiSpacing.xs,
               runSpacing: WebTuiSpacing.xs,
@@ -250,12 +269,12 @@ class _TaskEditorSheetState extends ConsumerState<TaskEditorSheet> {
                     foregroundColor: WebTuiColors.danger,
                   ),
                   icon: const Icon(WebTuiIcons.delete),
-                  label: const Text('Xoá'),
+                  label: Text(tr('Xoá', 'Delete')),
                 ),
               const Spacer(),
               TextButton(
                 onPressed: _saving ? null : () => Navigator.of(context).pop(),
-                child: const Text('Đóng'),
+                child: Text(tr('Đóng', 'Close')),
               ),
               const SizedBox(width: WebTuiSpacing.xs),
               if (canEdit || canChangeStatus)
@@ -267,7 +286,11 @@ class _TaskEditorSheetState extends ConsumerState<TaskEditorSheet> {
                           dimension: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Text(_creating ? 'Giao việc' : 'Lưu'),
+                      : Text(
+                          _creating
+                              ? tr('Giao việc', 'Assign')
+                              : tr('Lưu', 'Save'),
+                        ),
                 ),
             ],
           ),
@@ -294,17 +317,17 @@ class _TaskEditorSheetState extends ConsumerState<TaskEditorSheet> {
       initialDate: initial,
       firstDate: DateTime(now.year - 1),
       lastDate: DateTime(now.year + 5),
-      helpText: 'Chọn ngày hạn',
-      cancelText: 'Huỷ',
-      confirmText: 'Chọn',
+      helpText: tr('Chọn ngày hạn', 'Pick due date'),
+      cancelText: tr('Huỷ', 'Cancel'),
+      confirmText: tr('Chọn', 'Select'),
     );
     if (date == null || !mounted) return;
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(initial),
-      helpText: 'Chọn giờ hạn',
-      cancelText: 'Huỷ',
-      confirmText: 'Chọn',
+      helpText: tr('Chọn giờ hạn', 'Pick due time'),
+      cancelText: tr('Huỷ', 'Cancel'),
+      confirmText: tr('Chọn', 'Select'),
     );
     if (time == null || !mounted) return;
     setState(() {
@@ -349,7 +372,11 @@ class _TaskEditorSheetState extends ConsumerState<TaskEditorSheet> {
       });
       return;
     }
-    Navigator.of(context).pop(task == null ? 'Đã giao việc.' : 'Đã lưu việc.');
+    Navigator.of(context).pop(
+      task == null
+          ? tr('Đã giao việc.', 'Task assigned.')
+          : tr('Đã lưu việc.', 'Task saved.'),
+    );
   }
 
   /// Chỉ gửi phần thật sự đổi để người được giao (chỉ đổi trạng thái) không bị chặn.
@@ -377,18 +404,21 @@ class _TaskEditorSheetState extends ConsumerState<TaskEditorSheet> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => WebTuiDialog(
-        title: 'Xoá công việc?',
-        message: '"${task.title}" sẽ bị xoá và không khôi phục được.',
+        title: tr('Xoá công việc?', 'Delete task?'),
+        message: tr(
+          '"${task.title}" sẽ bị xoá và không khôi phục được.',
+          '"${task.title}" will be deleted and can\'t be restored.',
+        ),
         icon: WebTuiIcons.delete,
         tone: WebTuiDialogTone.danger,
         actions: [
           WebTuiDialogAction(
-            label: 'Huỷ',
+            label: tr('Huỷ', 'Cancel'),
             onPressed: () => Navigator.of(dialogContext).pop(false),
           ),
           WebTuiDialogAction(
             key: const Key('task_editor_delete_confirm'),
-            label: 'Xoá',
+            label: tr('Xoá', 'Delete'),
             primary: true,
             destructive: true,
             onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -409,7 +439,7 @@ class _TaskEditorSheetState extends ConsumerState<TaskEditorSheet> {
       });
       return;
     }
-    Navigator.of(context).pop('Đã xoá việc.');
+    Navigator.of(context).pop(tr('Đã xoá việc.', 'Task deleted.'));
   }
 }
 
@@ -474,9 +504,12 @@ class _AssigneePickerState extends State<_AssigneePicker> {
             child: TextField(
               key: const Key('task_assignee_search'),
               autofocus: false,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 prefixIcon: Icon(WebTuiIcons.search),
-                hintText: 'Tìm người trong phòng',
+                hintText: tr(
+                  'Tìm người trong phòng',
+                  'Search people in the room',
+                ),
                 border: OutlineInputBorder(),
               ),
               onChanged: (value) => setState(() => _query = value),
@@ -487,14 +520,19 @@ class _AssigneePickerState extends State<_AssigneePicker> {
               children: [
                 WebTuiSheetActionTile(
                   icon: WebTuiIcons.close,
-                  title: 'Chưa giao cho ai',
+                  title: tr('Chưa giao cho ai', 'Unassigned'),
                   selected: widget.selectedUserId == null,
                   onTap: () => Navigator.of(context).pop(''),
                 ),
                 if (members.isEmpty)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.all(WebTuiSpacing.lg),
-                    child: Text('Không tìm thấy thành viên phù hợp.'),
+                    child: Text(
+                      tr(
+                        'Không tìm thấy thành viên phù hợp.',
+                        'No matching members found.',
+                      ),
+                    ),
                   ),
                 for (final member in members)
                   ListTile(

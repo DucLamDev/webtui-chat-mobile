@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/chat_message.dart';
 import 'chat_room_controller.dart';
 
@@ -34,7 +35,7 @@ final class MessageSenderDirectory {
     return MessageSenderDirectory._(byUserId);
   }
 
-  static const unknownSenderName = 'Người dùng';
+  static String get unknownSenderName => tr('Người dùng', 'User');
 
   final Map<String, MessageSenderProfile> _byUserId;
 

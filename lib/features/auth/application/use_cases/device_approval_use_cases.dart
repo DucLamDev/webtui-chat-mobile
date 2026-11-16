@@ -1,5 +1,6 @@
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/device_approval.dart';
 import '../../domain/repositories/device_approval_repository.dart';
 
@@ -75,10 +76,13 @@ final class DecideDeviceApprovalUseCase {
     final id = sessionId.trim();
     if (id.isEmpty) {
       return Future.value(
-        const FailureResult(
+        FailureResult(
           Failure(
             kind: FailureKind.validation,
-            message: 'Không xác định được phiên cần duyệt.',
+            message: tr(
+              'Không xác định được phiên cần duyệt.',
+              'Could not identify the session to approve.',
+            ),
             code: 'DEVICE_APPROVAL_SESSION_REQUIRED',
           ),
         ),
@@ -90,16 +94,28 @@ final class DecideDeviceApprovalUseCase {
 
 String deviceApprovalFailureMessage(Failure failure) {
   if (failure.hasCode(DeviceApprovalErrorCode.forbidden)) {
-    return 'Bạn không có quyền duyệt thiết bị này.';
+    return tr(
+      'Bạn không có quyền duyệt thiết bị này.',
+      'You do not have permission to approve this device.',
+    );
   }
   if (failure.hasCode(DeviceApprovalErrorCode.alreadyDecided)) {
-    return 'Yêu cầu này đã được xử lý.';
+    return tr(
+      'Yêu cầu này đã được xử lý.',
+      'This request has already been handled.',
+    );
   }
   if (failure.hasCode(DeviceApprovalErrorCode.notFound)) {
-    return 'Yêu cầu duyệt không còn tồn tại.';
+    return tr(
+      'Yêu cầu duyệt không còn tồn tại.',
+      'This approval request no longer exists.',
+    );
   }
   if (failure.hasCode(DeviceApprovalErrorCode.expired)) {
-    return 'Yêu cầu duyệt đã hết hạn.';
+    return tr(
+      'Yêu cầu duyệt đã hết hạn.',
+      'This approval request has expired.',
+    );
   }
   return failure.message;
 }
@@ -107,9 +123,9 @@ String deviceApprovalFailureMessage(Failure failure) {
 /// Tên vai trò người duyệt cho giao diện.
 String deviceApprovalRoleLabel(String role) {
   return switch (role.trim().toLowerCase()) {
-    'self' => 'Chính bạn',
-    'admin' => 'Quản trị viên',
-    'delegate' => 'Người được chỉ định',
+    'self' => tr('Chính bạn', 'You'),
+    'admin' => tr('Quản trị viên', 'Administrator'),
+    'delegate' => tr('Người được chỉ định', 'Designated approver'),
     _ => role,
   };
 }

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../application/use_cases/profile_use_cases.dart';
 import '../../domain/entities/avatar_upload.dart';
 import '../../domain/entities/user_profile.dart';
@@ -95,7 +96,10 @@ final class ProfileController extends StateNotifier<ProfileState> {
             : nextTitle,
       ),
     );
-    _applyProfileResult(result, success: 'Đã cập nhật hồ sơ.');
+    _applyProfileResult(
+      result,
+      success: tr('Đã cập nhật hồ sơ.', 'Profile updated.'),
+    );
   }
 
   Future<void> changeAvatar(AvatarPickerSource source) async {
@@ -106,7 +110,9 @@ final class ProfileController extends StateNotifier<ProfileState> {
         state = state.copyWith(
           profile: profile ?? state.profile,
           isSaving: false,
-          successMessage: profile == null ? null : 'Đã cập nhật ảnh đại diện.',
+          successMessage: profile == null
+              ? null
+              : tr('Đã cập nhật ảnh đại diện.', 'Avatar updated.'),
         );
       case FailureResult<UserProfile?>(failure: final failure):
         state = state.copyWith(isSaving: false, errorMessage: failure.message);

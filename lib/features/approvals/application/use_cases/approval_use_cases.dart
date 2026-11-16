@@ -1,3 +1,5 @@
+import 'package:webtui_chat/l10n/app_strings.dart';
+
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
 import '../../domain/entities/approval.dart';
@@ -13,17 +15,29 @@ const approvalAlreadyDecidedCode = 'APPROVAL_ALREADY_DECIDED';
 String approvalDecisionFailureMessage(Failure failure) {
   if (failure.hasCode(approvalForbiddenCode) ||
       failure.kind == FailureKind.forbidden) {
-    return 'Bạn không có quyền duyệt yêu cầu này.';
+    return tr(
+      'Bạn không có quyền duyệt yêu cầu này.',
+      'You don\'t have permission to approve this request.',
+    );
   }
   if (failure.hasCode(approvalAlreadyDecidedCode)) {
-    return 'Bạn đã quyết định yêu cầu này rồi.';
+    return tr(
+      'Bạn đã quyết định yêu cầu này rồi.',
+      'You\'ve already decided on this request.',
+    );
   }
   if (failure.hasCode(approvalNotPendingCode) ||
       failure.kind == FailureKind.conflict) {
-    return 'Yêu cầu không còn ở trạng thái chờ duyệt.';
+    return tr(
+      'Yêu cầu không còn ở trạng thái chờ duyệt.',
+      'The request is no longer pending approval.',
+    );
   }
   return failure.message.trim().isEmpty
-      ? 'Chưa gửi được quyết định, hãy thử lại.'
+      ? tr(
+          'Chưa gửi được quyết định, hãy thử lại.',
+          'Couldn\'t send your decision. Try again.',
+        )
       : failure.message;
 }
 

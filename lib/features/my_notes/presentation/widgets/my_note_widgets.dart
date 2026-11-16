@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
@@ -21,14 +22,18 @@ String formatMyNoteRelativeTime(DateTime value, {DateTime? now}) {
   final current = (now ?? DateTime.now()).toLocal();
   final local = value.toLocal();
   final diff = current.difference(local);
-  if (diff.isNegative || diff.inMinutes < 1) return 'Vừa xong';
-  if (diff.inMinutes < 60) return '${diff.inMinutes} phút trước';
+  if (diff.isNegative || diff.inMinutes < 1) return tr('Vừa xong', 'Just now');
+  if (diff.inMinutes < 60) {
+    return tr('${diff.inMinutes} phút trước', '${diff.inMinutes} min ago');
+  }
   final today = DateTime(current.year, current.month, current.day);
   final day = DateTime(local.year, local.month, local.day);
   final days = today.difference(day).inDays;
-  if (days == 0) return '${diff.inHours} giờ trước';
-  if (days == 1) return 'Hôm qua';
-  if (days < 7) return '$days ngày trước';
+  if (days == 0) {
+    return tr('${diff.inHours} giờ trước', '${diff.inHours} h ago');
+  }
+  if (days == 1) return tr('Hôm qua', 'Yesterday');
+  if (days < 7) return tr('$days ngày trước', '$days days ago');
   String two(int number) => number.toString().padLeft(2, '0');
   return '${two(local.day)}/${two(local.month)}/${local.year}';
 }
@@ -43,14 +48,18 @@ class MyNotesOfflineBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final saved = cachedAt == null
         ? ''
-        : ' (lưu lúc ${formatMyNoteTime(cachedAt!)})';
+        : tr(
+            ' (lưu lúc ${formatMyNoteTime(cachedAt!)})',
+            ' (saved ${formatMyNoteTime(cachedAt!)})',
+          );
     return MyNotesNotice(
       key: const Key('my_notes_offline_banner'),
       icon: Icons.cloud_off_rounded,
       color: WebTuiColors.accentAmber,
-      message:
-          'Đang xem bản lưu ngoại tuyến$saved. Kết nối lại để sửa hoặc tạo '
-          'ghi chú.',
+      message: tr(
+        'Đang xem bản lưu ngoại tuyến$saved. Kết nối lại để sửa hoặc tạo ghi chú.',
+        'Viewing an offline copy$saved. Reconnect to edit or create notes.',
+      ),
     );
   }
 }

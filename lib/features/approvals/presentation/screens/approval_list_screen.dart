@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
@@ -32,7 +33,7 @@ class ApprovalListScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: WebTuiColors.background,
       appBar: AppBar(
-        title: const Text('Phê duyệt'),
+        title: Text(tr('Phê duyệt', 'Approvals')),
         surfaceTintColor: Colors.transparent,
       ),
       body: SafeArea(
@@ -40,9 +41,12 @@ class ApprovalListScreen extends ConsumerWidget {
         child:
             gate ??
             (id.isEmpty
-                ? const WebTuiEmptyState(
-                    title: 'Chưa chọn workspace',
-                    message: 'Chọn workspace trước khi xem phê duyệt.',
+                ? WebTuiEmptyState(
+                    title: tr('Chưa chọn workspace', 'No workspace selected'),
+                    message: tr(
+                      'Chọn workspace trước khi xem phê duyệt.',
+                      'Select a workspace before viewing approvals.',
+                    ),
                     icon: Icons.fact_check_outlined,
                   )
                 : _ApprovalListBody(workspaceId: id)),
@@ -54,12 +58,17 @@ class ApprovalListScreen extends ConsumerWidget {
 /// Chặn trước khi tải: máy chủ không hỗ trợ / đang tải quyền / thiếu quyền.
 Widget? approvalAccessGate(ApprovalAccess access) {
   if (!access.serverSupported) {
-    return const ApprovalNoAccessState(
-      message: 'Máy chủ này chưa có tính năng phê duyệt.',
+    return ApprovalNoAccessState(
+      message: tr(
+        'Máy chủ này chưa có tính năng phê duyệt.',
+        'This server doesn\'t have approvals yet.',
+      ),
     );
   }
   if (access.isPending) {
-    return const WebTuiLoadingState(message: 'Đang kiểm tra quyền...');
+    return WebTuiLoadingState(
+      message: tr('Đang kiểm tra quyền...', 'Checking permissions...'),
+    );
   }
   if (!access.canView) return const ApprovalNoAccessState();
   return null;
@@ -74,8 +83,16 @@ class ApprovalNoAccessState extends StatelessWidget {
   Widget build(BuildContext context) {
     return WebTuiEmptyState(
       key: const Key('approval_no_access'),
-      title: 'Không có quyền xem phê duyệt',
-      message: message ?? 'Bạn cần quyền xem phê duyệt trong workspace này.',
+      title: tr(
+        'Không có quyền xem phê duyệt',
+        'No permission to view approvals',
+      ),
+      message:
+          message ??
+          tr(
+            'Bạn cần quyền xem phê duyệt trong workspace này.',
+            'You need permission to view approvals in this workspace.',
+          ),
       icon: Icons.lock_outline_rounded,
     );
   }
@@ -144,11 +161,13 @@ class _ApprovalListBodyState extends ConsumerState<_ApprovalListBody>
   ) {
     if (state.forbidden) return const ApprovalNoAccessState();
     if (!state.hasLoaded && state.isLoading) {
-      return const WebTuiLoadingState(message: 'Đang tải phê duyệt...');
+      return WebTuiLoadingState(
+        message: tr('Đang tải phê duyệt...', 'Loading approvals...'),
+      );
     }
     if (state.errorMessage != null && state.items.isEmpty) {
       return WebTuiErrorState(
-        title: 'Không tải được phê duyệt',
+        title: tr('Không tải được phê duyệt', 'Couldn\'t load approvals'),
         message: state.errorMessage!,
         onRetry: controller.load,
       );
@@ -157,9 +176,12 @@ class _ApprovalListBodyState extends ConsumerState<_ApprovalListBody>
       return WebTuiEmptyState(
         key: const Key('approval_empty'),
         title: state.filter == ApprovalFilter.pending
-            ? 'Không có yêu cầu đang chờ'
-            : 'Chưa có yêu cầu nào đã xử lý',
-        message: 'Yêu cầu phê duyệt mới sẽ hiện ở đây.',
+            ? tr('Không có yêu cầu đang chờ', 'No pending requests')
+            : tr('Chưa có yêu cầu nào đã xử lý', 'No handled requests yet'),
+        message: tr(
+          'Yêu cầu phê duyệt mới sẽ hiện ở đây.',
+          'New approval requests will appear here.',
+        ),
         icon: Icons.fact_check_outlined,
       );
     }
@@ -174,7 +196,11 @@ class _ApprovalListBodyState extends ConsumerState<_ApprovalListBody>
             return Center(
               child: TextButton(
                 onPressed: state.isLoadingMore ? null : controller.loadMore,
-                child: Text(state.isLoadingMore ? 'Đang tải...' : 'Tải thêm'),
+                child: Text(
+                  state.isLoadingMore
+                      ? tr('Đang tải...', 'Loading...')
+                      : tr('Tải thêm', 'Load more'),
+                ),
               ),
             );
           }
@@ -193,8 +219,8 @@ class _ApprovalListBodyState extends ConsumerState<_ApprovalListBody>
                   ApprovalStatusText(approval: item),
                   Text(
                     '${item.sourceLabel} · '
-                    '${item.approvalsCount}/${item.requiredApprovals} phiếu'
-                    '${item.expiresAt == null ? '' : ' · hạn ${formatApprovalTime(item.expiresAt!)}'}',
+                    '${item.approvalsCount}/${item.requiredApprovals} ${tr('phiếu', 'votes')}'
+                    '${item.expiresAt == null ? '' : ' · ${tr('hạn', 'due')} ${formatApprovalTime(item.expiresAt!)}'}',
                   ),
                 ],
               ),

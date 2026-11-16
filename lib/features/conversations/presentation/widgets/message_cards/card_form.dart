@@ -4,6 +4,7 @@ import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../../l10n/app_strings.dart';
 import '../../../application/use_cases/message_card_form_validator.dart';
 import '../../../domain/entities/message_card.dart';
 import 'card_common.dart';
@@ -97,8 +98,8 @@ class _MessageCardFormViewState extends State<MessageCardFormView> {
       firstDate: DateTime(now.year - 100),
       lastDate: DateTime(now.year + 100),
       helpText: field.label,
-      cancelText: 'Huỷ',
-      confirmText: 'Chọn',
+      cancelText: tr('Huỷ', 'Cancel'),
+      confirmText: tr('Chọn', 'Select'),
     );
     if (picked == null || !mounted) return;
     setState(() {
@@ -118,7 +119,9 @@ class _MessageCardFormViewState extends State<MessageCardFormView> {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (form.fields.isEmpty)
-          const MessageCardEmptyNote('Biểu mẫu chưa có ô nào.'),
+          MessageCardEmptyNote(
+            tr('Biểu mẫu chưa có ô nào.', 'This form has no fields yet.'),
+          ),
         for (final field in form.fields)
           Padding(
             padding: const EdgeInsets.only(bottom: WebTuiSpacing.sm),
@@ -129,7 +132,7 @@ class _MessageCardFormViewState extends State<MessageCardFormView> {
             padding: const EdgeInsets.only(bottom: WebTuiSpacing.xs),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.check_circle_rounded,
                   size: 16,
                   color: WebTuiColors.accentGreen,
@@ -137,7 +140,10 @@ class _MessageCardFormViewState extends State<MessageCardFormView> {
                 const SizedBox(width: WebTuiSpacing.xs),
                 Expanded(
                   child: Text(
-                    'Bạn đã gửi lúc ${formatCardDateTime(widget.submittedAt!)}',
+                    tr(
+                      'Bạn đã gửi lúc ${formatCardDateTime(widget.submittedAt!)}',
+                      'You submitted at ${formatCardDateTime(widget.submittedAt!)}',
+                    ),
                     style: WebTuiTypography.labelSmall.copyWith(
                       color: WebTuiColors.textSecondary,
                       fontWeight: FontWeight.w700,
@@ -244,7 +250,7 @@ class _MessageCardFormViewState extends State<MessageCardFormView> {
                 _decoration(
                   label,
                   error,
-                  hint: field.placeholder ?? 'Chọn ngày',
+                  hint: field.placeholder ?? tr('Chọn ngày', 'Pick a date'),
                 ).copyWith(
                   enabled: enabled,
                   suffixIcon: const Icon(
@@ -292,10 +298,23 @@ class _MessageCardFormViewState extends State<MessageCardFormView> {
     final min = field.min;
     final max = field.max;
     if (min != null && max != null) {
-      return 'Từ ${formatMessageCardNumber(min)} đến ${formatMessageCardNumber(max)}';
+      return tr(
+        'Từ ${formatMessageCardNumber(min)} đến ${formatMessageCardNumber(max)}',
+        'From ${formatMessageCardNumber(min)} to ${formatMessageCardNumber(max)}',
+      );
     }
-    if (min != null) return 'Từ ${formatMessageCardNumber(min)}';
-    if (max != null) return 'Tối đa ${formatMessageCardNumber(max)}';
+    if (min != null) {
+      return tr(
+        'Từ ${formatMessageCardNumber(min)}',
+        'From ${formatMessageCardNumber(min)}',
+      );
+    }
+    if (max != null) {
+      return tr(
+        'Tối đa ${formatMessageCardNumber(max)}',
+        'Up to ${formatMessageCardNumber(max)}',
+      );
+    }
     return null;
   }
 

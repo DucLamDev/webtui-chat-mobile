@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
@@ -52,8 +53,8 @@ class WorkCard extends StatelessWidget {
 class WorkIconBox extends StatelessWidget {
   const WorkIconBox({
     required this.icon,
-    this.background = WebTuiColors.primarySoft,
-    this.foreground = WebTuiColors.primary,
+    this.background,
+    this.foreground,
     this.size = 52,
     this.iconSize,
     this.radius = 16,
@@ -61,8 +62,8 @@ class WorkIconBox extends StatelessWidget {
   });
 
   final IconData icon;
-  final Color background;
-  final Color foreground;
+  final Color? background;
+  final Color? foreground;
   final double size;
   final double? iconSize;
   final double radius;
@@ -73,10 +74,14 @@ class WorkIconBox extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: background,
+        color: background ?? WebTuiColors.primarySoft,
         borderRadius: BorderRadius.circular(radius),
       ),
-      child: Icon(icon, color: foreground, size: iconSize ?? size * 0.5),
+      child: Icon(
+        icon,
+        color: foreground ?? WebTuiColors.primary,
+        size: iconSize ?? size * 0.5,
+      ),
     );
   }
 }
@@ -129,7 +134,7 @@ class WorkErrorBox extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          TextButton(onPressed: onRetry, child: const Text('Thử lại')),
+          TextButton(onPressed: onRetry, child: Text(tr('Thử lại', 'Retry'))),
         ],
       ),
     );

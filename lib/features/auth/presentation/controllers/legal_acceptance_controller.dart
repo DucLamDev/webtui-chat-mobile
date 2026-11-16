@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/flavor/app_config.dart';
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../application/legal_acceptance_access_policy.dart';
 import '../../domain/entities/legal_acceptance.dart';
 
@@ -234,8 +235,10 @@ final class LegalAcceptanceController
       state = LegalAcceptanceState(
         status: LegalAcceptanceStatus.incompatible,
         gateVisible: true,
-        errorMessage:
-            'Bản ứng dụng chưa cấu hình đầy đủ tài liệu pháp lý HTTPS hoặc phiên bản chính sách.',
+        errorMessage: tr(
+          'Bản ứng dụng chưa cấu hình đầy đủ tài liệu pháp lý HTTPS hoặc phiên bản chính sách.',
+          'This app build is missing HTTPS legal documents or policy versions.',
+        ),
       );
       return;
     }
@@ -274,8 +277,10 @@ final class LegalAcceptanceController
         status: LegalAcceptanceStatus.incompatible,
         acceptance: acceptance,
         gateVisible: true,
-        errorMessage:
-            'Máy chủ trả trạng thái chính sách cho workspace khác. Không thể mở quyền tạo nội dung an toàn.',
+        errorMessage: tr(
+          'Máy chủ trả trạng thái chính sách cho workspace khác. Không thể mở quyền tạo nội dung an toàn.',
+          'The server returned the policy status for a different workspace. Cannot safely allow creating content.',
+        ),
       );
       return;
     }
@@ -307,7 +312,10 @@ final class LegalAcceptanceController
       acceptance: acceptance,
       gateVisible: true,
       errorMessage: fromSubmission
-          ? 'Máy chủ chưa xác nhận đầy đủ việc đồng ý. Vui lòng thử lại.'
+          ? tr(
+              'Máy chủ chưa xác nhận đầy đủ việc đồng ý. Vui lòng thử lại.',
+              'The server did not fully confirm your acceptance. Please try again.',
+            )
           : null,
     );
   }
@@ -336,10 +344,14 @@ final class LegalAcceptanceController
       _expectedTermsVersion.isNotEmpty &&
       _expectedPrivacyVersion.isNotEmpty;
 
-  String get _incompatibleMessage =>
-      'Phiên bản chính sách của máy chủ không khớp tài liệu do ứng dụng công bố '
-      '(Điều khoản $_expectedTermsVersion, Quyền riêng tư '
-      '$_expectedPrivacyVersion). Không thể ghi nhận đồng ý an toàn.';
+  String get _incompatibleMessage => tr(
+    'Phiên bản chính sách của máy chủ không khớp tài liệu do ứng dụng công bố '
+        '(Điều khoản $_expectedTermsVersion, Quyền riêng tư '
+        '$_expectedPrivacyVersion). Không thể ghi nhận đồng ý an toàn.',
+    'The server policy version does not match the documents published by the '
+        'app (Terms $_expectedTermsVersion, Privacy '
+        '$_expectedPrivacyVersion). Cannot safely record your acceptance.',
+  );
 
   @override
   void dispose() {

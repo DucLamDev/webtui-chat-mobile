@@ -13,7 +13,7 @@ final class WebTuiShadows {
     BoxShadow(color: Color(0x0F172033), blurRadius: 18, offset: Offset(0, 8)),
   ];
 
-  static const divider = BoxShadow(
+  static BoxShadow get divider => BoxShadow(
     color: WebTuiColors.border,
     blurRadius: 0,
     offset: Offset(0, 1),

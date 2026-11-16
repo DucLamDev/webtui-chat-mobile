@@ -1,5 +1,6 @@
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/auth_session.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/repositories/auth_token_repository.dart';
@@ -57,37 +58,46 @@ final class RegisterUseCase {
     final privacyVersion = command.privacyVersion.trim();
 
     if (displayName.isEmpty || email.isEmpty || username.isEmpty) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.validation,
-          message: 'Vui lòng nhập đủ họ tên, email và username.',
+          message: tr(
+            'Vui lòng nhập đủ họ tên, email và username.',
+            'Enter your full name, email and username.',
+          ),
           code: 'REGISTER_PROFILE_REQUIRED',
         ),
       );
     }
     if (!email.contains('@') || !email.contains('.')) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.validation,
-          message: 'Email không hợp lệ.',
+          message: tr('Email không hợp lệ.', 'Invalid email.'),
           code: 'REGISTER_EMAIL_INVALID',
         ),
       );
     }
     if (password.length < 8) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.validation,
-          message: 'Mật khẩu cần tối thiểu 8 ký tự.',
+          message: tr(
+            'Mật khẩu cần tối thiểu 8 ký tự.',
+            'The password must have at least 8 characters.',
+          ),
           code: 'REGISTER_PASSWORD_SHORT',
         ),
       );
     }
     if (password != confirmPassword) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.validation,
-          message: 'Mật khẩu xác nhận không khớp.',
+          message: tr(
+            'Mật khẩu xác nhận không khớp.',
+            'The passwords do not match.',
+          ),
           code: 'REGISTER_PASSWORD_MISMATCH',
         ),
       );
@@ -96,11 +106,13 @@ final class RegisterUseCase {
         !command.privacyAccepted ||
         termsVersion.isEmpty ||
         privacyVersion.isEmpty) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.validation,
-          message:
-              'Bạn cần đồng ý với Điều khoản sử dụng và Chính sách quyền riêng tư.',
+          message: tr(
+            'Bạn cần đồng ý với Điều khoản sử dụng và Chính sách quyền riêng tư.',
+            'You need to accept the Terms of Use and Privacy Policy.',
+          ),
           code: 'REGISTER_LEGAL_ACCEPTANCE_REQUIRED',
         ),
       );
@@ -142,7 +154,10 @@ final class RegisterUseCase {
       return FailureResult(
         Failure(
           kind: FailureKind.storage,
-          message: 'Không thể lưu phiên đăng ký an toàn.',
+          message: tr(
+            'Không thể lưu phiên đăng ký an toàn.',
+            'Could not save your registration session securely.',
+          ),
           code: 'REGISTER_STORAGE_FAILURE',
           cause: error,
         ),

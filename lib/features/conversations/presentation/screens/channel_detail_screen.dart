@@ -10,6 +10,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../moderation/presentation/controllers/moderation_controller.dart';
 import '../../../moderation/presentation/widgets/moderation_actions.dart';
 import '../../../profile/domain/entities/avatar_upload.dart';
@@ -56,11 +57,14 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
         .activeWorkspace
         ?.id;
     if (workspaceId == null || workspaceId.isEmpty) {
-      return const Scaffold(
+      return Scaffold(
         body: SafeArea(
           child: WebTuiEmptyState(
-            title: 'Chưa chọn workspace',
-            message: 'Bạn cần chọn workspace trước khi mở kênh.',
+            title: tr('Chưa chọn workspace', 'No workspace selected'),
+            message: tr(
+              'Bạn cần chọn workspace trước khi mở kênh.',
+              'Select a workspace before opening a channel.',
+            ),
             icon: Icons.business_rounded,
           ),
         ),
@@ -98,7 +102,7 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
         title: Text(state.title, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
           IconButton(
-            tooltip: 'Tải lại',
+            tooltip: tr('Tải lại', 'Reload'),
             onPressed: controller.load,
             icon: const Icon(Icons.refresh_rounded),
           ),
@@ -107,13 +111,21 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
       body: SafeArea(
         top: false,
         child: state.isLoading
-            ? const WebTuiLoadingState(message: 'Đang tải chi tiết kênh...')
+            ? WebTuiLoadingState(
+                message: tr(
+                  'Đang tải chi tiết kênh...',
+                  'Loading channel details...',
+                ),
+              )
             : ListView(
                 padding: const EdgeInsets.only(bottom: WebTuiSpacing.xl),
                 children: [
                   if (state.errorMessage != null)
                     WebTuiErrorState(
-                      title: 'Không tải được kênh',
+                      title: tr(
+                        'Không tải được kênh',
+                        'Couldn\'t load channel',
+                      ),
                       message: state.errorMessage!,
                       onRetry: controller.load,
                     ),
@@ -146,12 +158,12 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
                       horizontal: WebTuiSpacing.lg,
                     ),
                     child: WebTuiSegmentedTabs(
-                      tabs: const [
-                        'Thành viên',
-                        'Ghim',
+                      tabs: [
+                        tr('Thành viên', 'Members'),
+                        tr('Ghim', 'Pinned'),
                         'Media',
-                        'Tệp',
-                        'Thiết lập',
+                        tr('Tệp', 'Files'),
+                        tr('Thiết lập', 'Settings'),
                       ],
                       selectedIndex: _tabIndex,
                       onChanged: (value) => setState(() => _tabIndex = value),
@@ -212,15 +224,15 @@ Future<void> _pickChannelAvatar(
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const WebTuiSheetHeader(title: 'Ảnh nhóm'),
+          WebTuiSheetHeader(title: tr('Ảnh nhóm', 'Group photo')),
           WebTuiSheetActionTile(
-            title: 'Chụp ảnh mới',
+            title: tr('Chụp ảnh mới', 'Take a new photo'),
             icon: WebTuiIcons.image,
             onTap: () =>
                 Navigator.of(sheetContext).pop(AvatarPickerSource.camera),
           ),
           WebTuiSheetActionTile(
-            title: 'Chọn từ thư viện',
+            title: tr('Chọn từ thư viện', 'Choose from library'),
             icon: WebTuiIcons.imageFile,
             onTap: () =>
                 Navigator.of(sheetContext).pop(AvatarPickerSource.gallery),
@@ -307,7 +319,11 @@ class _ChannelHeader extends StatelessWidget {
                     ),
                     const SizedBox(height: WebTuiSpacing.xs),
                     Text(
-                      channel?.preview ?? 'Kênh trong workspace WebTui',
+                      channel?.preview ??
+                          tr(
+                            'Kênh trong workspace WebTui',
+                            'Channel in the WebTui workspace',
+                          ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: WebTuiTypography.bodySmall.copyWith(
@@ -336,7 +352,7 @@ class _ChannelHeader extends StatelessWidget {
               const SizedBox(width: WebTuiSpacing.sm),
               if (onOpenChat != null)
                 IconButton.filled(
-                  tooltip: 'Mở hội thoại',
+                  tooltip: tr('Mở hội thoại', 'Open chat'),
                   onPressed: onOpenChat,
                   icon: const Icon(Icons.chat_bubble_rounded),
                 )
@@ -348,7 +364,11 @@ class _ChannelHeader extends StatelessWidget {
                           dimension: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Text(joinPending ? 'Đang chờ' : 'Tham gia'),
+                      : Text(
+                          joinPending
+                              ? tr('Đang chờ', 'Pending')
+                              : tr('Tham gia', 'Join'),
+                        ),
                 ),
             ],
           ),
@@ -417,7 +437,7 @@ class _HeaderAvatar extends StatelessWidget {
     if (onTap == null) return avatar;
     return Semantics(
       button: true,
-      label: 'Đổi ảnh nhóm',
+      label: tr('Đổi ảnh nhóm', 'Change group photo'),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(WebTuiRadii.md),
@@ -466,15 +486,18 @@ class _MembersTab extends StatelessWidget {
                 Expanded(
                   child: TextField(
                     controller: inviteController,
-                    decoration: const InputDecoration(
-                      hintText: 'Nhập user ID để mời',
-                      prefixIcon: Icon(Icons.person_add_alt_1_rounded),
+                    decoration: InputDecoration(
+                      hintText: tr(
+                        'Nhập user ID để mời',
+                        'Enter a user ID to invite',
+                      ),
+                      prefixIcon: const Icon(Icons.person_add_alt_1_rounded),
                     ),
                   ),
                 ),
                 const SizedBox(width: WebTuiSpacing.sm),
                 IconButton.filled(
-                  tooltip: 'Mời',
+                  tooltip: tr('Mời', 'Invite'),
                   onPressed: state.isSubmitting ? null : onInvite,
                   icon: const Icon(Icons.send_rounded),
                 ),
@@ -482,7 +505,7 @@ class _MembersTab extends StatelessWidget {
             ),
           ),
         if (state.joinRequests.isNotEmpty) ...[
-          const WebTuiSectionLabel('Yêu cầu tham gia'),
+          WebTuiSectionLabel(tr('Yêu cầu tham gia', 'Join requests')),
           WebTuiLazyListSurface(
             itemCount: state.joinRequests.length,
             estimatedItemExtent: 65,
@@ -498,17 +521,20 @@ class _MembersTab extends StatelessWidget {
         ],
         if (state.membersErrorMessage != null)
           WebTuiErrorState(
-            title: 'Không tải được thành viên',
+            title: tr('Không tải được thành viên', 'Couldn\'t load members'),
             message: state.membersErrorMessage!,
           )
         else if (state.members.isEmpty)
-          const WebTuiEmptyState(
-            title: 'Chưa có thành viên',
-            message: 'Thành viên kênh sẽ xuất hiện tại đây.',
+          WebTuiEmptyState(
+            title: tr('Chưa có thành viên', 'No members yet'),
+            message: tr(
+              'Thành viên kênh sẽ xuất hiện tại đây.',
+              'Channel members will show up here.',
+            ),
             icon: Icons.group_outlined,
           )
         else ...[
-          const WebTuiSectionLabel('Thành viên'),
+          WebTuiSectionLabel(tr('Thành viên', 'Members')),
           WebTuiLazyListSurface(
             itemCount: state.members.length,
             itemBuilder: (context, index) {
@@ -516,7 +542,10 @@ class _MembersTab extends StatelessWidget {
               return WebTuiConversationListItem(
                 title: member.displayName,
                 preview: blockedUserIds.contains(member.userId)
-                    ? 'Đã chặn · Nội dung đang được ẩn'
+                    ? tr(
+                        'Đã chặn · Nội dung đang được ẩn',
+                        'Blocked · Content hidden',
+                      )
                     : member.email,
                 timeLabel: member.status,
                 avatarLabel: member.displayName,
@@ -528,9 +557,12 @@ class _MembersTab extends StatelessWidget {
                     ? null
                     : () => onSafety(member),
                 trailing: member.userId == currentUserId
-                    ? const Text('Bạn')
+                    ? Text(tr('Bạn', 'You'))
                     : IconButton(
-                        tooltip: 'Báo cáo hoặc chặn ${member.displayName}',
+                        tooltip: tr(
+                          'Báo cáo hoặc chặn ${member.displayName}',
+                          'Report or block ${member.displayName}',
+                        ),
                         onPressed: () => onSafety(member),
                         icon: Icon(
                           blockedUserIds.contains(member.userId)
@@ -579,12 +611,12 @@ class _JoinRequestTile extends StatelessWidget {
               ),
             ),
             IconButton(
-              tooltip: 'Duyệt',
+              tooltip: tr('Duyệt', 'Approve'),
               onPressed: onApprove,
               icon: const Icon(Icons.check_circle_outline_rounded),
             ),
             IconButton(
-              tooltip: 'Từ chối',
+              tooltip: tr('Từ chối', 'Decline'),
               onPressed: onReject,
               icon: const Icon(Icons.cancel_outlined),
             ),
@@ -605,14 +637,17 @@ class _PinnedTab extends StatelessWidget {
   Widget build(BuildContext context) {
     if (errorMessage != null) {
       return WebTuiErrorState(
-        title: 'Không tải được tin ghim',
+        title: tr('Không tải được tin ghim', 'Couldn\'t load pinned messages'),
         message: errorMessage!,
       );
     }
     if (messages.isEmpty) {
-      return const WebTuiEmptyState(
-        title: 'Chưa có tin ghim',
-        message: 'Tin nhắn được ghim trong kênh sẽ xuất hiện tại đây.',
+      return WebTuiEmptyState(
+        title: tr('Chưa có tin ghim', 'No pinned messages'),
+        message: tr(
+          'Tin nhắn được ghim trong kênh sẽ xuất hiện tại đây.',
+          'Messages pinned in this channel will show up here.',
+        ),
         icon: Icons.push_pin_outlined,
       );
     }
@@ -640,14 +675,17 @@ class _FilesTab extends StatelessWidget {
   Widget build(BuildContext context) {
     if (errorMessage != null) {
       return WebTuiErrorState(
-        title: 'Không tải được tệp',
+        title: tr('Không tải được tệp', 'Couldn\'t load files'),
         message: errorMessage!,
       );
     }
     if (files.isEmpty) {
-      return const WebTuiEmptyState(
-        title: 'Chưa có tệp',
-        message: 'Tệp đã chia sẻ trong workspace sẽ xuất hiện tại đây.',
+      return WebTuiEmptyState(
+        title: tr('Chưa có tệp', 'No files yet'),
+        message: tr(
+          'Tệp đã chia sẻ trong workspace sẽ xuất hiện tại đây.',
+          'Files shared in the workspace will show up here.',
+        ),
         icon: Icons.insert_drive_file_outlined,
       );
     }
@@ -675,14 +713,17 @@ class _MediaTab extends StatelessWidget {
   Widget build(BuildContext context) {
     if (errorMessage != null) {
       return WebTuiErrorState(
-        title: 'Không tải được media',
+        title: tr('Không tải được media', 'Couldn\'t load media'),
         message: errorMessage!,
       );
     }
     if (attachments.isEmpty) {
-      return const WebTuiEmptyState(
-        title: 'Chưa có media',
-        message: 'Ảnh đã gửi trong cuộc trò chuyện sẽ xuất hiện tại đây.',
+      return WebTuiEmptyState(
+        title: tr('Chưa có media', 'No media yet'),
+        message: tr(
+          'Ảnh đã gửi trong cuộc trò chuyện sẽ xuất hiện tại đây.',
+          'Photos sent in this chat will show up here.',
+        ),
         icon: Icons.photo_library_outlined,
       );
     }
@@ -705,7 +746,7 @@ class _MediaTab extends StatelessWidget {
                   attachments: attachments,
                   initialIndex: index,
                   apiBaseUri: apiBaseUri,
-                  title: 'Ảnh trong cuộc trò chuyện',
+                  title: tr('Ảnh trong cuộc trò chuyện', 'Photos in this chat'),
                 ),
               );
             },
@@ -726,20 +767,29 @@ class _SettingsTab extends StatelessWidget {
     return WebTuiListSurface(
       children: [
         WebTuiSettingRow(
-          title: 'Loại kênh',
+          title: tr('Loại kênh', 'Channel type'),
           subtitle: _visibilityLabel(channel?.channelVisibility),
           icon: Icons.tag_outlined,
         ),
         WebTuiSettingRow(
-          title: 'Thành viên',
-          subtitle: '${channel?.memberCount ?? 0} người tham gia',
+          title: tr('Thành viên', 'Members'),
+          subtitle: tr(
+            '${channel?.memberCount ?? 0} người tham gia',
+            '${channel?.memberCount ?? 0} participants',
+          ),
           icon: Icons.group_outlined,
         ),
         WebTuiSettingRow(
-          title: 'Quyền quản lý',
+          title: tr('Quyền quản lý', 'Management permissions'),
           subtitle: channel?.canManage == true
-              ? 'Bạn có thể mời và duyệt thành viên'
-              : 'Bạn không có quyền quản lý kênh này',
+              ? tr(
+                  'Bạn có thể mời và duyệt thành viên',
+                  'You can invite and approve members',
+                )
+              : tr(
+                  'Bạn không có quyền quản lý kênh này',
+                  'You can\'t manage this channel',
+                ),
           icon: Icons.admin_panel_settings_outlined,
         ),
       ],
@@ -802,15 +852,15 @@ String _timeLabel(DateTime value) {
 
 String _fileSubtitle(ChannelFile file) {
   final kb = (file.byteSize / 1024).ceil();
-  return '${file.mimeType.isEmpty ? 'Tệp' : file.mimeType} · ${kb}KB';
+  return '${file.mimeType.isEmpty ? tr('Tệp', 'File') : file.mimeType} · ${kb}KB';
 }
 
 String _visibilityLabel(ChannelVisibility? visibility) {
   return switch (visibility) {
-    ChannelVisibility.private => 'Riêng tư',
-    ChannelVisibility.direct => 'Hội thoại riêng',
-    ChannelVisibility.public => 'Công khai',
-    null => 'Chưa xác định',
+    ChannelVisibility.private => tr('Riêng tư', 'Private'),
+    ChannelVisibility.direct => tr('Hội thoại riêng', 'Direct chat'),
+    ChannelVisibility.public => tr('Công khai', 'Public'),
+    null => tr('Chưa xác định', 'Unknown'),
   };
 }
 

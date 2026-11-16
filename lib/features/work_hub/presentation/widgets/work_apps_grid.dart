@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
@@ -23,7 +24,14 @@ Future<void> openAppShortcut(
   final messenger = ScaffoldMessenger.of(context);
   if (validateShortcutUrl(shortcut.url) != null) {
     messenger.showSnackBar(
-      const SnackBar(content: Text('Đường dẫn lối tắt không hợp lệ.')),
+      SnackBar(
+        content: Text(
+          tr(
+            'Đường dẫn lối tắt không hợp lệ.',
+            'The shortcut link isn\'t valid.',
+          ),
+        ),
+      ),
     );
     return;
   }
@@ -32,7 +40,11 @@ Future<void> openAppShortcut(
       .open(shortcut.url.trim());
   if (!opened) {
     messenger.showSnackBar(
-      const SnackBar(content: Text('Không mở được liên kết này.')),
+      SnackBar(
+        content: Text(
+          tr('Không mở được liên kết này.', 'Couldn\'t open this link.'),
+        ),
+      ),
     );
   }
 }
@@ -54,7 +66,7 @@ class WorkAppsSection extends ConsumerWidget {
         _AppTile(
           key: const Key('app_meetings'),
           icon: WebTuiIcons.meetings,
-          label: 'Lịch họp',
+          label: tr('Lịch họp', 'Meetings'),
           colors: webTuiShortcutColors('orange'),
           onTap: () => context.push(
             Uri(
@@ -66,7 +78,7 @@ class WorkAppsSection extends ConsumerWidget {
       _AppTile(
         key: const Key('app_shared_files'),
         icon: WebTuiIcons.sharedFiles,
-        label: 'Tệp chia sẻ',
+        label: tr('Tệp chia sẻ', 'Shared files'),
         colors: webTuiShortcutColors('green'),
         onTap: () => context.push(
           Uri(
@@ -94,7 +106,7 @@ class WorkAppsSection extends ConsumerWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Ứng dụng',
+                  tr('Ứng dụng', 'Apps'),
                   style: WebTuiTypography.titleLarge.copyWith(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
@@ -115,7 +127,7 @@ class WorkAppsSection extends ConsumerWidget {
                   child: Padding(
                     padding: const EdgeInsets.all(6),
                     child: Text(
-                      'Quản lý',
+                      tr('Quản lý', 'Manage'),
                       style: WebTuiTypography.bodyMedium.copyWith(
                         color: WebTuiColors.textSecondary,
                         fontSize: 15,
@@ -148,7 +160,7 @@ class WorkAppsSection extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.only(top: 10),
             child: Text(
-              'Chưa có lối tắt',
+              tr('Chưa có lối tắt', 'No shortcuts yet'),
               key: const Key('shortcuts_empty'),
               textAlign: TextAlign.center,
               style: WebTuiTypography.bodySmall.copyWith(
@@ -234,10 +246,11 @@ class _AddTile extends StatelessWidget {
     return _AppTileFrame(
       key: const Key('app_add'),
       onTap: onTap,
-      label: 'Thêm',
-      icon: const CustomPaint(
-        key: Key('app_tile_icon_box'),
-        painter: _DashedBoxPainter(),
+      label: tr('Thêm', 'Add'),
+      // Màu chữ phụ đổi theo nền sáng / tối nên không còn là hằng số.
+      icon: CustomPaint(
+        key: const Key('app_tile_icon_box'),
+        painter: const _DashedBoxPainter(),
         child: Center(
           child: Icon(
             WebTuiIcons.add,

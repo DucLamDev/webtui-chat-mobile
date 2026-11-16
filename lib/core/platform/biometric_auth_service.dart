@@ -1,5 +1,7 @@
 import 'package:flutter/services.dart';
 
+import '../../l10n/app_strings.dart';
+
 final class BiometricAuthService {
   const BiometricAuthService();
 
@@ -15,12 +17,15 @@ final class BiometricAuthService {
     }
   }
 
-  Future<bool> authenticate({
-    String reason = 'Xác thực để mở khóa WebTUI Chat',
-  }) async {
+  Future<bool> authenticate({String? reason}) async {
     try {
       return await _channel.invokeMethod<bool>('authenticate', {
-            'reason': reason,
+            'reason':
+                reason ??
+                tr(
+                  'Xác thực để mở khóa WebTUI Chat',
+                  'Authenticate to unlock WebTUI Chat',
+                ),
           }) ??
           false;
     } on MissingPluginException {

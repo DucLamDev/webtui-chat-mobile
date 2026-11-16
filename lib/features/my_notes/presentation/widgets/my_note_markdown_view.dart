@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
@@ -42,7 +43,11 @@ class _MyNoteMarkdownViewState extends ConsumerState<MyNoteMarkdownView> {
     final opened = await ref.read(externalUrlLauncherProvider).open(url);
     if (!opened && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Không mở được liên kết này.')),
+        SnackBar(
+          content: Text(
+            tr('Không mở được liên kết này.', 'Couldn\'t open this link.'),
+          ),
+        ),
       );
     }
   }
@@ -62,14 +67,14 @@ class _MyNoteMarkdownViewState extends ConsumerState<MyNoteMarkdownView> {
             ),
             MarkdownCode(:final text) => TextSpan(
               text: text,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'monospace',
                 backgroundColor: WebTuiColors.primarySoft,
               ),
             ),
             MarkdownLink(:final label, :final url) => TextSpan(
               text: label,
-              style: const TextStyle(
+              style: TextStyle(
                 color: WebTuiColors.primary,
                 decoration: TextDecoration.underline,
               ),

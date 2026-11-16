@@ -5,6 +5,7 @@ import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/workspace.dart';
 import '../controllers/workspace_controller.dart';
 
@@ -64,11 +65,11 @@ class _WorkspaceSelectorScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chọn workspace'),
+        title: Text(tr('Chọn workspace', 'Choose workspace')),
         automaticallyImplyLeading: !widget.firstLogin,
         actions: [
           IconButton(
-            tooltip: 'Tải lại',
+            tooltip: tr('Tải lại', 'Reload'),
             onPressed: state.isLoading ? null : controller.load,
             icon: const Icon(Icons.refresh_rounded),
           ),
@@ -78,22 +79,32 @@ class _WorkspaceSelectorScreenState
         child: Builder(
           builder: (context) {
             if (_checkingFirstLogin) {
-              return const WebTuiLoadingState(message: 'Đang tải workspace...');
+              return WebTuiLoadingState(
+                message: tr('Đang tải workspace...', 'Loading workspace...'),
+              );
             }
             if (state.isLoading && state.workspaces.isEmpty) {
-              return const WebTuiLoadingState(message: 'Đang tải workspace...');
+              return WebTuiLoadingState(
+                message: tr('Đang tải workspace...', 'Loading workspace...'),
+              );
             }
             if (state.errorMessage != null && state.workspaces.isEmpty) {
               return WebTuiErrorState(
-                title: 'Không tải được workspace',
+                title: tr(
+                  'Không tải được workspace',
+                  'Could not load workspaces',
+                ),
                 message: state.errorMessage!,
                 onRetry: controller.load,
               );
             }
             if (state.workspaces.isEmpty) {
-              return const WebTuiEmptyState(
-                title: 'Chưa có workspace',
-                message: 'Tài khoản này chưa thuộc workspace nào.',
+              return WebTuiEmptyState(
+                title: tr('Chưa có workspace', 'No workspace yet'),
+                message: tr(
+                  'Tài khoản này chưa thuộc workspace nào.',
+                  'This account does not belong to any workspace.',
+                ),
                 icon: Icons.domain_disabled_outlined,
               );
             }
@@ -110,14 +121,27 @@ class _WorkspaceSelectorScreenState
                   ),
                   child: Text(
                     widget.firstLogin
-                        ? 'Tài khoản của bạn thuộc nhiều workspace. Chọn '
-                              'workspace để bắt đầu; bạn có thể đổi sau trong '
-                              'Cài đặt.'
+                        ? tr(
+                            'Tài khoản của bạn thuộc nhiều workspace. Chọn '
+                                'workspace để bắt đầu; bạn có thể đổi sau trong '
+                                'Cài đặt.',
+                            'Your account belongs to several workspaces. Choose '
+                                'one to start; you can switch later in '
+                                'Settings.',
+                          )
                         : state.workspaces.length == 1
-                        ? 'Tài khoản của bạn hiện thuộc một workspace. Khi '
-                              'được mời vào workspace khác, bấm Tải lại để '
-                              'thấy và chuyển sang.'
-                        : 'Chọn tổ chức bạn muốn làm việc.',
+                        ? tr(
+                            'Tài khoản của bạn hiện thuộc một workspace. Khi '
+                                'được mời vào workspace khác, bấm Tải lại để '
+                                'thấy và chuyển sang.',
+                            'Your account currently belongs to one workspace. When '
+                                'you are invited to another one, tap Reload to '
+                                'see it and switch.',
+                          )
+                        : tr(
+                            'Chọn tổ chức bạn muốn làm việc.',
+                            'Choose the organization you want to work in.',
+                          ),
                   ),
                 ),
                 WebTuiListSurface(
@@ -177,11 +201,8 @@ class _WorkspaceRow extends StatelessWidget {
       icon: Icons.business_rounded,
       onTap: busy ? null : onTap,
       trailing: selected
-          ? const Icon(Icons.check_circle_rounded, color: WebTuiColors.primary)
-          : const Icon(
-              Icons.chevron_right_rounded,
-              color: WebTuiColors.textMuted,
-            ),
+          ? Icon(Icons.check_circle_rounded, color: WebTuiColors.primary)
+          : Icon(Icons.chevron_right_rounded, color: WebTuiColors.textMuted),
     );
   }
 }

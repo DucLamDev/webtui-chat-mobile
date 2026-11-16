@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../../../../l10n/app_strings.dart';
+
 /// Thẻ có cấu trúc của tin bot / sự kiện (`message.metadata.card`).
 ///
 /// Đọc cả bản 1 (section suy theo trường có mặt) và bản 2 (mỗi section có
@@ -351,13 +353,14 @@ final class MessageCardFormField {
 final class MessageCardForm {
   const MessageCardForm({
     required this.formId,
-    this.submitLabel = 'Gửi',
+    String? submitLabel,
     this.allowMultiple = false,
     this.fields = const [],
-  });
+  }) : _submitLabel = submitLabel;
 
   final String formId;
-  final String submitLabel;
+  final String? _submitLabel;
+  String get submitLabel => _submitLabel ?? tr('Gửi', 'Send');
   final bool allowMultiple;
   final List<MessageCardFormField> fields;
 }
@@ -567,7 +570,7 @@ List<MessageCardSection> _sections(Object? raw, int version) {
     final section = _map(item);
     final title = _text(section['title'], messageCardMaxShortText);
     final parsed = version == 1
-        ? _v1Section(section, title.isEmpty ? 'Chi tiết' : title)
+        ? _v1Section(section, title.isEmpty ? tr('Chi tiết', 'Details') : title)
         : _v2Section(section, title, formIds);
     if (parsed != null) result.add(parsed);
   }
@@ -920,7 +923,7 @@ MessageCardForm? _form(Object? raw) {
   final submitLabel = _text(form['submit_label'], messageCardMaxShortText);
   return MessageCardForm(
     formId: formId,
-    submitLabel: submitLabel.isEmpty ? 'Gửi' : submitLabel,
+    submitLabel: submitLabel.isEmpty ? tr('Gửi', 'Send') : submitLabel,
     allowMultiple: form['allow_multiple'] == true,
     fields: List.unmodifiable(fields),
   );

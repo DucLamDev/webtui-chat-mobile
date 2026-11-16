@@ -5,6 +5,7 @@ import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/call_session.dart';
 import '../controllers/peer_presence.dart';
 
@@ -64,14 +65,17 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
         : directChat
         ? presence?.text
         : memberCount > 0
-        ? '$memberCount thành viên'
+        ? tr(
+            '$memberCount thành viên',
+            memberCount == 1 ? '1 member' : '$memberCount members',
+          )
         : null;
     return AppBar(
       toolbarHeight: 64,
       backgroundColor: WebTuiColors.surface,
       foregroundColor: WebTuiColors.textPrimary,
-      iconTheme: const IconThemeData(color: WebTuiColors.primary),
-      actionsIconTheme: const IconThemeData(color: WebTuiColors.primary),
+      iconTheme: IconThemeData(color: WebTuiColors.primary),
+      actionsIconTheme: IconThemeData(color: WebTuiColors.primary),
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       scrolledUnderElevation: 0,
@@ -82,7 +86,7 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
       leadingWidth: _actionSize,
       leading: IconButton(
         key: const Key('chat_room_back'),
-        tooltip: 'Quay lại',
+        tooltip: tr('Quay lại', 'Back'),
         style: _actionStyle,
         onPressed: () => Navigator.of(context).maybePop(),
         icon: const Icon(WebTuiIcons.back, size: 28),
@@ -126,14 +130,14 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
         else if (callsEnabled) ...[
           IconButton(
             key: const Key('chat_room_call_audio'),
-            tooltip: 'Gọi thoại',
+            tooltip: tr('Gọi thoại', 'Voice call'),
             style: _actionStyle,
             onPressed: () => onCall(CallMode.audio),
             icon: const Icon(WebTuiIcons.phone, size: 24),
           ),
           IconButton(
             key: const Key('chat_room_call_video'),
-            tooltip: 'Gọi video',
+            tooltip: tr('Gọi video', 'Video call'),
             style: _actionStyle,
             onPressed: () => onCall(CallMode.video),
             icon: const Icon(WebTuiIcons.video, size: 26),
@@ -141,7 +145,7 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
         ],
         PopupMenuButton<String>(
           key: const Key('chat_room_more_menu'),
-          tooltip: 'Thêm tuỳ chọn',
+          tooltip: tr('Thêm tuỳ chọn', 'More options'),
           padding: EdgeInsets.zero,
           style: _actionStyle,
           icon: const Icon(WebTuiIcons.menu, size: 26),
@@ -158,36 +162,39 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
             }
           },
           itemBuilder: (_) => [
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'search',
               child: _ChatMenuRow(
                 icon: WebTuiIcons.search,
-                label: 'Tìm tin nhắn',
+                label: tr('Tìm tin nhắn', 'Search messages'),
               ),
             ),
             if (!noticeBot && onSafety != null)
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'safety',
                 child: _ChatMenuRow(
                   icon: WebTuiIcons.shieldCheck,
-                  label: 'Báo cáo hoặc chặn người dùng',
+                  label: tr(
+                    'Báo cáo hoặc chặn người dùng',
+                    'Report or block user',
+                  ),
                 ),
               ),
             if (!noticeBot)
-              const PopupMenuItem(
-                key: Key('chat_collaboration_tools_action'),
+              PopupMenuItem(
+                key: const Key('chat_collaboration_tools_action'),
                 value: 'tools',
                 child: _ChatMenuRow(
                   icon: WebTuiIcons.work,
-                  label: 'Công cụ làm việc',
+                  label: tr('Công cụ làm việc', 'Work tools'),
                 ),
               ),
             if (!noticeBot)
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'details',
                 child: _ChatMenuRow(
                   icon: WebTuiIcons.channel,
-                  label: 'Chi tiết kênh',
+                  label: tr('Chi tiết kênh', 'Channel details'),
                 ),
               ),
           ],

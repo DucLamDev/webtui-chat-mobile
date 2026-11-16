@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
@@ -109,7 +110,10 @@ final class BusinessDashboardController
     } on Object {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Không thể tải module nghiệp vụ.',
+        errorMessage: tr(
+          'Không thể tải module nghiệp vụ.',
+          'Couldn\'t load the business module.',
+        ),
       );
     }
   }
@@ -122,7 +126,10 @@ final class BusinessDashboardController
     } on Object {
       state = state.copyWith(
         isRefreshing: false,
-        errorMessage: 'Không thể làm mới module nghiệp vụ.',
+        errorMessage: tr(
+          'Không thể làm mới module nghiệp vụ.',
+          'Couldn\'t refresh the business module.',
+        ),
       );
     }
   }
@@ -141,8 +148,14 @@ final class BusinessDashboardController
           isTestingFlow: false,
           lastFlowRun: run,
           noticeMessage: run.error?.isNotEmpty == true
-              ? 'Flow test lỗi: ${run.error}'
-              : 'Flow test đã tạo run ${run.status}.',
+              ? tr(
+                  'Flow test lỗi: ${run.error}',
+                  'Flow test failed: ${run.error}',
+                )
+              : tr(
+                  'Flow test đã tạo run ${run.status}.',
+                  'Flow test created run ${run.status}.',
+                ),
         );
       case FailureResult<BotFlowRunSummary>(failure: final failure):
         state = state.copyWith(
@@ -165,7 +178,7 @@ final class BusinessDashboardController
         }
         state = state.copyWith(
           data: _copyDashboardData(data, tickets: [ticket, ...data.tickets]),
-          noticeMessage: 'Ticket đã được tạo.',
+          noticeMessage: tr('Ticket đã được tạo.', 'Ticket created.'),
         );
       case FailureResult<TicketSummary>(failure: final failure):
         state = state.copyWith(errorMessage: failure.message);
@@ -189,7 +202,7 @@ final class BusinessDashboardController
         }
         state = state.copyWith(
           data: _replaceFlow(data, detail, published),
-          noticeMessage: 'Flow đã publish.',
+          noticeMessage: tr('Flow đã publish.', 'Flow published.'),
         );
       case FailureResult<BotFlowSummary>(failure: final failure):
         state = state.copyWith(errorMessage: failure.message);
@@ -216,7 +229,10 @@ final class BusinessDashboardController
                 if (item.id == updated.id) updated else item,
             ],
           ),
-          noticeMessage: 'Ticket đã chuyển sang $status.',
+          noticeMessage: tr(
+            'Ticket đã chuyển sang $status.',
+            'Ticket moved to $status.',
+          ),
         );
       case FailureResult<TicketSummary>(failure: final failure):
         state = state.copyWith(errorMessage: failure.message);
@@ -242,7 +258,7 @@ final class BusinessDashboardController
                 if (item.id != token.id) item,
             ],
           ),
-          noticeMessage: 'API token đã được thu hồi.',
+          noticeMessage: tr('API token đã được thu hồi.', 'API token revoked.'),
         );
       case FailureResult<void>(failure: final failure):
         state = state.copyWith(errorMessage: failure.message);
@@ -256,7 +272,12 @@ final class BusinessDashboardController
     );
     switch (result) {
       case Success<void>():
-        state = state.copyWith(noticeMessage: 'Cronjob đã được chạy thủ công.');
+        state = state.copyWith(
+          noticeMessage: tr(
+            'Cronjob đã được chạy thủ công.',
+            'Cron job run manually.',
+          ),
+        );
       case FailureResult<void>(failure: final failure):
         state = state.copyWith(errorMessage: failure.message);
     }
@@ -285,7 +306,10 @@ final class BusinessDashboardController
                 if (item.id == updated.id) updated else item,
             ],
           ),
-          noticeMessage: 'Cronjob đã chuyển sang $status.',
+          noticeMessage: tr(
+            'Cronjob đã chuyển sang $status.',
+            'Cron job moved to $status.',
+          ),
         );
       case FailureResult<CronJobSummary>(failure: final failure):
         state = state.copyWith(errorMessage: failure.message);

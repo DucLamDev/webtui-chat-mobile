@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
@@ -11,9 +12,15 @@ import '../controllers/task_status_actions.dart';
 import '../controllers/work_hub_providers.dart';
 import 'work_common.dart';
 
-const _grayTile = Color(0xFFF0F2F5);
-const _grayTileText = Color(0xFF5B6675);
-const _greenTile = Color(0xFFE7F7EE);
+Color get _grayTile => WebTuiColors.brightness == Brightness.dark
+    ? const Color(0xFF222D3D)
+    : const Color(0xFFF0F2F5);
+Color get _grayTileText => WebTuiColors.brightness == Brightness.dark
+    ? const Color(0xFFA7B3C6)
+    : const Color(0xFF5B6675);
+Color get _greenTile => WebTuiColors.brightness == Brightness.dark
+    ? const Color(0xFF14382C)
+    : const Color(0xFFE7F7EE);
 const _greenTileText = Color(0xFF1E9E5A);
 
 /// Địa chỉ mở một việc trong kênh của nó (bảng việc của kênh).
@@ -22,7 +29,7 @@ String assignedTaskLocation(CollaborationTask task) {
     path: '/conversations/${Uri.encodeComponent(task.channelId)}',
     queryParameters: {
       'workspaceId': task.workspaceId,
-      'title': task.channelName ?? 'Hội thoại',
+      'title': task.channelName ?? tr('Hội thoại', 'Conversation'),
       'tool': 'tasks',
       'taskId': task.id,
     },
@@ -34,9 +41,13 @@ String assignedTaskSubtitle(CollaborationTask task) {
   final channel = task.channelName?.trim();
   final parts = <String>[
     if (channel != null && channel.isNotEmpty) channel,
-    if (task.dueAt != null) 'Hạn ${workShortDate(task.dueAt!)}',
+    if (task.dueAt != null)
+      tr(
+        'Hạn ${workShortDate(task.dueAt!)}',
+        'Due ${workShortDate(task.dueAt!)}',
+      ),
   ];
-  return parts.isEmpty ? 'Không có hạn' : parts.join(' · ');
+  return parts.isEmpty ? tr('Không có hạn', 'No due date') : parts.join(' · ');
 }
 
 /// Thẻ "Việc của tôi" ở tab Công việc.
@@ -67,7 +78,7 @@ class MyTasksCard extends ConsumerWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            'Việc của tôi',
+                            tr('Việc của tôi', 'My tasks'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: WebTuiTypography.titleLarge.copyWith(
@@ -92,7 +103,7 @@ class MyTasksCard extends ConsumerWidget {
                               horizontal: 2,
                             ),
                             child: Text(
-                              'Xem tất cả',
+                              tr('Xem tất cả', 'See all'),
                               style: WebTuiTypography.bodyMedium.copyWith(
                                 color: WebTuiColors.primary,
                                 fontWeight: FontWeight.w700,
@@ -104,7 +115,7 @@ class MyTasksCard extends ConsumerWidget {
                         // chế độ tìm (vùng bấm 44).
                         IconButton(
                           key: const Key('work_search'),
-                          tooltip: 'Tìm việc của tôi',
+                          tooltip: tr('Tìm việc của tôi', 'Search my tasks'),
                           iconSize: 22,
                           color: WebTuiColors.textSecondary,
                           padding: EdgeInsets.zero,
@@ -127,7 +138,10 @@ class MyTasksCard extends ConsumerWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Tự gom từ bảng việc trong các cuộc trò chuyện',
+                      tr(
+                        'Tự gom từ bảng việc trong các cuộc trò chuyện',
+                        'Collected automatically from task boards in your conversations',
+                      ),
                       style: WebTuiTypography.bodySmall.copyWith(
                         fontSize: 12.5,
                         color: WebTuiColors.textSecondary,
@@ -209,7 +223,7 @@ class _TasksLoaded extends StatelessWidget {
               child: _CountTile(
                 key: const Key('count_open'),
                 count: summary.open,
-                label: 'Chưa nhận',
+                label: tr('Chưa nhận', 'Unclaimed'),
                 background: _grayTile,
                 foreground: _grayTileText,
               ),
@@ -219,7 +233,7 @@ class _TasksLoaded extends StatelessWidget {
               child: _CountTile(
                 key: const Key('count_in_progress'),
                 count: summary.inProgress,
-                label: 'Đã nhận',
+                label: tr('Đã nhận', 'Claimed'),
                 background: WebTuiColors.primarySoft,
                 foreground: WebTuiColors.primary,
               ),
@@ -229,7 +243,7 @@ class _TasksLoaded extends StatelessWidget {
               child: _CountTile(
                 key: const Key('count_done'),
                 count: summary.doneLast7Days,
-                label: 'Hoàn thành',
+                label: tr('Hoàn thành', 'Done'),
                 background: _greenTile,
                 foreground: _greenTileText,
               ),
@@ -241,8 +255,11 @@ class _TasksLoaded extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 18),
             child: Text(
               empty
-                  ? 'Chưa có việc nào được giao cho bạn'
-                  : 'Không còn việc nào chưa xong',
+                  ? tr(
+                      'Chưa có việc nào được giao cho bạn',
+                      'No tasks assigned to you yet',
+                    )
+                  : tr('Không còn việc nào chưa xong', 'No unfinished tasks'),
               key: const Key('my_tasks_empty'),
               textAlign: TextAlign.center,
               style: WebTuiTypography.bodyMedium.copyWith(
@@ -345,10 +362,15 @@ class AssignedTaskRow extends ConsumerWidget {
           Semantics(
             button: true,
             label: switch (status) {
-              CollaborationTaskStatus.open => 'Nhận việc ${task.title}',
-              CollaborationTaskStatus.inProgress =>
+              CollaborationTaskStatus.open => tr(
+                'Nhận việc ${task.title}',
+                'Claim task ${task.title}',
+              ),
+              CollaborationTaskStatus.inProgress => tr(
                 'Hoàn thành việc ${task.title}',
-              _ => 'Việc ${task.title}',
+                'Complete task ${task.title}',
+              ),
+              _ => tr('Việc ${task.title}', 'Task ${task.title}'),
             },
             child: InkWell(
               key: Key('task_box_${task.id}'),

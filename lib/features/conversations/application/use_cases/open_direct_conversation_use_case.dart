@@ -1,5 +1,6 @@
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/conversation_summary.dart';
 import '../../domain/repositories/conversation_repository.dart';
 
@@ -14,10 +15,13 @@ final class OpenDirectConversationUseCase {
   }) async {
     final normalized = _normalizedParticipantIds(participantIds);
     if (normalized.isEmpty) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.validation,
-          message: 'Bạn cần chọn ít nhất một người để mở hội thoại.',
+          message: tr(
+            'Bạn cần chọn ít nhất một người để mở hội thoại.',
+            'Select at least one person to start a conversation.',
+          ),
           code: 'DIRECT_PARTICIPANTS_REQUIRED',
         ),
       );

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../profile/application/use_cases/profile_use_cases.dart';
 import '../../application/use_cases/call_use_cases.dart';
 import '../../application/use_cases/conversation_realtime_reducer.dart';
@@ -890,7 +891,9 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     );
     switch (result) {
       case Success<ChatMessage>():
-        state = state.copyWith(noticeMessage: 'Đã chuyển tiếp tin nhắn.');
+        state = state.copyWith(
+          noticeMessage: tr('Đã chuyển tiếp tin nhắn.', 'Message forwarded.'),
+        );
       case FailureResult<ChatMessage>(failure: final failure):
         state = state.copyWith(errorMessage: failure.message);
     }
@@ -1236,7 +1239,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     final currentUserId = state.currentUserId?.trim();
     if (normalizedTargetUserId.isEmpty) {
       state = state.copyWith(
-        errorMessage: 'Chưa có người nhận cuộc gọi.',
+        errorMessage: tr('Chưa có người nhận cuộc gọi.', 'No call recipient.'),
         clearNotice: true,
       );
       return null;
@@ -1245,7 +1248,10 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
         currentUserId.isNotEmpty &&
         normalizedTargetUserId == currentUserId) {
       state = state.copyWith(
-        errorMessage: 'Không thể tự gọi chính mình.',
+        errorMessage: tr(
+          'Không thể tự gọi chính mình.',
+          'You can\'t call yourself.',
+        ),
         clearNotice: true,
       );
       return null;
@@ -1267,8 +1273,8 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
           activeCall: call,
           isStartingCall: false,
           noticeMessage: mode == CallMode.video
-              ? 'Đang bắt đầu cuộc gọi video.'
-              : 'Đang bắt đầu cuộc gọi thoại.',
+              ? tr('Đang bắt đầu cuộc gọi video.', 'Starting video call…')
+              : tr('Đang bắt đầu cuộc gọi thoại.', 'Starting voice call…'),
           clearError: true,
         );
         return call;
@@ -1309,8 +1315,10 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
       _onLegalAcceptanceRequired();
       if (mounted) {
         state = state.copyWith(
-          errorMessage:
-              'Bạn cần đồng ý Điều khoản và Chính sách quyền riêng tư trước khi tạo nội dung.',
+          errorMessage: tr(
+            'Bạn cần đồng ý Điều khoản và Chính sách quyền riêng tư trước khi tạo nội dung.',
+            'You need to accept the Terms and Privacy Policy before creating content.',
+          ),
         );
       }
     }

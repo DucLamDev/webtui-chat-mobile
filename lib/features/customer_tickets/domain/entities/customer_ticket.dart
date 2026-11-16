@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:webtui_chat/l10n/app_strings.dart';
+
 /// Giới hạn của máy chủ cho hộp thư ticket khách (giữ khớp để báo lỗi sớm).
 const customerTicketDefaultPageSize = 30;
 const customerTicketMaxPageSize = 50;
@@ -129,7 +131,7 @@ final class CustomerTicketSummary {
     final name = customerName.trim();
     if (name.isNotEmpty) return name;
     final email = customerEmail.trim();
-    return email.isNotEmpty ? email : 'Khách';
+    return email.isNotEmpty ? email : tr('Khách', 'Customer');
   }
 
   /// Mốc tính "Chờ X phút": chỉ khi ticket còn chờ trả lời.
@@ -179,9 +181,9 @@ final class CustomerTicketMessage {
 
   String get displaySenderName {
     final name = senderName.trim();
-    if (!fromStaff) return name.isEmpty ? 'Khách' : name;
-    if (name == 'AI') return 'Trợ lý ảo';
-    return name.isEmpty ? 'Nhân viên' : name;
+    if (!fromStaff) return name.isEmpty ? tr('Khách', 'Customer') : name;
+    if (name == 'AI') return tr('Trợ lý ảo', 'AI assistant');
+    return name.isEmpty ? tr('Nhân viên', 'Staff') : name;
   }
 }
 
@@ -306,7 +308,7 @@ final class CustomerTicketDetail {
         return message.senderName.trim();
       }
     }
-    return 'Khách';
+    return tr('Khách', 'Customer');
   }
 }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
@@ -21,12 +22,15 @@ class ApprovalInboxEntry extends ConsumerWidget {
     if (!access.canView || id.isEmpty) return const SizedBox.shrink();
     return WebTuiConversationListItem(
       key: const Key('approval_entry'),
-      title: 'Phê duyệt',
-      preview: 'Duyệt hoặc từ chối yêu cầu đang chờ',
+      title: tr('Phê duyệt', 'Approvals'),
+      preview: tr(
+        'Duyệt hoặc từ chối yêu cầu đang chờ',
+        'Approve or reject pending requests',
+      ),
       timeLabel: '',
-      avatarLabel: 'Phê duyệt',
+      avatarLabel: tr('Phê duyệt', 'Approvals'),
       avatarIcon: WebTuiIcons.tasks,
-      trailing: const Icon(
+      trailing: Icon(
         CupertinoIcons.chevron_right,
         size: 18,
         color: WebTuiColors.textMuted,

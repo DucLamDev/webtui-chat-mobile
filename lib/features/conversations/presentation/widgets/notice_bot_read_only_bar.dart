@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
+import '../../../../l10n/app_strings.dart';
 
 /// Thay ô nhập tin ở chat bot thông báo: kênh chỉ để đọc.
 class NoticeBotReadOnlyBar extends StatelessWidget {
   const NoticeBotReadOnlyBar({super.key});
 
-  static const message = 'Kênh thông báo, không trả lời được';
+  static String get message => tr(
+    'Kênh thông báo, không trả lời được',
+    'Notification channel, replies are not allowed',
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +29,7 @@ class NoticeBotReadOnlyBar extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
+              Icon(
                 Icons.notifications_none_rounded,
                 size: 18,
                 color: WebTuiColors.textMuted,

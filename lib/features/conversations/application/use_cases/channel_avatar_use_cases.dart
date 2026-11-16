@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../profile/domain/entities/avatar_upload.dart';
 import '../../../profile/domain/repositories/avatar_repository.dart';
 import '../../domain/entities/channel_avatar_policy.dart';
@@ -26,10 +27,13 @@ final class ChangeChannelAvatarUseCase {
     required AvatarPickerSource source,
   }) async {
     if (!canChangeChannelAvatar(channel)) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.forbidden,
-          message: 'Bạn không có quyền đổi ảnh của nhóm này.',
+          message: tr(
+            'Bạn không có quyền đổi ảnh của nhóm này.',
+            'You don\'t have permission to change this group\'s photo.',
+          ),
           code: 'FORBIDDEN',
         ),
       );
@@ -40,7 +44,10 @@ final class ChangeChannelAvatarUseCase {
         return FailureResult(
           Failure(
             kind: failure.kind,
-            message: 'Không chọn được ảnh. Vui lòng thử ảnh khác.',
+            message: tr(
+              'Không chọn được ảnh. Vui lòng thử ảnh khác.',
+              'Couldn\'t select the photo. Try another one.',
+            ),
             code: failure.code,
             cause: failure.cause,
           ),
@@ -80,14 +87,30 @@ String channelAvatarFailureMessage(Failure failure) {
   };
   final code = failure.code?.trim() ?? '';
   if (code.isEmpty) {
-    if (status == 413) return 'Ảnh quá lớn. Vui lòng chọn ảnh dưới 8 MB.';
-    if (status == 415) return 'Chỉ hỗ trợ ảnh PNG, JPEG hoặc WebP.';
+    if (status == 413) {
+      return tr(
+        'Ảnh quá lớn. Vui lòng chọn ảnh dưới 8 MB.',
+        'The photo is too large. Choose one under 8 MB.',
+      );
+    }
+    if (status == 415) {
+      return tr(
+        'Chỉ hỗ trợ ảnh PNG, JPEG hoặc WebP.',
+        'Only PNG, JPEG or WebP photos are supported.',
+      );
+    }
   }
   if (failure.kind == FailureKind.forbidden && code.isEmpty) {
-    return 'Bạn không có quyền đổi ảnh của nhóm này.';
+    return tr(
+      'Bạn không có quyền đổi ảnh của nhóm này.',
+      'You don\'t have permission to change this group\'s photo.',
+    );
   }
   final message = failure.message.trim();
   return message.isEmpty
-      ? 'Không đổi được ảnh nhóm. Vui lòng thử lại.'
+      ? tr(
+          'Không đổi được ảnh nhóm. Vui lòng thử lại.',
+          'Couldn\'t change the group photo. Please try again.',
+        )
       : message;
 }

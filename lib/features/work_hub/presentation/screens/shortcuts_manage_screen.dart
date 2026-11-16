@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../design_system/components/webtui_components.dart';
@@ -82,18 +83,21 @@ class _ShortcutsManageScreenState extends ConsumerState<ShortcutsManageScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => WebTuiDialog(
-        title: 'Xoá lối tắt?',
-        message: 'Lối tắt "${shortcut.title}" sẽ biến mất với mọi người.',
+        title: tr('Xoá lối tắt?', 'Delete shortcut?'),
+        message: tr(
+          'Lối tắt "${shortcut.title}" sẽ biến mất với mọi người.',
+          'The shortcut "${shortcut.title}" will disappear for everyone.',
+        ),
         icon: WebTuiIcons.delete,
         tone: WebTuiDialogTone.danger,
         actions: [
           WebTuiDialogAction(
-            label: 'Huỷ',
+            label: tr('Huỷ', 'Cancel'),
             onPressed: () => Navigator.of(dialogContext).pop(false),
           ),
           WebTuiDialogAction(
             key: const Key('shortcut_delete_confirm'),
-            label: 'Xoá',
+            label: tr('Xoá', 'Delete'),
             primary: true,
             destructive: true,
             onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -119,11 +123,11 @@ class _ShortcutsManageScreenState extends ConsumerState<ShortcutsManageScreen> {
     final async = ref.watch(appShortcutsProvider(widget.workspaceId));
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Quản lý lối tắt'),
+        title: Text(tr('Quản lý lối tắt', 'Manage shortcuts')),
         actions: [
           IconButton(
             key: const Key('shortcut_add'),
-            tooltip: 'Thêm lối tắt',
+            tooltip: tr('Thêm lối tắt', 'Add shortcut'),
             icon: const Icon(WebTuiIcons.add),
             onPressed: () => _edit(null),
           ),
@@ -149,16 +153,19 @@ class _ShortcutsManageScreenState extends ConsumerState<ShortcutsManageScreen> {
           ),
           data: (data) {
             if (!data.canManage) {
-              return const WorkEmptyBox(
+              return WorkEmptyBox(
                 icon: WebTuiIcons.settings,
-                message: 'Chỉ quản trị viên mới được quản lý lối tắt.',
+                message: tr(
+                  'Chỉ quản trị viên mới được quản lý lối tắt.',
+                  'Only administrators can manage shortcuts.',
+                ),
               );
             }
             final items = _items ?? data.shortcuts;
             if (items.isEmpty) {
-              return const WorkEmptyBox(
+              return WorkEmptyBox(
                 icon: WebTuiIcons.externalLink,
-                message: 'Chưa có lối tắt',
+                message: tr('Chưa có lối tắt', 'No shortcuts yet'),
               );
             }
             return ReorderableListView.builder(
@@ -213,14 +220,14 @@ class _ShortcutsManageScreenState extends ConsumerState<ShortcutsManageScreen> {
                         ),
                         IconButton(
                           key: Key('shortcut_edit_${item.id}'),
-                          tooltip: 'Sửa',
+                          tooltip: tr('Sửa', 'Edit'),
                           icon: const Icon(WebTuiIcons.edit, size: 20),
                           onPressed: () => _edit(item),
                         ),
                         IconButton(
                           key: Key('shortcut_delete_${item.id}'),
-                          tooltip: 'Xoá',
-                          icon: const Icon(
+                          tooltip: tr('Xoá', 'Delete'),
+                          icon: Icon(
                             WebTuiIcons.delete,
                             size: 20,
                             color: WebTuiColors.danger,
@@ -229,7 +236,7 @@ class _ShortcutsManageScreenState extends ConsumerState<ShortcutsManageScreen> {
                         ),
                         ReorderableDragStartListener(
                           index: index,
-                          child: const Padding(
+                          child: Padding(
                             padding: EdgeInsets.symmetric(horizontal: 8),
                             child: Icon(
                               WebTuiIcons.dragHandle,

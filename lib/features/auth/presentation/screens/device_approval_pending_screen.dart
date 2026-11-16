@@ -9,6 +9,7 @@ import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
 import '../../../workspace/presentation/screens/workspace_selector_screen.dart';
 import '../../application/use_cases/device_approval_use_cases.dart';
@@ -73,26 +74,37 @@ class _DeviceApprovalPendingScreenState
         backgroundColor: WebTuiColors.background,
         appBar: AppBar(
           automaticallyImplyLeading: false,
-          title: const Text('Chờ duyệt thiết bị'),
+          title: Text(tr('Chờ duyệt thiết bị', 'Waiting for device approval')),
           surfaceTintColor: Colors.transparent,
         ),
         body: SafeArea(
           child: switch (state.phase) {
-            PendingApprovalPhase.loading => const WebTuiLoadingState(
-              message: 'Đang kiểm tra trạng thái duyệt...',
+            PendingApprovalPhase.loading => WebTuiLoadingState(
+              message: tr(
+                'Đang kiểm tra trạng thái duyệt...',
+                'Checking approval status...',
+              ),
             ),
             PendingApprovalPhase.error => WebTuiErrorState(
-              title: 'Không kiểm tra được trạng thái duyệt',
-              message: state.errorMessage ?? 'Vui lòng thử lại.',
+              title: tr(
+                'Không kiểm tra được trạng thái duyệt',
+                'Could not check the approval status',
+              ),
+              message:
+                  state.errorMessage ??
+                  tr('Vui lòng thử lại.', 'Please try again.'),
               onRetry: controller.poll,
             ),
-            PendingApprovalPhase.ended => const WebTuiLoadingState(
-              message: 'Đang đưa bạn về màn đăng nhập...',
+            PendingApprovalPhase.ended => WebTuiLoadingState(
+              message: tr(
+                'Đang đưa bạn về màn đăng nhập...',
+                'Taking you back to sign in...',
+              ),
             ),
             _ => ListView(
               padding: const EdgeInsets.all(WebTuiSpacing.lg),
               children: [
-                const Icon(
+                Icon(
                   Icons.phonelink_lock_rounded,
                   size: 56,
                   color: WebTuiColors.primary,
@@ -101,8 +113,14 @@ class _DeviceApprovalPendingScreenState
                 Text(
                   state.phase == PendingApprovalPhase.finishing ||
                           state.phase == PendingApprovalPhase.approved
-                      ? 'Đã được duyệt, đang vào ứng dụng...'
-                      : 'Thiết bị này cần được duyệt',
+                      ? tr(
+                          'Đã được duyệt, đang vào ứng dụng...',
+                          'Approved, opening the app...',
+                        )
+                      : tr(
+                          'Thiết bị này cần được duyệt',
+                          'This device needs approval',
+                        ),
                   textAlign: TextAlign.center,
                   style: WebTuiTypography.titleMedium.copyWith(
                     fontWeight: FontWeight.w800,
@@ -119,7 +137,10 @@ class _DeviceApprovalPendingScreenState
                 const SizedBox(height: WebTuiSpacing.lg),
                 if (remaining != null)
                   Text(
-                    'Yêu cầu hết hạn sau ${formatCountdown(remaining)}',
+                    tr(
+                      'Yêu cầu hết hạn sau ${formatCountdown(remaining)}',
+                      'The request expires in ${formatCountdown(remaining)}',
+                    ),
                     key: const Key('device_approval_countdown'),
                     textAlign: TextAlign.center,
                     style: WebTuiTypography.bodySmall.copyWith(
@@ -132,7 +153,7 @@ class _DeviceApprovalPendingScreenState
                   for (final decision in approval.decisions)
                     Text(
                       '${deviceApprovalRoleLabel(decision.approverRole)}: '
-                      '${decision.isApproval ? 'đã đồng ý' : 'đã từ chối'}',
+                      '${decision.isApproval ? tr('đã đồng ý', 'approved') : tr('đã từ chối', 'rejected')}',
                       textAlign: TextAlign.center,
                       style: WebTuiTypography.bodySmall,
                     ),
@@ -159,7 +180,7 @@ class _DeviceApprovalPendingScreenState
                   key: const Key('device_approval_logout_button'),
                   onPressed: _loggingOut ? null : _logout,
                   icon: const Icon(Icons.logout_rounded),
-                  label: const Text('Đăng xuất'),
+                  label: Text(tr('Đăng xuất', 'Sign out')),
                 ),
               ],
             ),

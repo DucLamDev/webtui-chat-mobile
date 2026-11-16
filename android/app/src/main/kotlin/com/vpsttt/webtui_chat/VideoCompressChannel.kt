@@ -198,23 +198,39 @@ class VideoCompressChannel(
      * kích thước / thời lượng video. Chạy ngoài luồng chính.
      */
     private fun poster(call: MethodCall, result: MethodChannel.Result) {
+        val inputUrl = call.argument<String>("inputUrl")
         val input = call.argument<String>("input")
         val output = call.argument<String>("output")
         val maxSide = call.argument<Number>("maxSide")?.toInt() ?: 480
         val timeMs = call.argument<Number>("timeMs")?.toLong() ?: 1000L
-        if (input.isNullOrEmpty() || output.isNullOrEmpty() || maxSide <= 0) {
-            result.error("INVALID_ARGUMENTS", "Thiếu tham số lấy ảnh bìa.", null)
-            return
+        val source: String
+        if (!inputUrl.isNullOrEmpty()) {
+            // Đường dẫn phát dần: chỉ nhận http / https.
+            val scheme = Uri.parse(inputUrl).scheme?.lowercase()
+            if (scheme != "http" && scheme != "https") {
+                result.error("INVALID_ARGUMENTS", "Địa chỉ video không hợp lệ.", null)
+                return
+            }
+            source = inputUrl
+        } else {
+            if (input.isNullOrEmpty()) {
+                result.error("INVALID_ARGUMENTS", "Thiếu tham số lấy ảnh bìa.", null)
+                return
+            }
+            if (!File(input).isFile) {
+                result.error("INPUT_MISSING", "Không thấy tệp video nguồn.", null)
+                return
+            }
+            source = input
         }
-        val inputFile = File(input)
-        if (!inputFile.isFile) {
-            result.error("INPUT_MISSING", "Không thấy tệp video nguồn.", null)
+        if (output.isNullOrEmpty() || maxSide <= 0) {
+            result.error("INVALID_ARGUMENTS", "Thiếu tham số lấy ảnh bìa.", null)
             return
         }
         try {
             posterExecutor.execute {
                 val outcome = try {
-                    Result.success(extractPoster(inputFile, File(output), maxSide, timeMs))
+                    Result.success(extractPoster(source, !inputUrl.isNullOrEmpty(), File(output), maxSide, timeMs))
                 } catch (e: Exception) {
                     Result.failure<Map<String, Any>>(e)
                 }
@@ -237,7 +253,8 @@ class VideoCompressChannel(
     }
 
     private fun extractPoster(
-        input: File,
+        input: String,
+        isUrl: Boolean,
         output: File,
         maxSide: Int,
         timeMs: Long,
@@ -245,7 +262,11 @@ class VideoCompressChannel(
         val partFile = File("${output.path}.part")
         val retriever = MediaMetadataRetriever()
         try {
-            retriever.setDataSource(input.path)
+            if (isUrl) {
+                retriever.setDataSource(input, HashMap<String, String>())
+            } else {
+                retriever.setDataSource(input)
+            }
             fun meta(key: Int) = retriever.extractMetadata(key)?.toLongOrNull()
             val durationMs = meta(MediaMetadataRetriever.METADATA_KEY_DURATION) ?: 0L
             val rawWidth = meta(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toInt() ?: 0

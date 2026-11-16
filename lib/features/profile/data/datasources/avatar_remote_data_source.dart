@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../../../core/network/api_response.dart';
 import '../../../../core/network/api_transport.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/avatar_upload.dart';
 
 final class AvatarRemoteDataSource {
@@ -32,7 +33,12 @@ final class AvatarRemoteDataSource {
     final map = envelopeItem(response.data, 'avatar');
     final avatarPath = stringField(map, const ['avatar_path', 'avatar_url']);
     if (avatarPath.isEmpty) {
-      throw StateError('Máy chủ không trả đường dẫn ảnh đại diện.');
+      throw StateError(
+        tr(
+          'Máy chủ không trả đường dẫn ảnh đại diện.',
+          'The server did not return an avatar URL.',
+        ),
+      );
     }
     return UploadedAvatar(fileId: avatarPath, downloadPath: avatarPath);
   }

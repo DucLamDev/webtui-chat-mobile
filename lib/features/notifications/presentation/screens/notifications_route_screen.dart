@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../conversations/domain/entities/conversation_summary.dart';
 import '../../../conversations/presentation/controllers/conversation_home_controller.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
@@ -87,9 +88,11 @@ class _NoticeBotRedirectScreenState
         _go('/');
       }
     }
-    return const Scaffold(
+    return Scaffold(
       body: SafeArea(
-        child: WebTuiLoadingState(message: 'Đang mở thông báo...'),
+        child: WebTuiLoadingState(
+          message: tr('Đang mở thông báo...', 'Opening notification...'),
+        ),
       ),
     );
   }

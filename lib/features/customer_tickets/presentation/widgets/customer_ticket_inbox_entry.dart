@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
@@ -28,22 +29,31 @@ class CustomerTicketInboxEntry extends ConsumerWidget {
     final count = ref.watch(countProvider);
     final value = count.valueOrNull;
     final subtitle = switch (value) {
-      null when count.isLoading => 'Đang tải số ticket...',
-      null => 'Xem và trả lời ticket khách gửi',
-      0 => 'Không có ticket chờ trả lời',
-      final pending => '$pending ticket chưa trả lời',
+      null when count.isLoading => tr(
+        'Đang tải số ticket...',
+        'Loading ticket count...',
+      ),
+      null => tr(
+        'Xem và trả lời ticket khách gửi',
+        'View and reply to customer tickets',
+      ),
+      0 => tr('Không có ticket chờ trả lời', 'No tickets waiting for a reply'),
+      final pending => tr(
+        '$pending ticket chưa trả lời',
+        '$pending unanswered tickets',
+      ),
     };
     final pending = value ?? 0;
     return Semantics(
       button: true,
       excludeSemantics: true,
-      label: 'Ticket khách, $subtitle',
+      label: tr('Ticket khách, $subtitle', 'Customer tickets, $subtitle'),
       child: WebTuiConversationListItem(
         key: const Key('customer_ticket_entry'),
-        title: 'Ticket khách',
+        title: tr('Ticket khách', 'Customer tickets'),
         preview: subtitle,
         timeLabel: '',
-        avatarLabel: 'Ticket khách',
+        avatarLabel: tr('Ticket khách', 'Customer tickets'),
         avatarIcon: WebTuiIcons.ticket,
         unreadCount: pending,
         trailing: Row(
@@ -53,7 +63,7 @@ class CustomerTicketInboxEntry extends ConsumerWidget {
               WebTuiUnreadBadge(count: pending),
               const SizedBox(width: WebTuiSpacing.xs),
             ],
-            const Icon(
+            Icon(
               CupertinoIcons.chevron_right,
               size: 18,
               color: WebTuiColors.textMuted,

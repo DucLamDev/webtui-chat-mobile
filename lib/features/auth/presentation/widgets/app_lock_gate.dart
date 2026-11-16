@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
 import '../../../../core/security/active_call_tracker.dart';
+import '../../../../design_system/tokens/webtui_colors.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/app_lock_timeout_policy.dart';
 
 /// Lớp khoá ứng dụng (lõi 3.1).
@@ -169,8 +171,8 @@ class _AppLockGateState extends ConsumerState<AppLockGate>
     if (value == null && enabled.hasError) {
       overlay = _lockErrorView();
     } else if (value == null) {
-      overlay = const ColoredBox(
-        color: Color(0xFFF6FAFF),
+      overlay = ColoredBox(
+        color: WebTuiColors.background,
         child: Center(child: CircularProgressIndicator()),
       );
     } else if (value && _locked) {
@@ -204,7 +206,7 @@ class _AppLockGateState extends ConsumerState<AppLockGate>
     }
     final blockedSeconds = _remainingBlockSeconds();
     return Scaffold(
-      backgroundColor: const Color(0xFFF6FAFF),
+      backgroundColor: WebTuiColors.background,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -218,18 +220,24 @@ class _AppLockGateState extends ConsumerState<AppLockGate>
                     const Icon(Icons.lock_rounded, size: 58),
                     const SizedBox(height: 18),
                     Text(
-                      'WebTUI Chat đã khóa',
+                      tr('WebTUI Chat đã khóa', 'WebTUI Chat is locked'),
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Nhập mã PIN hoặc dùng sinh trắc học để tiếp tục.',
+                    Text(
+                      tr(
+                        'Nhập mã PIN hoặc dùng sinh trắc học để tiếp tục.',
+                        'Enter your PIN or use biometrics to continue.',
+                      ),
                       textAlign: TextAlign.center,
                     ),
                     if (ref.watch(activeCallTrackerProvider).isNotEmpty) ...[
                       const SizedBox(height: 12),
-                      const Text(
-                        'Cuộc gọi vẫn đang diễn ra. Mở khóa để quay lại cuộc gọi.',
+                      Text(
+                        tr(
+                          'Cuộc gọi vẫn đang diễn ra. Mở khóa để quay lại cuộc gọi.',
+                          'A call is still in progress. Unlock to return to the call.',
+                        ),
                         key: Key('app_lock_active_call_notice'),
                         textAlign: TextAlign.center,
                       ),
@@ -247,8 +255,8 @@ class _AppLockGateState extends ConsumerState<AppLockGate>
                         FilteringTextInputFormatter.digitsOnly,
                         LengthLimitingTextInputFormatter(12),
                       ],
-                      decoration: const InputDecoration(
-                        labelText: 'Mã PIN',
+                      decoration: InputDecoration(
+                        labelText: tr('Mã PIN', 'PIN'),
                         prefixIcon: Icon(Icons.pin_outlined),
                         border: OutlineInputBorder(),
                       ),
@@ -266,7 +274,12 @@ class _AppLockGateState extends ConsumerState<AppLockGate>
                     ],
                     if (blockedSeconds > 0) ...[
                       const SizedBox(height: 12),
-                      Text('Thử lại sau $blockedSeconds giây.'),
+                      Text(
+                        tr(
+                          'Thử lại sau $blockedSeconds giây.',
+                          'Try again in $blockedSeconds seconds.',
+                        ),
+                      ),
                     ],
                     const SizedBox(height: 18),
                     FilledButton.icon(
@@ -280,13 +293,13 @@ class _AppLockGateState extends ConsumerState<AppLockGate>
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.lock_open_rounded),
-                      label: const Text('Mở khóa'),
+                      label: Text(tr('Mở khóa', 'Unlock')),
                     ),
                     const SizedBox(height: 8),
                     TextButton.icon(
                       onPressed: _busy ? null : _tryBiometric,
                       icon: const Icon(Icons.fingerprint_rounded),
-                      label: const Text('Dùng sinh trắc học'),
+                      label: Text(tr('Dùng sinh trắc học', 'Use biometrics')),
                     ),
                   ],
                 ),
@@ -303,7 +316,9 @@ class _AppLockGateState extends ConsumerState<AppLockGate>
       body: Center(
         child: FilledButton(
           onPressed: () => ref.invalidate(isAppLockEnabledProvider),
-          child: const Text('Thử đọc lại khóa ứng dụng'),
+          child: Text(
+            tr('Thử đọc lại khóa ứng dụng', 'Retry reading app lock'),
+          ),
         ),
       ),
     );

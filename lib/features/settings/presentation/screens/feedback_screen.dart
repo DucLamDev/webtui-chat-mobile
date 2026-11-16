@@ -5,12 +5,13 @@ import '../../../../app/flavor/app_config.dart';
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
 
-const _categories = <(String, String)>[
-  ('bug', 'Báo lỗi'),
-  ('idea', 'Đề xuất'),
-  ('other', 'Khác'),
+List<(String, String)> get _categories => [
+  ('bug', tr('Báo lỗi', 'Report a bug')),
+  ('idea', tr('Đề xuất', 'Suggestion')),
+  ('other', tr('Khác', 'Other')),
 ];
 
 /// Góp ý ngay trong app: gửi tới quản trị workspace
@@ -54,14 +55,28 @@ class _FeedbackScreenState extends ConsumerState<FeedbackScreen> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cảm ơn bạn! Góp ý đã được gửi.')),
+        SnackBar(
+          content: Text(
+            tr(
+              'Cảm ơn bạn! Góp ý đã được gửi.',
+              'Thank you! Your feedback was sent.',
+            ),
+          ),
+        ),
       );
       Navigator.of(context).maybePop();
     } on Object {
       if (!mounted) return;
       setState(() => _sending = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Chưa gửi được góp ý. Thử lại sau.')),
+        SnackBar(
+          content: Text(
+            tr(
+              'Chưa gửi được góp ý. Thử lại sau.',
+              'Could not send your feedback. Try again later.',
+            ),
+          ),
+        ),
       );
     }
   }
@@ -75,14 +90,19 @@ class _FeedbackScreenState extends ConsumerState<FeedbackScreen> {
         workspaceId != null && _message.text.trim().isNotEmpty && !_sending;
     return Scaffold(
       backgroundColor: WebTuiColors.background,
-      appBar: AppBar(title: const Text('Gửi góp ý')),
+      appBar: AppBar(title: Text(tr('Gửi góp ý', 'Send feedback'))),
       body: SafeArea(
         top: false,
         child: ListView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.all(WebTuiSpacing.md),
           children: [
-            const Text('Bạn muốn góp ý về điều gì?'),
+            Text(
+              tr(
+                'Bạn muốn góp ý về điều gì?',
+                'What would you like to give feedback on?',
+              ),
+            ),
             const SizedBox(height: WebTuiSpacing.sm),
             Wrap(
               spacing: WebTuiSpacing.sm,
@@ -96,7 +116,12 @@ class _FeedbackScreenState extends ConsumerState<FeedbackScreen> {
               ],
             ),
             const SizedBox(height: WebTuiSpacing.md),
-            const Text('Đánh giá ứng dụng (không bắt buộc)'),
+            Text(
+              tr(
+                'Đánh giá ứng dụng (không bắt buộc)',
+                'Rate the app (optional)',
+              ),
+            ),
             Row(
               children: [
                 for (var star = 1; star <= 5; star++)
@@ -123,8 +148,11 @@ class _FeedbackScreenState extends ConsumerState<FeedbackScreen> {
               textCapitalization: TextCapitalization.sentences,
               onTapOutside: (_) => FocusScope.of(context).unfocus(),
               onChanged: (_) => setState(() {}),
-              decoration: const InputDecoration(
-                hintText: 'Mô tả lỗi gặp phải hoặc tính năng bạn mong muốn...',
+              decoration: InputDecoration(
+                hintText: tr(
+                  'Mô tả lỗi gặp phải hoặc tính năng bạn mong muốn...',
+                  'Describe the problem you ran into or the feature you want...',
+                ),
                 border: OutlineInputBorder(),
               ),
             ),
@@ -132,7 +160,11 @@ class _FeedbackScreenState extends ConsumerState<FeedbackScreen> {
             FilledButton.icon(
               onPressed: canSend ? () => _send(workspaceId) : null,
               icon: const Icon(Icons.send_rounded),
-              label: Text(_sending ? 'Đang gửi...' : 'Gửi góp ý'),
+              label: Text(
+                _sending
+                    ? tr('Đang gửi...', 'Sending...')
+                    : tr('Gửi góp ý', 'Send feedback'),
+              ),
             ),
           ],
         ),

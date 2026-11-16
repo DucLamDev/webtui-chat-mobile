@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../../../../l10n/app_strings.dart';
 import '../../application/legal_acceptance_access_policy.dart';
 
 final class LegalAcceptanceInterceptor extends Interceptor {
@@ -21,12 +22,14 @@ final class LegalAcceptanceInterceptor extends Interceptor {
         response: Response<Object>(
           requestOptions: options,
           statusCode: 409,
-          data: const {
+          data: {
             'success': false,
             'error': {
               'code': 'LEGAL_ACCEPTANCE_REQUIRED',
-              'message':
-                  'Bạn cần đồng ý Điều khoản và Chính sách quyền riêng tư trước khi tạo nội dung.',
+              'message': tr(
+                'Bạn cần đồng ý Điều khoản và Chính sách quyền riêng tư trước khi tạo nội dung.',
+                'You need to accept the Terms and Privacy Policy before creating content.',
+              ),
             },
           },
         ),

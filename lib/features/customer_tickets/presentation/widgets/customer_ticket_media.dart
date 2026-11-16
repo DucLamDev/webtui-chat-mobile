@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../design_system/components/webtui_components.dart';
@@ -107,7 +108,7 @@ class _CustomerTicketImageViewer extends StatelessWidget {
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
-        title: const Text('Ảnh khách gửi'),
+        title: Text(tr('Ảnh khách gửi', 'Photo from customer')),
       ),
       body: SafeArea(
         child: LayoutBuilder(
@@ -120,7 +121,7 @@ class _CustomerTicketImageViewer extends StatelessWidget {
                   width: constraints.maxWidth,
                   height: constraints.maxHeight,
                   fit: BoxFit.contain,
-                  semanticLabel: 'Ảnh khách gửi',
+                  semanticLabel: tr('Ảnh khách gửi', 'Photo from customer'),
                 ),
               ),
             );
@@ -149,10 +150,7 @@ class _ImagePlaceholder extends StatelessWidget {
                 dimension: 18,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
-            : const Icon(
-                Icons.broken_image_outlined,
-                color: WebTuiColors.textMuted,
-              ),
+            : Icon(Icons.broken_image_outlined, color: WebTuiColors.textMuted),
       ),
     );
   }

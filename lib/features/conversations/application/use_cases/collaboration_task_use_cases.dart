@@ -1,5 +1,6 @@
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/collaboration_room.dart';
 import '../../domain/repositories/collaboration_task_repository.dart';
 
@@ -7,21 +8,26 @@ const maxTaskTitleLength = 240;
 const maxTaskDescriptionLength = 4000;
 
 /// Máy chủ bản cũ chưa có API xoá việc / "Việc của tôi": trả 404 không kèm mã của việc.
-const taskFeatureUnsupportedMessage =
-    'Máy chủ chưa hỗ trợ chức năng này. Hãy nhờ quản trị cập nhật máy chủ.';
+String get taskFeatureUnsupportedMessage => tr(
+  'Máy chủ chưa hỗ trợ chức năng này. Hãy nhờ quản trị cập nhật máy chủ.',
+  'The server doesn\'t support this feature. Ask an admin to update the server.',
+);
 
 Failure? _validateTitle(String title) {
   if (title.isEmpty) {
-    return const Failure(
+    return Failure(
       kind: FailureKind.validation,
-      message: 'Hãy nhập tên công việc.',
+      message: tr('Hãy nhập tên công việc.', 'Enter a task name.'),
       code: 'TASK_TITLE_REQUIRED',
     );
   }
   if (title.runes.length > maxTaskTitleLength) {
-    return const Failure(
+    return Failure(
       kind: FailureKind.validation,
-      message: 'Tên công việc tối đa 240 ký tự.',
+      message: tr(
+        'Tên công việc tối đa 240 ký tự.',
+        'Task names can be up to 240 characters.',
+      ),
       code: 'TASK_TITLE_TOO_LONG',
     );
   }
@@ -30,9 +36,12 @@ Failure? _validateTitle(String title) {
 
 Failure? _validateDescription(String description) {
   if (description.runes.length > maxTaskDescriptionLength) {
-    return const Failure(
+    return Failure(
       kind: FailureKind.validation,
-      message: 'Mô tả công việc tối đa 4000 ký tự.',
+      message: tr(
+        'Mô tả công việc tối đa 4000 ký tự.',
+        'Task descriptions can be up to 4000 characters.',
+      ),
       code: 'TASK_DESCRIPTION_TOO_LONG',
     );
   }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
 import '../../application/use_cases/channel_use_cases.dart';
 import '../../application/use_cases/collaboration_task_use_cases.dart';
@@ -22,14 +23,17 @@ final canManageWorkspaceChannelsProvider = Provider<bool>((ref) {
 
 /// Bộ lọc danh sách việc trong phòng.
 enum TaskListFilter {
-  all('Tất cả'),
-  assignedToMe('Giao cho tôi'),
-  createdByMe('Tôi giao'),
-  overdue('Quá hạn');
+  all,
+  assignedToMe,
+  createdByMe,
+  overdue;
 
-  const TaskListFilter(this.label);
-
-  final String label;
+  String get label => switch (this) {
+    all => tr('Tất cả', 'All'),
+    assignedToMe => tr('Giao cho tôi', 'Assigned to me'),
+    createdByMe => tr('Tôi giao', 'Assigned by me'),
+    overdue => tr('Quá hạn', 'Overdue'),
+  };
 }
 
 /// Phòng đang xem việc. `canManageRoom`: người tạo phòng hoặc có quyền
@@ -354,7 +358,7 @@ List<TaskAssigneeOption> _assignees(List<ChannelMember> members) {
             .map((value) => value.trim())
             .firstWhere(
               (value) => value.isNotEmpty,
-              orElse: () => 'Người dùng',
+              orElse: () => tr('Người dùng', 'User'),
             );
     final avatarUrl = member.avatarUrl?.trim();
     result.add(

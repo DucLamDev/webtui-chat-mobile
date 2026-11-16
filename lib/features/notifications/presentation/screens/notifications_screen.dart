@@ -10,6 +10,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
 import '../../domain/entities/mobile_notification.dart';
 import '../controllers/notification_center_controller.dart';
@@ -25,11 +26,14 @@ class NotificationsScreen extends ConsumerWidget {
         workspaceId ??
         ref.watch(workspaceControllerProvider).activeWorkspace?.id;
     if (activeWorkspaceId == null || activeWorkspaceId.trim().isEmpty) {
-      return const Scaffold(
+      return Scaffold(
         body: SafeArea(
           child: WebTuiEmptyState(
-            title: 'Chưa chọn workspace',
-            message: 'Chọn workspace trước khi xem thông báo.',
+            title: tr('Chưa chọn workspace', 'No workspace selected'),
+            message: tr(
+              'Chọn workspace trước khi xem thông báo.',
+              'Choose a workspace before viewing notifications.',
+            ),
             icon: Icons.notifications_none_rounded,
           ),
         ),
@@ -43,7 +47,7 @@ class NotificationsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: WebTuiColors.background,
       appBar: AppBar(
-        title: const Text('Thông báo'),
+        title: Text(tr('Thông báo', 'Notifications')),
         surfaceTintColor: Colors.transparent,
         actions: [
           TextButton(
@@ -55,11 +59,11 @@ class NotificationsScreen extends ConsumerWidget {
                     dimension: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Đã đọc hết'),
+                : Text(tr('Đã đọc hết', 'Mark all read')),
           ),
           IconButton(
             key: const Key('notifications_delete_all'),
-            tooltip: 'Xoá tất cả thông báo',
+            tooltip: tr('Xoá tất cả thông báo', 'Clear all notifications'),
             onPressed: state.isDeletingAll || state.notifications.isEmpty
                 ? null
                 : () => _confirmDeleteAll(context, controller),
@@ -79,24 +83,33 @@ class NotificationsScreen extends ConsumerWidget {
           child: Builder(
             builder: (context) {
               if (state.isLoading && state.notifications.isEmpty) {
-                return const WebTuiLoadingState(
-                  message: 'Đang tải thông báo...',
+                return WebTuiLoadingState(
+                  message: tr(
+                    'Đang tải thông báo...',
+                    'Loading notifications...',
+                  ),
                 );
               }
               if (state.errorMessage != null && state.notifications.isEmpty) {
                 return WebTuiErrorState(
-                  title: 'Không tải được thông báo',
+                  title: tr(
+                    'Không tải được thông báo',
+                    'Could not load notifications',
+                  ),
                   message: state.errorMessage!,
                   onRetry: controller.load,
                 );
               }
               if (state.notifications.isEmpty) {
                 return ListView(
-                  children: const [
+                  children: [
                     SizedBox(height: 120),
                     WebTuiEmptyState(
-                      title: 'Chưa có thông báo',
-                      message: 'Tin nhắn, lời mời và cảnh báo sẽ hiện ở đây.',
+                      title: tr('Chưa có thông báo', 'No notifications yet'),
+                      message: tr(
+                        'Tin nhắn, lời mời và cảnh báo sẽ hiện ở đây.',
+                        'Messages, invitations and alerts will appear here.',
+                      ),
                       icon: Icons.notifications_none_rounded,
                     ),
                   ],
@@ -158,7 +171,13 @@ Future<void> _delete(
   final error = await controller.delete(notification);
   messenger
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(error ?? 'Đã xoá thông báo.')));
+    ..showSnackBar(
+      SnackBar(
+        content: Text(
+          error ?? tr('Đã xoá thông báo.', 'Notification deleted.'),
+        ),
+      ),
+    );
 }
 
 Future<void> _showActions(
@@ -171,11 +190,11 @@ Future<void> _showActions(
     builder: (sheetContext) => Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const WebTuiSheetHeader(title: 'Thông báo'),
+        WebTuiSheetHeader(title: tr('Thông báo', 'Notifications')),
         WebTuiSheetActionTile(
           key: const Key('notification_action_delete'),
           icon: WebTuiIcons.delete,
-          title: 'Xoá thông báo này',
+          title: tr('Xoá thông báo này', 'Delete this notification'),
           tone: WebTuiDialogTone.danger,
           onTap: () => Navigator.of(sheetContext).pop(true),
         ),
@@ -195,19 +214,21 @@ Future<void> _confirmDeleteAll(
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => WebTuiDialog(
-      title: 'Xoá tất cả thông báo?',
-      message:
-          'Mọi thông báo của workspace này sẽ bị xoá và không khôi phục được.',
+      title: tr('Xoá tất cả thông báo?', 'Clear all notifications?'),
+      message: tr(
+        'Mọi thông báo của workspace này sẽ bị xoá và không khôi phục được.',
+        'All notifications in this workspace will be deleted and cannot be restored.',
+      ),
       icon: WebTuiIcons.delete,
       tone: WebTuiDialogTone.danger,
       actions: [
         WebTuiDialogAction(
-          label: 'Huỷ',
+          label: tr('Huỷ', 'Cancel'),
           onPressed: () => Navigator.of(dialogContext).pop(false),
         ),
         WebTuiDialogAction(
           key: const Key('notifications_delete_all_confirm'),
-          label: 'Xoá tất cả',
+          label: tr('Xoá tất cả', 'Clear all'),
           primary: true,
           destructive: true,
           onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -221,7 +242,11 @@ Future<void> _confirmDeleteAll(
   messenger
     ..hideCurrentSnackBar()
     ..showSnackBar(
-      SnackBar(content: Text(error ?? 'Đã xoá tất cả thông báo.')),
+      SnackBar(
+        content: Text(
+          error ?? tr('Đã xoá tất cả thông báo.', 'All notifications cleared.'),
+        ),
+      ),
     );
 }
 
@@ -237,13 +262,13 @@ class _DeleteSwipeBackground extends StatelessWidget {
         color: WebTuiColors.danger,
         borderRadius: BorderRadius.circular(WebTuiRadii.lg),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.delete_outline_rounded, color: WebTuiColors.textOnPrimary),
           SizedBox(width: WebTuiSpacing.xs),
           Text(
-            'Xoá',
+            tr('Xoá', 'Delete'),
             style: TextStyle(
               color: WebTuiColors.textOnPrimary,
               fontWeight: FontWeight.w600,
@@ -347,7 +372,7 @@ class _NotificationTile extends StatelessWidget {
               ),
               if (unread) ...[
                 const SizedBox(width: WebTuiSpacing.sm),
-                const Icon(Icons.circle, size: 9, color: WebTuiColors.primary),
+                Icon(Icons.circle, size: 9, color: WebTuiColors.primary),
               ],
             ],
           ),
@@ -374,7 +399,7 @@ IconData _iconFor(String type) {
 String _timeAgo(DateTime value) {
   final diff = DateTime.now().difference(value.toLocal());
   if (diff.inMinutes < 1) {
-    return 'Vừa xong';
+    return tr('Vừa xong', 'Just now');
   }
   if (diff.inHours < 1) {
     return '${diff.inMinutes}p';

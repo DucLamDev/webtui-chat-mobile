@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
@@ -58,9 +59,12 @@ class MyNotesScreen extends ConsumerWidget {
         child: !enabled
             ? const _MyNotesDisabled()
             : resolvedWorkspaceId.isEmpty
-            ? const WebTuiEmptyState(
-                title: 'Chưa chọn workspace',
-                message: 'Chọn workspace trước khi mở My Note.',
+            ? WebTuiEmptyState(
+                title: tr('Chưa chọn workspace', 'No workspace selected'),
+                message: tr(
+                  'Chọn workspace trước khi mở My Note.',
+                  'Select a workspace before opening My Note.',
+                ),
                 icon: Icons.sticky_note_2_outlined,
               )
             : _MyNotesBody(workspaceId: resolvedWorkspaceId),
@@ -87,9 +91,9 @@ class _MyNotesDisabled extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const WebTuiEmptyState(
+    return WebTuiEmptyState(
       key: Key('my_notes_disabled'),
-      title: 'My Note chưa được bật',
+      title: tr('My Note chưa được bật', 'My Note isn\'t enabled'),
       message: myNotesDisabledMessage,
       icon: Icons.sticky_note_2_outlined,
     );
@@ -111,7 +115,10 @@ class _NewNoteButton extends ConsumerWidget {
         if (state.isOffline) {
           showMyNoteSnack(
             context,
-            'Bạn đang ngoại tuyến. Kết nối lại để tạo ghi chú mới.',
+            tr(
+              'Bạn đang ngoại tuyến. Kết nối lại để tạo ghi chú mới.',
+              'You\'re offline. Reconnect to create new notes.',
+            ),
           );
           return;
         }
@@ -127,7 +134,7 @@ class _NewNoteButton extends ConsumerWidget {
         );
       },
       icon: const Icon(Icons.add_rounded),
-      label: const Text('Ghi chú mới'),
+      label: Text(tr('Ghi chú mới', 'New note')),
     );
   }
 }
@@ -184,7 +191,7 @@ class _MyNotesBody extends ConsumerWidget {
                   children: [
                     Expanded(
                       child: WebTuiSearchBar(
-                        hintText: 'Tìm ghi chú',
+                        hintText: tr('Tìm ghi chú', 'Search notes'),
                         debounceDuration: const Duration(milliseconds: 350),
                         onChanged: (value) =>
                             unawaited(controller.setQuery(value)),
@@ -219,9 +226,11 @@ class _MyNotesBody extends ConsumerWidget {
     MyNotesListController controller,
   ) {
     if (state.isLoading && state.items.isEmpty) {
-      return const [
+      return [
         SliverToBoxAdapter(
-          child: WebTuiLoadingState(message: 'Đang tải ghi chú...'),
+          child: WebTuiLoadingState(
+            message: tr('Đang tải ghi chú...', 'Loading note...'),
+          ),
         ),
       ];
     }
@@ -229,7 +238,7 @@ class _MyNotesBody extends ConsumerWidget {
       return [
         SliverToBoxAdapter(
           child: WebTuiErrorState(
-            title: 'Chưa tải được My Note',
+            title: tr('Chưa tải được My Note', 'Couldn\'t load My Note'),
             message: state.errorMessage!,
             onRetry: () => unawaited(controller.refresh()),
           ),
@@ -242,11 +251,18 @@ class _MyNotesBody extends ConsumerWidget {
         SliverToBoxAdapter(
           child: WebTuiEmptyState(
             key: const Key('my_notes_empty'),
-            title: filtered ? 'Không có ghi chú phù hợp' : 'Chưa có ghi chú',
+            title: filtered
+                ? tr('Không có ghi chú phù hợp', 'No matching notes')
+                : tr('Chưa có ghi chú', 'No notes yet'),
             message: filtered
-                ? 'Thử bỏ bớt bộ lọc hoặc đổi từ khoá tìm kiếm.'
-                : 'Ghi lại ý tưởng, việc cần nhớ, hoặc nhấn giữ một tin nhắn '
-                      'để lưu vào My Note.',
+                ? tr(
+                    'Thử bỏ bớt bộ lọc hoặc đổi từ khoá tìm kiếm.',
+                    'Try removing some filters or changing your search.',
+                  )
+                : tr(
+                    'Ghi lại ý tưởng, việc cần nhớ, hoặc nhấn giữ một tin nhắn để lưu vào My Note.',
+                    'Jot down ideas and things to remember, or long-press a message to save it to My Note.',
+                  ),
             icon: Icons.sticky_note_2_outlined,
           ),
         ),
@@ -276,8 +292,10 @@ class _MyNotesBody extends ConsumerWidget {
         ),
       ),
       if (state.isLoadingMore)
-        const SliverToBoxAdapter(
-          child: WebTuiLoadingState(message: 'Đang tải thêm...'),
+        SliverToBoxAdapter(
+          child: WebTuiLoadingState(
+            message: tr('Đang tải thêm...', 'Loading more...'),
+          ),
         ),
       if (state.loadMoreErrorMessage != null)
         SliverToBoxAdapter(
@@ -285,7 +303,9 @@ class _MyNotesBody extends ConsumerWidget {
             child: TextButton.icon(
               onPressed: () => unawaited(controller.loadMore()),
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Tải thêm lỗi, thử lại'),
+              label: Text(
+                tr('Tải thêm lỗi, thử lại', 'Couldn\'t load more, retry'),
+              ),
             ),
           ),
         ),
@@ -305,16 +325,18 @@ class _MyNotesBody extends ConsumerWidget {
           children: [
             WebTuiSheetHeader(
               title: note.displayTitle,
-              subtitle: 'Ghi chú của tôi',
+              subtitle: tr('Ghi chú của tôi', 'My notes'),
             ),
             WebTuiSheetActionTile(
               icon: WebTuiIcons.pin,
-              title: note.pinned ? 'Bỏ ghim' : 'Ghim lên đầu',
+              title: note.pinned
+                  ? tr('Bỏ ghim', 'Unpin')
+                  : tr('Ghim lên đầu', 'Pin to top'),
               onTap: () => Navigator.of(sheetContext).pop('pin'),
             ),
             WebTuiSheetActionTile(
               icon: WebTuiIcons.delete,
-              title: 'Xoá ghi chú',
+              title: tr('Xoá ghi chú', 'Delete note'),
               tone: WebTuiDialogTone.danger,
               onTap: () => Navigator.of(sheetContext).pop('delete'),
             ),
@@ -330,14 +352,17 @@ class _MyNotesBody extends ConsumerWidget {
     } else if (action == 'delete') {
       final confirmed = await confirmMyNoteAction(
         context,
-        title: 'Xoá ghi chú?',
-        message: 'Ghi chú "${note.displayTitle}" sẽ bị xoá khỏi My Note.',
-        confirmLabel: 'Xoá',
+        title: tr('Xoá ghi chú?', 'Delete note?'),
+        message: tr(
+          'Ghi chú "${note.displayTitle}" sẽ bị xoá khỏi My Note.',
+          'The note "${note.displayTitle}" will be removed from My Note.',
+        ),
+        confirmLabel: tr('Xoá', 'Delete'),
       );
       if (!confirmed) return;
       error = await controller.deleteNote(note);
       if (error == null && context.mounted) {
-        showMyNoteSnack(context, 'Đã xoá ghi chú.');
+        showMyNoteSnack(context, tr('Đã xoá ghi chú.', 'Note deleted.'));
       }
     }
     if (error != null && context.mounted) showMyNoteSnack(context, error);
@@ -354,7 +379,7 @@ class _FilterButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton.filledTonal(
       key: const Key('my_notes_filter_button'),
-      tooltip: 'Lọc',
+      tooltip: tr('Lọc', 'Filter'),
       onPressed: onPressed,
       icon: Badge(
         isLabelVisible: count > 0,
@@ -416,11 +441,11 @@ class _NoteTile extends StatelessWidget {
                   ),
                   if (note.pinned) ...[
                     const SizedBox(width: WebTuiSpacing.xs),
-                    const Icon(
+                    Icon(
                       Icons.push_pin_rounded,
                       size: 16,
                       color: WebTuiColors.primary,
-                      semanticLabel: 'Đã ghim',
+                      semanticLabel: tr('Đã ghim', 'Pinned'),
                     ),
                   ],
                 ],
@@ -444,9 +469,13 @@ class _NoteTile extends StatelessWidget {
                       [
                         formatMyNoteRelativeTime(note.updatedAt),
                         ?folderName,
-                        if (note.isFromMessage) 'Từ tin nhắn',
+                        if (note.isFromMessage)
+                          tr('Từ tin nhắn', 'From a message'),
                         if (note.attachmentCount > 0)
-                          '${note.attachmentCount} tệp',
+                          tr(
+                            '${note.attachmentCount} tệp',
+                            '${note.attachmentCount} files',
+                          ),
                       ].join(' · '),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

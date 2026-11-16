@@ -5,6 +5,7 @@ import '../../design_system/components/webtui_avatar.dart';
 import '../../design_system/tokens/webtui_colors.dart';
 import '../../design_system/tokens/webtui_spacing.dart';
 import '../../design_system/tokens/webtui_typography.dart';
+import '../../l10n/app_strings.dart';
 
 final class BackgroundPrivacyController {
   const BackgroundPrivacyController();
@@ -115,7 +116,10 @@ class _PrivacyCover extends StatelessWidget {
             ),
             const SizedBox(height: WebTuiSpacing.md),
             Text(
-              '$organizationName đang bảo vệ nội dung',
+              tr(
+                '$organizationName đang bảo vệ nội dung',
+                '$organizationName is protecting your content',
+              ),
               style: WebTuiTypography.bodyMedium.copyWith(
                 color: WebTuiColors.textPrimary,
                 fontWeight: FontWeight.w700,
@@ -140,7 +144,7 @@ class _PrivacyOrganizationMark extends StatelessWidget {
       width: 48,
       height: 48,
       alignment: Alignment.center,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: WebTuiColors.primarySoft,
         shape: BoxShape.circle,
       ),

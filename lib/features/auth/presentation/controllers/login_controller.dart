@@ -12,6 +12,7 @@ import '../../../../core/result/result.dart';
 import '../../../../core/security/instance_session_mutation_lock.dart';
 import '../../../../core/security/secure_key_value_store.dart';
 import '../../../../core/security/server_account_registry.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../application/use_cases/email_verification_use_cases.dart';
 import '../../application/use_cases/login_use_case.dart';
 import '../../application/use_cases/register_use_case.dart';
@@ -650,8 +651,14 @@ final class LoginController extends StateNotifier<LoginState> {
       state = state.copyWith(
         isLoading: false,
         errorMessage: state.registrationMode == 'invite_only'
-            ? 'Server ${state.serverName} chỉ nhận tài khoản qua lời mời.'
-            : 'Server ${state.serverName} đang đóng đăng ký tài khoản.',
+            ? tr(
+                'Server ${state.serverName} chỉ nhận tài khoản qua lời mời.',
+                'Server ${state.serverName} only accepts accounts through invitations.',
+              )
+            : tr(
+                'Server ${state.serverName} đang đóng đăng ký tài khoản.',
+                'Server ${state.serverName} is closed to new registrations.',
+              ),
       );
       return;
     }
@@ -767,16 +774,21 @@ final class LoginController extends StateNotifier<LoginState> {
         state = state.copyWith(
           legalDocumentsStatus: LegalDocumentsStatus.error,
           clearLegalDocumentVersions: true,
-          legalDocumentsError:
-              'Phiên bản chính sách của máy chủ không tương thích với tài liệu '
-              'được ứng dụng công bố. Không thể đăng ký an toàn.',
+          legalDocumentsError: tr(
+            'Phiên bản chính sách của máy chủ không tương thích với tài liệu '
+                'được ứng dụng công bố. Không thể đăng ký an toàn.',
+            'The server policy version is not compatible with the documents '
+                'published by the app. Cannot register safely.',
+          ),
         );
       case Success<LegalDocumentVersions>():
         state = state.copyWith(
           legalDocumentsStatus: LegalDocumentsStatus.error,
           clearLegalDocumentVersions: true,
-          legalDocumentsError:
-              'Máy chủ chưa cung cấp đủ phiên bản tài liệu pháp lý.',
+          legalDocumentsError: tr(
+            'Máy chủ chưa cung cấp đủ phiên bản tài liệu pháp lý.',
+            'The server did not provide all legal document versions.',
+          ),
         );
       case FailureResult<LegalDocumentVersions>(failure: final failure):
         state = state.copyWith(
@@ -816,7 +828,10 @@ final class LoginController extends StateNotifier<LoginState> {
           clearOidcLoading: true,
           errorMessage: opened
               ? null
-              : 'Không thể mở trình duyệt để đăng nhập SSO.',
+              : tr(
+                  'Không thể mở trình duyệt để đăng nhập SSO.',
+                  'Could not open the browser for SSO sign-in.',
+                ),
           clearError: opened,
         );
       case FailureResult<Uri>(failure: final failure):
@@ -840,7 +855,10 @@ final class LoginController extends StateNotifier<LoginState> {
         callbackDomain.isEmpty ||
         callbackDomain != activeDomain) {
       state = state.copyWith(
-        errorMessage: 'Callback SSO không thuộc máy chủ đang kết nối.',
+        errorMessage: tr(
+          'Callback SSO không thuộc máy chủ đang kết nối.',
+          'The SSO callback does not belong to the connected server.',
+        ),
         isLoading: false,
         clearOidcLoading: true,
       );
@@ -849,7 +867,10 @@ final class LoginController extends StateNotifier<LoginState> {
     final providerError = uri.queryParameters['error']?.trim();
     if (providerError != null && providerError.isNotEmpty) {
       state = state.copyWith(
-        errorMessage: 'Nhà cung cấp SSO đã từ chối đăng nhập.',
+        errorMessage: tr(
+          'Nhà cung cấp SSO đã từ chối đăng nhập.',
+          'The SSO provider rejected the sign-in.',
+        ),
         isLoading: false,
         clearOidcLoading: true,
       );
@@ -888,9 +909,12 @@ final class LoginController extends StateNotifier<LoginState> {
   }
 }
 
-const _inviteNotice =
-    'Bạn đang mở một lời mời. Hãy đăng nhập, hoặc đăng ký với mã mời đã '
-    'điền sẵn, để tham gia workspace.';
+String get _inviteNotice => tr(
+  'Bạn đang mở một lời mời. Hãy đăng nhập, hoặc đăng ký với mã mời đã '
+      'điền sẵn, để tham gia workspace.',
+  'You opened an invitation. Sign in, or sign up with the invite code already '
+      'filled in, to join the workspace.',
+);
 
 final _inviteTokenPattern = RegExp(r'^[A-Za-z0-9_-]{8,256}$');
 
@@ -1003,7 +1027,10 @@ Future<SelfHostedServerDiscovery> _connectToServer(
 
 String _serverError(Object error) {
   if (error is SelfHostedServerConnectionException) {
-    return 'Không thể kết nối tới server. Hãy kiểm tra domain, DNS và TLS.';
+    return tr(
+      'Không thể kết nối tới server. Hãy kiểm tra domain, DNS và TLS.',
+      'Could not connect to the server. Check the domain, DNS and TLS.',
+    );
   }
   return error
       .toString()

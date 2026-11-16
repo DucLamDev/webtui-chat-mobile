@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_strings.dart';
 import '../tokens/webtui_colors.dart';
 import '../tokens/webtui_radii.dart';
 import '../tokens/webtui_spacing.dart';
@@ -8,7 +9,9 @@ import '../tokens/webtui_typography.dart';
 /// Màu chủ đạo của hộp thoại: thường (xanh) hay nguy hiểm (đỏ: xoá, rời...).
 enum WebTuiDialogTone { normal, danger }
 
-const _dangerSoft = Color(0xFFFDECEC);
+Color get _dangerSoft => WebTuiColors.brightness == Brightness.dark
+    ? const Color(0xFF3A1D24)
+    : const Color(0xFFFDECEC);
 
 /// Một nút ở chân hộp thoại. `primary` là nút chính (nền đặc), còn lại là nút
 /// phụ (nền xám nhạt). `destructive` tô đỏ nút chính.
@@ -250,8 +253,8 @@ Future<bool> showWebTuiConfirmDialog(
   BuildContext context, {
   required String title,
   String? message,
-  String confirmLabel = 'Đồng ý',
-  String cancelLabel = 'Huỷ',
+  String? confirmLabel,
+  String? cancelLabel,
   bool destructive = false,
   IconData? icon,
 }) async {
@@ -265,12 +268,12 @@ Future<bool> showWebTuiConfirmDialog(
       actions: [
         WebTuiDialogAction(
           key: const Key('webtui_dialog_cancel'),
-          label: cancelLabel,
+          label: cancelLabel ?? tr('Huỷ', 'Cancel'),
           onPressed: () => Navigator.of(context).pop(false),
         ),
         WebTuiDialogAction(
           key: const Key('webtui_dialog_confirm'),
-          label: confirmLabel,
+          label: confirmLabel ?? tr('Đồng ý', 'OK'),
           primary: true,
           destructive: destructive,
           onPressed: () => Navigator.of(context).pop(true),
@@ -291,8 +294,8 @@ Future<String?> showWebTuiTextInputDialog(
   String? label,
   String? hint,
   String initialValue = '',
-  String confirmLabel = 'Lưu',
-  String cancelLabel = 'Huỷ',
+  String? confirmLabel,
+  String? cancelLabel,
   int? maxLength,
   IconData? icon,
   String? Function(String value)? validator,
@@ -305,8 +308,8 @@ Future<String?> showWebTuiTextInputDialog(
       label: label,
       hint: hint,
       initialValue: initialValue,
-      confirmLabel: confirmLabel,
-      cancelLabel: cancelLabel,
+      confirmLabel: confirmLabel ?? tr('Lưu', 'Save'),
+      cancelLabel: cancelLabel ?? tr('Huỷ', 'Cancel'),
       maxLength: maxLength,
       icon: icon,
       validator: validator,

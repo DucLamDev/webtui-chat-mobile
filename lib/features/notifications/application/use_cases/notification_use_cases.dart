@@ -1,5 +1,6 @@
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../settings/domain/entities/app_settings.dart';
 import '../../domain/entities/mobile_notification.dart';
 import '../../domain/repositories/notification_repository.dart';
@@ -41,8 +42,13 @@ final class MarkAllNotificationsReadUseCase {
 }
 
 /// Máy chủ cũ chưa có API xoá thông báo trả 404 không kèm mã lỗi của thông báo.
-const notificationDeleteUnsupportedMessage =
-    'Máy chủ chưa hỗ trợ xoá thông báo. Hãy nhờ quản trị cập nhật máy chủ.';
+String get notificationDeleteUnsupportedMessage => tr(
+  tr(
+    'Máy chủ chưa hỗ trợ xoá thông báo. Hãy nhờ quản trị cập nhật máy chủ.',
+    'The server does not support deleting notifications yet. Ask an administrator to update the server.',
+  ),
+  'The server does not support deleting notifications yet. Ask an administrator to update the server.',
+);
 
 Result<void> _deleteResult(Result<void> result) {
   return switch (result) {
@@ -70,10 +76,13 @@ final class DeleteNotificationUseCase {
   Future<Result<void>> execute({required String notificationId}) async {
     final id = notificationId.trim();
     if (id.isEmpty) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.validation,
-          message: 'Không xác định được thông báo cần xoá.',
+          message: tr(
+            'Không xác định được thông báo cần xoá.',
+            'Could not identify the notification to delete.',
+          ),
           code: 'NOTIFICATION_ID_REQUIRED',
         ),
       );

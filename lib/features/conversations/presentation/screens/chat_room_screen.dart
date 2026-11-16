@@ -17,6 +17,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../customer_tickets/application/customer_ticket_channel_route.dart';
 import '../../../customer_tickets/presentation/controllers/customer_ticket_access_provider.dart';
 import '../../../moderation/presentation/controllers/moderation_controller.dart';
@@ -342,9 +343,11 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
     if (!mounted || opened) {
       return;
     }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Không mở được liên kết.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(tr('Không mở được liên kết.', "Couldn't open the link.")),
+      ),
+    );
   }
 
   Future<void> _scanQrCode(ChatRoomController controller) async {
@@ -390,7 +393,12 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
     _draftFocusNode.requestFocus();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Đã thêm ${payload.summary} vào cuộc trò chuyện.'),
+        content: Text(
+          tr(
+            'Đã thêm ${payload.summary} vào cuộc trò chuyện.',
+            'Added ${payload.summary} to the conversation.',
+          ),
+        ),
       ),
     );
   }
@@ -418,11 +426,14 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         widget.workspaceId ??
         ref.watch(workspaceControllerProvider).activeWorkspace?.id;
     if (workspaceId == null || workspaceId.isEmpty) {
-      return const Scaffold(
+      return Scaffold(
         body: SafeArea(
           child: WebTuiEmptyState(
-            title: 'Chưa chọn workspace',
-            message: 'Bạn cần chọn workspace trước khi mở hội thoại.',
+            title: tr('Chưa chọn workspace', 'No workspace selected'),
+            message: tr(
+              'Bạn cần chọn workspace trước khi mở hội thoại.',
+              'You need to select a workspace before opening a conversation.',
+            ),
             icon: Icons.business_rounded,
           ),
         ),
@@ -431,9 +442,11 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
 
     if (_customerTicketRedirect(workspaceId) case final location?) {
       _redirectToCustomerTickets(location);
-      return const Scaffold(
+      return Scaffold(
         body: SafeArea(
-          child: WebTuiLoadingState(message: 'Đang mở hộp thư ticket...'),
+          child: WebTuiLoadingState(
+            message: tr('Đang mở hộp thư ticket...', 'Opening ticket inbox...'),
+          ),
         ),
       );
     }
@@ -443,10 +456,13 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
     switch (chatModerationSafetyStatus(moderationState)) {
       case ChatModerationSafetyStatus.loading:
         return _moderationSafetyGate(
-          const KeyedSubtree(
+          KeyedSubtree(
             key: Key('chat_moderation_loading_gate'),
             child: WebTuiLoadingState(
-              message: 'Đang áp dụng cài đặt an toàn...',
+              message: tr(
+                'Đang áp dụng cài đặt an toàn...',
+                'Applying safety settings...',
+              ),
             ),
           ),
         );
@@ -455,7 +471,10 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
           KeyedSubtree(
             key: const Key('chat_moderation_error_gate'),
             child: WebTuiErrorState(
-              title: 'Chưa thể mở hội thoại an toàn',
+              title: tr(
+                'Chưa thể mở hội thoại an toàn',
+                "Can't open the conversation safely yet",
+              ),
               message: moderationState.errorMessage!,
               onRetry: () => unawaited(
                 ref.read(moderationProvider.notifier).loadBlockedUsers(),
@@ -599,7 +618,10 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
             ? controller.pickAttachment
             : (_) => _showCapabilityUnavailable(
                 context,
-                'Máy chủ này không bật tính năng tệp đính kèm.',
+                tr(
+                  'Máy chủ này không bật tính năng tệp đính kèm.',
+                  "This server doesn't have attachments enabled.",
+                ),
               ),
         onScanQrCode: () => unawaited(_scanQrCode(controller)),
         onStartVoiceRecording: () =>
@@ -666,7 +688,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
               ref,
               workspaceId: workspaceId,
               userId: senderId,
-              userLabel: 'người gửi',
+              userLabel: tr('người gửi', 'sender'),
             ),
           );
         },
@@ -679,7 +701,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
               ref,
               workspaceId: workspaceId,
               userId: senderId,
-              userLabel: 'người gửi',
+              userLabel: tr('người gửi', 'sender'),
             ),
           );
         },
@@ -707,7 +729,10 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
             ? interactionBlocked
                   ? (_) => _showCapabilityUnavailable(
                       context,
-                      'Hãy bỏ chặn người dùng trước khi gọi.',
+                      tr(
+                        'Hãy bỏ chặn người dùng trước khi gọi.',
+                        'Unblock this user before calling.',
+                      ),
                     )
                   : (mode) => unawaited(
                       _startCallFromCurrentConversation(
@@ -719,7 +744,10 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
                     )
             : (_) => _showCapabilityUnavailable(
                 context,
-                'Máy chủ này không bật cuộc gọi.',
+                tr(
+                  'Máy chủ này không bật cuộc gọi.',
+                  "This server doesn't have calls enabled.",
+                ),
               ),
       ),
     );
@@ -773,7 +801,10 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
           if (interactionBlocked) {
             _showCapabilityUnavailable(
               context,
-              'Hãy bỏ chặn người dùng trước khi gọi.',
+              tr(
+                'Hãy bỏ chặn người dùng trước khi gọi.',
+                'Unblock this user before calling.',
+              ),
             );
             return;
           }
@@ -836,7 +867,10 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
   void _showBlockedSharedContentGuidance(BuildContext context) {
     _showCapabilityUnavailable(
       context,
-      'Hãy bỏ chặn người dùng trước khi tạo hoặc thay đổi nội dung dùng chung.',
+      tr(
+        'Hãy bỏ chặn người dùng trước khi tạo hoặc thay đổi nội dung dùng chung.',
+        'Unblock this user before creating or changing shared content.',
+      ),
     );
   }
 
@@ -877,7 +911,10 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
             participantIds: [senderId],
             sourceChannelId: widget.channelId,
           );
-      final draft = 'Trả lời riêng tư:\n> ${_displayMessageBody(message)}\n\n';
+      final draft = tr(
+        'Trả lời riêng tư:\n> ${_displayMessageBody(message)}\n\n',
+        'Private reply:\n> ${_displayMessageBody(message)}\n\n',
+      );
       await ref
           .read(saveDraftUseCaseProvider)
           .execute(
@@ -1082,8 +1119,13 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
 
   void _showCallUnavailable(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Cuộc gọi hiện chỉ hỗ trợ hội thoại riêng 1-1.'),
+      SnackBar(
+        content: Text(
+          tr(
+            'Cuộc gọi hiện chỉ hỗ trợ hội thoại riêng 1-1.',
+            'Calls are only supported in 1-on-1 conversations.',
+          ),
+        ),
       ),
     );
   }
@@ -1097,7 +1139,14 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
     final body = state.draft.trim();
     if (body.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nhập nội dung trước khi hẹn giờ gửi.')),
+        SnackBar(
+          content: Text(
+            tr(
+              'Nhập nội dung trước khi hẹn giờ gửi.',
+              'Enter a message before scheduling.',
+            ),
+          ),
+        ),
       );
       return;
     }
@@ -1117,7 +1166,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Hẹn giờ gửi',
+                tr('Hẹn giờ gửi', 'Schedule send'),
                 style: WebTuiTypography.titleMedium.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -1125,18 +1174,18 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
               const SizedBox(height: WebTuiSpacing.md),
               ListTile(
                 leading: const Icon(Icons.timer_outlined),
-                title: const Text('Sau 15 phút'),
+                title: Text(tr('Sau 15 phút', 'In 15 minutes')),
                 onTap: () =>
                     Navigator.pop(context, const Duration(minutes: 15)),
               ),
               ListTile(
                 leading: const Icon(Icons.schedule_outlined),
-                title: const Text('Sau 1 giờ'),
+                title: Text(tr('Sau 1 giờ', 'In 1 hour')),
                 onTap: () => Navigator.pop(context, const Duration(hours: 1)),
               ),
               ListTile(
                 leading: const Icon(Icons.wb_sunny_outlined),
-                title: const Text('Sáng mai'),
+                title: Text(tr('Sáng mai', 'Tomorrow morning')),
                 onTap: () {
                   final now = DateTime.now();
                   final tomorrow = DateTime(
@@ -1168,7 +1217,11 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
       if (context.mounted) {
         _replaceDraftText('');
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã lên lịch gửi tin nhắn.')),
+          SnackBar(
+            content: Text(
+              tr('Đã lên lịch gửi tin nhắn.', 'Message scheduled.'),
+            ),
+          ),
         );
       }
     } on Object catch (error) {
@@ -1207,13 +1260,24 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
       await controller.load();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã tạo bình chọn cho phòng.')),
+          SnackBar(
+            content: Text(
+              tr('Đã tạo bình chọn cho phòng.', 'Poll created for the room.'),
+            ),
+          ),
         );
       }
     } on Object catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Không tạo được bình chọn: $error')),
+          SnackBar(
+            content: Text(
+              tr(
+                'Không tạo được bình chọn: $error',
+                "Couldn't create the poll: $error",
+              ),
+            ),
+          ),
         );
       }
     }
@@ -1263,7 +1327,7 @@ class _MessageSearchSheetState extends State<_MessageSearchSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Tìm trong tin nhắn',
+              tr('Tìm trong tin nhắn', 'Search messages'),
               style: WebTuiTypography.titleMedium.copyWith(
                 color: WebTuiColors.textPrimary,
                 fontWeight: FontWeight.w800,
@@ -1276,7 +1340,7 @@ class _MessageSearchSheetState extends State<_MessageSearchSheet> {
               textInputAction: TextInputAction.search,
               onSubmitted: (value) => Navigator.of(context).pop(value),
               decoration: InputDecoration(
-                hintText: 'Nhập từ khóa...',
+                hintText: tr('Nhập từ khóa...', 'Enter a keyword...'),
                 prefixIcon: const Icon(CupertinoIcons.search, size: 19),
                 filled: true,
                 fillColor: WebTuiColors.backgroundMuted,
@@ -1298,13 +1362,13 @@ class _MessageSearchSheetState extends State<_MessageSearchSheet> {
                     widget.onClear();
                     Navigator.of(context).pop();
                   },
-                  child: const Text('Xóa tìm kiếm'),
+                  child: Text(tr('Xóa tìm kiếm', 'Clear search')),
                 ),
                 const Spacer(),
                 FilledButton(
                   onPressed: () =>
                       Navigator.of(context).pop(_textController.text),
-                  child: const Text('Tìm'),
+                  child: Text(tr('Tìm', 'Search')),
                 ),
               ],
             ),
@@ -1527,7 +1591,9 @@ class _ChatRoomBodyState extends State<ChatRoomBody> {
           child: ColoredBox(
             color: WebTuiColors.chatBackground,
             child: widget.state.isLoading
-                ? const WebTuiLoadingState(message: 'Đang tải tin nhắn...')
+                ? WebTuiLoadingState(
+                    message: tr('Đang tải tin nhắn...', 'Loading messages...'),
+                  )
                 : widget.state.messages.isEmpty
                 ? const _ChatEmptyState()
                 : ListView.builder(
@@ -1727,7 +1793,7 @@ class _ChatRoomBodyState extends State<ChatRoomBody> {
                                               outgoing: message.isMine,
                                               statusLabel: message.isMine
                                                   ? seen
-                                                        ? 'Đã xem'
+                                                        ? tr('Đã xem', 'Seen')
                                                         : _deliveryStatusLabel(
                                                             message,
                                                           )
@@ -1916,7 +1982,7 @@ class _MessageSearchPanel extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       CupertinoIcons.search,
                       size: 16,
                       color: WebTuiColors.textMuted,
@@ -1925,8 +1991,11 @@ class _MessageSearchPanel extends StatelessWidget {
                     Expanded(
                       child: Text(
                         state.isSearching
-                            ? 'Đang tìm...'
-                            : '${visibleResults.length} kết quả cho "${state.searchQuery}"',
+                            ? tr('Đang tìm...', 'Searching...')
+                            : tr(
+                                '${visibleResults.length} kết quả cho "${state.searchQuery}"',
+                                "${visibleResults.length} ${visibleResults.length == 1 ? 'result' : 'results'} for \"${state.searchQuery}\"",
+                              ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: WebTuiTypography.labelSmall.copyWith(
@@ -1935,7 +2004,7 @@ class _MessageSearchPanel extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Đóng tìm kiếm',
+                      tooltip: tr('Đóng tìm kiếm', 'Close search'),
                       onPressed: onClear,
                       icon: const Icon(Icons.close_rounded, size: 18),
                     ),
@@ -2028,10 +2097,19 @@ class _OutboxStatusBar extends StatelessWidget {
     final total = state.outboxItems.length;
     final color = failed > 0 ? WebTuiColors.accentAmber : WebTuiColors.primary;
     final text = failed > 0
-        ? '$failed tin đang chờ gửi lại'
+        ? tr(
+            '$failed tin đang chờ gửi lại',
+            "$failed ${failed == 1 ? 'message' : 'messages'} waiting to resend",
+          )
         : sending > 0
-        ? '$sending tin đang gửi lại'
-        : '$total tin đang nằm trong hàng chờ';
+        ? tr(
+            '$sending tin đang gửi lại',
+            "Resending $sending ${sending == 1 ? 'message' : 'messages'}",
+          )
+        : tr(
+            '$total tin đang nằm trong hàng chờ',
+            "$total ${total == 1 ? 'message' : 'messages'} in the queue",
+          );
     return Material(
       color: WebTuiColors.surface,
       child: Container(
@@ -2062,7 +2140,7 @@ class _OutboxStatusBar extends StatelessWidget {
             TextButton.icon(
               onPressed: sending > 0 ? null : onRetry,
               icon: const Icon(Icons.refresh_rounded, size: 16),
-              label: const Text('Gửi lại'),
+              label: Text(tr('Gửi lại', 'Resend')),
             ),
           ],
         ),
@@ -2090,7 +2168,11 @@ class _LoadOlderTile extends StatelessWidget {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.history_rounded),
-          label: Text(loading ? 'Đang tải...' : 'Tải tin cũ hơn'),
+          label: Text(
+            loading
+                ? tr('Đang tải...', 'Loading...')
+                : tr('Tải tin cũ hơn', 'Load older messages'),
+          ),
         ),
       ),
     );
@@ -2147,7 +2229,7 @@ class _ThreadPanel extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.forum_outlined,
                   size: 18,
                   color: WebTuiColors.primary,
@@ -2163,7 +2245,7 @@ class _ThreadPanel extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Đóng thread',
+                  tooltip: tr('Đóng thread', 'Close thread'),
                   onPressed: onClose,
                   icon: const Icon(Icons.close_rounded, size: 18),
                 ),
@@ -2173,7 +2255,7 @@ class _ThreadPanel extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: WebTuiSpacing.xs),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.subdirectory_arrow_right_rounded,
                     size: 14,
                     color: WebTuiColors.primary,
@@ -2197,7 +2279,9 @@ class _ThreadPanel extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: WebTuiSpacing.xs),
                 child: Text(
-                  message.isDeleted ? 'Tin nhắn đã được thu hồi' : message.body,
+                  message.isDeleted
+                      ? tr('Tin nhắn đã được thu hồi', 'Message unsent')
+                      : message.body,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: WebTuiTypography.bodySmall.copyWith(
@@ -2218,7 +2302,10 @@ class _ThreadPanel extends StatelessWidget {
                     textInputAction: TextInputAction.newline,
                     onChanged: onDraftChanged,
                     decoration: InputDecoration(
-                      hintText: 'Trả lời trong thread...',
+                      hintText: tr(
+                        'Trả lời trong thread...',
+                        'Reply in thread...',
+                      ),
                       isDense: true,
                       filled: true,
                       fillColor: WebTuiColors.backgroundMuted,
@@ -2237,10 +2324,10 @@ class _ThreadPanel extends StatelessWidget {
                 SizedBox.square(
                   dimension: 38,
                   child: IconButton.filled(
-                    tooltip: 'Gửi vào thread',
+                    tooltip: tr('Gửi vào thread', 'Send to thread'),
                     onPressed: canSend ? onSend : null,
                     icon: sending
-                        ? const SizedBox.square(
+                        ? SizedBox.square(
                             dimension: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
@@ -2276,7 +2363,7 @@ class _TypingIndicator extends StatelessWidget {
         child: Align(
           alignment: Alignment.centerLeft,
           child: Text(
-            'Có người đang nhập...',
+            tr('Có người đang nhập...', 'Someone is typing…'),
             style: WebTuiTypography.labelSmall.copyWith(
               color: WebTuiColors.textMuted,
               fontStyle: FontStyle.italic,
@@ -2402,8 +2489,8 @@ class _ComposerState extends State<_Composer> {
                   widget.editingMessage != null)
                 _ComposerContextBanner(
                   label: widget.editingMessage != null
-                      ? 'Đang sửa tin nhắn'
-                      : 'Đang trả lời',
+                      ? tr('Đang sửa tin nhắn', 'Editing message')
+                      : tr('Đang trả lời', 'Replying'),
                   preview:
                       (widget.editingMessage ?? widget.replyToMessage)?.body ??
                       '',
@@ -2429,7 +2516,7 @@ class _ComposerState extends State<_Composer> {
                         Icons.notifications_off_outlined,
                         size: 16,
                       ),
-                      label: const Text('Gửi không thông báo'),
+                      label: Text(tr('Gửi không thông báo', 'Send silently')),
                       onDeleted: () => setState(() => _silent = false),
                     ),
                   ),
@@ -2449,7 +2536,7 @@ class _ComposerState extends State<_Composer> {
                     dimension: 44,
                     child: IconButton.filled(
                       key: const Key('chat_composer_attach'),
-                      tooltip: 'Đính kèm',
+                      tooltip: tr('Đính kèm', 'Attach'),
                       onPressed: widget.sending ? null : _showAttachmentSheet,
                       style: IconButton.styleFrom(
                         backgroundColor: WebTuiColors.primarySoft,
@@ -2492,7 +2579,10 @@ class _ComposerState extends State<_Composer> {
                                 maxLines: 4,
                                 textInputAction: TextInputAction.newline,
                                 decoration: InputDecoration(
-                                  hintText: 'Nhập tin nhắn...',
+                                  hintText: tr(
+                                    'Nhập tin nhắn...',
+                                    'Type a message...',
+                                  ),
                                   hintStyle: WebTuiTypography.bodyMedium
                                       .copyWith(
                                         fontSize: 16,
@@ -2515,7 +2605,10 @@ class _ComposerState extends State<_Composer> {
                             ),
                             IconButton(
                               key: const Key('chat_composer_emoji'),
-                              tooltip: 'Thêm biểu tượng cảm xúc',
+                              tooltip: tr(
+                                'Thêm biểu tượng cảm xúc',
+                                'Add emoji',
+                              ),
                               onPressed: widget.sending
                                   ? null
                                   : _toggleEmojiTray,
@@ -2537,10 +2630,10 @@ class _ComposerState extends State<_Composer> {
                             : 'chat_composer_mic',
                       ),
                       tooltip: _uploadingAttachments
-                          ? 'Đang tải tệp lên'
+                          ? tr('Đang tải tệp lên', 'Uploading files')
                           : widget.canSend
-                          ? 'Gửi'
-                          : 'Ghi âm',
+                          ? tr('Gửi', 'Send')
+                          : tr('Ghi âm', 'Voice message'),
                       // Còn tệp đang tải lên: khoá nút (không gửi thiếu tệp,
                       // không chuyển thành nút ghi âm).
                       onPressed: _composerBusy
@@ -2549,7 +2642,7 @@ class _ComposerState extends State<_Composer> {
                           ? _send
                           : _startVoiceRecording,
                       icon: widget.sending || _uploadingAttachments
-                          ? const SizedBox.square(
+                          ? SizedBox.square(
                               dimension: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
@@ -2591,12 +2684,17 @@ class _ComposerState extends State<_Composer> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const WebTuiSheetHeader(title: 'Thêm vào tin nhắn'),
+                WebTuiSheetHeader(
+                  title: tr('Thêm vào tin nhắn', 'Add to message'),
+                ),
                 const _PermissionRationaleTile(),
                 WebTuiSheetActionTile(
                   icon: WebTuiIcons.camera,
-                  title: 'Chụp ảnh',
-                  subtitle: 'Mở camera và gửi ảnh vào cuộc trò chuyện',
+                  title: tr('Chụp ảnh', 'Take photo'),
+                  subtitle: tr(
+                    'Mở camera và gửi ảnh vào cuộc trò chuyện',
+                    'Open the camera and send a photo to the chat',
+                  ),
                   onTap: () => close(
                     () => widget.onPickAttachment(
                       MessageAttachmentPickSource.camera,
@@ -2605,8 +2703,11 @@ class _ComposerState extends State<_Composer> {
                 ),
                 WebTuiSheetActionTile(
                   icon: WebTuiIcons.documentScan,
-                  title: 'Quét tài liệu',
-                  subtitle: 'Chụp tài liệu bằng camera với chất lượng cao',
+                  title: tr('Quét tài liệu', 'Scan document'),
+                  subtitle: tr(
+                    'Chụp tài liệu bằng camera với chất lượng cao',
+                    'Capture a document with the camera in high quality',
+                  ),
                   onTap: () => close(
                     () => widget.onPickAttachment(
                       MessageAttachmentPickSource.documentScan,
@@ -2615,14 +2716,20 @@ class _ComposerState extends State<_Composer> {
                 ),
                 WebTuiSheetActionTile(
                   icon: WebTuiIcons.qrScan,
-                  title: 'Quét QR',
-                  subtitle: 'Chèn nội dung mã QR vào tin nhắn',
+                  title: tr('Quét QR', 'Scan QR'),
+                  subtitle: tr(
+                    'Chèn nội dung mã QR vào tin nhắn',
+                    'Insert QR code content into the message',
+                  ),
                   onTap: () => close(widget.onScanQrCode),
                 ),
                 WebTuiSheetActionTile(
                   icon: WebTuiIcons.gallery,
-                  title: 'Thư viện ảnh',
-                  subtitle: 'Chọn ảnh sẵn có trong máy',
+                  title: tr('Thư viện ảnh', 'Photo library'),
+                  subtitle: tr(
+                    'Chọn ảnh sẵn có trong máy',
+                    'Choose an existing photo from your device',
+                  ),
                   onTap: () => close(
                     () => widget.onPickAttachment(
                       MessageAttachmentPickSource.gallery,
@@ -2632,7 +2739,10 @@ class _ComposerState extends State<_Composer> {
                 WebTuiSheetActionTile(
                   icon: WebTuiIcons.video,
                   title: 'Video',
-                  subtitle: 'Video lớn sẽ được tải tiếp tục theo từng phần',
+                  subtitle: tr(
+                    'Video lớn sẽ được tải tiếp tục theo từng phần',
+                    'Large videos upload in resumable parts',
+                  ),
                   onTap: () => close(
                     () => widget.onPickAttachment(
                       MessageAttachmentPickSource.video,
@@ -2641,20 +2751,29 @@ class _ComposerState extends State<_Composer> {
                 ),
                 WebTuiSheetActionTile(
                   icon: WebTuiIcons.mic,
-                  title: 'Ghi âm voice',
-                  subtitle: 'Thu âm một đoạn thoại rồi gửi vào cuộc trò chuyện',
+                  title: tr('Ghi âm voice', 'Record voice message'),
+                  subtitle: tr(
+                    'Thu âm một đoạn thoại rồi gửi vào cuộc trò chuyện',
+                    'Record a voice clip and send it to the chat',
+                  ),
                   onTap: () => close(_startVoiceRecording),
                 ),
                 WebTuiSheetActionTile(
                   icon: WebTuiIcons.emoji,
-                  title: 'Biểu tượng cảm xúc',
-                  subtitle: 'Mở bảng emoji để chèn vào tin nhắn',
+                  title: tr('Biểu tượng cảm xúc', 'Emoji'),
+                  subtitle: tr(
+                    'Mở bảng emoji để chèn vào tin nhắn',
+                    'Open the emoji picker to add to your message',
+                  ),
                   onTap: () => close(_toggleEmojiTray),
                 ),
                 WebTuiSheetActionTile(
                   icon: WebTuiIcons.attach,
-                  title: 'Tệp',
-                  subtitle: 'Gửi PDF, Office, ZIP, âm thanh hoặc video',
+                  title: tr('Tệp', 'Files'),
+                  subtitle: tr(
+                    'Gửi PDF, Office, ZIP, âm thanh hoặc video',
+                    'Send PDF, Office, ZIP, audio or video files',
+                  ),
                   onTap: () => close(
                     () => widget.onPickAttachment(
                       MessageAttachmentPickSource.file,
@@ -2663,14 +2782,22 @@ class _ComposerState extends State<_Composer> {
                 ),
                 WebTuiSheetActionTile(
                   icon: WebTuiIcons.bellOff,
-                  title: _silent ? 'Bật lại thông báo' : 'Gửi không thông báo',
-                  subtitle: 'Người nhận không bị báo khi có tin này',
+                  title: _silent
+                      ? tr('Bật lại thông báo', 'Turn notifications back on')
+                      : tr('Gửi không thông báo', 'Send silently'),
+                  subtitle: tr(
+                    'Người nhận không bị báo khi có tin này',
+                    "Recipients won't be notified of this message",
+                  ),
                   onTap: () => close(() => setState(() => _silent = !_silent)),
                 ),
                 WebTuiSheetActionTile(
                   icon: WebTuiIcons.scheduleSend,
-                  title: 'Hẹn giờ gửi',
-                  subtitle: 'Chọn thời điểm gửi tin đang soạn',
+                  title: tr('Hẹn giờ gửi', 'Schedule send'),
+                  subtitle: tr(
+                    'Chọn thời điểm gửi tin đang soạn',
+                    "Pick when to send the message you're writing",
+                  ),
                   onTap: () => close(widget.onSchedule),
                 ),
                 // Bình chọn chỉ có ở nhóm / kênh, không có ở chat 1-1 (kể cả chat bot).
@@ -2678,8 +2805,11 @@ class _ComposerState extends State<_Composer> {
                   WebTuiSheetActionTile(
                     key: const Key('chat_composer_create_poll'),
                     icon: WebTuiIcons.poll,
-                    title: 'Tạo bình chọn',
-                    subtitle: 'Lấy ý kiến của các thành viên trong phòng',
+                    title: tr('Tạo bình chọn', 'Create poll'),
+                    subtitle: tr(
+                      'Lấy ý kiến của các thành viên trong phòng',
+                      'Get opinions from room members',
+                    ),
                     onTap: () => close(widget.onCreatePoll),
                   ),
               ],
@@ -2791,15 +2921,14 @@ class _PermissionRationaleTile extends StatelessWidget {
           padding: const EdgeInsets.all(WebTuiSpacing.md),
           child: Row(
             children: [
-              const Icon(
-                WebTuiIcons.lock,
-                size: 20,
-                color: WebTuiColors.primary,
-              ),
+              Icon(WebTuiIcons.lock, size: 20, color: WebTuiColors.primary),
               const SizedBox(width: WebTuiSpacing.sm),
               Expanded(
                 child: Text(
-                  'Ứng dụng chỉ dùng camera/ảnh để gửi file vào cuộc trò chuyện. Có thể cấp lại quyền trong Settings nếu đã từ chối.',
+                  tr(
+                    'Ứng dụng chỉ dùng camera/ảnh để gửi file vào cuộc trò chuyện. Có thể cấp lại quyền trong Settings nếu đã từ chối.',
+                    'The app only uses the camera and photos to send files to the conversation. You can grant permission again in Settings if you declined.',
+                  ),
                   style: WebTuiTypography.bodySmall.copyWith(
                     color: WebTuiColors.textPrimary,
                     fontWeight: FontWeight.w600,
@@ -2840,15 +2969,14 @@ class _VoiceRecordingBar extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(
-              CupertinoIcons.mic_fill,
-              size: 18,
-              color: WebTuiColors.danger,
-            ),
+            Icon(CupertinoIcons.mic_fill, size: 18, color: WebTuiColors.danger),
             const SizedBox(width: WebTuiSpacing.sm),
             Expanded(
               child: Text(
-                'Đang ghi âm ${_formatVoiceDuration(elapsed)}',
+                tr(
+                  'Đang ghi âm ${_formatVoiceDuration(elapsed)}',
+                  'Recording ${_formatVoiceDuration(elapsed)}',
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: WebTuiTypography.labelSmall.copyWith(
@@ -2858,14 +2986,14 @@ class _VoiceRecordingBar extends StatelessWidget {
               ),
             ),
             IconButton(
-              tooltip: 'Hủy ghi âm',
+              tooltip: tr('Hủy ghi âm', 'Cancel recording'),
               onPressed: onCancel,
               icon: const Icon(Icons.close_rounded, size: 18),
             ),
             FilledButton.icon(
               onPressed: onStop,
               icon: const Icon(Icons.stop_rounded, size: 18),
-              label: const Text('Dừng'),
+              label: Text(tr('Dừng', 'Stop')),
             ),
           ],
         ),
@@ -2936,7 +3064,7 @@ class _AttachmentQueuePreview extends StatelessWidget {
                           [
                             if (size != null) _formatBytes(size),
                             item.compressing
-                                ? 'Đang nén…'
+                                ? tr('Đang nén…', 'Compressing…')
                                 : _attachmentUploadLabel(item.status),
                           ].join(' · '),
                           maxLines: 1,
@@ -2960,13 +3088,13 @@ class _AttachmentQueuePreview extends StatelessWidget {
                   ),
                   if (failed)
                     IconButton(
-                      tooltip: 'Thử lại',
+                      tooltip: tr('Thử lại', 'Try again'),
                       onPressed: () => onRetry(item.clientAttachmentId),
                       icon: const Icon(Icons.refresh_rounded, size: 18),
                     )
                   else
                     IconButton(
-                      tooltip: 'Gỡ',
+                      tooltip: tr('Gỡ', 'Remove'),
                       onPressed: () => onRemove(item.clientAttachmentId),
                       icon: const Icon(Icons.close_rounded, size: 18),
                     ),
@@ -3102,11 +3230,7 @@ class _ComposerContextBanner extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Icon(
-                Icons.reply_rounded,
-                size: 18,
-                color: WebTuiColors.primary,
-              ),
+              Icon(Icons.reply_rounded, size: 18, color: WebTuiColors.primary),
               const SizedBox(width: WebTuiSpacing.sm),
               Expanded(
                 child: Column(
@@ -3132,7 +3256,7 @@ class _ComposerContextBanner extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: 'Hủy',
+                tooltip: tr('Hủy', 'Cancel'),
                 onPressed: onCancel,
                 icon: const Icon(Icons.close_rounded, size: 18),
               ),
@@ -3162,7 +3286,14 @@ Future<void> _createMessageReminder(
         );
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sẽ nhắc lại tin nhắn sau 1 giờ.')),
+        SnackBar(
+          content: Text(
+            tr(
+              'Sẽ nhắc lại tin nhắn sau 1 giờ.',
+              "You'll be reminded about this message in 1 hour.",
+            ),
+          ),
+        ),
       );
     }
   } on Object catch (error) {
@@ -3286,7 +3417,7 @@ class _MessageQuickActions extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Thao tác tin nhắn',
+              tr('Thao tác tin nhắn', 'Message actions'),
               style: WebTuiTypography.titleMedium.copyWith(
                 color: WebTuiColors.textPrimary,
                 fontWeight: FontWeight.w800,
@@ -3307,7 +3438,7 @@ class _MessageQuickActions extends StatelessWidget {
               runSpacing: WebTuiSpacing.sm,
               children: [
                 _SheetActionButton(
-                  label: 'Copy tin nhắn',
+                  label: tr('Copy tin nhắn', 'Copy message'),
                   icon: Icons.copy_rounded,
                   onPressed: () {
                     Navigator.of(context).pop();
@@ -3315,7 +3446,7 @@ class _MessageQuickActions extends StatelessWidget {
                   },
                 ),
                 _SheetActionButton(
-                  label: 'Trả lời',
+                  label: tr('Trả lời', 'Reply'),
                   icon: Icons.reply_rounded,
                   onPressed: () => _closeThen(context, () => onReply(message)),
                 ),
@@ -3323,14 +3454,14 @@ class _MessageQuickActions extends StatelessWidget {
                     !message.isMine &&
                     message.senderId?.isNotEmpty == true)
                   _SheetActionButton(
-                    label: 'Trả lời riêng',
+                    label: tr('Trả lời riêng', 'Reply privately'),
                     icon: Icons.lock_person_outlined,
                     onPressed: () =>
                         _closeThen(context, () => onReplyPrivately(message)),
                   ),
                 if (shouldOfferMessageReport(message))
                   _SheetActionButton(
-                    label: 'Báo cáo tin nhắn',
+                    label: tr('Báo cáo tin nhắn', 'Report message'),
                     icon: Icons.flag_outlined,
                     danger: true,
                     onPressed: () =>
@@ -3339,14 +3470,16 @@ class _MessageQuickActions extends StatelessWidget {
                 if (!message.isMine &&
                     message.senderId?.isNotEmpty == true) ...[
                   _SheetActionButton(
-                    label: 'Báo cáo người gửi',
+                    label: tr('Báo cáo người gửi', 'Report sender'),
                     icon: Icons.person_off_outlined,
                     danger: true,
                     onPressed: () =>
                         _closeThen(context, () => onReportUser(message)),
                   ),
                   _SheetActionButton(
-                    label: isSenderBlocked ? 'Bỏ chặn' : 'Chặn người dùng',
+                    label: isSenderBlocked
+                        ? tr('Bỏ chặn', 'Unblock')
+                        : tr('Chặn người dùng', 'Block user'),
                     icon: isSenderBlocked
                         ? Icons.person_add_alt_1
                         : Icons.block_rounded,
@@ -3357,13 +3490,13 @@ class _MessageQuickActions extends StatelessWidget {
                 ],
                 if (!sharedContentBlocked)
                   _SheetActionButton(
-                    label: 'Tạo task',
+                    label: tr('Tạo task', 'Create task'),
                     icon: Icons.task_alt_rounded,
                     onPressed: () =>
                         _closeThen(context, () => onConvertToTask(message)),
                   ),
                 _SheetActionButton(
-                  label: 'Nhắc sau 1 giờ',
+                  label: tr('Nhắc sau 1 giờ', 'Remind in 1 hour'),
                   icon: Icons.alarm_add_outlined,
                   onPressed: () {
                     Navigator.of(context).pop();
@@ -3380,7 +3513,7 @@ class _MessageQuickActions extends StatelessWidget {
                 // My Note: ẩn khi cờ tắt, tin bí mật / đã xoá / chưa gửi xong.
                 if (canSaveMessageToMyNoteIn(context, message))
                   _SheetActionButton(
-                    label: 'Lưu vào My Note',
+                    label: tr('Lưu vào My Note', 'Save to My Note'),
                     icon: Icons.bookmark_add_outlined,
                     onPressed: () {
                       Navigator.of(context).pop();
@@ -3404,7 +3537,9 @@ class _MessageQuickActions extends StatelessWidget {
                     },
                   ),
                   _SheetActionButton(
-                    label: message.isPinned ? 'Bỏ ghim' : 'Ghim',
+                    label: message.isPinned
+                        ? tr('Bỏ ghim', 'Unpin')
+                        : tr('Ghim', 'Pin'),
                     icon: message.isPinned
                         ? Icons.push_pin_rounded
                         : Icons.push_pin_outlined,
@@ -3418,7 +3553,7 @@ class _MessageQuickActions extends StatelessWidget {
                 ),
                 if (!sharedContentBlocked)
                   _SheetActionButton(
-                    label: 'Chuyển tiếp',
+                    label: tr('Chuyển tiếp', 'Forward'),
                     icon: Icons.shortcut_rounded,
                     onPressed: () {
                       Navigator.of(context).pop();
@@ -3428,13 +3563,13 @@ class _MessageQuickActions extends StatelessWidget {
                 if (message.isMine) ...[
                   if (!sharedContentBlocked)
                     _SheetActionButton(
-                      label: 'Sửa',
+                      label: tr('Sửa', 'Edit'),
                       icon: Icons.edit_rounded,
                       onPressed: () =>
                           _closeThen(context, () => onEdit(message)),
                     ),
                   _SheetActionButton(
-                    label: 'Thu hồi',
+                    label: tr('Thu hồi', 'Unsend'),
                     icon: Icons.delete_outline_rounded,
                     danger: true,
                     onPressed: () =>
@@ -3510,7 +3645,14 @@ Future<void> _copyMessageToClipboard(
   final text = _messageCopyText(message);
   if (text.isEmpty) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Tin nhắn này không có nội dung để copy.')),
+      SnackBar(
+        content: Text(
+          tr(
+            'Tin nhắn này không có nội dung để copy.',
+            'This message has no content to copy.',
+          ),
+        ),
+      ),
     );
     return;
   }
@@ -3518,9 +3660,9 @@ Future<void> _copyMessageToClipboard(
   if (!context.mounted) {
     return;
   }
-  ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(const SnackBar(content: Text('Đã copy tin nhắn.')));
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(tr('Đã copy tin nhắn.', 'Message copied.'))),
+  );
 }
 
 String _messageCopyText(ChatMessage message) {
@@ -3571,7 +3713,7 @@ class _ReactionPicker extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Chọn reaction',
+          tr('Chọn reaction', 'Choose a reaction'),
           style: WebTuiTypography.titleMedium.copyWith(
             color: WebTuiColors.textPrimary,
           ),
@@ -3633,15 +3775,20 @@ class _ForwardChannelPicker extends ConsumerWidget {
           WebTuiSpacing.lg,
         ),
         child: asyncChannels.when(
-          loading: () => const SizedBox(
+          loading: () => SizedBox(
             height: 180,
-            child: WebTuiLoadingState(message: 'Đang tải kênh...'),
+            child: WebTuiLoadingState(
+              message: tr('Đang tải kênh...', 'Loading channels...'),
+            ),
           ),
           error: (_, _) => SizedBox(
             height: 180,
             child: WebTuiErrorState(
-              title: 'Không tải được kênh',
-              message: 'Thử mở lại bảng chuyển tiếp sau vài giây.',
+              title: tr('Không tải được kênh', "Couldn't load channels"),
+              message: tr(
+                'Thử mở lại bảng chuyển tiếp sau vài giây.',
+                'Try reopening the forward sheet in a few seconds.',
+              ),
               onRetry: () =>
                   ref.invalidate(_forwardChannelsProvider(workspaceId)),
             ),
@@ -3656,11 +3803,17 @@ class _ForwardChannelPicker extends ConsumerWidget {
                 )
                 .toList(growable: false);
             if (targets.isEmpty) {
-              return const SizedBox(
+              return SizedBox(
                 height: 180,
                 child: WebTuiEmptyState(
-                  title: 'Chưa có kênh để chuyển tiếp',
-                  message: 'Bạn cần là thành viên của kênh khác trước.',
+                  title: tr(
+                    'Chưa có kênh để chuyển tiếp',
+                    'No channels to forward to',
+                  ),
+                  message: tr(
+                    'Bạn cần là thành viên của kênh khác trước.',
+                    'You need to be a member of another channel first.',
+                  ),
                   icon: Icons.shortcut_rounded,
                 ),
               );
@@ -3670,7 +3823,7 @@ class _ForwardChannelPicker extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Chuyển tiếp đến',
+                  tr('Chuyển tiếp đến', 'Forward to'),
                   style: WebTuiTypography.titleMedium.copyWith(
                     color: WebTuiColors.textPrimary,
                   ),
@@ -4066,7 +4219,7 @@ class _MessageStatusLine extends StatelessWidget {
           ),
           if (seen) ...[
             const SizedBox(width: 4),
-            const Icon(
+            Icon(
               WebTuiIcons.seen,
               key: Key('chat_message_seen_icon'),
               size: 16,
@@ -4081,11 +4234,11 @@ class _MessageStatusLine extends StatelessWidget {
 
 String _deliveryStatusLabel(ChatMessage message) {
   return switch (message.deliveryStatus) {
-    'uploading' => 'Đang tải tệp',
-    'queued' => 'Đang chờ gửi',
-    'sending' => 'Đang gửi',
-    'failed' => 'Chưa gửi được',
-    _ => 'Đã gửi',
+    'uploading' => tr('Đang tải tệp', 'Uploading file'),
+    'queued' => tr('Đang chờ gửi', 'Waiting to send'),
+    'sending' => tr('Đang gửi', 'Sending'),
+    'failed' => tr('Chưa gửi được', "Couldn't send"),
+    _ => tr('Đã gửi', 'Sent'),
   };
 }
 
@@ -4135,8 +4288,11 @@ class _PollComposerDialogState extends State<_PollComposerDialog> {
         _questionController.text.trim().isNotEmpty && options.length >= 2;
 
     return WebTuiDialog(
-      title: 'Tạo bình chọn',
-      message: 'Lấy ý kiến các thành viên trong nhóm.',
+      title: tr('Tạo bình chọn', 'Create poll'),
+      message: tr(
+        'Lấy ý kiến các thành viên trong nhóm.',
+        'Get opinions from group members.',
+      ),
       icon: WebTuiIcons.poll,
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -4148,8 +4304,11 @@ class _PollComposerDialogState extends State<_PollComposerDialog> {
             autofocus: true,
             maxLength: 500,
             showCounter: false,
-            label: 'Câu hỏi',
-            hint: 'Ví dụ: Chọn lịch họp tuần này?',
+            label: tr('Câu hỏi', 'Question'),
+            hint: tr(
+              'Ví dụ: Chọn lịch họp tuần này?',
+              "Example: Pick this week's meeting time?",
+            ),
             textInputAction: TextInputAction.next,
             onChanged: (_) => setState(() {}),
           ),
@@ -4162,12 +4321,12 @@ class _PollComposerDialogState extends State<_PollComposerDialog> {
                 controller: _optionControllers[index],
                 maxLength: 200,
                 showCounter: false,
-                hint: 'Lựa chọn ${index + 1}',
+                hint: tr('Lựa chọn ${index + 1}', 'Option ${index + 1}'),
                 textInputAction: TextInputAction.next,
                 onChanged: (_) => setState(() {}),
                 suffix: _optionControllers.length > 2
                     ? IconButton(
-                        tooltip: 'Xóa lựa chọn',
+                        tooltip: tr('Xóa lựa chọn', 'Remove option'),
                         onPressed: () {
                           final removed = _optionControllers.removeAt(index);
                           removed.dispose();
@@ -4186,18 +4345,20 @@ class _PollComposerDialogState extends State<_PollComposerDialog> {
                   () => _optionControllers.add(TextEditingController()),
                 ),
                 icon: const Icon(WebTuiIcons.add, size: 18),
-                label: const Text('Thêm lựa chọn'),
+                label: Text(tr('Thêm lựa chọn', 'Add option')),
               ),
             ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Cho phép chọn nhiều đáp án'),
+            title: Text(
+              tr('Cho phép chọn nhiều đáp án', 'Allow multiple answers'),
+            ),
             value: _multiple,
             onChanged: (value) => setState(() => _multiple = value),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Ẩn danh người bình chọn'),
+            title: Text(tr('Ẩn danh người bình chọn', 'Anonymous voting')),
             value: _anonymous,
             onChanged: (value) => setState(() => _anonymous = value),
           ),
@@ -4205,12 +4366,12 @@ class _PollComposerDialogState extends State<_PollComposerDialog> {
       ),
       actions: [
         WebTuiDialogAction(
-          label: 'Hủy',
+          label: tr('Hủy', 'Cancel'),
           onPressed: () => Navigator.of(context).pop(),
         ),
         WebTuiDialogAction(
           key: const Key('poll_submit'),
-          label: 'Tạo bình chọn',
+          label: tr('Tạo bình chọn', 'Create poll'),
           primary: true,
           onPressed: canSubmit
               ? () => Navigator.of(context).pop(
@@ -4315,7 +4476,7 @@ class _PollMessageCard extends StatelessWidget {
                       color: WebTuiColors.primarySoft,
                       borderRadius: BorderRadius.circular(WebTuiRadii.sm),
                     ),
-                    child: const Padding(
+                    child: Padding(
                       padding: EdgeInsets.all(8),
                       child: Icon(
                         Icons.poll_outlined,
@@ -4433,13 +4594,18 @@ class _PollMessageCard extends StatelessWidget {
                 runSpacing: WebTuiSpacing.xs,
                 children: [
                   Text(
-                    '$totalVotes lượt chọn',
+                    tr(
+                      '$totalVotes lượt chọn',
+                      "$totalVotes ${totalVotes == 1 ? 'vote' : 'votes'}",
+                    ),
                     style: WebTuiTypography.labelSmall.copyWith(
                       color: WebTuiColors.textSecondary,
                     ),
                   ),
                   Text(
-                    poll.multiple ? 'Chọn nhiều đáp án' : 'Chọn một đáp án',
+                    poll.multiple
+                        ? tr('Chọn nhiều đáp án', 'Multiple answers')
+                        : tr('Chọn một đáp án', 'Single answer'),
                     style: WebTuiTypography.labelSmall.copyWith(
                       color: WebTuiColors.textSecondary,
                     ),
@@ -4453,7 +4619,7 @@ class _PollMessageCard extends StatelessWidget {
                     ),
                   if (closed)
                     Text(
-                      'Đã đóng',
+                      tr('Đã đóng', 'Closed'),
                       style: WebTuiTypography.labelSmall.copyWith(
                         color: WebTuiColors.danger,
                         fontWeight: FontWeight.w800,
@@ -4662,7 +4828,10 @@ class _MessageAttachmentList extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: WebTuiSpacing.xs),
               child: Text(
-                'Còn $hiddenAttachmentCount tệp chưa hiển thị',
+                tr(
+                  'Còn $hiddenAttachmentCount tệp chưa hiển thị',
+                  "$hiddenAttachmentCount more ${hiddenAttachmentCount == 1 ? 'file' : 'files'} not shown",
+                ),
                 style: WebTuiTypography.labelSmall.copyWith(
                   color: WebTuiColors.textMuted,
                   fontWeight: FontWeight.w700,
@@ -4760,12 +4929,15 @@ class _EmbeddedChatHeader extends StatelessWidget {
               ),
               if (onSafety != null)
                 IconButton(
-                  tooltip: 'Báo cáo hoặc chặn người dùng',
+                  tooltip: tr(
+                    'Báo cáo hoặc chặn người dùng',
+                    'Report or block user',
+                  ),
                   onPressed: onSafety,
                   icon: const Icon(Icons.shield_outlined),
                 ),
               IconButton(
-                tooltip: 'Chi tiết kênh',
+                tooltip: tr('Chi tiết kênh', 'Channel details'),
                 onPressed: onDetails,
                 icon: const Icon(CupertinoIcons.ellipsis),
               ),
@@ -4786,7 +4958,10 @@ class _BlockedMessagePlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       container: true,
-      label: 'Tin nhắn từ người dùng đã chặn đang được ẩn',
+      label: tr(
+        'Tin nhắn từ người dùng đã chặn đang được ẩn',
+        'Messages from blocked users are hidden',
+      ),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: WebTuiColors.surface,
@@ -4800,16 +4975,24 @@ class _BlockedMessagePlaceholder extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.visibility_off_outlined,
                 size: 18,
                 color: WebTuiColors.textMuted,
               ),
               const SizedBox(width: WebTuiSpacing.sm),
-              const Expanded(
-                child: Text('Tin nhắn từ người dùng đã chặn đã được ẩn.'),
+              Expanded(
+                child: Text(
+                  tr(
+                    'Tin nhắn từ người dùng đã chặn đã được ẩn.',
+                    'Messages from blocked users are hidden.',
+                  ),
+                ),
               ),
-              TextButton(onPressed: onManage, child: const Text('Quản lý')),
+              TextButton(
+                onPressed: onManage,
+                child: Text(tr('Quản lý', 'Manage')),
+              ),
             ],
           ),
         ),
@@ -4838,14 +5021,20 @@ class _BlockedConversationComposer extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Icon(Icons.block_rounded, color: WebTuiColors.textMuted),
+              Icon(Icons.block_rounded, color: WebTuiColors.textMuted),
               const SizedBox(width: WebTuiSpacing.sm),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Bạn đã chặn người dùng này. Bỏ chặn để nhắn tin hoặc gọi.',
+                  tr(
+                    'Bạn đã chặn người dùng này. Bỏ chặn để nhắn tin hoặc gọi.',
+                    'You blocked this user. Unblock to message or call.',
+                  ),
                 ),
               ),
-              TextButton(onPressed: onManage, child: const Text('Quản lý')),
+              TextButton(
+                onPressed: onManage,
+                child: Text(tr('Quản lý', 'Manage')),
+              ),
             ],
           ),
         ),
@@ -4868,11 +5057,11 @@ class _ChatEmptyState extends StatelessWidget {
             Container(
               width: 64,
               height: 64,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: WebTuiColors.primarySoft,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.chat_bubble_outline_rounded,
                 color: WebTuiColors.primary,
                 size: 28,
@@ -4880,7 +5069,7 @@ class _ChatEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: WebTuiSpacing.md),
             Text(
-              'Bắt đầu cuộc trò chuyện',
+              tr('Bắt đầu cuộc trò chuyện', 'Start the conversation'),
               textAlign: TextAlign.center,
               style: WebTuiTypography.titleMedium.copyWith(
                 color: WebTuiColors.textPrimary,
@@ -4888,7 +5077,10 @@ class _ChatEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: WebTuiSpacing.xs),
             Text(
-              'Tin nhắn đầu tiên của bạn sẽ xuất hiện tại đây.',
+              tr(
+                'Tin nhắn đầu tiên của bạn sẽ xuất hiện tại đây.',
+                'Your first message will appear here.',
+              ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
@@ -4973,7 +5165,7 @@ class _InlineError extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(
+            Icon(
               Icons.error_outline_rounded,
               size: 18,
               color: WebTuiColors.danger,
@@ -4990,7 +5182,10 @@ class _InlineError extends StatelessWidget {
                 ),
               ),
             ),
-            TextButton(onPressed: onRetry, child: const Text('Thử lại')),
+            TextButton(
+              onPressed: onRetry,
+              child: Text(tr('Thử lại', 'Try again')),
+            ),
           ],
         ),
       ),
@@ -5005,8 +5200,8 @@ String _timeLabel(DateTime value) {
 
 String _messageTimeLabel(ChatMessage message) {
   return switch (message.deliveryStatus) {
-    'failed' => 'Chưa gửi',
-    'uploading' || 'queued' || 'sending' => 'Đang gửi',
+    'failed' => tr('Chưa gửi', 'Not sent'),
+    'uploading' || 'queued' || 'sending' => tr('Đang gửi', 'Sending'),
     _ => _timeLabel(message.createdAt),
   };
 }
@@ -5021,19 +5216,19 @@ String _dateLabel(DateTime value) {
   final local = value.toLocal();
   final now = DateTime.now();
   if (_sameDay(local, now)) {
-    return 'Hôm nay';
+    return tr('Hôm nay', 'Today');
   }
   if (_sameDay(local, now.subtract(const Duration(days: 1)))) {
-    return 'Hôm qua';
+    return tr('Hôm qua', 'Yesterday');
   }
   return '${local.day.toString().padLeft(2, '0')}/'
       '${local.month.toString().padLeft(2, '0')}/${local.year}';
 }
 
 String _displayMessageBody(ChatMessage message) {
-  if (message.isSecret) return 'Tin nhắn bí mật';
+  if (message.isSecret) return tr('Tin nhắn bí mật', 'Secret message');
   if (message.isDeleted) {
-    return 'Tin nhắn đã được thu hồi';
+    return tr('Tin nhắn đã được thu hồi', 'Message unsent');
   }
   if (_isCallHistoryMessage(message)) {
     return '';
@@ -5169,9 +5364,12 @@ String _messageSemanticLabel(
   String text,
   String timeLabel,
 ) {
-  final sender = message.isMine ? 'Bạn' : 'Người gửi';
+  final sender = message.isMine ? tr('Bạn', 'You') : tr('Người gửi', 'Sender');
   final body = text.trim().isEmpty
-      ? '${message.attachments.length} tệp đính kèm'
+      ? tr(
+          '${message.attachments.length} tệp đính kèm',
+          "${message.attachments.length} ${message.attachments.length == 1 ? 'attachment' : 'attachments'}",
+        )
       : text.trim();
   return '$sender, $timeLabel, $body';
 }
@@ -5192,13 +5390,16 @@ IconData _messageAttachmentIcon(MessageAttachmentKind kind) {
 
 String _attachmentUploadLabel(MessageAttachmentUploadStatus status) {
   return switch (status) {
-    MessageAttachmentUploadStatus.queued => 'Đang chờ',
-    MessageAttachmentUploadStatus.picking => 'Đang chọn',
-    MessageAttachmentUploadStatus.uploading => 'Đang tải lên',
-    MessageAttachmentUploadStatus.uploaded => 'Sẵn sàng gửi',
-    MessageAttachmentUploadStatus.attached => 'Đã gắn',
-    MessageAttachmentUploadStatus.failed => 'Lỗi tải lên',
-    MessageAttachmentUploadStatus.canceled => 'Đã hủy',
+    MessageAttachmentUploadStatus.queued => tr('Đang chờ', 'Waiting'),
+    MessageAttachmentUploadStatus.picking => tr('Đang chọn', 'Selecting'),
+    MessageAttachmentUploadStatus.uploading => tr('Đang tải lên', 'Uploading'),
+    MessageAttachmentUploadStatus.uploaded => tr(
+      'Sẵn sàng gửi',
+      'Ready to send',
+    ),
+    MessageAttachmentUploadStatus.attached => tr('Đã gắn', 'Attached'),
+    MessageAttachmentUploadStatus.failed => tr('Lỗi tải lên', 'Upload failed'),
+    MessageAttachmentUploadStatus.canceled => tr('Đã hủy', 'Canceled'),
   };
 }
 

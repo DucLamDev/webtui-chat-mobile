@@ -1,3 +1,5 @@
+import 'package:webtui_chat/l10n/app_strings.dart';
+
 import '../../../../core/network/api_response.dart';
 import '../../domain/entities/my_note.dart';
 
@@ -75,7 +77,7 @@ MyNoteAttachment myNoteAttachmentFromJson(JsonMap map) {
       'original_name',
       'originalName',
       'name',
-    ], fallback: 'Tệp đính kèm'),
+    ], fallback: tr('Tệp đính kèm', 'Attachment')),
     mimeType: stringField(map, const ['mime_type', 'mimeType']),
     byteSize: intField(map, const ['byte_size', 'byteSize', 'size']),
     createdAt: dateTimeField(map, const ['created_at', 'createdAt']),

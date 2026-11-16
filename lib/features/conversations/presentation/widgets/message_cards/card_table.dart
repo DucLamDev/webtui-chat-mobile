@@ -4,6 +4,7 @@ import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../../l10n/app_strings.dart';
 import '../../../domain/entities/message_card.dart';
 import 'card_common.dart';
 
@@ -26,7 +27,9 @@ class _MessageCardTableViewState extends State<MessageCardTableView> {
   Widget build(BuildContext context) {
     final table = widget.table;
     if (table.columns.isEmpty || table.rows.isEmpty) {
-      return const MessageCardEmptyNote('Bảng chưa có dữ liệu.');
+      return MessageCardEmptyNote(
+        tr('Bảng chưa có dữ liệu.', 'This table has no data.'),
+      );
     }
     final rows = _expanded
         ? table.rows
@@ -49,13 +52,13 @@ class _MessageCardTableViewState extends State<MessageCardTableView> {
               child: Table(
                 defaultColumnWidth: const IntrinsicColumnWidth(),
                 defaultVerticalAlignment: TableCellVerticalAlignment.top,
-                border: const TableBorder(
+                border: TableBorder(
                   horizontalInside: BorderSide(color: WebTuiColors.border),
                 ),
                 children: [
                   if (hasHeader)
                     TableRow(
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: WebTuiColors.backgroundMuted,
                       ),
                       children: [
@@ -75,7 +78,11 @@ class _MessageCardTableViewState extends State<MessageCardTableView> {
         if (hidden > 0 || _expanded && table.rows.length > _collapsedRows)
           TextButton(
             onPressed: () => setState(() => _expanded = !_expanded),
-            child: Text(_expanded ? 'Thu gọn' : 'Xem thêm $hidden hàng'),
+            child: Text(
+              _expanded
+                  ? tr('Thu gọn', 'Show less')
+                  : tr('Xem thêm $hidden hàng', 'Show $hidden more rows'),
+            ),
           ),
       ],
     );

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../../../core/network/api_response.dart';
 import '../../../../core/network/api_transport.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/channel_file.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/collaboration_room.dart';
@@ -762,7 +763,12 @@ final class ConversationRemoteDataSource {
     );
     final channel = _channelFromMap(envelopeItem(response.data, 'channel'));
     if (channel.channelId.isEmpty) {
-      throw StateError('Máy chủ không trả thông tin kênh sau khi đổi ảnh.');
+      throw StateError(
+        tr(
+          'Máy chủ không trả thông tin kênh sau khi đổi ảnh.',
+          'The server returned no channel info after the photo change.',
+        ),
+      );
     }
     return channel;
   }
@@ -1366,7 +1372,7 @@ ConversationSummary _directConversationFromMap(JsonMap map) {
       'displayName',
       'username',
       'email',
-    ], fallback: 'Tin nhắn riêng'),
+    ], fallback: tr('Tin nhắn riêng', 'Direct message')),
     preview: stringField(lastMessage, const ['body']),
     avatarLabel: _avatarLabel(
       stringField(displaySource, const [
@@ -1817,7 +1823,9 @@ ChannelMeeting _channelMeetingFromMap(JsonMap map) {
   return ChannelMeeting(
     id: stringField(map, const ['id']),
     channelId: stringField(map, const ['channel_id']),
-    title: stringField(map, const ['title'], fallback: 'Cuộc họp'),
+    title: stringField(map, const [
+      'title',
+    ], fallback: tr('Cuộc họp', 'Meeting')),
     description: stringField(map, const ['description']),
     startsAt: dateTimeField(map, const ['starts_at']),
     endsAt: nullableDateTimeField(map, const ['ends_at']),
@@ -1843,7 +1851,9 @@ SharedConversationItem _sharedItemFromMap(JsonMap map) {
   return SharedConversationItem(
     id: stringField(map, const ['id']),
     kind: stringField(map, const ['kind']),
-    title: stringField(map, const ['title'], fallback: 'Nội dung được chia sẻ'),
+    title: stringField(map, const [
+      'title',
+    ], fallback: tr('Nội dung được chia sẻ', 'Shared content')),
     subtitle: stringField(map, const ['subtitle']),
     url: stringField(map, const ['url']),
     createdAt: dateTimeField(map, const ['created_at']),

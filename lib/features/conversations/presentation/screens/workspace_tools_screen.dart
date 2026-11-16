@@ -7,6 +7,7 @@ import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../moderation/presentation/controllers/moderation_controller.dart';
 import '../../../work_hub/presentation/widgets/my_tasks_card.dart';
 import '../../../work_hub/presentation/widgets/work_apps_grid.dart';
@@ -42,10 +43,13 @@ class WorkspaceToolsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final id = workspaceId.trim();
     if (id.isEmpty) {
-      return const WebTuiEmptyState(
-        key: Key('workspace_tools_empty'),
-        title: 'Chưa có workspace',
-        message: 'Chọn một workspace để xem công việc của bạn.',
+      return WebTuiEmptyState(
+        key: const Key('workspace_tools_empty'),
+        title: tr('Chưa có workspace', 'No workspace yet'),
+        message: tr(
+          'Chọn một workspace để xem công việc của bạn.',
+          'Select a workspace to see your work.',
+        ),
         icon: WebTuiIcons.work,
       );
     }
@@ -113,7 +117,7 @@ class _ModuleCard extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(WebTuiIcons.forward, color: WebTuiColors.textSecondary),
+          Icon(WebTuiIcons.forward, color: WebTuiColors.textSecondary),
         ],
       ),
     );

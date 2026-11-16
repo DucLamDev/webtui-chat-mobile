@@ -46,6 +46,11 @@ enum ConversationRealtimeEventType {
   /// danh sách hội thoại để chat bot hiện ngay, không chờ tải lại.
   noticeChannelCreated,
 
+  /// Người dùng vừa được thêm vào một nhóm / kênh (`ChannelMemberAdded`, gửi
+  /// vào room cá nhân vì họ chưa ở room kênh): `payload` có `workspace_id`,
+  /// `channel_id`, `user_id`, `actor_user_id`. Làm mới danh sách hội thoại.
+  channelMemberAdded,
+
   /// Thông tin kênh vừa đổi (`ChannelUpdated`, hiện là ảnh nhóm): `payload` có
   /// `channel_id`, `workspace_id`, `avatar_url`, `actor_user_id`. Làm mới danh
   /// sách hội thoại / màn thông tin kênh.

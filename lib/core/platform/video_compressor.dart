@@ -63,8 +63,17 @@ abstract interface class VideoCompressor {
   });
 }
 
+/// Lấy ảnh bìa trực tiếp từ đường dẫn http(s) (video phát dần), không tải cả
+/// tệp. Tách riêng khỏi [VideoCompressor] để các bản thay thế cũ không phải đổi.
+abstract interface class VideoUrlPoster {
+  Future<VideoPoster?> posterFromUrl({
+    required Uri url,
+    required String outputPath,
+  });
+}
+
 /// Dùng cho test / nền tảng không có bộ nén: luôn gửi bản gốc.
-final class NoopVideoCompressor implements VideoCompressor {
+final class NoopVideoCompressor implements VideoCompressor, VideoUrlPoster {
   const NoopVideoCompressor();
 
   @override
@@ -82,11 +91,18 @@ final class NoopVideoCompressor implements VideoCompressor {
     required String inputPath,
     required String outputPath,
   }) async => null;
+
+  @override
+  Future<VideoPoster?> posterFromUrl({
+    required Uri url,
+    required String outputPath,
+  }) async => null;
 }
 
 /// Bộ nén gọi mã native qua kênh `webtui/video_compress`
 /// (Android: Media3 Transformer, iOS: AVAssetExportSession).
-final class MethodChannelVideoCompressor implements VideoCompressor {
+final class MethodChannelVideoCompressor
+    implements VideoCompressor, VideoUrlPoster {
   MethodChannelVideoCompressor({MethodChannel? channel})
     : _channel = channel ?? const MethodChannel('webtui/video_compress') {
     _channel.setMethodCallHandler(_onNativeCall);
@@ -187,6 +203,49 @@ final class MethodChannelVideoCompressor implements VideoCompressor {
           .invokeMapMethod<String, Object?>('poster', <String, Object>{
             'id': outputPath,
             'input': inputPath,
+            'output': outputPath,
+            'maxSide': VideoCompressor.posterMaxSide,
+            'timeMs': VideoCompressor.posterTimeMs,
+          });
+      final path = result?['path'];
+      final byteSize = result?['byteSize'];
+      if (path is! String || byteSize is! num || byteSize <= 0) {
+        return null;
+      }
+      if (!await File(path).exists()) {
+        return null;
+      }
+      int number(Object? value) =>
+          value is num && value > 0 ? value.toInt() : 0;
+      return VideoPoster(
+        path: path,
+        byteSize: byteSize.toInt(),
+        width: number(result?['width']),
+        height: number(result?['height']),
+        durationMs: number(result?['durationMs']),
+      );
+    } on PlatformException {
+      return null;
+    } on MissingPluginException {
+      return null;
+    } on Exception {
+      return null;
+    }
+  }
+
+  @override
+  Future<VideoPoster?> posterFromUrl({
+    required Uri url,
+    required String outputPath,
+  }) async {
+    if (!_supported || (url.scheme != 'https' && url.scheme != 'http')) {
+      return null;
+    }
+    try {
+      final result = await _channel
+          .invokeMapMethod<String, Object?>('poster', <String, Object>{
+            'id': outputPath,
+            'inputUrl': url.toString(),
             'output': outputPath,
             'maxSide': VideoCompressor.posterMaxSide,
             'timeMs': VideoCompressor.posterTimeMs,

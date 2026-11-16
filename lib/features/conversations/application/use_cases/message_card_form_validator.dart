@@ -1,3 +1,4 @@
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/message_card.dart';
 
 /// Kiểm biểu mẫu của thẻ ở client cho người dùng sửa ngay. Máy chủ vẫn kiểm lại
@@ -55,37 +56,64 @@ String? _fieldError(MessageCardFormField field, Object? raw) {
   switch (field.type) {
     case MessageCardFieldType.text || MessageCardFieldType.textarea:
       final text = _string(raw).trim();
-      if (text.isEmpty) return field.required ? 'Ô này bắt buộc.' : null;
+      if (text.isEmpty) {
+        return field.required
+            ? tr('Ô này bắt buộc.', 'This field is required.')
+            : null;
+      }
       if (text.runes.length > field.effectiveMaxLength) {
-        return 'Tối đa ${field.effectiveMaxLength} ký tự.';
+        return tr(
+          'Tối đa ${field.effectiveMaxLength} ký tự.',
+          'Maximum ${field.effectiveMaxLength} characters.',
+        );
       }
       return null;
     case MessageCardFieldType.number:
       final text = _string(raw).trim();
-      if (text.isEmpty) return field.required ? 'Ô này bắt buộc.' : null;
+      if (text.isEmpty) {
+        return field.required
+            ? tr('Ô này bắt buộc.', 'This field is required.')
+            : null;
+      }
       final number = parseMessageCardNumber(text);
-      if (number == null) return 'Hãy nhập một số.';
+      if (number == null) return tr('Hãy nhập một số.', 'Enter a number.');
       final min = field.min;
       final max = field.max;
       if (min != null && number < min) {
-        return 'Nhỏ nhất là ${formatMessageCardNumber(min)}.';
+        return tr(
+          'Nhỏ nhất là ${formatMessageCardNumber(min)}.',
+          'Minimum is ${formatMessageCardNumber(min)}.',
+        );
       }
       if (max != null && number > max) {
-        return 'Lớn nhất là ${formatMessageCardNumber(max)}.';
+        return tr(
+          'Lớn nhất là ${formatMessageCardNumber(max)}.',
+          'Maximum is ${formatMessageCardNumber(max)}.',
+        );
       }
       return null;
     case MessageCardFieldType.select:
       final value = _string(raw).trim();
-      if (value.isEmpty) return field.required ? 'Hãy chọn một mục.' : null;
+      if (value.isEmpty) {
+        return field.required
+            ? tr('Hãy chọn một mục.', 'Select an option.')
+            : null;
+      }
       return field.options.any((option) => option.value == value)
           ? null
-          : 'Lựa chọn không hợp lệ.';
+          : tr('Lựa chọn không hợp lệ.', 'Invalid selection.');
     case MessageCardFieldType.date:
       final text = raw is DateTime ? 'x' : _string(raw).trim();
-      if (text.isEmpty) return field.required ? 'Hãy chọn ngày.' : null;
-      return _date(raw) == null ? 'Ngày không hợp lệ.' : null;
+      if (text.isEmpty) {
+        return field.required ? tr('Hãy chọn ngày.', 'Select a date.') : null;
+      }
+      return _date(raw) == null
+          ? tr('Ngày không hợp lệ.', 'Invalid date.')
+          : null;
     case MessageCardFieldType.checkbox:
-      return field.required && raw != true ? 'Cần đánh dấu ô này.' : null;
+      return field.required && raw != true
+          ? tr('Cần đánh dấu ô này.', 'This box must be checked.')
+          : null;
   }
 }
 

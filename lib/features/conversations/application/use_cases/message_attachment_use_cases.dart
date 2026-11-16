@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/repositories/message_attachment_repository.dart';
 
@@ -103,10 +104,13 @@ final class AttachUploadedFileUseCase {
   }) {
     if (fileId.trim().isEmpty) {
       return Future.value(
-        const FailureResult(
+        FailureResult(
           Failure(
             kind: FailureKind.validation,
-            message: 'File chưa sẵn sàng để gắn vào tin nhắn.',
+            message: tr(
+              'File chưa sẵn sàng để gắn vào tin nhắn.',
+              'The file isn\'t ready to attach to a message.',
+            ),
             code: 'ATTACHMENT_FILE_REQUIRED',
           ),
         ),
@@ -194,10 +198,10 @@ final class DownloadMessageAttachmentBytesUseCase {
   }) {
     if (downloadUri.toString().trim().isEmpty) {
       return Future.value(
-        const FailureResult(
+        FailureResult(
           Failure(
             kind: FailureKind.validation,
-            message: 'Đường dẫn ảnh không hợp lệ.',
+            message: tr('Đường dẫn ảnh không hợp lệ.', 'Invalid image path.'),
             code: 'ATTACHMENT_DOWNLOAD_URL_INVALID',
           ),
         ),
@@ -228,9 +232,9 @@ final class NewAttachmentUploadItemUseCase {
 Failure? _validateAttachment(PickedMessageAttachment attachment) {
   if (attachment.byteSize <= 0 ||
       attachment.byteSize > UploadMessageAttachmentUseCase.maxBytes) {
-    return const Failure(
+    return Failure(
       kind: FailureKind.validation,
-      message: 'Tệp phải nhỏ hơn 2GB.',
+      message: tr('Tệp phải nhỏ hơn 2GB.', 'Files must be smaller than 2 GB.'),
       code: 'ATTACHMENT_SIZE_INVALID',
     );
   }
@@ -241,9 +245,12 @@ Failure? _validateAttachment(PickedMessageAttachment attachment) {
         (prefix) => mime.startsWith(prefix),
       );
   if (!allowed) {
-    return const Failure(
+    return Failure(
       kind: FailureKind.validation,
-      message: 'Định dạng tệp chưa được hỗ trợ.',
+      message: tr(
+        'Định dạng tệp chưa được hỗ trợ.',
+        'This file type isn\'t supported.',
+      ),
       code: 'ATTACHMENT_MIME_INVALID',
     );
   }

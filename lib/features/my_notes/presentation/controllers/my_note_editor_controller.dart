@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/error/failure.dart';
@@ -26,9 +27,10 @@ final myNoteEditorControllerProvider = StateNotifierProvider.autoDispose
       )..start();
     });
 
-const myNoteConflictMessage =
-    'Ghi chú đã được sửa ở thiết bị khác nên bản của bạn chưa được lưu. '
-    'Hãy sao chép phần vừa sửa nếu cần, rồi tải bản mới nhất.';
+String get myNoteConflictMessage => tr(
+  'Ghi chú đã được sửa ở thiết bị khác nên bản của bạn chưa được lưu. Hãy sao chép phần vừa sửa nếu cần, rồi tải bản mới nhất.',
+  'This note was edited on another device, so your version wasn\'t saved. Copy what you changed if needed, then load the latest version.',
+);
 
 final class MyNoteEditorState {
   const MyNoteEditorState({
@@ -186,7 +188,10 @@ final class MyNoteEditorController extends StateNotifier<MyNoteEditorState> {
           featureDisabled: isMyNotesFeatureDisabled(failure),
           notFound: failure.kind == FailureKind.notFound,
           errorMessage: failure.kind == FailureKind.notFound
-              ? 'Ghi chú không còn tồn tại hoặc đã bị xoá.'
+              ? tr(
+                  'Ghi chú không còn tồn tại hoặc đã bị xoá.',
+                  'This note no longer exists or was deleted.',
+                )
               : myNotesErrorText(failure),
         );
     }

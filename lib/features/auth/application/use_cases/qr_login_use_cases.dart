@@ -1,5 +1,6 @@
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/qr_login.dart';
 import '../../domain/repositories/qr_login_repository.dart';
 
@@ -14,10 +15,13 @@ final class ReadQrLoginPayloadUseCase {
   Result<QrLoginPayload> execute(String raw) {
     final payload = QrLoginPayload.tryParse(raw);
     if (payload == null) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.validation,
-          message: 'Mã QR này không phải mã đăng nhập máy tính.',
+          message: tr(
+            'Mã QR này không phải mã đăng nhập máy tính.',
+            'This QR code is not a desktop sign-in code.',
+          ),
           code: 'QR_PAYLOAD_INVALID',
         ),
       );
@@ -27,9 +31,12 @@ final class ReadQrLoginPayloadUseCase {
       return FailureResult(
         Failure(
           kind: FailureKind.validation,
-          message:
-              'Mã QR thuộc máy chủ ${payload.domain}, không phải máy chủ bạn '
-              'đang đăng nhập. Ứng dụng không gửi gì đi.',
+          message: tr(
+            'Mã QR thuộc máy chủ ${payload.domain}, không phải máy chủ bạn '
+                'đang đăng nhập. Ứng dụng không gửi gì đi.',
+            'This QR code belongs to server ${payload.domain}, not the server '
+                'you are signed in to. Nothing was sent.',
+          ),
           code: 'QR_DOMAIN_MISMATCH',
         ),
       );
@@ -64,23 +71,41 @@ final class DecideQrLoginUseCase {
 /// Câu báo lỗi tiếng Việt cho từng mã lỗi QR của máy chủ.
 String qrLoginFailureMessage(Failure failure) {
   if (failure.hasCode(QrLoginErrorCode.notFound)) {
-    return 'Mã QR không còn hiệu lực. Hãy tải lại mã trên máy tính rồi quét lại.';
+    return tr(
+      'Mã QR không còn hiệu lực. Hãy tải lại mã trên máy tính rồi quét lại.',
+      'This QR code is no longer valid. Reload the code on your computer and scan again.',
+    );
   }
   if (failure.hasCode(QrLoginErrorCode.taken)) {
-    return 'Mã QR này đã được quét bằng thiết bị khác.';
+    return tr(
+      'Mã QR này đã được quét bằng thiết bị khác.',
+      'This QR code was already scanned on another device.',
+    );
   }
   if (failure.hasCode(QrLoginErrorCode.expired)) {
-    return 'Mã QR đã hết hạn. Hãy tải mã mới trên máy tính rồi quét lại.';
+    return tr(
+      'Mã QR đã hết hạn. Hãy tải mã mới trên máy tính rồi quét lại.',
+      'This QR code has expired. Load a new code on your computer and scan again.',
+    );
   }
   if (failure.hasCode(QrLoginErrorCode.disabled)) {
-    return 'Tổ chức đang tắt đăng nhập bằng mã QR.';
+    return tr(
+      'Tổ chức đang tắt đăng nhập bằng mã QR.',
+      'Your organization has turned off QR code sign-in.',
+    );
   }
   if (failure.hasCode(QrLoginErrorCode.rateLimited) ||
       failure.kind == FailureKind.rateLimited) {
-    return 'Bạn thao tác quá nhanh. Vui lòng thử lại sau ít phút.';
+    return tr(
+      'Bạn thao tác quá nhanh. Vui lòng thử lại sau ít phút.',
+      'You are going too fast. Please try again in a few minutes.',
+    );
   }
   if (failure.hasCode('DEVICE_APPROVAL_PENDING')) {
-    return 'Thiết bị này đang chờ duyệt nên chưa thể duyệt đăng nhập cho máy khác.';
+    return tr(
+      'Thiết bị này đang chờ duyệt nên chưa thể duyệt đăng nhập cho máy khác.',
+      'This device is waiting for approval, so it cannot approve sign-ins for other devices yet.',
+    );
   }
   return failure.message;
 }

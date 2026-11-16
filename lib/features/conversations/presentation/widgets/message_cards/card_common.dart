@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../../l10n/app_strings.dart';
 import '../../../domain/entities/message_card.dart';
 
 /// Màu theo trạng thái thẻ (design system WebTui).
@@ -24,10 +25,10 @@ IconData messageCardToneIcon(MessageCardTone tone) => switch (tone) {
 
 /// Nhãn mặc định khi thẻ không có `status_label` (thông tin thì không hiện nhãn).
 String? messageCardDefaultStatusLabel(MessageCardTone tone) => switch (tone) {
-  MessageCardTone.success => 'Thành công',
-  MessageCardTone.error => 'Lỗi',
-  MessageCardTone.warning => 'Cảnh báo',
-  MessageCardTone.pending => 'Đang chờ',
+  MessageCardTone.success => tr('Thành công', 'Success'),
+  MessageCardTone.error => tr('Lỗi', 'Error'),
+  MessageCardTone.warning => tr('Cảnh báo', 'Warning'),
+  MessageCardTone.pending => tr('Đang chờ', 'Pending'),
   MessageCardTone.info => null,
 };
 

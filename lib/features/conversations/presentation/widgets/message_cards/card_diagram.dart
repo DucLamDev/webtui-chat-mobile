@@ -7,6 +7,7 @@ import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../../l10n/app_strings.dart';
 import '../../../domain/entities/message_card.dart';
 import 'card_chart.dart' show messageCardSeriesColors;
 import 'card_common.dart';
@@ -45,7 +46,9 @@ class _MessageCardDiagramViewState extends State<MessageCardDiagramView> {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (diagram.nodes.isEmpty)
-          const MessageCardEmptyNote('Sơ đồ chưa có bước nào.')
+          MessageCardEmptyNote(
+            tr('Sơ đồ chưa có bước nào.', 'This diagram has no steps yet.'),
+          )
         else
           Semantics(
             container: true,
@@ -94,7 +97,11 @@ class _MessageCardDiagramViewState extends State<MessageCardDiagramView> {
                 _showCode ? Icons.expand_less_rounded : Icons.code_rounded,
                 size: 18,
               ),
-              label: Text(_showCode ? 'Ẩn mã' : 'Xem mã'),
+              label: Text(
+                _showCode
+                    ? tr('Ẩn mã', 'Hide code')
+                    : tr('Xem mã', 'Show code'),
+              ),
             ),
           ),
           if (_showCode)
@@ -112,7 +119,7 @@ class _MessageCardDiagramViewState extends State<MessageCardDiagramView> {
                       scrollDirection: Axis.horizontal,
                       child: Text(
                         mermaid,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'monospace',
                           fontSize: 12,
                           color: WebTuiColors.textPrimary,
@@ -125,7 +132,7 @@ class _MessageCardDiagramViewState extends State<MessageCardDiagramView> {
                       child: TextButton.icon(
                         onPressed: () => _copyCode(context, mermaid),
                         icon: const Icon(Icons.copy_rounded, size: 16),
-                        label: const Text('Chép mã'),
+                        label: Text(tr('Chép mã', 'Copy code')),
                       ),
                     ),
                   ],
@@ -140,15 +147,18 @@ class _MessageCardDiagramViewState extends State<MessageCardDiagramView> {
   Future<void> _copyCode(BuildContext context, String code) async {
     await Clipboard.setData(ClipboardData(text: code));
     if (!context.mounted) return;
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(const SnackBar(content: Text('Đã chép mã sơ đồ.')));
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(content: Text(tr('Đã chép mã sơ đồ.', 'Diagram code copied.'))),
+    );
   }
 }
 
 String _semanticLabel(MessageCardDiagram diagram) {
   final steps = diagram.nodes.map((node) => node.label).take(12).join(', ');
-  return 'Sơ đồ ${diagram.nodes.length} bước: $steps';
+  return tr(
+    'Sơ đồ ${diagram.nodes.length} bước: $steps',
+    'Diagram with ${diagram.nodes.length} steps: $steps',
+  );
 }
 
 /// Vị trí node của sơ đồ (đơn vị điểm ảnh logic).

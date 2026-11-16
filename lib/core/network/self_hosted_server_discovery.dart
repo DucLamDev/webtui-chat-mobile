@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../l10n/app_strings.dart';
 import '../security/instance_scope.dart';
 import 'self_hosted_server_uri.dart';
 
@@ -45,7 +46,12 @@ final class SelfHostedServerDiscovery {
         ? rootDiscovery
         : root;
     if (discovery.isEmpty) {
-      throw StateError('Server không trả thông tin discovery hợp lệ.');
+      throw StateError(
+        tr(
+          'Server không trả thông tin discovery hợp lệ.',
+          'The server did not return valid discovery info.',
+        ),
+      );
     }
 
     final discoveryVersion = _text(discovery['version']);
@@ -68,21 +74,44 @@ final class SelfHostedServerDiscovery {
     }
 
     if (domain != requestedServer.host.toLowerCase()) {
-      throw StateError('Domain discovery không khớp với server đã nhập.');
+      throw StateError(
+        tr(
+          'Domain discovery không khớp với server đã nhập.',
+          'The discovery domain does not match the server you entered.',
+        ),
+      );
     }
     if (_text(zone['status']).toLowerCase() != 'active') {
-      throw StateError('Instance chưa ở trạng thái hoạt động.');
+      throw StateError(
+        tr(
+          'Instance chưa ở trạng thái hoạt động.',
+          'The instance is not active.',
+        ),
+      );
     }
     if (_text(deployment['status']).toLowerCase() != 'ready') {
-      throw StateError('Instance đang cài đặt hoặc chưa sẵn sàng.');
+      throw StateError(
+        tr(
+          'Instance đang cài đặt hoặc chưa sẵn sàng.',
+          'The instance is being set up or is not ready.',
+        ),
+      );
     }
     if (capabilities['self_hosted'] != true) {
       throw StateError(
-        'Domain này không phải một server chat self-hosted tương thích.',
+        tr(
+          'Domain này không phải một server chat self-hosted tương thích.',
+          'This domain is not a compatible self-hosted chat server.',
+        ),
       );
     }
     if (capabilities['chat'] != true) {
-      throw StateError('Server này không bật tính năng WebTUI Chat.');
+      throw StateError(
+        tr(
+          'Server này không bật tính năng WebTUI Chat.',
+          'This server does not have WebTUI Chat enabled.',
+        ),
+      );
     }
     const requiredSafetyCapabilities = <String>[
       'moderation',
@@ -605,11 +634,18 @@ Uri parseSelfHostedWebSocketUri(String value) {
       parsed.userInfo.isNotEmpty ||
       parsed.query.isNotEmpty ||
       parsed.fragment.isNotEmpty) {
-    throw const FormatException('Địa chỉ WebSocket không hợp lệ.');
+    throw FormatException(
+      tr('Địa chỉ WebSocket không hợp lệ.', 'Invalid WebSocket address.'),
+    );
   }
   final isLocal = _isLocalHost(parsed.host);
   if (parsed.scheme != 'wss' && !(isLocal && parsed.scheme == 'ws')) {
-    throw const FormatException('WebSocket public phải sử dụng WSS.');
+    throw FormatException(
+      tr(
+        'WebSocket public phải sử dụng WSS.',
+        'A public WebSocket must use WSS.',
+      ),
+    );
   }
   return parsed;
 }
@@ -617,7 +653,12 @@ Uri parseSelfHostedWebSocketUri(String value) {
 Uri _httpRuntimeUri(String value, Uri requestedServer, String label) {
   final parsed = parseSelfHostedServerUri(value);
   if (!serverOriginsMatch(parsed, requestedServer)) {
-    throw StateError('$label URL không cùng origin với instance.');
+    throw StateError(
+      tr(
+        '$label URL không cùng origin với instance.',
+        '$label URL is not on the same origin as the instance.',
+      ),
+    );
   }
   return parsed;
 }
@@ -638,7 +679,12 @@ Uri _wsRuntimeUri(String value, Uri requestedServer) {
   if (parsed.scheme != expectedScheme ||
       parsed.host.toLowerCase() != requestedServer.host.toLowerCase() ||
       actualPort != expectedPort) {
-    throw StateError('WebSocket URL không cùng origin với instance.');
+    throw StateError(
+      tr(
+        'WebSocket URL không cùng origin với instance.',
+        'The WebSocket URL is not on the same origin as the instance.',
+      ),
+    );
   }
   return parsed;
 }

@@ -157,11 +157,7 @@ class _ReactionChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (isLike)
-              const Icon(
-                WebTuiIcons.like,
-                size: 13,
-                color: WebTuiColors.primary,
-              )
+              Icon(WebTuiIcons.like, size: 13, color: WebTuiColors.primary)
             else
               Text(
                 count,

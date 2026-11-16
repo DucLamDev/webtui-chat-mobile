@@ -1,3 +1,5 @@
+import 'package:webtui_chat/l10n/app_strings.dart';
+
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
 import '../../../../core/result/result_guard.dart';
@@ -6,9 +8,10 @@ import '../../domain/repositories/my_notes_repository.dart';
 import '../datasources/my_notes_cache_data_source.dart';
 import '../datasources/my_notes_remote_data_source.dart';
 
-const myNotesOfflineWriteMessage =
-    'Bạn đang ngoại tuyến. My Note chưa lưu được thay đổi khi mất mạng, '
-    'hãy thử lại khi có kết nối.';
+String get myNotesOfflineWriteMessage => tr(
+  'Bạn đang ngoại tuyến. My Note chưa lưu được thay đổi khi mất mạng, hãy thử lại khi có kết nối.',
+  'You\'re offline. My Note can\'t save changes without a connection. Try again when you\'re back online.',
+);
 
 /// Đọc: máy chủ trước, lưu bản sao trên máy; mất mạng thì trả bản lưu.
 /// Ghi: chỉ qua máy chủ (không có hàng chờ), mất mạng báo lỗi rõ.

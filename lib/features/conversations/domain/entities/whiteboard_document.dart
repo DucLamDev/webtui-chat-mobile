@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import '../../../../l10n/app_strings.dart';
+
 // Định dạng bảng trắng dùng chung app + web (schema 2). Toạ độ nằm trong khung
 // 800×420, làm tròn 1 chữ số thập phân khi lưu. Khoá cấp trên, khoá trong phần
 // tử và phần tử không hiểu được đều giữ nguyên khi ghi để bản app / web khác
@@ -15,7 +17,10 @@ const double whiteboardDefaultTextSize = 20;
 const double whiteboardDefaultIconSize = 48;
 const double whiteboardMinPointDistance = 1.5;
 const int whiteboardMaxBytes = 500 * 1024;
-const String whiteboardTooLargeMessage = 'Bảng trắng đã quá lớn, hãy xoá bớt';
+String get whiteboardTooLargeMessage => tr(
+  'Bảng trắng đã quá lớn, hãy xoá bớt',
+  'The whiteboard is too large. Delete some content.',
+);
 
 final class WhiteboardPoint {
   const WhiteboardPoint(this.x, this.y);

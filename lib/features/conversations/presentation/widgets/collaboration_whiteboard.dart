@@ -16,6 +16,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../data/datasources/conversation_remote_data_source.dart';
 import '../../domain/entities/collaboration_room.dart';
 import '../../domain/entities/whiteboard_document.dart';
@@ -47,71 +48,126 @@ class CollaborationWhiteboard extends ConsumerStatefulWidget {
 }
 
 enum _Tool {
-  pen(Icons.edit_outlined, 'Bút', 'Vẽ bằng một ngón tay · tự lưu sau mỗi nét'),
+  pen(
+    Icons.edit_outlined,
+    'Bút',
+    'Pen',
+    'Vẽ bằng một ngón tay · tự lưu sau mỗi nét',
+    'Draw with one finger · saves after each stroke',
+  ),
   eraser(
     Icons.cleaning_services_outlined,
     'Tẩy',
+    'Eraser',
     'Chạm hoặc kéo qua nét, hình để xoá',
+    'Tap or drag across strokes and shapes to erase',
   ),
   select(
     Icons.pan_tool_alt_outlined,
     'Chọn và di chuyển',
+    'Select and move',
     'Chạm vào hình, chữ, biểu tượng rồi kéo để di chuyển',
+    'Tap a shape, text or icon, then drag to move it',
   ),
-  rect(Icons.crop_square_rounded, 'Hình chữ nhật', 'Kéo trên bảng để vẽ hình'),
-  ellipse(Icons.circle_outlined, 'Hình tròn', 'Kéo trên bảng để vẽ hình'),
-  arrow(Icons.north_east_rounded, 'Mũi tên', 'Kéo trên bảng để vẽ mũi tên'),
-  text(Icons.text_fields_rounded, 'Chữ', 'Chạm vào chỗ muốn đặt chữ'),
+  rect(
+    Icons.crop_square_rounded,
+    'Hình chữ nhật',
+    'Rectangle',
+    'Kéo trên bảng để vẽ hình',
+    'Drag on the board to draw a shape',
+  ),
+  ellipse(
+    Icons.circle_outlined,
+    'Hình tròn',
+    'Circle',
+    'Kéo trên bảng để vẽ hình',
+    'Drag on the board to draw a shape',
+  ),
+  arrow(
+    Icons.north_east_rounded,
+    'Mũi tên',
+    'Arrow',
+    'Kéo trên bảng để vẽ mũi tên',
+    'Drag on the board to draw an arrow',
+  ),
+  text(
+    Icons.text_fields_rounded,
+    'Chữ',
+    'Text',
+    'Chạm vào chỗ muốn đặt chữ',
+    'Tap where you want to place text',
+  ),
   icon(
     Icons.emoji_emotions_outlined,
     'Biểu tượng',
+    'Icon',
     'Chọn biểu tượng rồi chạm vào chỗ muốn đặt',
+    'Pick an icon, then tap where you want to place it',
   );
 
-  const _Tool(this.glyph, this.label, this.hint);
+  const _Tool(
+    this.glyph,
+    this._viLabel,
+    this._enLabel,
+    this._viHint,
+    this._enHint,
+  );
 
   final IconData glyph;
-  final String label;
-  final String hint;
+  final String _viLabel;
+  final String _enLabel;
+  final String _viHint;
+  final String _enHint;
+
+  String get label => tr(_viLabel, _enLabel);
+  String get hint => tr(_viHint, _enHint);
 
   bool get isShape =>
       this == _Tool.rect || this == _Tool.ellipse || this == _Tool.arrow;
 }
 
 const _colors = [
-  ('#111827', 'Màu đen'),
-  ('#2563eb', 'Màu xanh dương'),
-  ('#16a34a', 'Màu xanh lá'),
-  ('#ea580c', 'Màu cam'),
-  ('#dc2626', 'Màu đỏ'),
-  ('#9333ea', 'Màu tím'),
+  ('#111827', 'Màu đen', 'Black'),
+  ('#2563eb', 'Màu xanh dương', 'Blue'),
+  ('#16a34a', 'Màu xanh lá', 'Green'),
+  ('#ea580c', 'Màu cam', 'Orange'),
+  ('#dc2626', 'Màu đỏ', 'Red'),
+  ('#9333ea', 'Màu tím', 'Purple'),
 ];
 
-const _strokeWidths = [(2.0, 'Nét mảnh'), (4.0, 'Nét vừa'), (8.0, 'Nét đậm')];
+const _strokeWidths = [
+  (2.0, 'Nét mảnh', 'Thin stroke'),
+  (4.0, 'Nét vừa', 'Medium stroke'),
+  (8.0, 'Nét đậm', 'Thick stroke'),
+];
 
-const _textSizes = [(20.0, 'Chữ nhỏ'), (28.0, 'Chữ vừa'), (40.0, 'Chữ lớn')];
+const _textSizes = [
+  (20.0, 'Chữ nhỏ', 'Small text'),
+  (28.0, 'Chữ vừa', 'Medium text'),
+  (40.0, 'Chữ lớn', 'Large text'),
+];
 
 const _icons = [
-  ('✅', 'Đã xong'),
-  ('❌', 'Không được'),
-  ('⭐', 'Nổi bật'),
-  ('❗', 'Chú ý'),
-  ('❓', 'Câu hỏi'),
-  ('👍', 'Đồng ý'),
-  ('👎', 'Không đồng ý'),
-  ('💡', 'Ý tưởng'),
-  ('📌', 'Ghim'),
-  ('🔥', 'Gấp'),
-  ('➡️', 'Sang phải'),
-  ('⬅️', 'Sang trái'),
-  ('⬆️', 'Lên trên'),
-  ('⬇️', 'Xuống dưới'),
-  ('⚠️', 'Cảnh báo'),
-  ('🎯', 'Mục tiêu'),
-  ('📅', 'Lịch hẹn'),
-  ('💬', 'Trao đổi'),
-  ('✏️', 'Cần sửa'),
-  ('🚀', 'Triển khai'),
+  ('✅', 'Đã xong', 'Done'),
+  ('❌', 'Không được', 'Not allowed'),
+  ('⭐', 'Nổi bật', 'Highlight'),
+  ('❗', 'Chú ý', 'Attention'),
+  ('❓', 'Câu hỏi', 'Question'),
+  ('👍', 'Đồng ý', 'Agree'),
+  ('👎', 'Không đồng ý', 'Disagree'),
+  ('💡', 'Ý tưởng', 'Idea'),
+  ('📌', 'Ghim', 'Pin'),
+  ('🔥', 'Gấp', 'Urgent'),
+  ('➡️', 'Sang phải', 'Right'),
+  ('⬅️', 'Sang trái', 'Left'),
+  ('⬆️', 'Lên trên', 'Up'),
+  ('⬇️', 'Xuống dưới', 'Down'),
+  ('⚠️', 'Cảnh báo', 'Warning'),
+  ('🎯', 'Mục tiêu', 'Goal'),
+  ('📅', 'Lịch hẹn', 'Appointment'),
+  ('💬', 'Trao đổi', 'Discussion'),
+  ('✏️', 'Cần sửa', 'Needs edit'),
+  ('🚀', 'Triển khai', 'Launch'),
 ];
 
 /// Bán kính chạm (điểm ảnh màn hình) cho tẩy và chọn.
@@ -357,12 +413,23 @@ class _CollaborationWhiteboardState
             failure.kind == FailureKind.timeout;
         _failSave(
           failure.kind == FailureKind.conflict
-              ? 'Bảng trắng vừa có người khác sửa nên chưa lưu được. '
-                    'Bấm Thử lại để lưu.'
+              ? tr(
+                  'Bảng trắng vừa có người khác sửa nên chưa lưu được. '
+                      'Bấm Thử lại để lưu.',
+                  'Someone else just edited the whiteboard, so it was not '
+                      'saved. Tap Retry to save.',
+                )
               : offline
-              ? 'Mất kết nối: thay đổi trên bảng trắng chưa được lưu, '
-                    'sẽ thử lưu lại.'
-              : 'Chưa lưu được bảng trắng: ${userFacingErrorMessage(failure)}',
+              ? tr(
+                  'Mất kết nối: thay đổi trên bảng trắng chưa được lưu, '
+                      'sẽ thử lưu lại.',
+                  'Connection lost: whiteboard changes are not saved yet. '
+                      'We will try again.',
+                )
+              : tr(
+                  'Chưa lưu được bảng trắng: ${userFacingErrorMessage(failure)}',
+                  "Couldn't save the whiteboard: ${userFacingErrorMessage(failure)}",
+                ),
           retryOnTick: offline,
         );
     }
@@ -405,7 +472,10 @@ class _CollaborationWhiteboardState
           persist: false,
           duration: const Duration(seconds: 6),
           action: retry && messenger != null
-              ? SnackBarAction(label: 'Thử lại', onPressed: _retrySave)
+              ? SnackBarAction(
+                  label: tr('Thử lại', 'Retry'),
+                  onPressed: _retrySave,
+                )
               : null,
         ),
       );
@@ -474,11 +544,14 @@ class _CollaborationWhiteboardState
   Future<void> _confirmClear() async {
     final confirmed = await showWebTuiConfirmDialog(
       context,
-      title: 'Xoá toàn bộ bảng trắng?',
-      message:
-          'Mọi nét vẽ, hình, chữ và biểu tượng sẽ bị xoá với cả phòng. '
-          'Có thể bấm Hoàn tác ngay sau đó.',
-      confirmLabel: 'Xoá tất cả',
+      title: tr('Xoá toàn bộ bảng trắng?', 'Clear the whole whiteboard?'),
+      message: tr(
+        'Mọi nét vẽ, hình, chữ và biểu tượng sẽ bị xoá với cả phòng. '
+            'Có thể bấm Hoàn tác ngay sau đó.',
+        'All strokes, shapes, text and icons will be deleted for everyone '
+            'in the room. You can tap Undo right after.',
+      ),
+      confirmLabel: tr('Xoá tất cả', 'Clear all'),
       destructive: true,
       icon: WebTuiIcons.delete,
     );
@@ -869,11 +942,13 @@ class _CollaborationWhiteboardState
   Widget _buildHeader() {
     return Row(
       children: [
-        const Icon(Icons.draw_outlined, color: WebTuiColors.primary, size: 20),
+        Icon(Icons.draw_outlined, color: WebTuiColors.primary, size: 20),
         const SizedBox(width: WebTuiSpacing.sm),
         Expanded(
           child: Text(
-            _version == null ? 'Bảng trắng' : 'Bảng trắng · v$_version',
+            _version == null
+                ? tr('Bảng trắng', 'Whiteboard')
+                : tr('Bảng trắng · v$_version', 'Whiteboard · v$_version'),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: WebTuiTypography.titleMedium.copyWith(
@@ -883,17 +958,17 @@ class _CollaborationWhiteboardState
           ),
         ),
         _ToolButton(
-          label: 'Hoàn tác',
+          label: tr('Hoàn tác', 'Undo'),
           icon: Icons.undo_rounded,
           onPressed: _ready && _undoStack.isNotEmpty ? _undo : null,
         ),
         _ToolButton(
-          label: 'Làm lại',
+          label: tr('Làm lại', 'Redo'),
           icon: Icons.redo_rounded,
           onPressed: _ready && _redoStack.isNotEmpty ? _redo : null,
         ),
         _ToolButton(
-          label: 'Xoá tất cả',
+          label: tr('Xoá tất cả', 'Clear all'),
           icon: Icons.delete_sweep_outlined,
           onPressed: _ready && !_document.isEmpty ? _confirmClear : null,
         ),
@@ -907,19 +982,26 @@ class _CollaborationWhiteboardState
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
+          Icon(
             Icons.cloud_off_rounded,
             color: WebTuiColors.textMuted,
             size: 34,
           ),
           const SizedBox(height: WebTuiSpacing.sm),
           Text(
-            _loadError ?? 'Không tải được bảng trắng.',
+            _loadError ??
+                tr(
+                  'Không tải được bảng trắng.',
+                  "Couldn't load the whiteboard.",
+                ),
             textAlign: TextAlign.center,
             style: WebTuiTypography.bodySmall,
           ),
           const SizedBox(height: WebTuiSpacing.sm),
-          FilledButton(onPressed: _retryLoad, child: const Text('Thử lại')),
+          FilledButton(
+            onPressed: _retryLoad,
+            child: Text(tr('Thử lại', 'Retry')),
+          ),
         ],
       ),
     );
@@ -939,7 +1021,7 @@ class _CollaborationWhiteboardState
               onPressed: () => _selectTool(tool),
             ),
           _ToolButton(
-            label: 'Hình',
+            label: tr('Hình', 'Shape'),
             icon: Icons.shape_line_outlined,
             selected: _tool.isShape,
             onPressed: () => _selectTool(shapeTool),
@@ -989,9 +1071,9 @@ class _CollaborationWhiteboardState
   ]);
 
   Widget _widthGroup() => _group([
-    for (final (width, label) in _strokeWidths)
+    for (final (width, viLabel, enLabel) in _strokeWidths)
       _ToolButton(
-        label: label,
+        label: tr(viLabel, enLabel),
         selected: _strokeWidth == width,
         onPressed: () => setState(() => _strokeWidth = width),
         child: Container(
@@ -1006,9 +1088,9 @@ class _CollaborationWhiteboardState
   ]);
 
   Widget _textSizeGroup() => _group([
-    for (final (size, label) in _textSizes)
+    for (final (size, viLabel, enLabel) in _textSizes)
       _ToolButton(
-        label: label,
+        label: tr(viLabel, enLabel),
         selected: _textSize == size,
         onPressed: () => setState(() => _textSize = size),
         child: Text(
@@ -1023,9 +1105,9 @@ class _CollaborationWhiteboardState
   ]);
 
   Widget _colorGroup() => _group([
-    for (final (value, label) in _colors)
+    for (final (value, viLabel, enLabel) in _colors)
       _ToolButton(
-        label: label,
+        label: tr(viLabel, enLabel),
         selected: _color == value,
         onPressed: () => setState(() => _color = value),
         child: Container(
@@ -1035,9 +1117,7 @@ class _CollaborationWhiteboardState
             color: parseWhiteboardColor(value),
             shape: BoxShape.circle,
             border: Border.all(color: Colors.white, width: 2),
-            boxShadow: const [
-              BoxShadow(color: WebTuiColors.border, spreadRadius: 1),
-            ],
+            boxShadow: [BoxShadow(color: WebTuiColors.border, spreadRadius: 1)],
           ),
         ),
       ),
@@ -1048,9 +1128,9 @@ class _CollaborationWhiteboardState
     child: ListView(
       scrollDirection: Axis.horizontal,
       children: [
-        for (final (icon, label) in _icons)
+        for (final (icon, viLabel, enLabel) in _icons)
           _ToolButton(
-            label: label,
+            label: tr(viLabel, enLabel),
             selected: _icon == icon,
             onPressed: () => setState(() => _icon = icon),
             child: Text(icon, style: const TextStyle(fontSize: 22)),
@@ -1065,7 +1145,11 @@ class _CollaborationWhiteboardState
       TextButton.icon(
         onPressed: selected ? _deleteSelected : null,
         icon: const Icon(WebTuiIcons.delete),
-        label: Text(selected ? 'Xoá phần tử đã chọn' : 'Chưa chọn phần tử'),
+        label: Text(
+          selected
+              ? tr('Xoá phần tử đã chọn', 'Delete selected item')
+              : tr('Chưa chọn phần tử', 'No item selected'),
+        ),
       ),
     ]);
   }
@@ -1100,7 +1184,7 @@ class _CollaborationWhiteboardState
                 onPointerCancel: (event) =>
                     _onPointerUp(event, size, cancelled: true),
                 child: Semantics(
-                  label: 'Khung vẽ bảng trắng',
+                  label: tr('Khung vẽ bảng trắng', 'Whiteboard canvas'),
                   child: CustomPaint(
                     size: size,
                     painter: WhiteboardPainter(
@@ -1129,21 +1213,20 @@ class _CollaborationWhiteboardState
       // Lưu hỏng: thay chữ hướng dẫn bằng trạng thái lỗi để người dùng thấy.
       return Row(
         children: [
-          const Icon(
-            Icons.cloud_off_rounded,
-            size: 18,
-            color: WebTuiColors.danger,
-          ),
+          Icon(Icons.cloud_off_rounded, size: 18, color: WebTuiColors.danger),
           const SizedBox(width: WebTuiSpacing.xs),
-          const Expanded(
+          Expanded(
             child: Text(
-              'Chưa lưu được',
+              tr('Chưa lưu được', "Couldn't save"),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(color: WebTuiColors.danger, fontSize: 12),
             ),
           ),
-          TextButton(onPressed: _retrySave, child: const Text('Lưu lại')),
+          TextButton(
+            onPressed: _retrySave,
+            child: Text(tr('Lưu lại', 'Save again')),
+          ),
         ],
       );
     }
@@ -1154,19 +1237,16 @@ class _CollaborationWhiteboardState
             _tool.hint,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: WebTuiColors.textSecondary,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: WebTuiColors.textSecondary, fontSize: 12),
           ),
         ),
         const SizedBox(width: WebTuiSpacing.sm),
         Text(
           _saving
-              ? 'Đang lưu…'
+              ? tr('Đang lưu…', 'Saving…')
               : _hasUnsaved
-              ? 'Chờ lưu…'
-              : 'Đã lưu',
+              ? tr('Chờ lưu…', 'Waiting to save…')
+              : tr('Đã lưu', 'Saved'),
           style: WebTuiTypography.bodySmall.copyWith(
             color: WebTuiColors.textMuted,
           ),
@@ -1206,7 +1286,7 @@ class _ToolButton extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(WebTuiRadii.md),
             side: selected
-                ? const BorderSide(color: WebTuiColors.primary, width: 1.5)
+                ? BorderSide(color: WebTuiColors.primary, width: 1.5)
                 : BorderSide.none,
           ),
           child: InkWell(
@@ -1260,7 +1340,7 @@ class _TextInputDialogState extends State<_TextInputDialog> {
   @override
   Widget build(BuildContext context) {
     return WebTuiDialog(
-      title: 'Thêm chữ',
+      title: tr('Thêm chữ', 'Add text'),
       icon: WebTuiIcons.edit,
       content: TextField(
         controller: _controller,
@@ -1269,14 +1349,20 @@ class _TextInputDialogState extends State<_TextInputDialog> {
         minLines: 1,
         maxLines: 4,
         textCapitalization: TextCapitalization.sentences,
-        decoration: const InputDecoration(hintText: 'Nội dung ghi chú'),
+        decoration: InputDecoration(
+          hintText: tr('Nội dung ghi chú', 'Note text'),
+        ),
       ),
       actions: [
         WebTuiDialogAction(
-          label: 'Huỷ',
+          label: tr('Huỷ', 'Cancel'),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        WebTuiDialogAction(label: 'Thêm', primary: true, onPressed: _submit),
+        WebTuiDialogAction(
+          label: tr('Thêm', 'Add'),
+          primary: true,
+          onPressed: _submit,
+        ),
       ],
     );
   }

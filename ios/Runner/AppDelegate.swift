@@ -619,18 +619,36 @@ final class VideoCompressBridge {
   /// chạy trên hàng đợi nền.
   private func poster(_ arguments: [String: Any]?, result: @escaping FlutterResult) {
     guard
-      let input = arguments?["input"] as? String,
       let output = arguments?["output"] as? String,
-      !input.isEmpty, !output.isEmpty
+      !output.isEmpty
     else {
       result(FlutterError(code: "INVALID_ARGUMENTS", message: "Thiếu tham số lấy ảnh bìa.", details: nil))
       return
     }
     let maxSide = (arguments?["maxSide"] as? NSNumber)?.doubleValue ?? 480
     let timeMs = (arguments?["timeMs"] as? NSNumber)?.doubleValue ?? 1000
-    guard FileManager.default.fileExists(atPath: input), maxSide > 0 else {
-      result(FlutterError(code: "INPUT_MISSING", message: "Không thấy tệp video nguồn.", details: nil))
-      return
+    let sourceURL: URL
+    if let inputUrl = arguments?["inputUrl"] as? String, !inputUrl.isEmpty {
+      // Đường dẫn phát dần: chỉ nhận http / https.
+      guard
+        let url = URL(string: inputUrl),
+        let scheme = url.scheme?.lowercased(),
+        scheme == "http" || scheme == "https", maxSide > 0
+      else {
+        result(FlutterError(code: "INVALID_ARGUMENTS", message: "Địa chỉ video không hợp lệ.", details: nil))
+        return
+      }
+      sourceURL = url
+    } else {
+      guard let input = arguments?["input"] as? String, !input.isEmpty else {
+        result(FlutterError(code: "INVALID_ARGUMENTS", message: "Thiếu tham số lấy ảnh bìa.", details: nil))
+        return
+      }
+      guard FileManager.default.fileExists(atPath: input), maxSide > 0 else {
+        result(FlutterError(code: "INPUT_MISSING", message: "Không thấy tệp video nguồn.", details: nil))
+        return
+      }
+      sourceURL = URL(fileURLWithPath: input)
     }
     DispatchQueue.global(qos: .userInitiated).async {
       let fileManager = FileManager.default
@@ -642,7 +660,7 @@ final class VideoCompressBridge {
           result(FlutterError(code: "POSTER_FAILED", message: message, details: nil))
         }
       }
-      let asset = AVURLAsset(url: URL(fileURLWithPath: input))
+      let asset = AVURLAsset(url: sourceURL)
       guard let track = asset.tracks(withMediaType: .video).first else {
         fail("Tệp không có hình ảnh.")
         return

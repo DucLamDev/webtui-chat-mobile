@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../application/session_termination.dart';
 import '../../application/use_cases/device_approval_use_cases.dart';
 import '../../domain/entities/auth_session.dart';
@@ -327,15 +328,27 @@ String pendingApprovalExplanation(MyDeviceApproval? approval) {
   final mode = approval?.mode ?? 'self';
   final hasTrusted = approval?.hasTrustedDevice ?? true;
   if (!hasTrusted) {
-    return 'Tài khoản chưa có thiết bị tin cậy nào khác. Quản trị viên của '
-        'tổ chức sẽ duyệt thiết bị này.';
+    return tr(
+      'Tài khoản chưa có thiết bị tin cậy nào khác. Quản trị viên của '
+          'tổ chức sẽ duyệt thiết bị này.',
+      'This account has no other trusted device. An administrator of your '
+          'organization will approve this device.',
+    );
   }
   if (mode == 'two_person') {
-    return 'Mở ứng dụng trên thiết bị bạn đã đăng nhập trước đó để duyệt, sau '
-        'đó quản trị viên duyệt thêm một lần nữa.';
+    return tr(
+      'Mở ứng dụng trên thiết bị bạn đã đăng nhập trước đó để duyệt, sau '
+          'đó quản trị viên duyệt thêm một lần nữa.',
+      'Open the app on a device you signed in to earlier to approve, then an '
+          'administrator approves once more.',
+    );
   }
-  return 'Mở ứng dụng trên thiết bị bạn đã đăng nhập trước đó (điện thoại hoặc '
-      'máy tính) và bấm Đồng ý để cho phép thiết bị này.';
+  return tr(
+    'Mở ứng dụng trên thiết bị bạn đã đăng nhập trước đó (điện thoại hoặc '
+        'máy tính) và bấm Đồng ý để cho phép thiết bị này.',
+    'Open the app on a device you signed in to earlier (phone or computer) '
+        'and tap Approve to allow this device.',
+  );
 }
 
 /// Lỗi tải danh sách chờ duyệt (403 coi như không có quyền xem).

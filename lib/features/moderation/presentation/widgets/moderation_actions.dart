@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../core/result/result.dart';
 import '../../../../design_system/components/webtui_components.dart';
@@ -29,20 +30,31 @@ Future<void> showUserSafetyActions(
     builder: (sheetContext) => Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        WebTuiSheetHeader(title: userLabel, subtitle: 'An toàn'),
+        WebTuiSheetHeader(title: userLabel, subtitle: tr('An toàn', 'Safety')),
         WebTuiSheetActionTile(
           icon: WebTuiIcons.report,
-          title: 'Báo cáo người dùng',
-          subtitle: 'Gửi báo cáo về $userLabel cho đội ngũ kiểm duyệt.',
+          title: tr('Báo cáo người dùng', 'Report user'),
+          subtitle: tr(
+            'Gửi báo cáo về $userLabel cho đội ngũ kiểm duyệt.',
+            'Send a report about $userLabel to the moderation team.',
+          ),
           onTap: () => Navigator.pop(sheetContext, UserSafetyAction.report),
         ),
         WebTuiSheetActionTile(
           icon: blocked ? WebTuiIcons.unblock : WebTuiIcons.block,
           tone: blocked ? WebTuiDialogTone.normal : WebTuiDialogTone.danger,
-          title: blocked ? 'Bỏ chặn người dùng' : 'Chặn người dùng',
+          title: blocked
+              ? tr('Bỏ chặn người dùng', 'Unblock user')
+              : tr('Chặn người dùng', 'Block user'),
           subtitle: blocked
-              ? 'Cho phép hiển thị lại nội dung từ $userLabel.'
-              : 'Ẩn nội dung và ngăn tương tác trực tiếp với $userLabel.',
+              ? tr(
+                  'Cho phép hiển thị lại nội dung từ $userLabel.',
+                  'Show content from $userLabel again.',
+                )
+              : tr(
+                  'Ẩn nội dung và ngăn tương tác trực tiếp với $userLabel.',
+                  'Hide content and prevent direct interaction with $userLabel.',
+                ),
           onTap: () =>
               Navigator.pop(sheetContext, UserSafetyAction.toggleBlock),
         ),
@@ -81,9 +93,11 @@ Future<bool> reportMessage(
 }) {
   return _showReportDialog(
     context,
-    title: 'Báo cáo tin nhắn',
-    description:
-        'Báo cáo sẽ được gửi riêng cho đội ngũ kiểm duyệt. Người gửi không được thông báo danh tính của bạn.',
+    title: tr('Báo cáo tin nhắn', 'Report message'),
+    description: tr(
+      'Báo cáo sẽ được gửi riêng cho đội ngũ kiểm duyệt. Người gửi không được thông báo danh tính của bạn.',
+      'The report goes privately to the moderation team. The sender isn\'t told who you are.',
+    ),
     onSubmit: (reason, details) async {
       final result = await ref
           .read(moderationControllerProvider(workspaceId).notifier)
@@ -107,9 +121,11 @@ Future<bool> reportUser(
 }) {
   return _showReportDialog(
     context,
-    title: 'Báo cáo $userLabel',
-    description:
-        'Hãy chọn lý do phù hợp. Báo cáo sẽ được đội ngũ kiểm duyệt xem xét.',
+    title: tr('Báo cáo $userLabel', 'Report $userLabel'),
+    description: tr(
+      'Hãy chọn lý do phù hợp. Báo cáo sẽ được đội ngũ kiểm duyệt xem xét.',
+      'Choose a suitable reason. The moderation team will review the report.',
+    ),
     onSubmit: (reason, details) async {
       final result = await ref
           .read(moderationControllerProvider(workspaceId).notifier)
@@ -136,19 +152,27 @@ Future<bool> toggleUserBlock(
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => WebTuiDialog(
-      title: blocked ? 'Bỏ chặn $userLabel?' : 'Chặn $userLabel?',
+      title: blocked
+          ? tr('Bỏ chặn $userLabel?', 'Unblock $userLabel?')
+          : tr('Chặn $userLabel?', 'Block $userLabel?'),
       message: blocked
-          ? 'Nội dung mới từ người dùng này sẽ hiển thị lại.'
-          : 'Tin nhắn của người dùng này sẽ bị ẩn. Bạn có thể bỏ chặn trong mục Quyền riêng tư.',
+          ? tr(
+              'Nội dung mới từ người dùng này sẽ hiển thị lại.',
+              'New content from this user will be shown again.',
+            )
+          : tr(
+              'Tin nhắn của người dùng này sẽ bị ẩn. Bạn có thể bỏ chặn trong mục Quyền riêng tư.',
+              'This user\'s messages will be hidden. You can unblock them under Privacy.',
+            ),
       icon: blocked ? WebTuiIcons.unblock : WebTuiIcons.block,
       tone: blocked ? WebTuiDialogTone.normal : WebTuiDialogTone.danger,
       actions: [
         WebTuiDialogAction(
-          label: 'Hủy',
+          label: tr('Hủy', 'Cancel'),
           onPressed: () => Navigator.pop(dialogContext, false),
         ),
         WebTuiDialogAction(
-          label: blocked ? 'Bỏ chặn' : 'Chặn',
+          label: blocked ? tr('Bỏ chặn', 'Unblock') : tr('Chặn', 'Block'),
           primary: true,
           destructive: !blocked,
           onPressed: () => Navigator.pop(dialogContext, true),
@@ -173,7 +197,9 @@ Future<bool> toggleUserBlock(
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            blocked ? 'Đã bỏ chặn $userLabel.' : 'Đã chặn $userLabel.',
+            blocked
+                ? tr('Đã bỏ chặn $userLabel.', 'Unblocked $userLabel.')
+                : tr('Đã chặn $userLabel.', 'Blocked $userLabel.'),
           ),
         ),
       );
@@ -205,9 +231,12 @@ Future<bool> _showReportDialog(
   ).then((submitted) {
     if (submitted == true && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Đã gửi báo cáo. Cảm ơn bạn đã giúp cộng đồng an toàn.',
+            tr(
+              'Đã gửi báo cáo. Cảm ơn bạn đã giúp cộng đồng an toàn.',
+              'Report sent. Thanks for helping keep the community safe.',
+            ),
           ),
         ),
       );
@@ -258,7 +287,7 @@ class _ModerationReportDialogState extends State<_ModerationReportDialog> {
           DropdownButtonFormField<ModerationReportReason>(
             initialValue: _reason,
             isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Lý do'),
+            decoration: InputDecoration(labelText: tr('Lý do', 'Reason')),
             items: [
               for (final item in ModerationReportReason.values)
                 DropdownMenuItem(value: item, child: Text(_reasonLabel(item))),
@@ -274,8 +303,11 @@ class _ModerationReportDialogState extends State<_ModerationReportDialog> {
           const SizedBox(height: WebTuiSpacing.md),
           WebTuiDialogTextField(
             controller: _detailsController,
-            label: 'Chi tiết (không bắt buộc)',
-            hint: 'Mô tả ngắn gọn điều đã xảy ra',
+            label: tr('Chi tiết (không bắt buộc)', 'Details (optional)'),
+            hint: tr(
+              'Mô tả ngắn gọn điều đã xảy ra',
+              'Briefly describe what happened',
+            ),
             maxLength: 2000,
             textInputAction: TextInputAction.done,
           ),
@@ -284,18 +316,20 @@ class _ModerationReportDialogState extends State<_ModerationReportDialog> {
               padding: const EdgeInsets.only(top: WebTuiSpacing.sm),
               child: Text(
                 _errorMessage!,
-                style: const TextStyle(color: WebTuiColors.danger),
+                style: TextStyle(color: WebTuiColors.danger),
               ),
             ),
         ],
       ),
       actions: [
         WebTuiDialogAction(
-          label: 'Hủy',
+          label: tr('Hủy', 'Cancel'),
           onPressed: _isSubmitting ? null : () => Navigator.pop(context, false),
         ),
         WebTuiDialogAction(
-          label: _isSubmitting ? 'Đang gửi...' : 'Gửi báo cáo',
+          label: _isSubmitting
+              ? tr('Đang gửi...', 'Sending...')
+              : tr('Gửi báo cáo', 'Send report'),
           primary: true,
           loading: _isSubmitting,
           onPressed: _isSubmitting ? null : _submit,
@@ -326,15 +360,29 @@ class _ModerationReportDialogState extends State<_ModerationReportDialog> {
 
 String _reasonLabel(ModerationReportReason reason) {
   return switch (reason) {
-    ModerationReportReason.spam => 'Spam hoặc lừa đảo',
-    ModerationReportReason.harassment => 'Quấy rối hoặc bắt nạt',
-    ModerationReportReason.hateSpeech => 'Ngôn từ thù ghét',
-    ModerationReportReason.sexualContent => 'Nội dung tình dục',
-    ModerationReportReason.violence => 'Bạo lực hoặc đe dọa',
-    ModerationReportReason.illegalContent =>
+    ModerationReportReason.spam => tr('Spam hoặc lừa đảo', 'Spam or scam'),
+    ModerationReportReason.harassment => tr(
+      'Quấy rối hoặc bắt nạt',
+      'Harassment or bullying',
+    ),
+    ModerationReportReason.hateSpeech => tr('Ngôn từ thù ghét', 'Hate speech'),
+    ModerationReportReason.sexualContent => tr(
+      'Nội dung tình dục',
+      'Sexual content',
+    ),
+    ModerationReportReason.violence => tr(
+      'Bạo lực hoặc đe dọa',
+      'Violence or threats',
+    ),
+    ModerationReportReason.illegalContent => tr(
       'Hoạt động hoặc nội dung bất hợp pháp',
-    ModerationReportReason.privacy => 'Xâm phạm quyền riêng tư',
-    ModerationReportReason.impersonation => 'Mạo danh',
-    ModerationReportReason.other => 'Lý do khác',
+      'Illegal activity or content',
+    ),
+    ModerationReportReason.privacy => tr(
+      'Xâm phạm quyền riêng tư',
+      'Privacy violation',
+    ),
+    ModerationReportReason.impersonation => tr('Mạo danh', 'Impersonation'),
+    ModerationReportReason.other => tr('Lý do khác', 'Other reason'),
   };
 }

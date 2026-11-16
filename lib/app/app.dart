@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -14,6 +15,7 @@ import '../core/privacy/background_privacy.dart';
 import '../core/security/instance_scope.dart';
 import '../design_system/components/webtui_avatar.dart';
 import '../design_system/theme/webtui_theme.dart';
+import '../design_system/tokens/webtui_colors.dart';
 import '../features/auth/application/session_termination.dart';
 import '../features/auth/presentation/controllers/auth_flow_providers.dart';
 import '../features/auth/presentation/controllers/legal_acceptance_controller.dart';
@@ -21,7 +23,10 @@ import '../features/auth/presentation/controllers/login_controller.dart';
 import '../features/auth/presentation/screens/device_approval_pending_screen.dart';
 import '../features/auth/presentation/widgets/app_lock_gate.dart';
 import '../features/auth/presentation/widgets/legal_acceptance_gate.dart';
+import '../features/settings/domain/entities/app_settings.dart';
+import '../features/settings/presentation/controllers/app_settings_controller.dart';
 import '../features/settings/presentation/widgets/mobile_update_gate.dart';
+import '../l10n/app_strings.dart';
 import 'flavor/app_config.dart';
 import 'providers/foundation_providers.dart';
 import 'router/app_router.dart';
@@ -33,7 +38,8 @@ class WebTuiChatApp extends ConsumerStatefulWidget {
   ConsumerState<WebTuiChatApp> createState() => _WebTuiChatAppState();
 }
 
-class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp> {
+class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
+    with WidgetsBindingObserver {
   static const _avatarDownloader = RedirectSafeFileDownloader();
   final BoundedImageRequestPool _imageRequestPool = BoundedImageRequestPool();
   String? _imageCacheNamespace;
@@ -41,10 +47,14 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp> {
   StreamSubscription<Uri>? _deepLinkSubscription;
   late final AppDeepLinkCoordinator _deepLinkCoordinator;
   late final Listenable _routerChanges;
+  Brightness _platformBrightness =
+      ui.PlatformDispatcher.instance.platformBrightness;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _platformBrightness = ui.PlatformDispatcher.instance.platformBrightness;
     _deepLinkCoordinator = AppDeepLinkCoordinator(
       loadAccessToken: () => ref.read(authAccessTokenProvider.future),
       loadActiveInstance: () =>
@@ -69,6 +79,26 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp> {
     _routerChanges = ref.read(appRouterProvider).routerDelegate;
     _routerChanges.addListener(_resumePendingLink);
     Future<void>.microtask(_startDeepLinkHandling);
+  }
+
+  @override
+  void didChangePlatformBrightness() {
+    final next = ui.PlatformDispatcher.instance.platformBrightness;
+    if (!mounted || next == _platformBrightness) return;
+    setState(() => _platformBrightness = next);
+  }
+
+  /// Màu của app đọc từ [WebTuiColors] nên khi đổi Sáng / Tối phải buộc mọi
+  /// widget dựng lại (kể cả widget `const`) mà không làm mất trạng thái
+  /// điều hướng.
+  void _rebuildAllElements() {
+    void visit(Element element) {
+      element.markNeedsBuild();
+      element.visitChildren(visit);
+    }
+
+    final root = WidgetsBinding.instance.rootElement;
+    if (root != null) visit(root);
   }
 
   bool _isAuthenticationReady() {
@@ -133,6 +163,7 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _deepLinkSubscription?.cancel();
     _routerChanges.removeListener(_resumePendingLink);
     super.dispose();
@@ -171,14 +202,67 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp> {
     final imageCacheNamespace = '$imageIdentity:epoch$_imageCacheEpoch';
     final legalWorkspaceId = ref.watch(legalAcceptanceWorkspaceScopeProvider);
     final router = ref.watch(appRouterProvider);
+    // Đổi ngôn ngữ trong Thiết lập ứng dụng có tác dụng ngay, không cần mở lại.
+    // Chưa chọn máy chủ thì chưa có kho cài đặt: dùng tiếng Việt.
+    final languageCode = activeDiscovery == null
+        ? 'vi'
+        : ref.watch(
+            appSettingsControllerProvider.select(
+              (value) => value.settings.languageCode,
+            ),
+          );
+
+    // Chữ viết bằng `tr()` đọc ngôn ngữ từ AppStrings.current: đổi ngôn ngữ thì
+    // đặt lại rồi dựng lại mọi widget (như đổi Sáng / Tối), không mất màn đang mở.
+    final strings = AppStrings.forLanguageCode(languageCode);
+    if (AppStrings.current.isEnglish != strings.isEnglish) {
+      AppStrings.current = strings;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _rebuildAllElements();
+      });
+    }
+
+    // Chưa chọn máy chủ thì chưa có kho cài đặt: theo Hệ thống.
+    final themePreference = activeDiscovery == null
+        ? WebTuiThemePreference.system
+        : ref.watch(
+            appSettingsControllerProvider.select(
+              (value) => value.settings.theme,
+            ),
+          );
+    final brightness = switch (themePreference) {
+      WebTuiThemePreference.light => Brightness.light,
+      WebTuiThemePreference.dark => Brightness.dark,
+      WebTuiThemePreference.system => _platformBrightness,
+    };
+    if (WebTuiColors.brightness != brightness) {
+      WebTuiColors.apply(brightness);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _rebuildAllElements();
+      });
+    }
+    final overlayStyle = SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: brightness == Brightness.dark
+          ? Brightness.light
+          : Brightness.dark,
+      statusBarBrightness: brightness,
+    );
 
     return MaterialApp.router(
       title: activeDiscovery?.name ?? config.appTitle,
       debugShowCheckedModeBanner: false,
       theme: WebTuiTheme.light(),
-      locale: const Locale('vi'),
+      darkTheme: WebTuiTheme.dark(),
+      themeMode: brightness == Brightness.dark
+          ? ThemeMode.dark
+          : ThemeMode.light,
+      locale: Locale(languageCode),
       supportedLocales: const [Locale('vi'), Locale('en')],
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      localizationsDelegates: [
+        AppStrings.delegate,
+        ...GlobalMaterialLocalizations.delegates,
+      ],
       routerConfig: router,
       builder: (context, child) {
         final mediaQuery = MediaQuery.maybeOf(context);
@@ -194,29 +278,34 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp> {
                 child: child ?? const SizedBox.shrink(),
               );
         final instanceScope = activeDiscovery?.instanceScope;
-        return WebTuiAvatarNetworkScope(
-          apiBaseUri: activeServerUri,
-          cacheKey: imageCacheNamespace,
-          loadBytes: (uri, {required maxBytes, required allowPublicRequest}) =>
-              _loadNetworkImageBytes(
-                uri: uri,
-                maxBytes: maxBytes,
-                allowPublicRequest: allowPublicRequest,
-                cacheNamespace: imageCacheNamespace,
-                apiBaseUri: activeServerUri,
-                expectedInstanceScope: instanceScope,
-              ),
-          child: MobileUpdateGate(
-            child: PrivacyGuard(
-              organizationName: activeDiscovery?.name ?? 'Ứng dụng chat',
-              organizationLogoUrl: activeDiscovery?.logoUrl,
-              child: AppLockGate(
-                protectSession: accessToken?.isNotEmpty == true,
-                child: LegalAcceptanceGate(
-                  accessToken: accessToken,
-                  serverUri: activeServerUri,
-                  workspaceId: legalWorkspaceId,
-                  child: scaledChild,
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: overlayStyle,
+          child: WebTuiAvatarNetworkScope(
+            apiBaseUri: activeServerUri,
+            cacheKey: imageCacheNamespace,
+            loadBytes:
+                (uri, {required maxBytes, required allowPublicRequest}) =>
+                    _loadNetworkImageBytes(
+                      uri: uri,
+                      maxBytes: maxBytes,
+                      allowPublicRequest: allowPublicRequest,
+                      cacheNamespace: imageCacheNamespace,
+                      apiBaseUri: activeServerUri,
+                      expectedInstanceScope: instanceScope,
+                    ),
+            child: MobileUpdateGate(
+              child: PrivacyGuard(
+                organizationName:
+                    activeDiscovery?.name ?? tr('Ứng dụng chat', 'Chat app'),
+                organizationLogoUrl: activeDiscovery?.logoUrl,
+                child: AppLockGate(
+                  protectSession: accessToken?.isNotEmpty == true,
+                  child: LegalAcceptanceGate(
+                    accessToken: accessToken,
+                    serverUri: activeServerUri,
+                    workspaceId: legalWorkspaceId,
+                    child: scaledChild,
+                  ),
                 ),
               ),
             ),

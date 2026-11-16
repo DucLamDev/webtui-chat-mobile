@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/providers/foundation_providers.dart';
+import '../../../l10n/app_strings.dart';
 import '../domain/mfa_repository.dart';
 import 'reauth_prompt.dart';
 
@@ -42,7 +43,9 @@ class _MfaSettingsScreenState extends ConsumerState<MfaSettingsScreen> {
     final token = await requestReauthToken(
       context,
       ref,
-      reason: enable ? 'Bật mã xác thực TOTP' : 'Tắt mã xác thực TOTP',
+      reason: enable
+          ? tr('Bật mã xác thực TOTP', 'Turn on TOTP verification')
+          : tr('Tắt mã xác thực TOTP', 'Turn off TOTP verification'),
     );
     if (!mounted || token == null) return;
     setState(() {
@@ -93,7 +96,7 @@ class _MfaSettingsScreenState extends ConsumerState<MfaSettingsScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Xác thực TOTP')),
+    appBar: AppBar(title: Text(tr('Xác thực TOTP', 'TOTP verification'))),
     body: ListView(
       padding: const EdgeInsets.all(20),
       children: [
@@ -102,43 +105,64 @@ class _MfaSettingsScreenState extends ConsumerState<MfaSettingsScreen> {
             _error!,
             style: TextStyle(color: Theme.of(context).colorScheme.error),
           ),
-          TextButton(onPressed: _load, child: const Text('Thử lại')),
+          TextButton(onPressed: _load, child: Text(tr('Thử lại', 'Retry'))),
         ],
         if (_status == null && _error == null)
           const Center(child: CircularProgressIndicator()),
         if (_status != null && !_status!.enabled)
-          const Text('Máy chủ chưa bật tính năng xác thực TOTP.'),
+          Text(
+            tr(
+              'Máy chủ chưa bật tính năng xác thực TOTP.',
+              'The server has not enabled TOTP verification.',
+            ),
+          ),
         if (_status?.enabled == true && _enrollment == null) ...[
-          Text(_status!.totpEnabled ? 'TOTP đang bật.' : 'TOTP chưa bật.'),
+          Text(
+            _status!.totpEnabled
+                ? tr('TOTP đang bật.', 'TOTP is on.')
+                : tr('TOTP chưa bật.', 'TOTP is off.'),
+          ),
           FilledButton(
             onPressed: _busy ? null : () => _change(!_status!.totpEnabled),
-            child: Text(_status!.totpEnabled ? 'Tắt TOTP' : 'Bật TOTP'),
+            child: Text(
+              _status!.totpEnabled
+                  ? tr('Tắt TOTP', 'Turn off TOTP')
+                  : tr('Bật TOTP', 'Turn on TOTP'),
+            ),
           ),
         ],
         if (_enrollment != null) ...[
-          const Text(
-            'Nhập khoá bên dưới vào ứng dụng xác thực, rồi nhập mã 6 số để hoàn tất.',
+          Text(
+            tr(
+              'Nhập khoá bên dưới vào ứng dụng xác thực, rồi nhập mã 6 số để hoàn tất.',
+              'Enter the key below in your authenticator app, then enter the 6-digit code to finish.',
+            ),
           ),
           SelectableText(_enrollment!.secret),
           TextField(
             controller: _code,
             keyboardType: TextInputType.number,
             maxLength: 6,
-            decoration: const InputDecoration(labelText: 'Mã TOTP 6 số'),
+            decoration: InputDecoration(
+              labelText: tr('Mã TOTP 6 số', '6-digit TOTP code'),
+            ),
           ),
           FilledButton(
             onPressed: _busy ? null : _confirm,
-            child: const Text('Xác nhận bật TOTP'),
+            child: Text(tr('Xác nhận bật TOTP', 'Confirm turning on TOTP')),
           ),
         ],
         if (_recoveryCodes != null) ...[
-          const Text(
-            'Lưu các mã khôi phục ở nơi an toàn. Mỗi mã chỉ dùng một lần; chúng không được lưu trong ứng dụng.',
+          Text(
+            tr(
+              'Lưu các mã khôi phục ở nơi an toàn. Mỗi mã chỉ dùng một lần; chúng không được lưu trong ứng dụng.',
+              'Keep your recovery codes somewhere safe. Each code can be used once; they are not stored in the app.',
+            ),
           ),
           SelectableText(_recoveryCodes!.join('\n')),
           TextButton(
             onPressed: () => setState(() => _recoveryCodes = null),
-            child: const Text('Đã lưu mã'),
+            child: Text(tr('Đã lưu mã', 'I saved the codes')),
           ),
         ],
       ],

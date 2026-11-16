@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
+import '../../l10n/app_strings.dart';
+
 final class ChatSharePayload {
   const ChatSharePayload({this.text, this.files = const []});
 
@@ -14,13 +16,15 @@ final class ChatSharePayload {
   String get summary {
     final textPart = text?.trim();
     if (files.isEmpty) {
-      return textPart?.isNotEmpty == true ? '1 nội dung văn bản' : '';
+      return textPart?.isNotEmpty == true
+          ? tr('1 nội dung văn bản', '1 text item')
+          : '';
     }
     final fileLabel = files.length == 1
         ? files.first.name
-        : '${files.length} tệp';
+        : tr('${files.length} tệp', '${files.length} files');
     if (textPart?.isNotEmpty == true) {
-      return '$fileLabel kèm văn bản';
+      return tr('$fileLabel kèm văn bản', '$fileLabel with text');
     }
     return fileLabel;
   }

@@ -22,6 +22,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../approvals/application/approval_notification_actions.dart';
 import '../../../approvals/presentation/controllers/approval_list_controller.dart';
 import '../../../auth/application/session_termination.dart';
@@ -47,6 +48,7 @@ import '../../../meetings/domain/meeting_models.dart';
 import '../../../meetings/presentation/group_call_presenter.dart';
 import '../../../notifications/domain/entities/mobile_notification.dart';
 import '../../../notifications/presentation/controllers/notification_center_controller.dart';
+import '../../../profile/presentation/controllers/profile_controller.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
 import '../widgets/notification_bell.dart';
 
@@ -147,7 +149,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _tabIndex = widget.initialTabIndex.clamp(0, _titles.length - 1).toInt();
+    _tabIndex = widget.initialTabIndex.clamp(0, _tabCount - 1).toInt();
     _visitedTabs = {_tabIndex};
   }
 
@@ -214,21 +216,27 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     final organization = ref.watch(activeServerDiscoveryProvider);
 
     if (workspaceState.isLoading && activeWorkspace == null) {
-      return const Scaffold(
+      return Scaffold(
         body: SafeArea(
-          child: WebTuiLoadingState(message: 'Đang tải workspace...'),
+          child: WebTuiLoadingState(
+            message: tr('Đang tải workspace...', 'Loading workspace...'),
+          ),
         ),
       );
     }
 
     if (activeWorkspace == null) {
       return Scaffold(
-        appBar: AppBar(title: Text(organization?.name ?? 'Tổ chức')),
-        body: const SafeArea(
+        appBar: AppBar(
+          title: Text(organization?.name ?? tr('Tổ chức', 'Organization')),
+        ),
+        body: SafeArea(
           child: WebTuiEmptyState(
-            title: 'Chưa có workspace',
-            message:
-                'Tài khoản này chưa được gắn workspace. Hãy liên hệ quản trị viên.',
+            title: tr('Chưa có workspace', 'No workspace yet'),
+            message: tr(
+              'Tài khoản này chưa được gắn workspace. Hãy liên hệ quản trị viên.',
+              'This account is not linked to a workspace. Contact an administrator.',
+            ),
             icon: Icons.business_rounded,
           ),
         ),
@@ -238,7 +246,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
             onPressed: () =>
                 ref.read(workspaceControllerProvider.notifier).load(),
             icon: const Icon(Icons.business_rounded),
-            label: const Text('Tải lại workspace'),
+            label: Text(tr('Tải lại workspace', 'Reload workspace')),
           ),
         ),
       );
@@ -303,8 +311,20 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       noticeBot: organization?.capabilities.noticeBot == true,
     );
 
+    // Hồ sơ người dùng cho thẻ đầu tab Cài đặt (cùng provider với màn Hồ sơ).
+    final userProfile = ref.watch(
+      profileControllerProvider.select((value) => value.profile),
+    );
+
     // Số tin chưa đọc ở góc biểu tượng tab Tin nhắn: đếm cả hộp thư, không
     // theo chip lọc / ô tìm đang chọn của màn Tin nhắn.
+    final strings = context.strings;
+    final titles = [
+      strings.tabMessages,
+      strings.tabFriends,
+      strings.tabWork,
+      strings.tabSettings,
+    ];
     final messagesUnread = ref.watch(
       messagesTabUnreadCountProvider(activeWorkspace.id),
     );
@@ -313,8 +333,8 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       key: ValueKey('workspace-shell-${workspaceState.generation}'),
       child: WebTuiMobileScaffold(
         title: organization == null
-            ? _titles[_tabIndex]
-            : '${organization.name} · ${_titles[_tabIndex]}',
+            ? titles[_tabIndex]
+            : '${organization.name} · ${titles[_tabIndex]}',
         // Tab Tin nhắn và Công việc bỏ thanh tiêu đề cho rộng chỗ (nút soạn
         // tin nằm cạnh ô tìm kiếm; Công việc có tiêu đề lớn riêng).
         showAppBar: _tabIndex != 0 && _tabIndex != 2,
@@ -328,7 +348,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           });
         },
         leading: IconButton(
-          tooltip: 'Hồ sơ cá nhân',
+          tooltip: context.strings.profileTitle,
           onPressed: () => context.push('/profile'),
           icon: _OrganizationMark(
             imageUrl: organization?.logoUrl,
@@ -369,14 +389,14 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
                   if (_visitedTabs.contains(3))
                     SettingsTab(
                       workspaceName: activeWorkspace.name,
-                      organizationLogoUrl: organization?.logoUrl,
+                      userName: userProfile?.displayName ?? '',
+                      userAvatarUrl: userProfile?.avatarUrl,
                       notificationEnabled: _notificationEnabled,
                       compactMode: _compactMode,
                       soundLevel: _soundLevel,
                       textScalePreview: _textScalePreview,
                       onProfileTap: () => context.push('/profile'),
                       onAdvancedTap: () => context.push('/settings'),
-                      onPrivacyTap: () => context.push('/privacy'),
                       // Luôn mở được danh sách workspace (kể cả khi chỉ có 1:
                       // xem workspace đang dùng, bấm Tải lại khi vừa được mời
                       // thêm); chữ "Chuyển workspace" chỉ khi có từ 2 (2.4).
@@ -458,7 +478,10 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         SnackBar(
           content: Text(
             result.failureOrNull?.message ??
-                'Chưa thể tải danh sách cuộc trò chuyện.',
+                tr(
+                  'Chưa thể tải danh sách cuộc trò chuyện.',
+                  'Could not load the conversation list.',
+                ),
           ),
         ),
       );
@@ -467,7 +490,14 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     final targets = _shareTargets(data);
     if (targets.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Chưa có cuộc trò chuyện để gửi vào.')),
+        SnackBar(
+          content: Text(
+            tr(
+              'Chưa có cuộc trò chuyện để gửi vào.',
+              'No conversation to send to yet.',
+            ),
+          ),
+        ),
       );
       return;
     }
@@ -653,7 +683,11 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          result.failureOrNull?.message ?? 'Chưa gửi được trả lời nhanh.',
+          result.failureOrNull?.message ??
+              tr(
+                'Chưa gửi được trả lời nhanh.',
+                'Could not send the quick reply.',
+              ),
         ),
       ),
     );
@@ -719,12 +753,18 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           }
           return showWebTuiConfirmDialog(
             context,
-            title: 'Nhận cuộc gọi khi tắt app',
-            message:
-                'Cho phép thông báo để điện thoại đổ chuông khi có người gọi '
-                'và báo tin nhắn mới, kể cả khi bạn đã thoát app.',
-            confirmLabel: 'Cho phép',
-            cancelLabel: 'Để sau',
+            title: tr(
+              'Nhận cuộc gọi khi tắt app',
+              'Receive calls when the app is closed',
+            ),
+            message: tr(
+              'Cho phép thông báo để điện thoại đổ chuông khi có người gọi '
+                  'và báo tin nhắn mới, kể cả khi bạn đã thoát app.',
+              'Allow notifications so your phone rings for calls and alerts '
+                  'you to new messages, even after you leave the app.',
+            ),
+            confirmLabel: tr('Cho phép', 'Allow'),
+            cancelLabel: tr('Để sau', 'Later'),
             icon: WebTuiIcons.phoneIncoming,
           );
         },
@@ -739,12 +779,20 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     if (outcome == NotificationOfferOutcome.skipped || !mounted) return;
     ref.invalidate(notificationPermissionStatusProvider);
     final message = switch (outcome) {
-      NotificationOfferOutcome.granted => 'Đã bật thông báo.',
-      NotificationOfferOutcome.denied =>
+      NotificationOfferOutcome.granted => tr(
+        'Đã bật thông báo.',
+        'Notifications turned on.',
+      ),
+      NotificationOfferOutcome.denied => tr(
         'Thông báo đang bị tắt trong cài đặt điện thoại. Hãy bật lại để nhận '
             'cuộc gọi khi không mở app.',
-      NotificationOfferOutcome.unknown =>
+        'Notifications are turned off in your phone settings. Turn them on to '
+            'receive calls when the app is closed.',
+      ),
+      NotificationOfferOutcome.unknown => tr(
         'Chưa bật được thông báo. Thử lại trong Cài đặt > Thông báo.',
+        'Could not turn on notifications. Try again in Settings > Notifications.',
+      ),
       NotificationOfferOutcome.skipped ||
       NotificationOfferOutcome.later => null,
     };
@@ -784,17 +832,23 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       builder: (sheetContext) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const WebTuiSheetHeader(title: 'Soạn mới'),
+          WebTuiSheetHeader(title: tr('Soạn mới', 'New')),
           WebTuiSheetActionTile(
             icon: WebTuiIcons.newMessage,
-            title: 'Tin nhắn mới',
-            subtitle: 'Chọn một người trong workspace',
+            title: tr('Tin nhắn mới', 'New message'),
+            subtitle: tr(
+              'Chọn một người trong workspace',
+              'Choose someone in the workspace',
+            ),
             onTap: () => Navigator.of(sheetContext).pop('direct'),
           ),
           WebTuiSheetActionTile(
             icon: WebTuiIcons.newGroup,
-            title: 'Tạo nhóm',
-            subtitle: 'Trò chuyện cùng nhiều người',
+            title: tr('Tạo nhóm', 'Create group'),
+            subtitle: tr(
+              'Trò chuyện cùng nhiều người',
+              'Chat with several people',
+            ),
             onTap: () => Navigator.of(sheetContext).pop('group'),
           ),
           const SizedBox(height: WebTuiSpacing.md),
@@ -860,18 +914,33 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   /// ném lỗi để use case giữ con trỏ cũ (lần sau đặt lại tiếp).
   Future<void> _reloadAfterSyncReset(String workspaceId) async {
     if (!mounted) {
-      throw StateError('Màn hình đã đóng trước khi tải lại.');
+      throw StateError(
+        tr(
+          'Màn hình đã đóng trước khi tải lại.',
+          'The screen was closed before reloading.',
+        ),
+      );
     }
     final reloaded = await ref
         .read(conversationHomeControllerProvider(workspaceId).notifier)
         .syncSilently();
     if (!mounted) {
-      throw StateError('Màn hình đã đóng trước khi tải lại.');
+      throw StateError(
+        tr(
+          'Màn hình đã đóng trước khi tải lại.',
+          'The screen was closed before reloading.',
+        ),
+      );
     }
     ref.invalidate(notificationCenterControllerProvider(workspaceId));
     ref.read(workspaceRefreshSignalProvider).notifyReset(workspaceId);
     if (!reloaded) {
-      throw StateError('Không tải lại được danh sách hội thoại.');
+      throw StateError(
+        tr(
+          'Không tải lại được danh sách hội thoại.',
+          'Could not reload the conversation list.',
+        ),
+      );
     }
   }
 
@@ -973,11 +1042,11 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       final location = locationForNotificationTarget(target);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Có thông báo mới'),
+          content: Text(tr('Có thông báo mới', 'New notification')),
           action: location == null
               ? null
               : SnackBarAction(
-                  label: 'Mở',
+                  label: tr('Mở', 'Open'),
                   onPressed: () => context.push(location),
                 ),
         ),
@@ -1048,7 +1117,8 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           useRootNavigator: true,
           barrierDismissible: false,
           builder: (dialogContext) => _IncomingCallDialog(
-            callerName: target.callerName ?? 'Cuộc gọi đến',
+            callerName:
+                target.callerName ?? tr('Cuộc gọi đến', 'Incoming call'),
             mode: initialCall.mode,
             dismissSignal: dismiss,
             checkStatus: () async {
@@ -1117,7 +1187,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
             workspaceId: initialCall.workspaceId,
             channelId: initialCall.channelId,
             callId: initialCall.id,
-            title: target.callerName ?? 'Cuộc gọi đến',
+            title: target.callerName ?? tr('Cuộc gọi đến', 'Incoming call'),
             mode: initialCall.mode,
             incoming: true,
             onConnected: () =>
@@ -1244,7 +1314,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
             workspaceId: currentCall.workspaceId,
             channelId: currentCall.channelId,
             callId: currentCall.id,
-            title: target.callerName ?? 'Cuộc gọi đến',
+            title: target.callerName ?? tr('Cuộc gọi đến', 'Incoming call'),
             mode: currentCall.mode,
             incoming: true,
             onConnected: () =>
@@ -1407,9 +1477,11 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
             }
             return;
           }
-          // Chat bot thông báo vừa được tạo: tải lại danh sách để nó hiện ngay.
+          // Chat bot thông báo vừa được tạo, hoặc vừa được thêm vào nhóm: tải
+          // lại danh sách để hội thoại hiện ngay.
           if (event.type ==
-              ConversationRealtimeEventType.noticeChannelCreated) {
+                  ConversationRealtimeEventType.noticeChannelCreated ||
+              event.type == ConversationRealtimeEventType.channelMemberAdded) {
             ref.invalidate(conversationHomeControllerProvider(workspaceId));
             return;
           }
@@ -1687,7 +1759,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     return result.failureOrNull?.kind == FailureKind.notFound;
   }
 
-  static const _titles = ['Tin nhắn', 'Bạn bè', 'Công việc', 'Cài đặt'];
+  static const _tabCount = 4;
 }
 
 class _ShareTargetPickerSheet extends StatefulWidget {
@@ -1729,7 +1801,7 @@ class _ShareTargetPickerSheetState extends State<_ShareTargetPickerSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Gửi vào chat',
+                tr('Gửi vào chat', 'Send to chat'),
                 style: WebTuiTypography.titleMedium.copyWith(
                   color: WebTuiColors.textPrimary,
                   fontWeight: FontWeight.w800,
@@ -1748,15 +1820,21 @@ class _ShareTargetPickerSheetState extends State<_ShareTargetPickerSheet> {
               WebTuiDialogTextField(
                 controller: _searchController,
                 onChanged: (value) => setState(() => _query = value),
-                hint: 'Tìm cuộc trò chuyện hoặc nhóm',
+                hint: tr(
+                  'Tìm cuộc trò chuyện hoặc nhóm',
+                  'Search conversations or groups',
+                ),
                 prefixIcon: WebTuiIcons.search,
               ),
               const SizedBox(height: WebTuiSpacing.md),
               Expanded(
                 child: targets.isEmpty
-                    ? const WebTuiEmptyState(
-                        title: 'Không tìm thấy',
-                        message: 'Thử tìm bằng tên khác.',
+                    ? WebTuiEmptyState(
+                        title: tr('Không tìm thấy', 'Nothing found'),
+                        message: tr(
+                          'Thử tìm bằng tên khác.',
+                          'Try a different name.',
+                        ),
                         icon: CupertinoIcons.chat_bubble_2,
                       )
                     : ListView.separated(
@@ -1787,8 +1865,8 @@ class _ShareTargetPickerSheetState extends State<_ShareTargetPickerSheet> {
                             ),
                             subtitle: Text(
                               target.kind == ConversationKind.channel
-                                  ? 'Nhóm'
-                                  : 'Tin nhắn',
+                                  ? tr('Nhóm', 'Group')
+                                  : tr('Tin nhắn', 'Direct message'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -1819,11 +1897,12 @@ class _ShareTargetPickerSheetState extends State<_ShareTargetPickerSheet> {
 }
 
 class _OrganizationMark extends StatelessWidget {
-  const _OrganizationMark({required this.name, this.imageUrl, this.size = 30});
+  const _OrganizationMark({required this.name, this.imageUrl});
+
+  static const double size = 30;
 
   final String name;
   final String? imageUrl;
-  final double size;
 
   double get _radius => size * 8 / 30;
 
@@ -2010,7 +2089,9 @@ class _IncomingCallDialogState extends State<_IncomingCallDialog> {
               ),
               const SizedBox(height: WebTuiSpacing.xs),
               Text(
-                video ? 'Cuộc gọi video đến' : 'Cuộc gọi thoại đến',
+                video
+                    ? tr('Cuộc gọi video đến', 'Incoming video call')
+                    : tr('Cuộc gọi thoại đến', 'Incoming voice call'),
                 style: WebTuiTypography.bodySmall.copyWith(
                   color: WebTuiColors.textSecondary,
                 ),
@@ -2020,7 +2101,7 @@ class _IncomingCallDialogState extends State<_IncomingCallDialog> {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   _IncomingCallAction(
-                    label: 'Từ chối',
+                    label: tr('Từ chối', 'Decline'),
                     icon: Icons.call_end_rounded,
                     color: WebTuiColors.danger,
                     onPressed: () => _close(_IncomingCallDialogResult.declined),
@@ -2104,7 +2185,7 @@ class _NetworkQualityBanner extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(
+            Icon(
               Icons.wifi_off_rounded,
               size: 18,
               color: WebTuiColors.accentAmber,
@@ -2112,7 +2193,10 @@ class _NetworkQualityBanner extends StatelessWidget {
             const SizedBox(width: WebTuiSpacing.sm),
             Expanded(
               child: Text(
-                'Mạng yếu, đang dùng dữ liệu gần nhất',
+                tr(
+                  'Mạng yếu, đang dùng dữ liệu gần nhất',
+                  'Weak connection, showing the latest data',
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: WebTuiTypography.labelSmall.copyWith(
@@ -2124,7 +2208,7 @@ class _NetworkQualityBanner extends StatelessWidget {
             TextButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded, size: 16),
-              label: const Text('Thử lại'),
+              label: Text(tr('Thử lại', 'Retry')),
             ),
           ],
         ),
@@ -2138,6 +2222,7 @@ class _NetworkQualityBanner extends StatelessWidget {
 class SettingsTab extends StatelessWidget {
   const SettingsTab({
     required this.workspaceName,
+    required this.userName,
     required this.onWorkspaceTap,
     required this.notificationEnabled,
     required this.compactMode,
@@ -2145,14 +2230,13 @@ class SettingsTab extends StatelessWidget {
     required this.textScalePreview,
     required this.onProfileTap,
     required this.onAdvancedTap,
-    required this.onPrivacyTap,
     required this.onLogoutTap,
     required this.onNotificationChanged,
     required this.onCompactChanged,
     required this.onSoundChanged,
     required this.onTextScaleChanged,
     this.canSwitchWorkspace = false,
-    this.organizationLogoUrl,
+    this.userAvatarUrl,
     this.onQrLoginTap,
     super.key,
   });
@@ -2163,19 +2247,21 @@ class SettingsTab extends StatelessWidget {
   /// Tài khoản có từ 2 workspace: dòng ghi "Chuyển workspace".
   final bool canSwitchWorkspace;
 
-  /// Logo tổ chức (discovery); trống thì thẻ đầu trang hiện chữ viết tắt.
-  final String? organizationLogoUrl;
-
   /// null khi máy chủ không bật đăng nhập QR.
   final VoidCallback? onQrLoginTap;
   final String workspaceName;
+
+  /// Tên hiển thị của người dùng ở thẻ đầu trang (trống: chữ thay thế).
+  final String userName;
+
+  /// Ảnh đại diện của người dùng; trống thì thẻ hiện chữ cái tên.
+  final String? userAvatarUrl;
   final bool notificationEnabled;
   final bool compactMode;
   final double soundLevel;
   final double textScalePreview;
   final VoidCallback onProfileTap;
   final VoidCallback onAdvancedTap;
-  final VoidCallback onPrivacyTap;
   final VoidCallback onLogoutTap;
   final ValueChanged<bool> onNotificationChanged;
   final ValueChanged<bool> onCompactChanged;
@@ -2184,6 +2270,10 @@ class SettingsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
+    final displayName = userName.trim().isEmpty
+        ? strings.accountFallbackName
+        : userName.trim();
     return ListView(
       // Đệm đáy gồm chỗ của thanh tab nổi: mục cuối không bị che.
       padding: EdgeInsets.only(
@@ -2199,54 +2289,60 @@ class SettingsTab extends StatelessWidget {
             WebTuiSpacing.lg,
             WebTuiSpacing.lg,
           ),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: WebTuiColors.primarySoft,
+          child: Material(
+            color: WebTuiColors.primarySoft,
+            shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(WebTuiRadii.lg),
-              border: Border.all(
+              side: BorderSide(
                 color: WebTuiColors.primary.withValues(alpha: 0.12),
               ),
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(WebTuiSpacing.lg),
-              child: Row(
-                children: [
-                  _WorkspaceBadge(
-                    name: workspaceName,
-                    logoUrl: organizationLogoUrl,
-                  ),
-                  const SizedBox(width: WebTuiSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          workspaceName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: WebTuiTypography.titleMedium.copyWith(
-                            color: WebTuiColors.textPrimary,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: WebTuiSpacing.xs),
-                        Text(
-                          'Đang hoạt động trong workspace',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: WebTuiTypography.bodySmall.copyWith(
-                            color: WebTuiColors.textSecondary,
-                          ),
-                        ),
-                      ],
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              key: const Key('settings_profile_card'),
+              onTap: onProfileTap,
+              child: Padding(
+                padding: const EdgeInsets.all(WebTuiSpacing.lg),
+                child: Row(
+                  children: [
+                    WebTuiAvatar(
+                      label: displayName,
+                      imageUrl: userAvatarUrl,
+                      size: 68,
+                      status: WebTuiPresenceStatus.online,
                     ),
-                  ),
-                  IconButton.filledTonal(
-                    tooltip: 'Hồ sơ cá nhân',
-                    onPressed: onProfileTap,
-                    icon: const Icon(Icons.person_outline_rounded),
-                  ),
-                ],
+                    const SizedBox(width: WebTuiSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: WebTuiTypography.titleMedium.copyWith(
+                              color: WebTuiColors.textPrimary,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: WebTuiSpacing.xs),
+                          Text(
+                            strings.profileTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: WebTuiTypography.bodySmall.copyWith(
+                              color: WebTuiColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: WebTuiColors.textMuted,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -2255,7 +2351,9 @@ class SettingsTab extends StatelessWidget {
           children: [
             WebTuiSettingRow(
               key: const Key('settings_workspace_row'),
-              title: canSwitchWorkspace ? 'Chuyển workspace' : 'Workspace',
+              title: canSwitchWorkspace
+                  ? strings.switchWorkspace
+                  : strings.workspace,
               subtitle: workspaceName,
               icon: Icons.business_rounded,
               onTap: onWorkspaceTap,
@@ -2266,26 +2364,20 @@ class SettingsTab extends StatelessWidget {
             if (onQrLoginTap != null)
               WebTuiSettingRow(
                 key: const Key('settings_qr_login_row'),
-                title: 'Đăng nhập máy tính bằng QR',
-                subtitle: 'Quét mã trên trang đăng nhập của máy tính',
+                title: strings.qrLoginTitle,
+                subtitle: strings.qrLoginSubtitle,
                 icon: Icons.qr_code_scanner_rounded,
                 onTap: onQrLoginTap,
               ),
             WebTuiSettingRow(
-              title: 'Hồ sơ cá nhân',
-              subtitle: 'Cập nhật tên, ảnh đại diện và trạng thái',
-              icon: Icons.person_outline_rounded,
-              onTap: onProfileTap,
-            ),
-            WebTuiSettingRow(
-              title: 'Thiết lập nâng cao',
-              subtitle: 'Quyền riêng tư, bảo mật và thiết bị',
+              title: strings.advancedTitle,
+              subtitle: strings.advancedSubtitle,
               icon: Icons.tune_rounded,
               onTap: onAdvancedTap,
             ),
             WebTuiSettingRow(
-              title: 'Thông báo',
-              subtitle: 'Nhận tin nhắn và cảnh báo kênh',
+              title: strings.notificationsTitle,
+              subtitle: strings.notificationsSubtitle,
               icon: Icons.notifications_none_rounded,
               trailing: WebTuiToggle(
                 value: notificationEnabled,
@@ -2293,8 +2385,8 @@ class SettingsTab extends StatelessWidget {
               ),
             ),
             WebTuiSettingRow(
-              title: 'Danh sách dày',
-              subtitle: 'Tăng mật độ thông tin như ảnh reference',
+              title: strings.compactListTitle,
+              subtitle: strings.compactListSubtitle,
               icon: Icons.format_line_spacing_rounded,
               trailing: WebTuiToggle(
                 value: compactMode,
@@ -2303,7 +2395,7 @@ class SettingsTab extends StatelessWidget {
             ),
           ],
         ),
-        const WebTuiSectionLabel('Thiết lập chuông'),
+        WebTuiSectionLabel(strings.soundSettings),
         WebTuiListSurface(
           children: [
             WebTuiSliderRow(
@@ -2322,12 +2414,7 @@ class SettingsTab extends StatelessWidget {
         WebTuiListSurface(
           children: [
             WebTuiSettingRow(
-              title: 'Tài khoản',
-              icon: Icons.account_circle_outlined,
-              onTap: onPrivacyTap,
-            ),
-            WebTuiSettingRow(
-              title: 'Đăng xuất',
+              title: strings.logout,
               icon: Icons.logout_rounded,
               destructive: true,
               onTap: onLogoutTap,
@@ -2335,64 +2422,6 @@ class SettingsTab extends StatelessWidget {
           ],
         ),
       ],
-    );
-  }
-}
-
-/// Ô tròn ở thẻ đầu tab Cài đặt: logo tổ chức (giống góc trên trái) trên nền
-/// trắng, không có logo thì chữ viết tắt tên workspace; chấm xanh = đang hoạt
-/// động.
-class _WorkspaceBadge extends StatelessWidget {
-  const _WorkspaceBadge({required this.name, this.logoUrl});
-
-  static const double _size = 68;
-
-  final String name;
-  final String? logoUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    final url = logoUrl?.trim();
-    if (url == null || url.isEmpty) {
-      return WebTuiAvatar(
-        label: name,
-        size: _size,
-        status: WebTuiPresenceStatus.online,
-        color: WebTuiColors.surface,
-      );
-    }
-    return SizedBox.square(
-      key: const Key('settings_workspace_logo'),
-      dimension: _size,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: const BoxDecoration(
-                color: WebTuiColors.surface,
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: _OrganizationMark(name: name, imageUrl: url, size: 42),
-              ),
-            ),
-          ),
-          Positioned(
-            right: -1,
-            bottom: -1,
-            child: Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                color: WebTuiPresenceStatus.online.color,
-                shape: BoxShape.circle,
-                border: Border.all(color: WebTuiColors.surface, width: 2),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

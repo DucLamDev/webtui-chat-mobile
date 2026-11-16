@@ -310,6 +310,17 @@ void main() {
     );
     expect(noticeChannel?.workspaceId, 'w1');
 
+    // Vừa được thêm vào nhóm (room cá nhân): màn chính tải lại danh sách để
+    // nhóm hiện ngay.
+    final memberAdded = map('ChannelMemberAdded', {
+      'workspace_id': 'w1',
+      'channel_id': 'c7',
+      'user_id': 'u2',
+      'actor_user_id': 'u1',
+    });
+    expect(memberAdded?.type, ConversationRealtimeEventType.channelMemberAdded);
+    expect(memberAdded?.channelId, 'c7');
+
     final typing = map('TypingStarted', {'user_id': 'u2'});
     expect(typing?.payload, isEmpty);
     expect(typing?.delta, isNull);

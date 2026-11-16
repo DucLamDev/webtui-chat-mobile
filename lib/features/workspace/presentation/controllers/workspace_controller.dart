@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../application/use_cases/load_workspace_session_use_case.dart';
 import '../../application/use_cases/select_workspace_use_case.dart';
 import '../../domain/entities/workspace.dart';
@@ -136,7 +137,10 @@ final class WorkspaceController extends StateNotifier<WorkspaceState> {
 String _workspaceMessage(Failure failure) {
   if (failure.kind == FailureKind.forbidden) {
     return failure.message.isEmpty
-        ? 'Bạn không có quyền truy cập workspace này.'
+        ? tr(
+            'Bạn không có quyền truy cập workspace này.',
+            'You do not have access to this workspace.',
+          )
         : failure.message;
   }
   return failure.message;

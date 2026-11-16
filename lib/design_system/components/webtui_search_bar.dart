@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_strings.dart';
 import '../icons/webtui_icons.dart';
 import '../tokens/webtui_colors.dart';
 import '../tokens/webtui_spacing.dart';
@@ -150,14 +151,14 @@ class _WebTuiSearchBarState extends State<WebTuiSearchBar> {
                 ),
                 if (interactive && focused)
                   IconButton(
-                    tooltip: 'Đóng tìm kiếm',
+                    tooltip: tr('Đóng tìm kiếm', 'Close search'),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(
                       minWidth: 32,
                       minHeight: 32,
                     ),
-                    icon: const Icon(
+                    icon: Icon(
                       WebTuiIcons.close,
                       size: 18,
                       color: WebTuiColors.textMuted,

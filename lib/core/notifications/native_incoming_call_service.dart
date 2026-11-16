@@ -11,6 +11,7 @@ import '../../features/conversations/domain/entities/call_device_routing.dart';
 import '../../features/meetings/domain/meeting_models.dart'
     show groupCallRingTitle;
 import '../../features/notifications/domain/entities/mobile_notification.dart';
+import '../../l10n/app_strings.dart';
 import '../security/instance_scope.dart';
 import '../security/scoped_device_id.dart';
 import '../security/secure_key_value_store.dart';
@@ -300,11 +301,15 @@ final class NativeIncomingCallService {
     _permissionsRequested = true;
     try {
       await FlutterCallkitIncoming.requestNotificationPermission({
-        'title': 'Cho phép thông báo cuộc gọi',
-        'rationaleMessagePermission':
-            'Ứng dụng cần quyền thông báo để hiển thị cuộc gọi đến.',
-        'postNotificationMessageRequired':
-            'Hãy bật thông báo để nhận cuộc gọi đến khi ứng dụng ở nền.',
+        'title': tr('Cho phép thông báo cuộc gọi', 'Allow call notifications'),
+        'rationaleMessagePermission': tr(
+          'Ứng dụng cần quyền thông báo để hiển thị cuộc gọi đến.',
+          'The app needs notification permission to show incoming calls.',
+        ),
+        'postNotificationMessageRequired': tr(
+          'Hãy bật thông báo để nhận cuộc gọi đến khi ứng dụng ở nền.',
+          'Turn on notifications to receive incoming calls while the app is in the background.',
+        ),
       });
       final canUseFullScreenIntent =
           await FlutterCallkitIncoming.canUseFullScreenIntent();
@@ -522,7 +527,7 @@ final class NativeIncomingCallService {
     }
     _invalidatedInstanceIds.remove(binding.instanceId);
     final callerName = title.trim().isEmpty
-        ? 'Cuộc gọi WebTUI Chat'
+        ? tr('Cuộc gọi WebTUI Chat', 'WebTUI Chat call')
         : title.trim();
     final target = NotificationTarget(
       workspaceId: normalizedWorkspaceId,
@@ -596,7 +601,9 @@ final class NativeIncomingCallService {
     await FlutterCallkitIncoming.activateCallMedia(
       _callKitParams(
         callId: normalizedCallId,
-        callerName: callerName.isEmpty ? 'Cuộc gọi WebTUI Chat' : callerName,
+        callerName: callerName.isEmpty
+            ? tr('Cuộc gọi WebTUI Chat', 'WebTUI Chat call')
+            : callerName,
         appName: target?.organizationName,
         isVideo: isVideo,
         extra: <String, dynamic>{
@@ -808,7 +815,7 @@ final class NativeIncomingCallService {
             raw['caller_name'],
             raw['nameCaller'],
           ) ??
-          'Cuộc gọi đến',
+          tr('Cuộc gọi đến', 'Incoming call'),
     };
     return NotificationTarget.fromPayload(
       workspaceId: data['workspace_id']?.toString() ?? '',
@@ -861,7 +868,7 @@ final class NativeIncomingCallService {
     if (callerName != null && callerName.isNotEmpty) {
       return callerName;
     }
-    return 'Cuộc gọi đến';
+    return tr('Cuộc gọi đến', 'Incoming call');
   }
 
   static String _normalizedCallMode(String? value) {
@@ -883,23 +890,25 @@ final class NativeIncomingCallService {
       appName: normalizedAppName?.isNotEmpty == true
           ? normalizedAppName
           : 'WebTUI Chat',
-      handle: isVideo ? 'Cuộc gọi video' : 'Cuộc gọi thoại',
+      handle: isVideo
+          ? tr('Cuộc gọi video', 'Video call')
+          : tr('Cuộc gọi thoại', 'Voice call'),
       type: isVideo ? 1 : 0,
       duration: 30000,
       missedCallNotification: includeMissedCallNotification
-          ? const NotificationParams(
+          ? NotificationParams(
               showNotification: true,
               isShowCallback: false,
-              subtitle: 'Cuộc gọi nhỡ',
+              subtitle: tr('Cuộc gọi nhỡ', 'Missed call'),
             )
           : const NotificationParams(showNotification: false),
-      callingNotification: const NotificationParams(
+      callingNotification: NotificationParams(
         showNotification: true,
         isShowCallback: false,
-        subtitle: 'Đang gọi...',
+        subtitle: tr('Đang gọi...', 'Calling...'),
       ),
       extra: extra,
-      android: const AndroidParams(
+      android: AndroidParams(
         isCustomNotification: true,
         isCustomSmallExNotification: true,
         isShowCallID: false,
@@ -910,10 +919,13 @@ final class NativeIncomingCallService {
         backgroundColor: '#0EA5E9',
         actionColor: '#0068FF',
         textColor: '#FFFFFF',
-        incomingCallNotificationChannelName: 'Cuộc gọi đến',
-        missedCallNotificationChannelName: 'Cuộc gọi nhỡ',
-        textAccept: 'Chấp nhận',
-        textDecline: 'Từ chối',
+        incomingCallNotificationChannelName: tr(
+          'Cuộc gọi đến',
+          'Incoming calls',
+        ),
+        missedCallNotificationChannelName: tr('Cuộc gọi nhỡ', 'Missed calls'),
+        textAccept: tr('Chấp nhận', 'Accept'),
+        textDecline: tr('Từ chối', 'Decline'),
       ),
       ios: IOSParams(
         handleType: 'generic',

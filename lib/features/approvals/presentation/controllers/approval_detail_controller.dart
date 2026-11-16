@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/error/failure.dart';
@@ -135,8 +136,8 @@ final class ApprovalDetailController
           approval: approval,
           isSubmitting: false,
           actionMessage: decision == ApprovalDecisionKind.approve
-              ? 'Đã duyệt yêu cầu.'
-              : 'Đã từ chối yêu cầu.',
+              ? tr('Đã duyệt yêu cầu.', 'Request approved.')
+              : tr('Đã từ chối yêu cầu.', 'Request rejected.'),
         );
         return true;
       case FailureResult(failure: final failure):

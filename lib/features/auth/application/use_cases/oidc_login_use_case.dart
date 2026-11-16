@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
 import '../../../../core/security/instance_scope.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/auth_session.dart';
 import '../../domain/entities/oidc_provider.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -42,20 +43,26 @@ final class OidcLoginUseCase {
     _pendingAttempt = null;
     final normalizedDomain = _domainHost(domain);
     if (normalizedDomain.isEmpty || providerId.trim().isEmpty) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.validation,
           code: 'OIDC_INPUT_REQUIRED',
-          message: 'Thiếu thông tin máy chủ hoặc nhà cung cấp SSO.',
+          message: tr(
+            'Thiếu thông tin máy chủ hoặc nhà cung cấp SSO.',
+            'Missing server or SSO provider information.',
+          ),
         ),
       );
     }
     if (!_domainMatchesExpectedServer(domain)) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.unauthorized,
           code: 'OIDC_INSTANCE_MISMATCH',
-          message: 'Callback SSO không thuộc máy chủ đang hoạt động.',
+          message: tr(
+            'Callback SSO không thuộc máy chủ đang hoạt động.',
+            'The SSO callback does not belong to the active server.',
+          ),
         ),
       );
     }
@@ -117,20 +124,26 @@ final class OidcLoginUseCase {
         normalizedDomain.isEmpty ||
         normalizedScopeId.isEmpty ||
         normalizedAttemptId.isEmpty) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.validation,
           code: 'OIDC_CALLBACK_INVALID',
-          message: 'Callback đăng nhập SSO không hợp lệ.',
+          message: tr(
+            'Callback đăng nhập SSO không hợp lệ.',
+            'The SSO sign-in callback is not valid.',
+          ),
         ),
       );
     }
     if (!_domainMatchesExpectedServer(domain)) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.unauthorized,
           code: 'OIDC_INSTANCE_MISMATCH',
-          message: 'Callback SSO không thuộc máy chủ đang hoạt động.',
+          message: tr(
+            'Callback SSO không thuộc máy chủ đang hoạt động.',
+            'The SSO callback does not belong to the active server.',
+          ),
         ),
       );
     }
@@ -139,11 +152,14 @@ final class OidcLoginUseCase {
         pending.id != normalizedAttemptId ||
         pending.domain != normalizedDomain ||
         pending.guard.instanceScopeId != normalizedScopeId) {
-      return const FailureResult(
+      return FailureResult(
         Failure(
           kind: FailureKind.unauthorized,
           code: 'OIDC_ATTEMPT_MISMATCH',
-          message: 'Callback SSO không khớp với phiên đăng nhập đã bắt đầu.',
+          message: tr(
+            'Callback SSO không khớp với phiên đăng nhập đã bắt đầu.',
+            'The SSO callback does not match the sign-in that was started.',
+          ),
         ),
       );
     }
@@ -226,7 +242,10 @@ Failure _storageFailure(Object error) {
   return Failure(
     kind: FailureKind.storage,
     code: 'OIDC_LOGIN_STORAGE_FAILURE',
-    message: 'Không thể hoàn tất và lưu phiên đăng nhập SSO an toàn.',
+    message: tr(
+      'Không thể hoàn tất và lưu phiên đăng nhập SSO an toàn.',
+      'Could not finish and securely save the SSO session.',
+    ),
     cause: error,
   );
 }

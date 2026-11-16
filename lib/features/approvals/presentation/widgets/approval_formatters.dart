@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../domain/entities/approval.dart';
 
@@ -25,7 +26,7 @@ class ApprovalStatusText extends StatelessWidget {
         ? display.label
         : '${display.label}: ${display.detail}';
     return Semantics(
-      label: 'Trạng thái: $text',
+      label: tr('Trạng thái: $text', 'Status: $text'),
       excludeSemantics: true,
       child: Text(
         text,

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
@@ -42,14 +43,17 @@ class MyNoteEditorScreen extends ConsumerWidget {
       return Scaffold(
         appBar: AppBar(title: const Text('My Note')),
         body: !enabled
-            ? const WebTuiEmptyState(
-                title: 'My Note chưa được bật',
+            ? WebTuiEmptyState(
+                title: tr('My Note chưa được bật', 'My Note isn\'t enabled'),
                 message: myNotesDisabledMessage,
                 icon: Icons.sticky_note_2_outlined,
               )
-            : const WebTuiEmptyState(
-                title: 'Chưa chọn workspace',
-                message: 'Chọn workspace trước khi mở My Note.',
+            : WebTuiEmptyState(
+                title: tr('Chưa chọn workspace', 'No workspace selected'),
+                message: tr(
+                  'Chọn workspace trước khi mở My Note.',
+                  'Select a workspace before opening My Note.',
+                ),
                 icon: Icons.sticky_note_2_outlined,
               ),
       );
@@ -152,16 +156,21 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
     final controller = ref.read(provider.notifier);
     final note = state.note;
 
-    final title = state.isNew ? 'Ghi chú mới' : 'Ghi chú';
+    final title = state.isNew
+        ? tr('Ghi chú mới', 'New note')
+        : tr('Ghi chú', 'Note');
     return PopScope(
       canPop: !_isDirty() || state.isBusy,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         final leave = await confirmMyNoteAction(
           context,
-          title: 'Bỏ thay đổi?',
-          message: 'Nội dung bạn vừa soạn chưa được lưu.',
-          confirmLabel: 'Bỏ thay đổi',
+          title: tr('Bỏ thay đổi?', 'Discard changes?'),
+          message: tr(
+            'Nội dung bạn vừa soạn chưa được lưu.',
+            'What you just wrote hasn\'t been saved.',
+          ),
+          confirmLabel: tr('Bỏ thay đổi', 'Discard changes'),
         );
         if (leave && context.mounted) {
           setState(() => _editing = false);
@@ -202,7 +211,7 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
                   dimension: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Lưu'),
+              : Text(tr('Lưu', 'Save')),
         ),
       ];
     }
@@ -210,17 +219,20 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
     return [
       IconButton(
         key: const Key('my_note_edit'),
-        tooltip: 'Sửa ghi chú',
+        tooltip: tr('Sửa ghi chú', 'Edit note'),
         icon: const Icon(Icons.edit_outlined),
         onPressed: readOnly
             ? () => showMyNoteSnack(
                 context,
-                'Bạn đang ngoại tuyến. Kết nối lại để sửa ghi chú.',
+                tr(
+                  'Bạn đang ngoại tuyến. Kết nối lại để sửa ghi chú.',
+                  'You\'re offline. Reconnect to edit notes.',
+                ),
               )
             : () => setState(() => _editing = true),
       ),
       IconButton(
-        tooltip: 'Xoá ghi chú',
+        tooltip: tr('Xoá ghi chú', 'Delete note'),
         icon: const Icon(Icons.delete_outline_rounded),
         onPressed: readOnly ? null : () => _delete(context, controller),
       ),
@@ -233,8 +245,8 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
     MyNoteEditorController controller,
   ) {
     if (state.featureDisabled) {
-      return const WebTuiEmptyState(
-        title: 'My Note chưa được bật',
+      return WebTuiEmptyState(
+        title: tr('My Note chưa được bật', 'My Note isn\'t enabled'),
         message: myNotesDisabledMessage,
         icon: Icons.sticky_note_2_outlined,
       );
@@ -243,14 +255,16 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
       if (state.note == null && state.errorMessage != null) {
         return WebTuiErrorState(
           title: state.notFound
-              ? 'Không tìm thấy ghi chú'
-              : 'Chưa tải được ghi chú',
+              ? tr('Không tìm thấy ghi chú', 'Note not found')
+              : tr('Chưa tải được ghi chú', 'Couldn\'t load the note'),
           message: state.errorMessage!,
           onRetry: state.notFound ? null : () => unawaited(controller.load()),
         );
       }
       if (state.note == null) {
-        return const WebTuiLoadingState(message: 'Đang tải ghi chú...');
+        return WebTuiLoadingState(
+          message: tr('Đang tải ghi chú...', 'Loading note...'),
+        );
       }
     }
     final note = state.note;
@@ -269,7 +283,7 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
                 onPressed: () => unawaited(
                   Clipboard.setData(ClipboardData(text: _body.text)),
                 ),
-                child: const Text('Sao chép nội dung'),
+                child: Text(tr('Sao chép nội dung', 'Copy content')),
               ),
               FilledButton(
                 key: const Key('my_note_reload_latest'),
@@ -277,7 +291,7 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
                   _forceFill = true;
                   unawaited(controller.reloadLatest());
                 },
-                child: const Text('Tải bản mới nhất'),
+                child: Text(tr('Tải bản mới nhất', 'Load latest version')),
               ),
             ],
           ),
@@ -358,10 +372,10 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
           key: const Key('my_note_folder_picker'),
           shrinkWrap: true,
           children: [
-            const WebTuiSheetHeader(title: 'Chọn thư mục'),
+            WebTuiSheetHeader(title: tr('Chọn thư mục', 'Choose folder')),
             WebTuiSheetActionTile(
               icon: WebTuiIcons.file,
-              title: 'Chưa xếp thư mục',
+              title: tr('Chưa xếp thư mục', 'No folder'),
               selected: _folderId == null,
               onTap: () =>
                   Navigator.of(sheetContext).pop(const _FolderPick(null)),
@@ -390,7 +404,7 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
     final value = await showMyNoteTextDialog(
       context,
       title: 'Tag',
-      label: 'Tag, cách nhau bằng dấu phẩy',
+      label: tr('Tag, cách nhau bằng dấu phẩy', 'Tags, separated by commas'),
       confirmLabel: 'Xong',
       initialValue: _tags.text,
       maxLength: 300,
@@ -415,8 +429,8 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
           color: WebTuiColors.textPrimary,
           fontSize: 24,
         ),
-        decoration: const InputDecoration(
-          hintText: 'Tiêu đề',
+        decoration: InputDecoration(
+          hintText: tr('Tiêu đề', 'Title'),
           border: InputBorder.none,
           counterText: '',
           contentPadding: EdgeInsets.zero,
@@ -432,14 +446,16 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
             ActionChip(
               key: const Key('my_note_folder_chip'),
               avatar: const Icon(Icons.folder_outlined, size: 18),
-              label: Text(folderName ?? 'Chưa xếp thư mục'),
+              label: Text(folderName ?? tr('Chưa xếp thư mục', 'No folder')),
               onPressed: () => unawaited(_pickFolder(state)),
             ),
             const SizedBox(width: WebTuiSpacing.xs),
             ActionChip(
               key: const Key('my_note_tags_chip'),
               avatar: const Icon(Icons.sell_outlined, size: 18),
-              label: Text(tagText.isEmpty ? 'Thêm tag' : tagText),
+              label: Text(
+                tagText.isEmpty ? tr('Thêm tag', 'Add tag') : tagText,
+              ),
               onPressed: () => unawaited(_editTags()),
             ),
             const SizedBox(width: WebTuiSpacing.xs),
@@ -449,7 +465,7 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
                 _pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
                 size: 18,
               ),
-              label: const Text('Ghim'),
+              label: Text(tr('Ghim', 'Pin')),
               selected: _pinned,
               showCheckmark: false,
               onSelected: (value) => setState(() => _pinned = value),
@@ -468,8 +484,11 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
           color: WebTuiColors.textPrimary,
           height: 1.5,
         ),
-        decoration: const InputDecoration(
-          hintText: 'Viết ghi chú (hỗ trợ markdown)',
+        decoration: InputDecoration(
+          hintText: tr(
+            'Viết ghi chú (hỗ trợ markdown)',
+            'Write a note (markdown supported)',
+          ),
           border: InputBorder.none,
           contentPadding: EdgeInsets.zero,
         ),
@@ -499,13 +518,13 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
             ),
           ),
           if (note.pinned)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 6, left: WebTuiSpacing.xs),
               child: Icon(
                 Icons.push_pin_rounded,
                 size: 18,
                 color: WebTuiColors.primary,
-                semanticLabel: 'Đã ghim',
+                semanticLabel: tr('Đã ghim', 'Pinned'),
               ),
             ),
         ],
@@ -513,8 +532,11 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
       const SizedBox(height: WebTuiSpacing.xs),
       Text(
         [
-          'Sửa lúc ${formatMyNoteTime(note.updatedAt)}',
-          folderName ?? 'Chưa xếp thư mục',
+          tr(
+            'Sửa lúc ${formatMyNoteTime(note.updatedAt)}',
+            'Edited ${formatMyNoteTime(note.updatedAt)}',
+          ),
+          folderName ?? tr('Chưa xếp thư mục', 'No folder'),
         ].join(' · '),
         style: WebTuiTypography.labelSmall.copyWith(
           color: WebTuiColors.textMuted,
@@ -541,20 +563,20 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
                   queryParameters: {
                     'workspaceId': widget.editorKey.workspaceId,
                     'messageId': note.sourceMessageId!,
-                    'title': 'Tin nhắn gốc',
+                    'title': tr('Tin nhắn gốc', 'Original message'),
                   },
                 ).toString(),
               ),
             ),
             icon: const Icon(Icons.chat_bubble_outline_rounded),
-            label: const Text('Mở tin nhắn gốc'),
+            label: Text(tr('Mở tin nhắn gốc', 'Open original message')),
           ),
         ),
       ],
       const Divider(height: WebTuiSpacing.xl),
       if (note.body.trim().isEmpty)
         Text(
-          'Ghi chú chưa có nội dung.',
+          tr('Ghi chú chưa có nội dung.', 'This note has no content yet.'),
           style: WebTuiTypography.bodyMedium.copyWith(
             color: WebTuiColors.textMuted,
           ),
@@ -564,7 +586,7 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
       if (note.attachments.isNotEmpty) ...[
         const SizedBox(height: WebTuiSpacing.md),
         Text(
-          'Tệp đính kèm',
+          tr('Tệp đính kèm', 'Attachment'),
           style: WebTuiTypography.bodyMedium.copyWith(
             color: WebTuiColors.textPrimary,
             fontWeight: FontWeight.w800,
@@ -579,14 +601,20 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
             trailing: state.isOffline
                 ? null
                 : IconButton(
-                    tooltip: 'Gỡ khỏi ghi chú',
+                    tooltip: tr('Gỡ khỏi ghi chú', 'Remove from note'),
                     icon: const Icon(Icons.link_off_rounded),
                     onPressed: () async {
                       final removed = await controller.removeAttachment(
                         attachment.fileId,
                       );
                       if (removed && context.mounted) {
-                        showMyNoteSnack(context, 'Đã gỡ tệp khỏi ghi chú.');
+                        showMyNoteSnack(
+                          context,
+                          tr(
+                            'Đã gỡ tệp khỏi ghi chú.',
+                            'File removed from the note.',
+                          ),
+                        );
                       }
                     },
                   ),
@@ -618,7 +646,9 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
     if (ref.exists(listProvider)) {
       ref.read(listProvider.notifier).upsertNote(saved);
     }
-    if (context.mounted) showMyNoteSnack(context, 'Đã lưu ghi chú.');
+    if (context.mounted) {
+      showMyNoteSnack(context, tr('Đã lưu ghi chú.', 'Note saved.'));
+    }
   }
 
   Future<void> _delete(
@@ -627,9 +657,12 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
   ) async {
     final confirmed = await confirmMyNoteAction(
       context,
-      title: 'Xoá ghi chú?',
-      message: 'Ghi chú sẽ bị xoá khỏi My Note.',
-      confirmLabel: 'Xoá',
+      title: tr('Xoá ghi chú?', 'Delete note?'),
+      message: tr(
+        'Ghi chú sẽ bị xoá khỏi My Note.',
+        'The note will be removed from My Note.',
+      ),
+      confirmLabel: tr('Xoá', 'Delete'),
     );
     if (!confirmed) return;
     final noteId = ref
@@ -645,7 +678,7 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
       ref.read(listProvider.notifier).removeNote(noteId);
     }
     if (context.mounted) {
-      showMyNoteSnack(context, 'Đã xoá ghi chú.');
+      showMyNoteSnack(context, tr('Đã xoá ghi chú.', 'Note deleted.'));
       if (context.canPop()) {
         context.pop();
       } else {
@@ -661,7 +694,7 @@ class _MyNoteEditorViewState extends ConsumerState<_MyNoteEditorView> {
 }
 
 String _formatBytes(int bytes) {
-  if (bytes <= 0) return 'Không rõ dung lượng';
+  if (bytes <= 0) return tr('Không rõ dung lượng', 'Size unknown');
   if (bytes < 1024) return '$bytes B';
   if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
   return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
@@ -680,13 +713,25 @@ class _FormatToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const items = <(MyNoteFormat, IconData, String)>[
-      (MyNoteFormat.bold, Icons.format_bold_rounded, 'In đậm'),
-      (MyNoteFormat.italic, Icons.format_italic_rounded, 'In nghiêng'),
-      (MyNoteFormat.heading, Icons.title_rounded, 'Tiêu đề'),
-      (MyNoteFormat.bullet, Icons.format_list_bulleted_rounded, 'Danh sách'),
-      (MyNoteFormat.checklist, Icons.checklist_rounded, 'Việc cần làm'),
-      (MyNoteFormat.code, Icons.code_rounded, 'Mã'),
+    final items = <(MyNoteFormat, IconData, String)>[
+      (MyNoteFormat.bold, Icons.format_bold_rounded, tr('In đậm', 'Bold')),
+      (
+        MyNoteFormat.italic,
+        Icons.format_italic_rounded,
+        tr('In nghiêng', 'Italic'),
+      ),
+      (MyNoteFormat.heading, Icons.title_rounded, tr('Tiêu đề', 'Title')),
+      (
+        MyNoteFormat.bullet,
+        Icons.format_list_bulleted_rounded,
+        tr('Danh sách', 'List'),
+      ),
+      (
+        MyNoteFormat.checklist,
+        Icons.checklist_rounded,
+        tr('Việc cần làm', 'To-do'),
+      ),
+      (MyNoteFormat.code, Icons.code_rounded, tr('Mã', 'Code')),
     ];
     return Material(
       color: WebTuiColors.surface,

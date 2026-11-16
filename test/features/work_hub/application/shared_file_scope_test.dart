@@ -1,7 +1,9 @@
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:webtui_chat/core/audio/playable_audio.dart';
 import 'package:webtui_chat/core/network/redirect_safe_file_downloader.dart';
 import 'package:webtui_chat/core/security/instance_scope.dart';
 import 'package:webtui_chat/features/auth/domain/repositories/auth_token_repository.dart';
@@ -116,4 +118,89 @@ void main() {
       expect(await other.exists(), isTrue);
     },
   );
+
+  test(
+    'WAV giải mã từ ghi âm nằm trong kho theo phiên: đăng xuất xoá luôn',
+    () async {
+      final guard = AuthTokenMutationGuard(
+        instanceScopeId: scope.storageId,
+        generation: 'gen-1',
+      );
+      const store = ScopedAttachmentFileStore();
+      // Phòng chat và mục Tệp dùng hai thư mục WAV, đều dưới gốc máy chủ.
+      final chatDir = await store.directoryFor(
+        instanceScope: scope,
+        sessionGeneration: 'gen-1',
+        purpose: 'playable-audio',
+      );
+      final sharedDir = await scopedPlayableAudioDirectory(
+        scope: scope,
+        guard: guard,
+      );
+      final sharedBase = await scopedSharedFileDirectory(
+        scope: scope,
+        guard: guard,
+      );
+      expect(sharedDir.path.startsWith(sharedBase.path), isTrue);
+      for (final dir in [chatDir, sharedDir]) {
+        expect(dir.path.startsWith(temp.path), isTrue);
+      }
+
+      // Phiên mới và máy chủ khác có thư mục WAV riêng: không dùng lại WAV
+      // cùng mã tệp của người trước.
+      final nextSession = await scopedPlayableAudioDirectory(
+        scope: scope,
+        guard: AuthTokenMutationGuard(
+          instanceScopeId: scope.storageId,
+          generation: 'gen-2',
+        ),
+      );
+      final otherServer = await scopedPlayableAudioDirectory(
+        scope: otherScope,
+        guard: AuthTokenMutationGuard(
+          instanceScopeId: otherScope.storageId,
+          generation: 'gen-1',
+        ),
+      );
+      expect(nextSession.path, isNot(sharedDir.path));
+      expect(otherServer.path, isNot(sharedDir.path));
+      await otherServer.create(recursive: true);
+
+      final source = File('test/fixtures/audio/tone.webm');
+      final chatWav = await playableAudioFile(
+        source: source,
+        cacheKey: 'chat-f1',
+        cacheDirectory: chatDir,
+      );
+      final sharedWav = await playableAudioFile(
+        source: source,
+        cacheKey: 'f1',
+        cacheDirectory: sharedDir,
+      );
+      expect(chatWav.parent.path, chatDir.path);
+      expect(sharedWav.parent.path, sharedDir.path);
+      expect(await chatWav.exists(), isTrue);
+      expect(await sharedWav.exists(), isTrue);
+
+      // Mọi đường đăng xuất / đổi máy chủ / thu hồi phiên gọi clearScope.
+      await store.clearScope(scope);
+
+      expect(await chatWav.exists(), isFalse);
+      expect(await sharedWav.exists(), isFalse);
+      expect(await otherServer.exists(), isTrue);
+    },
+    skip: _opusAvailable() ? null : 'Máy không có libopus để giải mã',
+  );
+}
+
+bool _opusAvailable() {
+  for (final name in ['libopus.so.0', 'libopus.so', 'libopus.dylib']) {
+    try {
+      DynamicLibrary.open(name);
+      return true;
+    } on Object {
+      continue;
+    }
+  }
+  return false;
 }
