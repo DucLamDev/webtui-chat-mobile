@@ -63,7 +63,18 @@ final class WebTuiTheme {
         focusElevation: 0,
         hoverElevation: 1,
         highlightElevation: 0,
-        shape: CircleBorder(),
+        // StadiumBorder: nút tròn (56×56) vẫn tròn, nút có chữ (.extended) thành viên thuốc. CircleBorder làm nút
+        // có chữ thành hình tròn và chữ tràn ra ngoài.
+        shape: const StadiumBorder(),
+        extendedPadding: const EdgeInsetsDirectional.only(start: 16, end: 20),
+        extendedIconLabelSpacing: 8,
+        // textTheme của app không có labelLarge: lấy thẳng kiểu chữ có phông
+        // WebTuiRoboto, nếu không chữ nút rơi về phông hệ thống.
+        extendedTextStyle: WebTuiTypography.bodyMedium.copyWith(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0,
+        ),
       ),
       // Hộp thoại / bảng trượt / menu: nền trắng, bo lớn, không phủ màu tím
       // của Material 3 (mặc định nền surfaceContainerHigh trông xám tím).

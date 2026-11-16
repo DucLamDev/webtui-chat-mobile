@@ -111,6 +111,9 @@ final class ConversationSummary {
     int? unreadCount,
     MembershipStatus? membershipStatus,
     int? memberCount,
+    String? preview,
+    DateTime? updatedAt,
+    DateTime? lastMessageAt,
   }) {
     return ConversationSummary(
       id: id,
@@ -118,8 +121,8 @@ final class ConversationSummary {
       channelId: channelId,
       kind: kind,
       title: title,
-      preview: preview,
-      updatedAt: updatedAt,
+      preview: preview ?? this.preview,
+      updatedAt: updatedAt ?? this.updatedAt,
       avatarLabel: avatarLabel,
       avatarUrl: avatarUrl,
       peerUserId: peerUserId,
@@ -137,7 +140,7 @@ final class ConversationSummary {
       isAutomation: isAutomation,
       noticeBot: noticeBot,
       slug: slug,
-      lastMessageAt: lastMessageAt,
+      lastMessageAt: lastMessageAt ?? this.lastMessageAt,
     );
   }
 }
