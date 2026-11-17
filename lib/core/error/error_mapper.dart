@@ -31,6 +31,19 @@ String userFacingErrorMessage(Object error) {
   return trimmed;
 }
 
+/// Loại lỗi của một lỗi bất kỳ (lỗi mạng Dio, [Failure], [FailureException]) để
+/// tầng giao diện phân biệt "không tìm thấy / không có quyền" mà không phải
+/// biết tới Dio (luật kiến trúc cấm presentation import Dio).
+FailureKind failureKindOf(Object? error) => switch (error) {
+  // Có mã HTTP thì theo mã, kể cả khi Dio không gắn loại badResponse.
+  DioException(response: Response(statusCode: final int status)) =>
+    _kindFromStatus(status),
+  DioException() => mapDioExceptionToFailure(error).kind,
+  Failure(:final kind) => kind,
+  FailureException(:final failure) => failure.kind,
+  _ => FailureKind.unknown,
+};
+
 Failure mapDioExceptionToFailure(DioException exception) {
   final requestId = _requestIdFrom(exception);
   final host = exception.requestOptions.uri.host;

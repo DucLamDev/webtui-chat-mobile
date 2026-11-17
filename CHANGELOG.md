@@ -3,6 +3,13 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.46.1 · 17/11/2026
+### Sửa lỗi
+- Bước kiểm tra tự động của app báo đỏ sau bản 1.46.0 nên không dựng được bản TestFlight / Google Play: màn hồ sơ đồng
+  nghiệp gọi thẳng thư viện mạng (Dio) để nhận biết lỗi "không có quyền xem / không tìm thấy", trái luật kiến trúc của app.
+  Nay màn này dùng hàm dùng chung `failureKindOf` ở lớp xử lý lỗi; hồ sơ không xem được (403 / 404) vẫn báo rõ, không có
+  nút thử lại như trước, lỗi mạng vẫn có nút thử lại.
+
 ## 1.46.0 · 17/11/2026
 ### Tính năng
 - Xem hồ sơ đồng nghiệp ngay trong chat

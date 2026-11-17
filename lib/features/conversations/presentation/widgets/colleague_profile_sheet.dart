@@ -1,9 +1,10 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
+import '../../../../core/error/error_mapper.dart';
+import '../../../../core/error/failure.dart';
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
@@ -464,11 +465,8 @@ class _ProfileInfoRow extends StatelessWidget {
 }
 
 bool _isNotFound(Object? error) {
-  if (error is DioException) {
-    final status = error.response?.statusCode;
-    return status == 404 || status == 403;
-  }
-  return false;
+  final kind = failureKindOf(error);
+  return kind == FailureKind.notFound || kind == FailureKind.forbidden;
 }
 
 String? _nonEmpty(String? value) {

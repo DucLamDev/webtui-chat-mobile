@@ -81,4 +81,52 @@ void main() {
       );
     }
   });
+
+  group('failureKindOf', () {
+    DioException badResponse(int status) {
+      final options = RequestOptions(path: '/users/u-2/profile');
+      return DioException(
+        requestOptions: options,
+        response: Response<Object?>(
+          requestOptions: options,
+          statusCode: status,
+        ),
+        type: DioExceptionType.badResponse,
+      );
+    }
+
+    test('lỗi Dio theo mã HTTP: 404 không tìm thấy, 403 không có quyền', () {
+      expect(failureKindOf(badResponse(404)), FailureKind.notFound);
+      expect(failureKindOf(badResponse(403)), FailureKind.forbidden);
+      expect(failureKindOf(badResponse(500)), FailureKind.server);
+    });
+
+    test('có mã HTTP mà Dio không gắn loại badResponse vẫn theo mã', () {
+      final options = RequestOptions(path: '/users/u-2/profile');
+      final exception = DioException(
+        requestOptions: options,
+        response: Response<Object?>(requestOptions: options, statusCode: 404),
+      );
+      expect(failureKindOf(exception), FailureKind.notFound);
+    });
+
+    test('mất mạng không bị coi là không tìm thấy', () {
+      final exception = DioException(
+        requestOptions: RequestOptions(path: '/users/u-2/profile'),
+        type: DioExceptionType.connectionError,
+      );
+      expect(failureKindOf(exception), FailureKind.network);
+    });
+
+    test('Failure / FailureException giữ nguyên loại; lỗi khác là unknown', () {
+      const failure = Failure(kind: FailureKind.notFound, message: 'x');
+      expect(failureKindOf(failure), FailureKind.notFound);
+      expect(
+        failureKindOf(const FailureException(failure)),
+        FailureKind.notFound,
+      );
+      expect(failureKindOf(StateError('x')), FailureKind.unknown);
+      expect(failureKindOf(null), FailureKind.unknown);
+    });
+  });
 }
