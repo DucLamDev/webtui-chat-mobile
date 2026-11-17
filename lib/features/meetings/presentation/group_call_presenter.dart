@@ -4,8 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../core/platform/external_url_launcher.dart';
-import '../../../design_system/components/webtui_components.dart';
-import '../../../design_system/icons/webtui_icons.dart';
+import '../../conversations/presentation/widgets/incoming_call_view.dart';
 import '../application/group_call_coordinator.dart';
 import '../data/meeting_remote_data_source.dart';
 import '../domain/meeting_models.dart';
@@ -53,8 +52,12 @@ final class ShellGroupCallPresenter implements GroupCallPresenter {
         context: ctx,
         useRootNavigator: true,
         barrierDismissible: false,
+        // Toàn màn hình như cuộc gọi 1-1 (màn tự chừa vùng an toàn).
+        useSafeArea: false,
         builder: (_) => GroupCallRingDialog(
           title: call.ringTitle,
+          groupName: call.channelName,
+          callerName: call.startedByName,
           isVideo: call.isVideo,
           dismissSignal: dismiss,
           timeout: timeout,
@@ -134,17 +137,24 @@ final class ShellGroupCallPresenter implements GroupCallPresenter {
   }
 }
 
-/// Hộp thoại chuông "người gọi đang gọi nhóm kênh", Nhận / Từ chối.
+/// Màn chuông cuộc gọi nhóm toàn màn hình (cùng kiểu cuộc gọi 1-1): tên nhóm,
+/// "Người gọi đang gọi nhóm…", Trả lời / Từ chối.
 class GroupCallRingDialog extends StatefulWidget {
   const GroupCallRingDialog({
     required this.title,
     required this.isVideo,
     required this.dismissSignal,
     required this.timeout,
+    this.groupName = '',
+    this.callerName = '',
     super.key,
   });
 
+  /// Câu đầy đủ "Người gọi đang gọi nhóm Tên nhóm" (đọc cho trình đọc màn
+  /// hình, dùng khi thiếu tên nhóm).
   final String title;
+  final String groupName;
+  final String callerName;
   final bool isVideo;
   final ValueNotifier<bool> dismissSignal;
   final Duration timeout;
@@ -183,26 +193,29 @@ class _GroupCallRingDialogState extends State<GroupCallRingDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return WebTuiDialog(
-      title: widget.title,
-      message: widget.isVideo
-          ? tr('Cuộc gọi nhóm video', 'Group video call')
-          : tr('Cuộc gọi nhóm thoại', 'Group voice call'),
-      icon: widget.isVideo ? WebTuiIcons.video : WebTuiIcons.phoneCall,
-      actions: [
-        WebTuiDialogAction(
-          key: const Key('group-call-decline'),
-          label: tr('Từ chối', 'Reject'),
-          destructive: true,
-          onPressed: () => _close(GroupCallChoice.decline),
+    final group = widget.groupName.trim();
+    final caller = widget.callerName.trim();
+    return PopScope(
+      canPop: false,
+      child: Semantics(
+        label: widget.title,
+        child: IncomingCallView(
+          key: const Key('group-call-ring'),
+          name: group.isEmpty ? widget.title : group,
+          isGroup: true,
+          isVideo: widget.isVideo,
+          subtitle: group.isEmpty
+              ? null
+              : (caller.isEmpty
+                    ? null
+                    : tr(
+                        '$caller đang gọi nhóm…',
+                        '$caller is calling the group…',
+                      )),
+          onDecline: () => _close(GroupCallChoice.decline),
+          onAccept: () => _close(GroupCallChoice.accept),
         ),
-        WebTuiDialogAction(
-          key: const Key('group-call-accept'),
-          label: tr('Nhận', 'Accept'),
-          primary: true,
-          onPressed: () => _close(GroupCallChoice.accept),
-        ),
-      ],
+      ),
     );
   }
 }

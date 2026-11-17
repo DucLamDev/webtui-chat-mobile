@@ -3,12 +3,71 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
-## 1.41.1 · 17/11/2026
+## 1.43.2 · 17/11/2026
 ### Sửa lỗi bảo mật
 - Đăng nhập SSO (OIDC) dùng PKCE: mỗi lần bấm đăng nhập SSO, app tạo một mã bí mật chỉ giữ trong bộ nhớ và gửi bản
   băm lên máy chủ; khi trình duyệt trả về, app phải trình đúng mã bí mật đó mới đổi được token. Trước đây một app khác
   cài trên máy đăng ký cùng đường dẫn `webtui://` có thể chặn mã đăng nhập và chiếm phiên. Giao diện không đổi.
   - Cần máy chủ bản có PKCE (web 1.46.3 trở lên) mới được bảo vệ; với máy chủ cũ, SSO vẫn đăng nhập được như trước.
+
+## 1.43.1 · 17/11/2026
+### Sửa lỗi
+- iPhone không nhận được thông báo tin nhắn khi thoát ra màn hình chính: app chưa bao giờ xin mã thông báo của Apple nên
+  máy chủ không có địa chỉ để gửi tin (mọi iPhone đăng ký "không nhận thông báo"). Nay app xin mã ngay khi mở, chờ có mã
+  rồi mới đăng ký với máy chủ, và tự thử lại sau 10 giây / 30 giây / 2 phút nếu mã đến muộn.
+- Chuẩn bị cho thông báo hiển thị từ máy chủ: tin đẩy nào iPhone đã tự hiện thì app không hiện thêm một thông báo nữa.
+- Lưu ý: cuộc gọi đến trên iPhone khi app đã thoát còn cần khoá APNs đặt trên máy chủ (không nằm trong bản app).
+
+## 1.43.0 · 17/11/2026
+### Tính năng
+- Trình soạn Ghi chú làm lại giống app Ghi chú iPhone: một ô soạn, dòng đầu là tiêu đề, tự lưu, định dạng hiện trực tiếp
+  - Mở ghi chú là sửa được ngay: bỏ chế độ xem riêng, nút Sửa, nút Lưu và ô tiêu đề riêng. Dòng đầu tiên tự thành tiêu
+    đề (chữ lớn); trên cùng ghi ngày giờ sửa. Ghi chú tự lưu sau khi ngừng gõ khoảng 1 giây, khi bấm Xong, khi rời màn
+    hoặc chuyển sang app khác. Ghi chú mới chưa gõ gì thì không tạo.
+  - Định dạng hiện thẳng khi gõ, không thấy ký hiệu markdown: tiêu đề / đề mục / đề mục phụ, đậm, nghiêng, gạch ngang,
+    mã, khối đơn cách, danh sách chấm, danh sách số, trích dẫn; liên kết http và #tag tô màu. Ô tick tròn bấm thẳng
+    để đánh dấu xong (lưu ngay). Enter ở dòng danh sách / ô tick tự thêm dòng cùng kiểu, Enter ở dòng trống thì thoát
+    danh sách, xoá lùi ở đầu dòng thì bỏ kiểu danh sách.
+  - Thanh công cụ dưới cùng (nằm trên bàn phím khi đang gõ): Aa mở bảng định dạng, nút ô tick, nút máy ảnh, nút soạn
+    ghi chú mới. Nút Xong trên đầu để ẩn bàn phím.
+  - Gõ #tag trong ghi chú để gắn tag, xoá chữ là bỏ tag. Tag đặt từ trước (không có trong chữ) vẫn giữ, sửa ở menu ⋯
+    → Tag.
+  - Ảnh trong ghi chú: chụp ảnh, chọn ảnh (tối đa 10 ảnh một lần) hoặc chọn tệp. Ảnh hiện thành lưới ngay trong ghi
+    chú, bấm để xem to (vuốt qua lại, phóng to); gỡ khỏi ghi chú bằng nhấn giữ hoặc trong màn xem ảnh (có hỏi lại).
+    Tệp lớn được tải lên từng phần.
+  - Menu ⋯: ghim / bỏ ghim, chuyển thư mục, tag, sao chép nội dung, xoá ghi chú.
+  - Ghi chú vừa được sửa ở thiết bị khác: dừng tự lưu, cho chọn Giữ bản của tôi (ghi đè) hoặc Tải bản mới nhất. Rời
+    màn khi chưa lưu được (mất mạng) thì hỏi ở lại hay bỏ phần chưa lưu. Xoá hết chữ của ghi chú cũ rồi thoát thì hỏi
+    xoá ghi chú hay giữ bản đã lưu.
+  - Nội dung vẫn lưu dạng markdown như trước nên trang web và ghi chú cũ vẫn đọc / sửa bình thường.
+
+## 1.42.0 · 17/11/2026
+### Tính năng
+- Màn cuộc gọi đến mới (tông sáng, có hiệu ứng), bộ âm thanh cuộc gọi mới; sửa lỗi không hiện tên người gọi
+  - Cuộc gọi đến khi đang mở app hiện toàn màn hình thay cho hộp thoại nhỏ: nền trắng pha nhẹ màu theo người gọi (giao
+    diện tối thì dịu theo nền tối), ảnh đại diện lớn, tên người gọi chữ lớn, nhãn Cuộc gọi thoại / video đến. Hai nút
+    tròn lớn Từ chối (đỏ) và Trả lời (xanh; gọi video thì biểu tượng máy quay).
+  - Hiệu ứng cuộc gọi: màn trượt lên khi xuất hiện, ba vòng sóng lan ra quanh ảnh, ảnh "thở" nhẹ, nút Trả lời lắc như
+    chuông reo và nảy nhẹ, ba chấm chạy ở dòng "đang gọi cho bạn", mảng màu nền trôi chậm. Máy bật giảm chuyển động thì
+    tắt hết; màn nhỏ tự thu gọn, không tràn.
+  - Thêm nút Nhắn tin (từ chối rồi mở ngay trò chuyện với người gọi) và Tắt chuông (im chuông, rung mà cuộc gọi vẫn
+    chờ để trả lời). Cuộc gọi nhóm đổ chuông dùng cùng màn: tên nhóm, "người gọi đang gọi nhóm".
+  - Bộ âm thanh mới: nhạc chuông khi có cuộc gọi đến (cả chuông gốc Android khi app chạy nền), tiếng chờ khi gọi đi,
+    tiếng kết thúc khi gác máy / bên kia gác / bị từ chối, lời báo không liên lạc được khi gọi đi mà hết giờ không ai
+    bắt máy. Bỏ hai tệp chuông cũ. iPhone khi app chạy nền vẫn dùng chuông hệ thống (gói cuộc gọi chưa cho đổi).
+  - Sửa lỗi màn cuộc gọi đến chỉ ghi "Cuộc gọi đến", không có tên người gọi: báo cuộc gọi qua kết nối thời gian thực
+    (lúc đang mở app) không kèm tên, app chỉ tra danh bạ đã tải sẵn. Nay app tìm người gọi theo danh bạ / thành viên,
+    trò chuyện 1-1 của cuộc gọi, và nếu chưa có thì hỏi máy chủ danh sách thành viên cuộc trò chuyện để điền tên + ảnh
+    (màn vẫn hiện ngay, tên cập nhật khi tải xong). Màn gọi sau khi trả lời cũng mang đúng tên người gọi.
+
+## 1.41.1 · 17/11/2026
+### Sửa lỗi
+- iPhone (bản TestFlight): xem được video gửi trong nhóm, video và ghi âm ở mục Tệp
+  - Trước đây mở lên chỉ thấy ảnh bìa, hình không chạy, đồng hồ đứng ở 0:00, không báo lỗi. Nguyên nhân: trên iPhone, app
+    phát thẳng từ đường dẫn phát dần của máy chủ và trình phát của iPhone đứng ở bước chuẩn bị mà không báo lỗi, nên app
+    cũng không lùi về cách khác. Tin thoại trong tin nhắn (tải về máy rồi mới phát) vẫn nghe được bình thường.
+  - Nay trên iPhone, video và ghi âm luôn được tải về máy rồi phát (như tin thoại). Video lớn sẽ chờ tải xong mới chạy.
+  - Trên Android, nếu phát dần quá 12 giây chưa sẵn sàng thì app tự tải tệp về rồi phát, không đứng hình mãi.
 
 ## 1.41.0 · 17/11/2026
 ### Tính năng
