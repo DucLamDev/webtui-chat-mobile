@@ -33,6 +33,7 @@ import '../../../conversations/domain/entities/call_device_routing.dart';
 import '../../../conversations/domain/entities/call_session.dart';
 import '../../../conversations/domain/entities/conversation_realtime_event.dart';
 import '../../../conversations/domain/entities/conversation_summary.dart';
+import '../../../conversations/domain/entities/incoming_caller.dart';
 import '../../../conversations/presentation/controllers/channel_detail_controller.dart';
 import '../../../conversations/presentation/controllers/channel_membership_events.dart';
 import '../../../conversations/presentation/controllers/chat_room_controller.dart';
@@ -42,6 +43,7 @@ import '../../../conversations/presentation/controllers/pending_chat_share_contr
 import '../../../conversations/presentation/screens/webrtc_call_screen.dart';
 import '../../../conversations/presentation/screens/workspace_tools_screen.dart';
 import '../../../conversations/presentation/widgets/conversation_home_views.dart';
+import '../../../conversations/presentation/widgets/incoming_call_view.dart';
 import '../../../meeting_calendar/presentation/controllers/meeting_calendar_controllers.dart';
 import '../../../meetings/application/group_call_coordinator.dart';
 import '../../../meetings/application/meeting_providers.dart';
@@ -336,8 +338,8 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         title: organization == null
             ? titles[_tabIndex]
             : '${organization.name} · ${titles[_tabIndex]}',
-        // Mọi tab tự dựng tiêu đề lớn kiểu iOS (WebTuiLargeTitleBar) ngay trong
-        // thân: không còn thanh tiêu đề "Tổ chức · Tab".
+        // Các tab chính không có tiêu đề: bỏ cả thanh "Tổ chức · Tab" lẫn tiêu đề
+        // lớn để dành chỗ cho nội dung.
         showAppBar: false,
         tabBadges: {if (messagesUnread > 0) 0: messagesUnread},
         selectedTab: _tabIndex,
@@ -1113,6 +1115,15 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         return;
       }
       if (_notRingingCallIds.contains(callId)) return;
+      // Người gọi: tìm ngay trên máy (danh bạ, trò chuyện 1-1); chưa có thì
+      // hiện màn trước rồi hỏi máy chủ thành viên cuộc trò chuyện để điền tên.
+      final localCaller = _localIncomingCaller(initialCall);
+      final caller = ValueNotifier<IncomingCaller?>(
+        localCaller ?? _pushIncomingCaller(target, initialCall),
+      );
+      if (localCaller == null) {
+        unawaited(_loadIncomingCaller(initialCall, caller));
+      }
       final dismiss = ValueNotifier<bool>(false);
       _ringingDialogCallId = callId;
       _ringingDialogDismiss = dismiss;
@@ -1122,10 +1133,12 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           context: context,
           useRootNavigator: true,
           barrierDismissible: false,
+          // Toàn màn hình, tràn mép (màn tự chừa vùng an toàn bên trong).
+          useSafeArea: false,
           builder: (dialogContext) => _IncomingCallDialog(
-            callerName:
-                target.callerName ?? tr('Cuộc gọi đến', 'Incoming call'),
+            caller: caller,
             mode: initialCall.mode,
+            canMessage: initialCall.channelId.trim().isNotEmpty,
             dismissSignal: dismiss,
             checkStatus: () async {
               final result = await ref
@@ -1155,6 +1168,18 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
                 callId: callId,
                 reason: 'declined',
               );
+          return;
+        case _IncomingCallDialogResult.message:
+          // Từ chối như bình thường rồi mở trò chuyện với người gọi.
+          await NativeIncomingCallService.endCall(callId);
+          await ref
+              .read(rejectCallUseCaseProvider)
+              .execute(
+                workspaceId: target.workspaceId,
+                callId: callId,
+                reason: 'declined',
+              );
+          if (mounted) _openCallerChat(initialCall, caller.value);
           return;
         case _IncomingCallDialogResult.timedOut:
           // Hết giờ đổ chuông trong app: tắt cả chuông gốc, báo máy chủ "nhỡ
@@ -1193,7 +1218,10 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
             workspaceId: initialCall.workspaceId,
             channelId: initialCall.channelId,
             callId: initialCall.id,
-            title: target.callerName ?? tr('Cuộc gọi đến', 'Incoming call'),
+            title:
+                caller.value?.name ??
+                target.callerName ??
+                tr('Cuộc gọi đến', 'Incoming call'),
             mode: initialCall.mode,
             incoming: true,
             onConnected: () =>
@@ -1216,6 +1244,72 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         _activeIncomingCallId = null;
       }
     }
+  }
+
+  /// Người gọi tìm được trên máy: danh bạ / thành viên đã tải, trò chuyện 1-1.
+  IncomingCaller? _localIncomingCaller(CallSession call) {
+    final home = ref.read(conversationHomeControllerProvider(call.workspaceId));
+    return findIncomingCaller(
+      initiatorUserId: call.initiatorUserId,
+      channelId: call.channelId,
+      people: [...home.contacts, ...home.workspaceMembers],
+      conversations: home.conversations,
+    );
+  }
+
+  /// Tên người gọi có sẵn trong push (`caller_name`), dùng tạm khi chưa tra
+  /// được trên máy.
+  IncomingCaller? _pushIncomingCaller(
+    NotificationTarget target,
+    CallSession call,
+  ) {
+    final name = target.callerName?.trim() ?? '';
+    if (name.isEmpty) return null;
+    return IncomingCaller(name: name, userId: call.initiatorUserId);
+  }
+
+  /// Hỏi máy chủ thành viên của cuộc trò chuyện để lấy tên + ảnh người gọi
+  /// (sự kiện cuộc gọi đến chỉ có mã người gọi). Lỗi / chậm thì giữ nguyên.
+  Future<void> _loadIncomingCaller(
+    CallSession call,
+    ValueNotifier<IncomingCaller?> caller,
+  ) async {
+    if (call.channelId.trim().isEmpty) return;
+    try {
+      final result = await ref
+          .read(listChannelMembersUseCaseProvider)
+          .execute(workspaceId: call.workspaceId, channelId: call.channelId)
+          .timeout(const Duration(seconds: 8));
+      final found = findIncomingCaller(
+        initiatorUserId: call.initiatorUserId,
+        channelId: call.channelId,
+        members: result.valueOrNull ?? const [],
+      );
+      if (found != null) caller.value = found.mergedWith(caller.value);
+    } on Object {
+      // Giữ tên đang có (push) hoặc chữ "Cuộc gọi đến".
+    }
+  }
+
+  /// Nút "Nhắn tin" trên màn cuộc gọi đến: mở trò chuyện 1-1 với người gọi.
+  void _openCallerChat(CallSession call, IncomingCaller? caller) {
+    final avatarUrl = caller?.avatarUrl?.trim() ?? '';
+    final gender = caller?.gender?.trim() ?? '';
+    unawaited(
+      context.push(
+        Uri(
+          path: '/conversations/${call.channelId}',
+          queryParameters: {
+            'workspaceId': call.workspaceId,
+            'title': caller?.name ?? tr('Trò chuyện', 'Chat'),
+            'kind': ConversationKind.direct.name,
+            'peerUserId': call.initiatorUserId,
+            if (avatarUrl.isNotEmpty) 'avatarUrl': avatarUrl,
+            if (gender.isNotEmpty) 'gender': gender,
+          },
+        ).toString(),
+      ),
+    );
   }
 
   Future<void> _handleNativeIncomingCallAction(
@@ -1972,10 +2066,13 @@ class _OrganizationMark extends StatelessWidget {
   }
 }
 
-/// Lý do hộp thoại cuộc gọi đến đóng.
+/// Lý do màn cuộc gọi đến đóng.
 enum _IncomingCallDialogResult {
   accepted,
   declined,
+
+  /// Từ chối rồi mở cuộc trò chuyện với người gọi để nhắn tin.
+  message,
 
   /// Hết 30 giây đổ chuông trong app.
   timedOut,
@@ -1984,20 +2081,25 @@ enum _IncomingCallDialogResult {
   closedRemotely,
 }
 
+/// Màn cuộc gọi đến toàn màn hình (gọi 1-1): chuông, rung, 30 giây chờ, kiểm
+/// trạng thái với máy chủ; giao diện ở [IncomingCallView].
 class _IncomingCallDialog extends StatefulWidget {
   const _IncomingCallDialog({
-    required this.callerName,
+    required this.caller,
     required this.mode,
     required this.checkStatus,
     required this.dismissSignal,
+    required this.canMessage,
   });
 
-  final String callerName;
+  /// Người gọi: có ngay nếu tìm được trên máy, cập nhật khi tải xong từ máy chủ.
+  final ValueListenable<IncomingCaller?> caller;
   final CallMode mode;
   final Future<CallStatus?> Function() checkStatus;
 
   /// Bật `true` khi máy chủ báo cuộc gọi đã được nhận ở máy khác / đã huỷ.
   final ValueListenable<bool> dismissSignal;
+  final bool canMessage;
 
   @override
   State<_IncomingCallDialog> createState() => _IncomingCallDialogState();
@@ -2009,6 +2111,7 @@ class _IncomingCallDialogState extends State<_IncomingCallDialog> {
   Timer? _timer;
   int _remainingSeconds = 30;
   bool _checking = false;
+  bool _silenced = false;
 
   bool _closed = false;
 
@@ -2026,7 +2129,7 @@ class _IncomingCallDialogState extends State<_IncomingCallDialog> {
         return;
       }
       setState(() => _remainingSeconds -= 1);
-      if (_remainingSeconds % 2 == 0 && _remainingSeconds > 0) {
+      if (!_silenced && _remainingSeconds % 2 == 0 && _remainingSeconds > 0) {
         unawaited(HapticFeedback.vibrate());
       }
       unawaited(_checkCall());
@@ -2049,6 +2152,13 @@ class _IncomingCallDialogState extends State<_IncomingCallDialog> {
     if (widget.dismissSignal.value) {
       _close(_IncomingCallDialogResult.closedRemotely);
     }
+  }
+
+  /// Tắt chuông + rung, cuộc gọi vẫn chờ tới khi trả lời / từ chối / hết giờ.
+  void _silence() {
+    if (_silenced) return;
+    unawaited(_ringtone.stop());
+    setState(() => _silenced = true);
   }
 
   void _close(_IncomingCallDialogResult result) {
@@ -2076,108 +2186,24 @@ class _IncomingCallDialogState extends State<_IncomingCallDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final video = widget.mode == CallMode.video;
     return PopScope(
       canPop: false,
-      child: Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 28),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 28, 24, 22),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircleAvatar(
-                radius: 34,
-                backgroundColor: WebTuiColors.primary.withValues(alpha: 0.12),
-                child: Icon(
-                  video ? Icons.videocam_rounded : Icons.call_rounded,
-                  size: 32,
-                  color: WebTuiColors.primary,
-                ),
-              ),
-              const SizedBox(height: WebTuiSpacing.md),
-              Text(
-                widget.callerName,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: WebTuiTypography.titleMedium.copyWith(
-                  color: WebTuiColors.textPrimary,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: WebTuiSpacing.xs),
-              Text(
-                video
-                    ? tr('Cuộc gọi video đến', 'Incoming video call')
-                    : tr('Cuộc gọi thoại đến', 'Incoming voice call'),
-                style: WebTuiTypography.bodySmall.copyWith(
-                  color: WebTuiColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 28),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _IncomingCallAction(
-                    label: tr('Từ chối', 'Decline'),
-                    icon: Icons.call_end_rounded,
-                    color: WebTuiColors.danger,
-                    onPressed: () => _close(_IncomingCallDialogResult.declined),
-                  ),
-                  _IncomingCallAction(
-                    label: 'Nghe',
-                    icon: video ? Icons.videocam_rounded : Icons.call_rounded,
-                    color: const Color(0xFF16A34A),
-                    onPressed: () => _close(_IncomingCallDialogResult.accepted),
-                  ),
-                ],
-              ),
-            ],
-          ),
+      child: ValueListenableBuilder<IncomingCaller?>(
+        valueListenable: widget.caller,
+        builder: (context, caller, _) => IncomingCallView(
+          name: caller?.name ?? '',
+          avatarUrl: caller?.avatarUrl,
+          gender: caller?.gender,
+          isVideo: widget.mode == CallMode.video,
+          silenced: _silenced,
+          onSilence: _silence,
+          onMessage: widget.canMessage
+              ? () => _close(_IncomingCallDialogResult.message)
+              : null,
+          onDecline: () => _close(_IncomingCallDialogResult.declined),
+          onAccept: () => _close(_IncomingCallDialogResult.accepted),
         ),
       ),
-    );
-  }
-}
-
-class _IncomingCallAction extends StatelessWidget {
-  const _IncomingCallAction({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.onPressed,
-  });
-
-  final String label;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton.filled(
-          onPressed: onPressed,
-          style: IconButton.styleFrom(
-            backgroundColor: color,
-            foregroundColor: Colors.white,
-            minimumSize: const Size.square(58),
-          ),
-          icon: Icon(icon, size: 27),
-        ),
-        const SizedBox(height: WebTuiSpacing.xs),
-        Text(
-          label,
-          style: WebTuiTypography.labelSmall.copyWith(
-            color: WebTuiColors.textSecondary,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
     );
   }
 }
@@ -2317,18 +2343,10 @@ class SettingsTab extends StatelessWidget {
           bottom: WebTuiFloatingTabBar.contentBottomPadding(context),
         ),
         children: [
+          // Không có tiêu đề: thẻ hồ sơ ngay dưới thanh trạng thái.
           ColoredBox(
             color: WebTuiColors.page,
-            child: WebTuiLargeTitleBar(
-              title: strings.tabSettings,
-              actions: [
-                WebTuiHeaderTextButton(
-                  key: const Key('settings_edit_profile_button'),
-                  label: strings.isEnglish ? 'Edit profile' : 'Sửa hồ sơ',
-                  onPressed: onProfileTap,
-                ),
-              ],
-            ),
+            child: const SizedBox(height: WebTuiSpacing.sm),
           ),
           _SettingsProfileHeader(
             name: displayName,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/core/error/failure.dart';
+import 'package:webtui_chat/design_system/components/webtui_components.dart';
 import 'package:webtui_chat/features/conversations/domain/entities/collaboration_room.dart';
 import 'package:webtui_chat/features/conversations/presentation/screens/workspace_tools_screen.dart';
 import 'package:webtui_chat/features/work_hub/domain/entities/work_hub.dart';
@@ -75,13 +76,16 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('Việc của tôi: tiêu đề lớn + tìm, 3 cột số, 2 việc gần hạn', (
+  testWidgets('Việc của tôi: ô tìm (không tiêu đề), 3 cột số, 2 việc gần hạn', (
     tester,
   ) async {
     await pumpTab(tester);
 
-    // Tiêu đề lớn 'Công việc' với nút tìm ở đầu màn (ngoài nhóm Việc của tôi).
-    expect(find.text('Công việc'), findsOneWidget);
+    // Không có tiêu đề lớn; ô tìm ở đầu màn (ngoài nhóm Việc của tôi).
+    expect(find.text('Công việc'), findsNothing);
+    expect(find.byType(WebTuiLargeTitleBar), findsNothing);
+    expect(find.byType(WebTuiSearchBar), findsOneWidget);
+    expect(find.text('Tìm việc của tôi'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byKey(const Key('my_tasks_card')),
@@ -90,8 +94,8 @@ void main() {
       findsNothing,
     );
     expect(
-      tester.getSize(find.byKey(const Key('work_search'))).width,
-      inInclusiveRange(44, 48),
+      tester.getSize(find.byKey(const Key('work_search'))).height,
+      greaterThanOrEqualTo(40),
     );
     expect(find.text('Việc của tôi'), findsOneWidget);
     expect(find.text('Xem tất cả'), findsOneWidget);
@@ -232,7 +236,9 @@ void main() {
     expect(find.text('kênh ch-b tasks b'), findsOneWidget);
   });
 
-  testWidgets('Xem tất cả và nút tìm mở màn Việc của tôi', (tester) async {
+  testWidgets('Xem tất cả và ô tìm mở màn Việc của tôi (đã bật ô tìm)', (
+    tester,
+  ) async {
     await pumpTab(tester);
     await tester.tap(find.byKey(const Key('my_tasks_see_all')));
     await tester.pumpAndSettle();
@@ -315,6 +321,61 @@ void main() {
           findsOneWidget,
         );
       }
+
+      // Ô ứng dụng: nền gradient riêng, bo 14; ô Thêm khác.
+      Iterable<Decoration> decorations(String key) => tester
+          .widgetList<DecoratedBox>(
+            find.descendant(
+              of: find.byKey(Key(key)),
+              matching: find.byKey(const Key('app_tile_color')),
+            ),
+          )
+          .map((box) => box.decoration);
+      final gradients = <LinearGradient>[];
+      for (final key in [
+        'app_meetings',
+        'app_shared_files',
+        'app_shortcut_s1',
+      ]) {
+        final decoration = decorations(key).single as BoxDecoration;
+        expect(decoration.borderRadius, BorderRadius.circular(14));
+        gradients.add(decoration.gradient! as LinearGradient);
+        expect(
+          tester.getSize(
+            find.descendant(
+              of: find.byKey(Key(key)),
+              matching: find.byKey(const Key('app_tile_color')),
+            ),
+          ),
+          const Size(52, 52),
+        );
+      }
+      expect(
+        {for (final g in gradients) g.colors.first}.length,
+        3,
+        reason: 'mỗi ứng dụng một màu riêng',
+      );
+      // Nền sáng: ô pastel nhạt (biểu tượng màu riêng, kiểm ở test work_hub).
+      for (final gradient in gradients) {
+        for (final color in gradient.colors) {
+          expect(color.computeLuminance(), greaterThan(0.75));
+        }
+      }
+      final add = find.byKey(const Key('app_add'));
+      expect(
+        find.descendant(
+          of: add,
+          matching: find.byKey(const Key('app_tile_dashed')),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: add,
+          matching: find.byKey(const Key('app_tile_color')),
+        ),
+        findsNothing,
+      );
 
       await tester.tap(find.byKey(const Key('app_shortcut_s1')));
       await tester.pumpAndSettle();

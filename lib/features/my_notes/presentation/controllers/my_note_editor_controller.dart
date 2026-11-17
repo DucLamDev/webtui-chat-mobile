@@ -9,6 +9,7 @@ import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
 import '../../application/use_cases/my_notes_use_cases.dart';
 import '../../domain/entities/my_note.dart';
+import '../../domain/my_note_editor_text.dart';
 import '../../domain/repositories/my_notes_repository.dart';
 import 'my_notes_access_provider.dart';
 
@@ -28,9 +29,12 @@ final myNoteEditorControllerProvider = StateNotifierProvider.autoDispose
     });
 
 String get myNoteConflictMessage => tr(
-  'Ghi chú đã được sửa ở thiết bị khác nên bản của bạn chưa được lưu. Hãy sao chép phần vừa sửa nếu cần, rồi tải bản mới nhất.',
-  'This note was edited on another device, so your version wasn\'t saved. Copy what you changed if needed, then load the latest version.',
+  'Ghi chú vừa được sửa ở thiết bị khác nên phần bạn đang soạn chưa được lưu. Chọn giữ bản của bạn (ghi đè) hoặc tải bản mới nhất.',
+  'This note was just edited on another device, so what you are writing hasn\'t been saved. Keep your version (overwrite) or load the latest one.',
 );
+
+/// Thời gian chờ sau lần gõ cuối rồi mới tự lưu.
+const myNoteAutosaveDelay = Duration(milliseconds: 900);
 
 final class MyNoteEditorState {
   const MyNoteEditorState({
@@ -43,6 +47,7 @@ final class MyNoteEditorState {
     this.featureDisabled = false,
     this.notFound = false,
     this.conflict = false,
+    this.uploadingCount = 0,
     this.errorMessage,
     this.saveErrorMessage,
   });
@@ -58,13 +63,17 @@ final class MyNoteEditorState {
   final bool featureDisabled;
   final bool notFound;
 
-  /// Máy chủ trả 409 `NOTE_VERSION_CONFLICT`.
+  /// Máy chủ trả 409 `NOTE_VERSION_CONFLICT`: dừng tự lưu tới khi người dùng
+  /// chọn giữ bản của mình hoặc tải bản mới nhất.
   final bool conflict;
+
+  /// Số tệp đang tải lên để gắn vào ghi chú.
+  final int uploadingCount;
 
   /// Lỗi khi tải (thay cho nội dung).
   final String? errorMessage;
 
-  /// Lỗi khi lưu / xoá (hiện kèm nội dung đang soạn).
+  /// Lỗi khi lưu / xoá / đính kèm (hiện kèm nội dung đang soạn).
   final String? saveErrorMessage;
 
   bool get isNew => note == null;
@@ -81,6 +90,7 @@ final class MyNoteEditorState {
     bool? featureDisabled,
     bool? notFound,
     bool? conflict,
+    int? uploadingCount,
     String? errorMessage,
     bool clearError = false,
     String? saveErrorMessage,
@@ -96,6 +106,7 @@ final class MyNoteEditorState {
       featureDisabled: featureDisabled ?? this.featureDisabled,
       notFound: notFound ?? this.notFound,
       conflict: conflict ?? this.conflict,
+      uploadingCount: uploadingCount ?? this.uploadingCount,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
       saveErrorMessage: clearSaveError
           ? null
@@ -109,22 +120,39 @@ final class MyNoteDraft {
   const MyNoteDraft({
     required this.title,
     required this.body,
-    this.tagsInput = '',
+    this.tags = const [],
     this.pinned = false,
     this.folderId,
   });
 
+  /// Từ văn bản ô soạn kiểu iPhone: dòng đầu là tiêu đề; tag = tag gõ trong
+  /// văn bản (`#tag`) cộng [otherTags] (tag đặt từ trước, không nằm trong chữ).
+  factory MyNoteDraft.fromEditorText(
+    String text, {
+    List<String> otherTags = const [],
+    bool pinned = false,
+    String? folderId,
+  }) {
+    final parts = splitMyNoteEditorText(text);
+    return MyNoteDraft(
+      title: parts.title,
+      body: parts.body,
+      tags: myNoteEditorTags(text, otherTags),
+      pinned: pinned,
+      folderId: folderId,
+    );
+  }
+
   final String title;
   final String body;
-
-  /// Tag gõ cách nhau bằng dấu phẩy.
-  final String tagsInput;
+  final List<String> tags;
   final bool pinned;
 
   /// null = gốc.
   final String? folderId;
 
-  List<String> get tags => parseMyNoteTagInput(tagsInput);
+  /// Không có chữ nào: máy chủ không nhận ghi chú rỗng nên không lưu.
+  bool get isEmpty => title.trim().isEmpty && body.trim().isEmpty;
 }
 
 final class MyNoteEditorController extends StateNotifier<MyNoteEditorState> {
@@ -153,6 +181,13 @@ final class MyNoteEditorController extends StateNotifier<MyNoteEditorState> {
   final String _workspaceId;
   final String? _noteId;
   final MyNotesUseCases _useCases;
+
+  Timer? _autosaveTimer;
+  MyNoteDraft? _pendingDraft;
+  Future<MyNote?>? _inFlight;
+
+  /// Còn chữ chưa gửi lên máy chủ (đang chờ hẹn giờ hoặc đang lưu).
+  bool get hasPendingChanges => _pendingDraft != null || _inFlight != null;
 
   void start() {
     unawaited(load());
@@ -205,8 +240,51 @@ final class MyNoteEditorController extends StateNotifier<MyNoteEditorState> {
     }
   }
 
-  /// Tải bản mới nhất sau khi bị xung đột phiên bản.
-  Future<void> reloadLatest() => load();
+  /// Tải bản mới nhất (bỏ phần đang soạn) sau khi bị xung đột phiên bản.
+  Future<void> reloadLatest() {
+    _cancelPending();
+    return load();
+  }
+
+  /// Hẹn tự lưu sau [delay] kể từ lần gọi cuối (gõ liên tục thì dời tiếp).
+  void scheduleAutosave(
+    MyNoteDraft draft, {
+    Duration delay = myNoteAutosaveDelay,
+  }) {
+    _pendingDraft = draft;
+    _autosaveTimer?.cancel();
+    _autosaveTimer = Timer(delay, () => unawaited(flushAutosave()));
+  }
+
+  /// Lưu ngay bản nháp đang chờ (rời màn, ẩn bàn phím, app vào nền). Trả true
+  /// khi không còn gì chưa lưu; false khi không lưu được (xung đột, lỗi mạng,
+  /// ngoại tuyến) — bản nháp vẫn giữ để thử lại.
+  Future<bool> flushAutosave() async {
+    _autosaveTimer?.cancel();
+    _autosaveTimer = null;
+    while (_inFlight != null) {
+      await _inFlight;
+    }
+    if (!mounted) return false;
+    final draft = _pendingDraft;
+    if (draft == null) return true;
+    if (state.conflict || state.isOffline || state.isDeleting) return false;
+    if (draft.isEmpty) {
+      // Máy chủ không nhận ghi chú rỗng: giữ bản đã lưu, không gửi.
+      _pendingDraft = null;
+      return true;
+    }
+    _pendingDraft = null;
+    final future = save(draft);
+    _inFlight = future;
+    final saved = await future;
+    _inFlight = null;
+    if (saved == null && mounted && !state.conflict && _pendingDraft == null) {
+      // Lỗi mạng: giữ bản nháp để lần sau thử lại.
+      _pendingDraft = draft;
+    }
+    return saved != null && _pendingDraft == null;
+  }
 
   /// Tạo mới hoặc lưu thay đổi; trả ghi chú đã lưu (null khi lỗi).
   Future<MyNote?> save(MyNoteDraft draft) async {
@@ -240,12 +318,16 @@ final class MyNoteEditorController extends StateNotifier<MyNoteEditorState> {
     switch (result) {
       case Success(value: final saved):
         state = state.copyWith(
-          note: saved,
+          // Máy chủ trả ghi chú không kèm tệp đính kèm khi sửa: giữ danh sách
+          // đã có để lưới ảnh không nháy mất.
+          note: saved.attachments.isEmpty && current != null
+              ? saved.copyWith(attachments: current.attachments)
+              : saved,
           isSaving: false,
           isOffline: false,
           conflict: false,
         );
-        return saved;
+        return state.note;
       case FailureResult(failure: final failure):
         final conflict = isMyNoteVersionConflict(failure);
         state = state.copyWith(
@@ -260,10 +342,50 @@ final class MyNoteEditorController extends StateNotifier<MyNoteEditorState> {
     }
   }
 
+  /// Xung đột phiên bản, người dùng chọn "Giữ bản của tôi": lấy số phiên bản
+  /// mới nhất trên máy chủ rồi ghi đè bằng [draft].
+  Future<MyNote?> saveOverwriting(MyNoteDraft draft) async {
+    final current = state.note;
+    if (current == null || state.isBusy) return null;
+    _cancelPending();
+    state = state.copyWith(isSaving: true, clearSaveError: true);
+    final latest = await _useCases.getNote.execute(
+      workspaceId: _workspaceId,
+      noteId: current.id,
+    );
+    if (!mounted) return null;
+    switch (latest) {
+      case Success(value: final cached) when !cached.fromCache:
+        state = state.copyWith(
+          note: cached.value.copyWith(attachments: current.attachments),
+          isSaving: false,
+          conflict: false,
+        );
+        if (draft.isEmpty) return state.note;
+        return save(draft);
+      case Success():
+        state = state.copyWith(
+          isSaving: false,
+          saveErrorMessage: tr(
+            'Chưa kết nối được máy chủ. Thử lại khi có mạng.',
+            'Can\'t reach the server. Try again when you\'re online.',
+          ),
+        );
+        return null;
+      case FailureResult(failure: final failure):
+        state = state.copyWith(
+          isSaving: false,
+          saveErrorMessage: myNotesErrorText(failure),
+        );
+        return null;
+    }
+  }
+
   /// Trả true khi đã xoá.
   Future<bool> delete() async {
     final note = state.note;
     if (note == null || state.isBusy) return false;
+    _cancelPending();
     state = state.copyWith(isDeleting: true, clearSaveError: true);
     final result = await _useCases.deleteNote.execute(
       workspaceId: _workspaceId,
@@ -283,9 +405,55 @@ final class MyNoteEditorController extends StateNotifier<MyNoteEditorState> {
     }
   }
 
+  /// Tải [files] lên rồi gắn vào ghi chú. Ghi chú mới chưa lưu thì lưu trước
+  /// bằng [draftIfNew] (phải có chữ). Trả số tệp gắn được.
+  Future<int> addAttachments(
+    List<MyNoteLocalFile> files, {
+    required MyNoteDraft draftIfNew,
+  }) async {
+    if (files.isEmpty || state.isOffline || state.conflict) return 0;
+    var note = state.note;
+    if (note == null) {
+      if (draftIfNew.isEmpty) return 0;
+      _cancelPending();
+      note = await save(draftIfNew);
+      if (note == null || !mounted) return 0;
+    }
+    var added = 0;
+    state = state.copyWith(
+      uploadingCount: state.uploadingCount + files.length,
+      clearSaveError: true,
+    );
+    for (final file in files) {
+      final result = await _useCases.attachLocalFile.execute(
+        workspaceId: _workspaceId,
+        noteId: note.id,
+        file: file,
+      );
+      if (!mounted) return added;
+      switch (result) {
+        case Success(value: final attachment):
+          added++;
+          final latest = state.note ?? note;
+          state = state.copyWith(
+            note: latest.copyWith(
+              attachments: [...latest.attachments, attachment],
+            ),
+            uploadingCount: state.uploadingCount - 1,
+          );
+        case FailureResult(failure: final failure):
+          state = state.copyWith(
+            uploadingCount: state.uploadingCount - 1,
+            saveErrorMessage: myNotesErrorText(failure),
+          );
+      }
+    }
+    return added;
+  }
+
   Future<bool> removeAttachment(String fileId) async {
     final note = state.note;
-    if (note == null || state.isBusy) return false;
+    if (note == null || state.isDeleting) return false;
     final result = await _useCases.removeAttachment.execute(
       workspaceId: _workspaceId,
       noteId: note.id,
@@ -294,18 +462,28 @@ final class MyNoteEditorController extends StateNotifier<MyNoteEditorState> {
     if (!mounted) return result.isSuccess;
     switch (result) {
       case Success():
-        state = state.copyWith(
-          note: note.copyWith(
-            attachments: note.attachments
-                .where((item) => item.fileId != fileId)
-                .toList(growable: false),
-          ),
-        );
+        final latest = state.note ?? note;
+        final remaining = latest.attachments
+            .where((item) => item.fileId != fileId)
+            .toList(growable: false);
+        state = state.copyWith(note: latest.copyWith(attachments: remaining));
         return true;
       case FailureResult(failure: final failure):
         state = state.copyWith(saveErrorMessage: myNotesErrorText(failure));
         return false;
     }
+  }
+
+  void _cancelPending() {
+    _autosaveTimer?.cancel();
+    _autosaveTimer = null;
+    _pendingDraft = null;
+  }
+
+  @override
+  void dispose() {
+    _autosaveTimer?.cancel();
+    super.dispose();
   }
 }
 
