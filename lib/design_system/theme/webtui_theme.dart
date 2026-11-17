@@ -68,8 +68,8 @@ final class WebTuiTheme {
         shape: const StadiumBorder(),
         extendedPadding: const EdgeInsetsDirectional.only(start: 16, end: 20),
         extendedIconLabelSpacing: 8,
-        // textTheme của app không có labelLarge: lấy thẳng kiểu chữ có phông
-        // WebTuiRoboto, nếu không chữ nút rơi về phông hệ thống.
+        // textTheme của app không có labelLarge: lấy thẳng cỡ / độ đậm của
+        // bodyMedium (phông vẫn là phông hệ thống của theme).
         extendedTextStyle: WebTuiTypography.bodyMedium.copyWith(
           fontSize: 15,
           fontWeight: FontWeight.w600,

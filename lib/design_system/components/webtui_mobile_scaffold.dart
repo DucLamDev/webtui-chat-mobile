@@ -425,7 +425,6 @@ class _TabItemState extends State<_TabItem> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontFamily: WebTuiTypography.fontFamily,
                     fontSize: 10.5,
                     height: 1.2,
                     letterSpacing: 0.1,
