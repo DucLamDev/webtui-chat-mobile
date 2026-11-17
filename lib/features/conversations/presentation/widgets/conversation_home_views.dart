@@ -20,12 +20,14 @@ import '../../../inbox/presentation/widgets/inbox_entry.dart';
 import '../../../moderation/presentation/controllers/moderation_controller.dart';
 import '../../../moderation/presentation/widgets/moderation_actions.dart';
 import '../../../profile/presentation/controllers/profile_controller.dart';
+import '../../domain/contact_alphabet.dart';
 import '../../domain/entities/conversation_summary.dart';
 import '../controllers/conversation_home_controller.dart';
 import '../controllers/notice_bot_identity.dart';
 import '../models/conversation_privacy_projection.dart';
 import '../screens/chat_room_screen.dart';
 import 'business_channel_grid.dart';
+import 'contact_directory.dart';
 import 'conversation_quick_actions.dart';
 
 class MessagesHomeView extends ConsumerWidget {
@@ -227,29 +229,27 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
     final scroll = CustomScrollView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       slivers: [
-        // Tiêu đề lớn cuộn đi; ô tìm + thanh lọc dính trên cùng.
-        SliverToBoxAdapter(
-          child: WebTuiLargeTitleBar(title: context.strings.tabFriends),
-        ),
+        // Không tiêu đề lớn: ô tìm ngay dưới thanh trạng thái, tab gạch chân
+        // kiểu Zalo dính trên cùng.
         SliverPersistentHeader(
           pinned: true,
-          delegate: _PinnedSearchHeader(
+          delegate: ContactsPinnedHeader(
             search: WebTuiSearchBar(
               hintText: channelsTab
                   ? tr('Tìm nhóm theo tên...', 'Search groups by name...')
                   : tr('Tìm đồng nghiệp...', 'Search colleagues...'),
               onChanged: controller.setSearchQuery,
             ),
-            filters: WebTuiFilterChipBar(
+            tabs: ContactsUnderlineTabs(
               key: const ValueKey('contacts-tabs'),
               semanticLabel: tr('Lọc danh bạ', 'Filter contacts'),
-              chips: [
-                WebTuiFilterChipData(
+              tabs: [
+                ContactsUnderlineTab(
                   key: const ValueKey('contacts-tab-colleagues'),
                   label: tr('Đồng nghiệp', 'Colleagues'),
                   count: contacts.length,
                 ),
-                WebTuiFilterChipData(
+                ContactsUnderlineTab(
                   key: const ValueKey('contacts-tab-channels'),
                   label: tr('Nhóm', 'Groups'),
                   count: channelCount,
@@ -312,49 +312,69 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
         ),
       ];
     }
+    final groups = groupContactsAlphabetically(contacts);
+    final duplicateNames = duplicateContactNames(contacts);
+
+    Future<void> open(ContactSummary contact, {String? startCall}) async {
+      if (!contact.canOpenDirectConversation) return;
+      if (moderationState.isBlocked(contact.userId)) {
+        await showUserSafetyActions(
+          context,
+          ref,
+          workspaceId: workspaceId,
+          userId: contact.userId,
+          userLabel: contact.displayName,
+        );
+        return;
+      }
+      final conversation = await controller.openDirect(contact);
+      if (conversation != null && context.mounted) {
+        _openChat(
+          context,
+          conversation,
+          onReturn: controller.syncSilently,
+          startCall: startCall,
+        );
+      }
+    }
+
     return [
-      WebTuiSliverListSurface(
-        itemCount: contacts.length,
-        itemBuilder: (context, index) {
-          final contact = contacts[index];
-          return _ContactTile(
-            key: ValueKey('contact-${contact.userId}'),
-            contact: contact,
-            presence: state.presenceByUserId[contact.userId],
-            blocked: moderationState.blockedUserIds.contains(contact.userId),
-            onTap: () async {
-              if (!contact.canOpenDirectConversation) {
-                return;
-              }
-              if (moderationState.isBlocked(contact.userId)) {
-                await showUserSafetyActions(
-                  context,
-                  ref,
-                  workspaceId: workspaceId,
-                  userId: contact.userId,
-                  userLabel: contact.displayName,
-                );
-                return;
-              }
-              final conversation = await controller.openDirect(contact);
-              if (conversation != null && context.mounted) {
-                _openChat(
-                  context,
-                  conversation,
-                  onReturn: controller.syncSilently,
-                );
-              }
-            },
-            onSafety: () => showUserSafetyActions(
-              context,
-              ref,
-              workspaceId: workspaceId,
-              userId: contact.userId,
-              userLabel: contact.displayName,
+      for (final group in groups)
+        SliverMainAxisGroup(
+          slivers: [
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: ContactLetterHeader(group.letter),
             ),
-          );
-        },
-      ),
+            WebTuiSliverListSurface(
+              itemCount: group.contacts.length,
+              itemBuilder: (context, index) {
+                final contact = group.contacts[index];
+                return _ContactTile(
+                  key: ValueKey('contact-${contact.userId}'),
+                  contact: contact,
+                  presence: state.presenceByUserId[contact.userId],
+                  blocked: moderationState.blockedUserIds.contains(
+                    contact.userId,
+                  ),
+                  // Zalo chỉ hiện tên; email chỉ hiện khi trùng tên để phân biệt.
+                  showEmail: duplicateNames.contains(
+                    foldVietnamese(contact.displayName.trim()),
+                  ),
+                  onTap: () => open(contact),
+                  onCall: (mode) => open(contact, startCall: mode),
+                  onSafety: () => showUserSafetyActions(
+                    context,
+                    ref,
+                    workspaceId: workspaceId,
+                    userId: contact.userId,
+                    userLabel: contact.displayName,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
     ];
   }
 
@@ -840,7 +860,8 @@ ConversationSummary? _safeSelectedConversation(
   return null;
 }
 
-/// Dòng đồng nghiệp: ảnh 48, cao 64, tên + email. Báo cáo / chặn nằm ở thao
+/// Dòng đồng nghiệp: ảnh 48, cao 64, tên (email nhỏ khi trùng tên), hai nút
+/// gọi thoại / video bên phải. Báo cáo / chặn nằm ở thao
 /// tác nhấn giữ (có gợi ý và hành động riêng cho trình đọc màn hình), không
 /// còn nút khiên cuối dòng.
 class _ContactTile extends StatelessWidget {
@@ -849,12 +870,20 @@ class _ContactTile extends StatelessWidget {
     required this.onTap,
     required this.blocked,
     required this.onSafety,
+    this.onCall,
+    this.showEmail = false,
     this.presence,
     super.key,
   });
 
   final ContactSummary contact;
   final VoidCallback onTap;
+
+  /// Bấm nút gọi: `audio` hoặc `video`.
+  final void Function(String mode)? onCall;
+
+  /// Hiện email làm dòng phụ (khi trùng tên).
+  final bool showEmail;
   final bool blocked;
   final VoidCallback onSafety;
   final ConversationPresence? presence;
@@ -871,7 +900,7 @@ class _ContactTile extends StatelessWidget {
       title: contact.displayName,
       subtitle: blocked
           ? tr('Đã chặn · Nhấn để quản lý', 'Blocked · Tap to manage')
-          : relationshipLabel ?? contact.title ?? contact.email,
+          : relationshipLabel ?? (showEmail ? contact.email : ''),
       avatar: WebTuiAvatar(
         label: contact.displayName,
         imageUrl: contact.avatarUrl,
@@ -884,7 +913,12 @@ class _ContactTile extends StatelessWidget {
       longPressLabel: safetyLabel,
       trailing: blocked
           ? Icon(WebTuiIcons.block, size: 20, color: WebTuiColors.danger)
-          : null,
+          : (canOpenChat && onCall != null
+                ? ContactCallButtons(
+                    onAudio: () => onCall!('audio'),
+                    onVideo: () => onCall!('video'),
+                  )
+                : null),
     );
   }
 }
@@ -1076,6 +1110,7 @@ void _openChat(
   BuildContext context,
   ConversationSummary conversation, {
   Future<void> Function()? onReturn,
+  String? startCall,
 }) {
   if (_openCustomerTicketInbox(context, conversation, onReturn: onReturn)) {
     return;
@@ -1096,6 +1131,9 @@ void _openChat(
   final peerUserId = conversation.peerUserId?.trim();
   if (peerUserId != null && peerUserId.isNotEmpty) {
     queryParameters['peerUserId'] = peerUserId;
+  }
+  if (startCall == 'audio' || startCall == 'video') {
+    queryParameters['startCall'] = startCall!;
   }
   final participantIds = conversation.participantIds
       .map((id) => id.trim())

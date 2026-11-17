@@ -113,8 +113,8 @@ class WorkspaceToolsScreen extends ConsumerWidget {
               for (final module in modules)
                 WorkAppItem(
                   key: Key('workspace_module_${module.id}'),
-                  glyph: _moduleGlyph(module),
-                  color: WebTuiColors.primary,
+                  icon: _moduleIcon(module),
+                  color: _moduleColor(module),
                   label: _moduleLabel(module),
                   onTap: () => context.push(module.routeFor(id)),
                 ),
@@ -130,11 +130,15 @@ class WorkspaceToolsScreen extends ConsumerWidget {
   }
 }
 
-PhosphorDuotoneGlyph _moduleGlyph(WorkspaceModule module) =>
-    switch (module.id) {
-      'my_notes' => WebTuiDuotoneIcons.note,
-      _ => webTuiShortcutDuotoneIcon(null),
-    };
+IconData _moduleIcon(WorkspaceModule module) => switch (module.id) {
+  'my_notes' => Icons.sticky_note_2_rounded,
+  _ => workShortcutIcon(null),
+};
+
+Color _moduleColor(WorkspaceModule module) => switch (module.id) {
+  'my_notes' => workAppViolet,
+  _ => workAppBlue,
+};
 
 String _moduleLabel(WorkspaceModule module) => switch (module.id) {
   'my_notes' => tr('Ghi chú', 'Notes'),

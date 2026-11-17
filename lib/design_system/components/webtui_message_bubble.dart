@@ -30,7 +30,7 @@ class WebTuiMessageBubble extends StatelessWidget {
 
   TextStyle get _bodyStyle => WebTuiTypography.bodyMedium.copyWith(
     fontSize: 16,
-    color: outgoing ? WebTuiColors.textOnPrimary : WebTuiColors.textPrimary,
+    color: WebTuiColors.textPrimary,
     fontWeight: FontWeight.w400,
     height: 1.35,
   );
@@ -57,9 +57,18 @@ class WebTuiMessageBubble extends StatelessWidget {
                 DecoratedBox(
                   decoration: BoxDecoration(
                     color: outgoing
-                        ? WebTuiColors.primary
+                        ? WebTuiColors.messageOutgoing
                         : WebTuiColors.messageIncoming,
-                    borderRadius: BorderRadius.circular(18),
+                    // Kiểu Zalo: bo 16, góc phía người gửi (dưới) nhỏ hơn.
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(16),
+                      topRight: const Radius.circular(16),
+                      bottomLeft: Radius.circular(outgoing ? 16 : 4),
+                      bottomRight: Radius.circular(outgoing ? 4 : 16),
+                    ),
+                    border: outgoing
+                        ? Border.all(color: WebTuiColors.messageOutgoingBorder)
+                        : null,
                     boxShadow: outgoing
                         ? null
                         : const [
@@ -96,9 +105,7 @@ class WebTuiMessageBubble extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: WebTuiTypography.labelSmall.copyWith(
                                 color: outgoing
-                                    ? WebTuiColors.textOnPrimary.withValues(
-                                        alpha: 0.78,
-                                      )
+                                    ? WebTuiColors.textSecondary
                                     : WebTuiColors.textMuted,
                               ),
                             ),

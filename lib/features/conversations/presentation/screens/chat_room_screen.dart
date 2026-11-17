@@ -2686,134 +2686,116 @@ class _ComposerState extends State<_Composer> {
                 ),
                 const SizedBox(height: WebTuiSpacing.sm),
               ],
+              // Kiểu Zalo: [emoji] [ô nhập] [⋯ thêm] [ảnh] [mic]; có chữ thì
+              // ảnh + mic nhường chỗ cho nút gửi.
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  SizedBox.square(
-                    dimension: 44,
-                    child: IconButton.filled(
-                      key: const Key('chat_composer_attach'),
-                      tooltip: tr('Đính kèm', 'Attach'),
-                      onPressed: widget.sending ? null : _showAttachmentSheet,
-                      style: IconButton.styleFrom(
-                        backgroundColor: WebTuiColors.primarySoft,
-                        foregroundColor: WebTuiColors.primary,
-                        disabledBackgroundColor: WebTuiColors.primarySoft,
-                      ),
-                      icon: const Icon(WebTuiIcons.add, size: 24),
-                    ),
+                  _ComposerIconButton(
+                    key: const Key('chat_composer_emoji'),
+                    tooltip: tr('Thêm biểu tượng cảm xúc', 'Add emoji'),
+                    onPressed: widget.sending ? null : _toggleEmojiTray,
+                    icon: WebTuiIcons.emoji,
+                    color: _showEmojiTray
+                        ? WebTuiColors.primary
+                        : WebTuiColors.textSecondary,
                   ),
-                  const SizedBox(width: WebTuiSpacing.sm),
                   Expanded(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(
                         minHeight: 44,
                         maxHeight: 120,
                       ),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: WebTuiColors.surface,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: WebTuiColors.border),
+                      child: TextField(
+                        key: const Key('chat_composer_input'),
+                        controller: widget.controller,
+                        focusNode: widget.focusNode,
+                        onChanged: widget.onChanged,
+                        onTap: _focusInput,
+                        style: WebTuiTypography.bodyMedium.copyWith(
+                          fontSize: 16,
+                          color: WebTuiColors.textPrimary,
+                          fontWeight: FontWeight.w400,
                         ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                key: const Key('chat_composer_input'),
-                                controller: widget.controller,
-                                focusNode: widget.focusNode,
-                                onChanged: widget.onChanged,
-                                onTap: _focusInput,
-                                style: WebTuiTypography.bodyMedium.copyWith(
-                                  fontSize: 16,
-                                  color: WebTuiColors.textPrimary,
-                                  fontWeight: FontWeight.w400,
-                                ),
-                                keyboardType: TextInputType.multiline,
-                                minLines: 1,
-                                maxLines: 4,
-                                textInputAction: TextInputAction.newline,
-                                decoration: InputDecoration(
-                                  hintText: tr(
-                                    'Nhập tin nhắn...',
-                                    'Type a message...',
-                                  ),
-                                  hintStyle: WebTuiTypography.bodyMedium
-                                      .copyWith(
-                                        fontSize: 16,
-                                        color: WebTuiColors.textMuted,
-                                        fontWeight: FontWeight.w400,
-                                      ),
-                                  filled: false,
-                                  border: InputBorder.none,
-                                  enabledBorder: InputBorder.none,
-                                  focusedBorder: InputBorder.none,
-                                  disabledBorder: InputBorder.none,
-                                  contentPadding: const EdgeInsets.fromLTRB(
-                                    18,
-                                    10,
-                                    0,
-                                    10,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              key: const Key('chat_composer_emoji'),
-                              tooltip: tr(
-                                'Thêm biểu tượng cảm xúc',
-                                'Add emoji',
-                              ),
-                              onPressed: widget.sending
-                                  ? null
-                                  : _toggleEmojiTray,
-                              color: WebTuiColors.textSecondary,
-                              icon: const Icon(WebTuiIcons.emoji, size: 24),
-                            ),
-                          ],
+                        keyboardType: TextInputType.multiline,
+                        minLines: 1,
+                        maxLines: 4,
+                        textInputAction: TextInputAction.newline,
+                        decoration: InputDecoration(
+                          hintText: tr('Nhập tin nhắn...', 'Type a message...'),
+                          hintStyle: WebTuiTypography.bodyMedium.copyWith(
+                            fontSize: 16,
+                            color: WebTuiColors.textMuted,
+                            fontWeight: FontWeight.w400,
+                          ),
+                          filled: false,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          disabledBorder: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 10,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: WebTuiSpacing.sm),
-                  SizedBox.square(
-                    dimension: 46,
-                    child: IconButton.filled(
-                      key: Key(
-                        widget.canSend
-                            ? 'chat_composer_send'
-                            : 'chat_composer_mic',
+                  _ComposerIconButton(
+                    key: const Key('chat_composer_attach'),
+                    tooltip: tr('Đính kèm', 'Attach'),
+                    onPressed: widget.sending ? null : _showAttachmentSheet,
+                    icon: WebTuiIcons.more,
+                    color: WebTuiColors.textSecondary,
+                  ),
+                  if (widget.canSend)
+                    Padding(
+                      padding: const EdgeInsets.only(left: WebTuiSpacing.xs),
+                      child: SizedBox.square(
+                        dimension: 44,
+                        child: IconButton.filled(
+                          key: const Key('chat_composer_send'),
+                          tooltip: _uploadingAttachments
+                              ? tr('Đang tải tệp lên', 'Uploading files')
+                              : tr('Gửi', 'Send'),
+                          // Còn tệp đang tải lên: khoá nút (không gửi thiếu tệp).
+                          onPressed: _composerBusy ? null : _send,
+                          icon: widget.sending || _uploadingAttachments
+                              ? SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: WebTuiColors.textOnPrimary,
+                                  ),
+                                )
+                              : const Icon(WebTuiIcons.send, size: 22),
+                        ),
                       ),
+                    )
+                  else ...[
+                    _ComposerIconButton(
+                      key: const Key('chat_composer_image'),
+                      tooltip: tr('Gửi ảnh', 'Send photo'),
+                      onPressed: widget.sending
+                          ? null
+                          : () => widget.onPickAttachment(
+                              MessageAttachmentPickSource.gallery,
+                            ),
+                      icon: WebTuiIcons.gallery,
+                      color: WebTuiColors.textSecondary,
+                    ),
+                    _ComposerIconButton(
+                      key: const Key('chat_composer_mic'),
                       tooltip: _uploadingAttachments
                           ? tr('Đang tải tệp lên', 'Uploading files')
-                          : widget.canSend
-                          ? tr('Gửi', 'Send')
                           : tr('Ghi âm', 'Voice message'),
-                      // Còn tệp đang tải lên: khoá nút (không gửi thiếu tệp,
-                      // không chuyển thành nút ghi âm).
-                      onPressed: _composerBusy
-                          ? null
-                          : widget.canSend
-                          ? _send
-                          : _startVoiceRecording,
-                      icon: widget.sending || _uploadingAttachments
-                          ? SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: WebTuiColors.textOnPrimary,
-                              ),
-                            )
-                          : Icon(
-                              widget.canSend
-                                  ? WebTuiIcons.send
-                                  : WebTuiIcons.mic,
-                              size: 22,
-                            ),
+                      // Còn tệp đang tải lên: khoá nút ghi âm.
+                      onPressed: _composerBusy ? null : _startVoiceRecording,
+                      icon: WebTuiIcons.mic,
+                      color: WebTuiColors.textSecondary,
+                      busy: widget.sending || _uploadingAttachments,
                     ),
-                  ),
+                  ],
                 ],
               ),
             ],
@@ -3054,6 +3036,44 @@ class _ComposerState extends State<_Composer> {
       selection: TextSelection.collapsed(offset: start + 2),
     );
     onChanged(updated);
+  }
+}
+
+/// Nút biểu tượng của ô soạn: vùng bấm 44, có tooltip (đọc to cho trình đọc
+/// màn hình).
+class _ComposerIconButton extends StatelessWidget {
+  const _ComposerIconButton({
+    required this.tooltip,
+    required this.onPressed,
+    required this.icon,
+    required this.color,
+    this.busy = false,
+    super.key,
+  });
+
+  final String tooltip;
+  final VoidCallback? onPressed;
+  final IconData icon;
+  final Color color;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 44,
+      child: IconButton(
+        tooltip: tooltip,
+        onPressed: onPressed,
+        padding: EdgeInsets.zero,
+        color: color,
+        icon: busy
+            ? SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2, color: color),
+              )
+            : Icon(icon, size: 26),
+      ),
+    );
   }
 }
 
@@ -5274,7 +5294,10 @@ class _DayDivider extends StatelessWidget {
       child: DecoratedBox(
         key: const Key('chat_day_divider'),
         decoration: BoxDecoration(
-          color: const Color(0xFFD9E0EA),
+          // Nền tối: viên nhãn dùng màu chip của theme (trước đây cố định xám sáng).
+          color: WebTuiColors.brightness == Brightness.dark
+              ? WebTuiColors.chipBackground
+              : const Color(0xFFD0D9E5),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Padding(
@@ -5616,19 +5639,20 @@ InlineSpan _messageTextSpan(
   bool outgoing,
   ValueChanged<String> onOpenLink,
 ) {
-  // Tin của mình nền xanh: chữ trắng, liên kết / nhắc tên cũng trắng (đậm,
-  // gạch chân) để vẫn đọc được trên nền xanh.
+  // Tin của mình nền xanh nhạt (tối: xanh đậm vừa): chữ màu thường; liên kết /
+  // nhắc tên dùng xanh đậm (tối: trắng), đậm + gạch chân để vẫn đọc rõ.
   final baseStyle = WebTuiTypography.bodyMedium.copyWith(
     fontSize: 16,
-    color: outgoing ? WebTuiColors.textOnPrimary : WebTuiColors.textPrimary,
+    color: WebTuiColors.textPrimary,
     fontWeight: FontWeight.w400,
     height: 1.35,
   );
+  final darkTheme = WebTuiColors.brightness == Brightness.dark;
   final accentColor = outgoing
-      ? WebTuiColors.textOnPrimary
+      ? (darkTheme ? Colors.white : WebTuiColors.primaryPressed)
       : WebTuiColors.primary;
   final codeBackground = outgoing
-      ? WebTuiColors.textOnPrimary.withValues(alpha: 0.18)
+      ? WebTuiColors.textPrimary.withValues(alpha: 0.08)
       : WebTuiColors.backgroundMuted;
   final pattern = RegExp(
     r'<@([A-Za-z0-9_-]+)>|(@[A-Za-z0-9_.-]+)|\*\*([^*]+)\*\*|`([^`]+)`|(https?:\/\/[^\s<]+)',
