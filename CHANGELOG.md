@@ -3,6 +3,14 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.41.1 · 17/11/2026
+### Sửa lỗi
+- iPhone không nhận được thông báo tin nhắn khi thoát ra màn hình chính: app chưa bao giờ xin mã thông báo của Apple nên
+  máy chủ không có địa chỉ để gửi tin (mọi iPhone đăng ký "không nhận thông báo"). Nay app xin mã ngay khi mở, chờ có mã
+  rồi mới đăng ký với máy chủ, và tự thử lại sau 10 giây / 30 giây / 2 phút nếu mã đến muộn.
+- Chuẩn bị cho thông báo hiển thị từ máy chủ: tin đẩy nào iPhone đã tự hiện thì app không hiện thêm một thông báo nữa.
+- Lưu ý: cuộc gọi đến trên iPhone khi app đã thoát còn cần khoá APNs đặt trên máy chủ (không nằm trong bản app).
+
 ## 1.41.0 · 17/11/2026
 ### Tính năng
 - Ấn giữ một cuộc trò chuyện ở màn Tin nhắn để mở menu thao tác (giống nút ba chấm của Zalo trên web)
