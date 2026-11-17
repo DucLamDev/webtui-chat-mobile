@@ -82,8 +82,8 @@ Color workAppColorForKey(String? key) => switch (key?.trim()) {
 
 /// Màu một ô ứng dụng theo nền: (đầu gradient, cuối gradient, biểu tượng).
 /// - Tối: gradient đậm của màu riêng, biểu tượng trắng.
-/// - Sáng: nền pastel nhạt của màu riêng, biểu tượng mang màu riêng đậm hơn một
-///   chút; tương phản biểu tượng / nền ≥ 3:1.
+/// - Sáng: nền pastel rất nhạt của màu riêng; biểu tượng là màu riêng tươi hơn,
+///   nâng độ sáng tới mức nhạt nhất mà vẫn giữ tương phản ≥ 3:1 với nền.
 ({Color top, Color bottom, Color icon}) workAppTileColors(
   Color base,
   Brightness brightness,
@@ -92,12 +92,27 @@ Color workAppColorForKey(String? key) => switch (key?.trim()) {
     final (top, bottom) = workAppGradient(base);
     return (top: top, bottom: bottom, icon: Colors.white);
   }
+  final top = Color.alphaBlend(base.withValues(alpha: 0.07), Colors.white);
+  final bottom = Color.alphaBlend(base.withValues(alpha: 0.12), Colors.white);
   final hsl = HSLColor.fromColor(base);
-  return (
-    top: Color.alphaBlend(base.withValues(alpha: 0.10), Colors.white),
-    bottom: Color.alphaBlend(base.withValues(alpha: 0.16), Colors.white),
-    icon: hsl.withLightness((hsl.lightness - 0.06).clamp(0.0, 1.0)).toColor(),
-  );
+  final vivid = hsl.withSaturation((hsl.saturation + 0.08).clamp(0.0, 1.0));
+  var icon = base;
+  for (var step = 0; step <= 30; step++) {
+    final candidate = vivid
+        .withLightness((hsl.lightness + step * 0.005).clamp(0.0, 1.0))
+        .toColor();
+    if (_contrastRatio(candidate, bottom) < 3.05) break;
+    icon = candidate;
+  }
+  return (top: top, bottom: bottom, icon: icon);
+}
+
+double _contrastRatio(Color a, Color b) {
+  final la = a.computeLuminance();
+  final lb = b.computeLuminance();
+  final hi = la > lb ? la : lb;
+  final lo = la > lb ? lb : la;
+  return (hi + 0.05) / (lo + 0.05);
 }
 
 /// Biểu tượng Material của lối tắt; khoá lạ là liên kết.

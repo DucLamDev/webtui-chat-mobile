@@ -13,8 +13,8 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
     mở được chat riêng thì không có hai nút này.
   - Chỉ hiện tên như Zalo; email chỉ hiện khi hai người trùng tên để phân biệt.
 - Bộ icon ứng dụng tab Công việc dạng ô màu bo góc kiểu mini app: Lịch họp cam, Tệp xanh lá, Ghi chú tím, các ứng dụng
-  khác theo màu máy chủ đặt; ô "Thêm" viền đứt. Giao diện sáng: nền ô màu pastel nhạt, biểu tượng mang màu riêng, ô
-  "Thêm" xanh rất nhạt (không còn xám); giao diện tối: ô màu đậm, biểu tượng trắng.
+  khác theo màu máy chủ đặt; ô "Thêm" viền đứt. Giao diện sáng: nền ô màu pastel rất nhạt, biểu tượng mang màu riêng
+  tươi và nhạt (vẫn đủ tương phản 3:1 để nhìn rõ), ô "Thêm" xanh rất nhạt (không còn xám); giao diện tối: ô màu đậm, biểu tượng trắng.
 - Khung phòng chat kiểu Zalo
   - Thanh đầu nền xanh, chữ và nút gọi / gọi video / menu màu trắng (nền tối: thanh tối, chữ sáng).
   - Nền danh sách xám xanh nhạt; tin của mình nền xanh nhạt chữ đậm, tin người khác nền trắng; bo góc kiểu Zalo.
