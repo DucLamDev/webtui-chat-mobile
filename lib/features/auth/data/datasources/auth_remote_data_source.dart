@@ -158,6 +158,7 @@ final class AuthRemoteDataSource {
     required String domain,
     required String providerId,
     required String returnTo,
+    required String codeChallenge,
     required DeviceIdentity device,
   }) async {
     final response = await _api.post<Object>(
@@ -167,6 +168,8 @@ final class AuthRemoteDataSource {
         'provider_id': providerId,
         'return_to': returnTo,
         'device_name': device.displayName,
+        'code_challenge': codeChallenge,
+        'code_challenge_method': 'S256',
       },
     );
     final payload = envelopeItem(response.data, 'oidc');
@@ -184,11 +187,17 @@ final class AuthRemoteDataSource {
   Future<AuthSession> completeOidc({
     required String code,
     required String domain,
+    required String codeVerifier,
     required DeviceIdentity device,
   }) async {
     final response = await _api.post<Object>(
       '/api/v1/auth/oidc/complete',
-      data: {'code': code, 'domain': domain, 'device_name': device.displayName},
+      data: {
+        'code': code,
+        'domain': domain,
+        'device_name': device.displayName,
+        'code_verifier': codeVerifier,
+      },
     );
     return _authSessionFromResponse(response.data);
   }

@@ -15,6 +15,22 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   - Bỏ dòng mô tả nhỏ dưới mỗi mục, mỗi mục gọn một dòng. Giờ yên lặng hiện giờ bên phải cạnh công tắc; mục "Ai được
     gọi cho tôi" chỉ hiện dòng phụ khi không tải được (để biết chạm là thử lại).
 
+## 1.44.4 · 17/11/2026
+### Sửa lỗi bảo mật
+- Đăng nhập SSO (OIDC) dùng PKCE: mỗi lần bấm đăng nhập SSO, app tạo một mã bí mật chỉ giữ trong bộ nhớ và gửi bản
+  băm lên máy chủ; khi trình duyệt trả về, app phải trình đúng mã bí mật đó mới đổi được token. Trước đây một app khác
+  cài trên máy đăng ký cùng đường dẫn `webtui://` có thể chặn mã đăng nhập và chiếm phiên. Giao diện không đổi.
+  - Cần máy chủ đã cập nhật bản có PKCE mới được bảo vệ; với máy chủ cũ, SSO vẫn đăng nhập được như trước.
+
+## 1.44.3 · 17/11/2026
+### Sửa lỗi
+- Chat bot thông báo hiện đúng giờ và nội dung tin mới nhất; chấm "đang hoạt động" khớp giữa danh sách và chi tiết nhóm
+  Dòng bot thông báo ở màn Tin nhắn trước đây hiện giờ tạo kênh (vd. 09:45) và chữ "Thông báo của bạn" dù tin mới nhất
+  (vd. cuộc gọi nhỡ lúc 10:35) đến sau. Nay hiện đúng giờ và nội dung tin bot mới nhất (cần máy chủ bản mới; máy chủ cũ
+  vẫn hiện như trước). Danh sách thành viên trong chi tiết nhóm trước đây hiện chấm xanh cho mọi người còn trong nhóm;
+  nay chấm xanh chỉ hiện khi người đó thật sự đang trực tuyến, cùng nguồn với màn Tin nhắn và Danh bạ, và cả ba nơi tự
+  cập nhật mỗi 30 giây.
+
 ## 1.44.2 · 17/11/2026
 ### Dọn mã
 - Bỏ mã không còn dùng, không đổi chức năng hay giao diện

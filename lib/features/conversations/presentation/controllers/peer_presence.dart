@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
+import '../../../../design_system/components/webtui_avatar.dart';
 import '../../../../l10n/app_strings.dart';
+import '../../application/use_cases/load_conversation_home_use_case.dart';
 import '../../domain/entities/conversation_summary.dart';
 
 /// Nhãn trạng thái hoạt động của người kia ở đầu phòng chat 1-1.
@@ -89,3 +93,46 @@ final peerPresenceProvider = StreamProvider.autoDispose
         await Future<void>.delayed(const Duration(seconds: 30));
       }
     });
+
+/// Hiện diện cả workspace theo người, tải lại mỗi 30 giây (cùng nguồn
+/// `GET /presence` với danh sách hội thoại). Danh sách hội thoại và danh sách
+/// thành viên nhóm cùng đọc nguồn này nên chấm xanh hai nơi luôn khớp. Lỗi mạng
+/// thì giữ kết quả lần trước (chưa có lần nào thì chưa có giá trị). Bộ hẹn giờ
+/// bị huỷ khi không còn màn nào nghe.
+final workspacePresenceProvider = StreamProvider.autoDispose
+    .family<Map<String, ConversationPresence>, String>((ref, workspaceId) {
+      final repository = ref.watch(conversationRepositoryProvider);
+      final controller = StreamController<Map<String, ConversationPresence>>();
+      Timer? timer;
+      var disposed = false;
+      Future<void> load() async {
+        final result = await repository.listPresence(workspaceId: workspaceId);
+        if (disposed) return;
+        if (result case Success<List<PresenceSummary>>(value: final list)) {
+          controller.add(presenceByUser(list));
+        }
+        timer = Timer(
+          workspacePresenceRefreshInterval,
+          () => unawaited(load()),
+        );
+      }
+
+      ref.onDispose(() {
+        disposed = true;
+        timer?.cancel();
+        unawaited(controller.close());
+      });
+      unawaited(load());
+      return controller.stream;
+    });
+
+/// Chu kỳ tải lại hiện diện của [workspacePresenceProvider].
+const workspacePresenceRefreshInterval = Duration(seconds: 30);
+
+/// Chấm trên ảnh đại diện ở danh sách thành viên nhóm: giống dòng chat ở danh
+/// sách hội thoại, chỉ hiện chấm xanh khi đang online; còn lại không chấm.
+WebTuiPresenceStatus? memberPresenceStatus(ConversationPresence? presence) {
+  return presence == ConversationPresence.online
+      ? WebTuiPresenceStatus.online
+      : null;
+}

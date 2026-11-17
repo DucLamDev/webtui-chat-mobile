@@ -84,6 +84,50 @@ void main() {
     expect(acceptance.isComplete, isTrue);
   });
 
+  test('OIDC start sends the PKCE challenge with method S256', () async {
+    final api = _RecordingApiTransport();
+    final remote = AuthRemoteDataSource(api);
+
+    final uri = await remote.startOidc(
+      domain: 'chat.example.com',
+      providerId: 'provider-1',
+      returnTo: 'webtui://oidc/callback?server=chat.example.com',
+      codeChallenge: 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM',
+      device: _device,
+    );
+
+    expect(api.path, '/api/v1/auth/oidc/start');
+    expect(
+      api.data,
+      containsPair(
+        'code_challenge',
+        'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM',
+      ),
+    );
+    expect(api.data, containsPair('code_challenge_method', 'S256'));
+    expect(uri.host, 'identity.example');
+  });
+
+  test('OIDC complete sends the PKCE verifier', () async {
+    final api = _RecordingApiTransport();
+    final remote = AuthRemoteDataSource(api);
+
+    await remote.completeOidc(
+      code: 'one-time-code',
+      domain: 'chat.example.com',
+      codeVerifier: 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk',
+      device: _device,
+    );
+
+    expect(api.path, '/api/v1/auth/oidc/complete');
+    expect(api.data, <String, Object?>{
+      'code': 'one-time-code',
+      'domain': 'chat.example.com',
+      'device_name': 'Android',
+      'code_verifier': 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk',
+    });
+  });
+
   test('does not trust complete flags without accepted_at evidence', () async {
     final api = _RecordingApiTransport(
       legalGetPayload: _legalAcceptancePayload(
@@ -104,6 +148,12 @@ void main() {
     expect(acceptance.isComplete, isFalse);
   });
 }
+
+const _device = DeviceIdentity(
+  id: 'device-1',
+  platform: 'android',
+  displayName: 'Android',
+);
 
 final class _RecordingApiTransport implements ApiTransport {
   _RecordingApiTransport({this.legalGetPayload});
@@ -126,6 +176,21 @@ final class _RecordingApiTransport implements ApiTransport {
     if (path == '/api/v1/auth/legal-acceptance') {
       return Response<T>(
         data: _legalAcceptancePayload(complete: true) as T,
+        requestOptions: RequestOptions(path: path),
+        statusCode: 200,
+      );
+    }
+    if (path == '/api/v1/auth/oidc/start') {
+      return Response<T>(
+        data:
+            {
+                  'success': true,
+                  'data': {
+                    'authorization_url': 'https://identity.example/authorize',
+                    'expires_at': '2026-11-17T08:10:00Z',
+                  },
+                }
+                as T,
         requestOptions: RequestOptions(path: path),
         statusCode: 200,
       );
