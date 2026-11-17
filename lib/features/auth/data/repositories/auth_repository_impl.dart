@@ -97,6 +97,7 @@ final class AuthRepositoryImpl implements AuthRepository {
     required String domain,
     required String providerId,
     required String returnTo,
+    required String codeChallenge,
     required DeviceIdentity device,
   }) {
     return guardResult(
@@ -104,6 +105,7 @@ final class AuthRepositoryImpl implements AuthRepository {
         domain: domain,
         providerId: providerId,
         returnTo: returnTo,
+        codeChallenge: codeChallenge,
         device: device,
       ),
     );
@@ -113,10 +115,16 @@ final class AuthRepositoryImpl implements AuthRepository {
   Future<Result<AuthSession>> completeOidc({
     required String code,
     required String domain,
+    required String codeVerifier,
     required DeviceIdentity device,
   }) {
     return guardResult(
-      () => _remote.completeOidc(code: code, domain: domain, device: device),
+      () => _remote.completeOidc(
+        code: code,
+        domain: domain,
+        codeVerifier: codeVerifier,
+        device: device,
+      ),
     );
   }
 

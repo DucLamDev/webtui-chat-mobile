@@ -3,6 +3,13 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.41.1 · 17/11/2026
+### Sửa lỗi bảo mật
+- Đăng nhập SSO (OIDC) dùng PKCE: mỗi lần bấm đăng nhập SSO, app tạo một mã bí mật chỉ giữ trong bộ nhớ và gửi bản
+  băm lên máy chủ; khi trình duyệt trả về, app phải trình đúng mã bí mật đó mới đổi được token. Trước đây một app khác
+  cài trên máy đăng ký cùng đường dẫn `webtui://` có thể chặn mã đăng nhập và chiếm phiên. Giao diện không đổi.
+  - Cần máy chủ bản có PKCE (web 1.46.3 trở lên) mới được bảo vệ; với máy chủ cũ, SSO vẫn đăng nhập được như trước.
+
 ## 1.41.0 · 17/11/2026
 ### Tính năng
 - Ấn giữ một cuộc trò chuyện ở màn Tin nhắn để mở menu thao tác (giống nút ba chấm của Zalo trên web)
