@@ -3,6 +3,25 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.42.0 · 17/11/2026
+### Tính năng
+- Màn cuộc gọi đến mới (tông sáng, có hiệu ứng), bộ âm thanh cuộc gọi mới; sửa lỗi không hiện tên người gọi
+  - Cuộc gọi đến khi đang mở app hiện toàn màn hình thay cho hộp thoại nhỏ: nền trắng pha nhẹ màu theo người gọi (giao
+    diện tối thì dịu theo nền tối), ảnh đại diện lớn, tên người gọi chữ lớn, nhãn Cuộc gọi thoại / video đến. Hai nút
+    tròn lớn Từ chối (đỏ) và Trả lời (xanh; gọi video thì biểu tượng máy quay).
+  - Hiệu ứng cuộc gọi: màn trượt lên khi xuất hiện, ba vòng sóng lan ra quanh ảnh, ảnh "thở" nhẹ, nút Trả lời lắc như
+    chuông reo và nảy nhẹ, ba chấm chạy ở dòng "đang gọi cho bạn", mảng màu nền trôi chậm. Máy bật giảm chuyển động thì
+    tắt hết; màn nhỏ tự thu gọn, không tràn.
+  - Thêm nút Nhắn tin (từ chối rồi mở ngay trò chuyện với người gọi) và Tắt chuông (im chuông, rung mà cuộc gọi vẫn
+    chờ để trả lời). Cuộc gọi nhóm đổ chuông dùng cùng màn: tên nhóm, "người gọi đang gọi nhóm".
+  - Bộ âm thanh mới: nhạc chuông khi có cuộc gọi đến (cả chuông gốc Android khi app chạy nền), tiếng chờ khi gọi đi,
+    tiếng kết thúc khi gác máy / bên kia gác / bị từ chối, lời báo không liên lạc được khi gọi đi mà hết giờ không ai
+    bắt máy. Bỏ hai tệp chuông cũ. iPhone khi app chạy nền vẫn dùng chuông hệ thống (gói cuộc gọi chưa cho đổi).
+  - Sửa lỗi màn cuộc gọi đến chỉ ghi "Cuộc gọi đến", không có tên người gọi: báo cuộc gọi qua kết nối thời gian thực
+    (lúc đang mở app) không kèm tên, app chỉ tra danh bạ đã tải sẵn. Nay app tìm người gọi theo danh bạ / thành viên,
+    trò chuyện 1-1 của cuộc gọi, và nếu chưa có thì hỏi máy chủ danh sách thành viên cuộc trò chuyện để điền tên + ảnh
+    (màn vẫn hiện ngay, tên cập nhật khi tải xong). Màn gọi sau khi trả lời cũng mang đúng tên người gọi.
+
 ## 1.41.1 · 17/11/2026
 ### Sửa lỗi
 - iPhone (bản TestFlight): xem được video gửi trong nhóm, video và ghi âm ở mục Tệp
