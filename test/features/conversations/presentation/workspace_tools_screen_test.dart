@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/core/error/failure.dart';
+import 'package:webtui_chat/design_system/components/webtui_components.dart';
 import 'package:webtui_chat/features/conversations/domain/entities/collaboration_room.dart';
 import 'package:webtui_chat/features/conversations/presentation/screens/workspace_tools_screen.dart';
 import 'package:webtui_chat/features/work_hub/domain/entities/work_hub.dart';
@@ -75,13 +76,16 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('Việc của tôi: tiêu đề lớn + tìm, 3 cột số, 2 việc gần hạn', (
+  testWidgets('Việc của tôi: ô tìm (không tiêu đề), 3 cột số, 2 việc gần hạn', (
     tester,
   ) async {
     await pumpTab(tester);
 
-    // Tiêu đề lớn 'Công việc' với nút tìm ở đầu màn (ngoài nhóm Việc của tôi).
-    expect(find.text('Công việc'), findsOneWidget);
+    // Không có tiêu đề lớn; ô tìm ở đầu màn (ngoài nhóm Việc của tôi).
+    expect(find.text('Công việc'), findsNothing);
+    expect(find.byType(WebTuiLargeTitleBar), findsNothing);
+    expect(find.byType(WebTuiSearchBar), findsOneWidget);
+    expect(find.text('Tìm việc của tôi'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byKey(const Key('my_tasks_card')),
@@ -90,8 +94,8 @@ void main() {
       findsNothing,
     );
     expect(
-      tester.getSize(find.byKey(const Key('work_search'))).width,
-      inInclusiveRange(44, 48),
+      tester.getSize(find.byKey(const Key('work_search'))).height,
+      greaterThanOrEqualTo(40),
     );
     expect(find.text('Việc của tôi'), findsOneWidget);
     expect(find.text('Xem tất cả'), findsOneWidget);
@@ -232,7 +236,9 @@ void main() {
     expect(find.text('kênh ch-b tasks b'), findsOneWidget);
   });
 
-  testWidgets('Xem tất cả và nút tìm mở màn Việc của tôi', (tester) async {
+  testWidgets('Xem tất cả và ô tìm mở màn Việc của tôi (đã bật ô tìm)', (
+    tester,
+  ) async {
     await pumpTab(tester);
     await tester.tap(find.byKey(const Key('my_tasks_see_all')));
     await tester.pumpAndSettle();

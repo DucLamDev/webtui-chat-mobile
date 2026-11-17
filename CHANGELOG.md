@@ -3,6 +3,18 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.39.0 · 17/11/2026
+### Tính năng
+- Gọn khung các tab chính để dành chỗ cho nội dung
+  - Bỏ tiêu đề lớn "Tin nhắn", "Công việc", "Cài đặt": ô tìm kiếm nằm ngay dưới thanh trạng thái. Tab Bạn bè đổi ở bản
+    sau (cùng đợt thiết kế lại kiểu Zalo).
+  - Tab Tin nhắn: nút soạn tin (cây bút) nằm bên trái ô tìm kiếm, kính lúp nằm trong ô tìm.
+  - Tab Công việc: thay tiêu đề bằng ô tìm việc, bấm vào mở danh sách việc của tôi với ô tìm.
+  - Tab Cài đặt: bỏ tiêu đề và nút "Sửa hồ sơ"; bấm vào thẻ hồ sơ (ảnh, tên) để sửa như trước.
+  - Thanh tab nổi thấp hơn: 64 → 56 px, biểu tượng 24 px, chữ 10,5 px, giống Telegram.
+  - Chip lọc (Tất cả / Nhóm / Cá nhân / Nghiệp vụ / Chưa đọc) kiểu Messenger: không viền, nền xám nhạt, chip đang chọn
+    nền xanh nhạt chữ xanh, số đếm nằm trong chip.
+
 ## 1.38.1 · 16/11/2026
 ### Sửa lỗi
 - Trang đăng nhập / đăng ký ở giao diện tối không còn mất chữ

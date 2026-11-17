@@ -508,11 +508,11 @@ class _MessagesList extends StatelessWidget {
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          // Tiêu đề lớn cuộn đi; ô tìm + thanh lọc dính trên cùng.
-          SliverToBoxAdapter(
-            child: WebTuiLargeTitleBar(
-              title: context.strings.tabMessages,
-              actions: [
+          // Không có tiêu đề: hàng [nút soạn][ô tìm] + thanh lọc dính trên cùng.
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _PinnedSearchHeader(
+              leading: [
                 if (onCompose != null)
                   WebTuiHeaderIconButton(
                     key: const Key('compose_button'),
@@ -523,13 +523,8 @@ class _MessagesList extends StatelessWidget {
                     ),
                     onPressed: onCompose,
                   ),
-                ...searchActions,
               ],
-            ),
-          ),
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _PinnedSearchHeader(
+              trailing: searchActions,
               search: WebTuiSearchBar(
                 hintText: tr(
                   'Tìm tin nhắn, nhóm...',
@@ -651,15 +646,23 @@ List<WebTuiFilterChipData> _inboxFilterChips(ConversationHomeState state) {
   ];
 }
 
-/// Ô tìm (lề ngang 16, trên 4, dưới 8) + thanh lọc, dính trên cùng khi cuộn;
-/// có kẻ mảnh ở đáy khi danh sách trượt dưới nó.
+/// Hàng [nút soạn][ô tìm][nút phụ] (cao 44) + thanh lọc, dính trên cùng khi
+/// cuộn; có kẻ mảnh ở đáy khi danh sách trượt dưới nó.
 class _PinnedSearchHeader extends SliverPersistentHeaderDelegate {
-  _PinnedSearchHeader({required this.search, required this.filters});
+  _PinnedSearchHeader({
+    required this.search,
+    required this.filters,
+    this.leading = const [],
+    this.trailing = const [],
+  });
 
   static const double _searchHeight = 40;
+  static const double _rowHeight = 44;
   static const double _filtersHeight = 44;
-  static const double extent = 4 + _searchHeight + 8 + _filtersHeight + 4;
+  static const double extent = 4 + _rowHeight + 4 + _filtersHeight + 4;
 
+  final List<Widget> leading;
+  final List<Widget> trailing;
   final Widget search;
   final Widget filters;
 
@@ -681,13 +684,30 @@ class _PinnedSearchHeader extends SliverPersistentHeaderDelegate {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-              WebTuiSpacing.lg,
+            padding: EdgeInsets.fromLTRB(
+              leading.isEmpty ? WebTuiSpacing.lg : 6,
               4,
-              WebTuiSpacing.lg,
-              8,
+              trailing.isEmpty ? WebTuiSpacing.lg : 6,
+              4,
             ),
-            child: SizedBox(height: _searchHeight, child: search),
+            child: SizedBox(
+              height: _rowHeight,
+              child: Row(
+                children: [
+                  ...leading,
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        left: leading.isEmpty ? 0 : 4,
+                        right: trailing.isEmpty ? 0 : 4,
+                      ),
+                      child: SizedBox(height: _searchHeight, child: search),
+                    ),
+                  ),
+                  ...trailing,
+                ],
+              ),
+            ),
           ),
           SizedBox(height: _filtersHeight, child: filters),
           const Spacer(),
