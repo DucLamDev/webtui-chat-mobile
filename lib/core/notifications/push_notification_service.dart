@@ -14,6 +14,7 @@ import '../platform/native_instance_binding_service.dart';
 import '../security/instance_scope.dart';
 import '../security/secure_key_value_store.dart';
 import '../security/server_account_registry.dart';
+import 'fcm_token_reader.dart';
 import 'firebase_runtime_options.dart';
 import 'native_incoming_call_service.dart';
 import 'scoped_local_notification_service.dart';
@@ -36,6 +37,12 @@ Future<void> webTuiFirebaseMessagingBackgroundHandler(
       fallbackWorkspaceId: data['workspace_id']?.toString() ?? '',
       data: data,
     );
+    return;
+  }
+  if (systemShowsRemoteAlert(
+    isIOS: Platform.isIOS,
+    hasNotification: message.notification != null,
+  )) {
     return;
   }
   await displayScopedDataOnlyNotification(
@@ -204,6 +211,8 @@ final class PushNotificationService {
   bool _tokenRefreshListening = false;
   bool _messageHandlersStarted = false;
   bool _disposed = false;
+  Timer? _fcmTokenRetryTimer;
+  int _fcmTokenRetryCount = 0;
   StreamSubscription<String>? _tokenRefreshSubscription;
   StreamSubscription<String>? _voipTokenSubscription;
   StreamSubscription<RemoteMessage>? _messageOpenedSubscription;
@@ -221,6 +230,7 @@ final class PushNotificationService {
     }
     final ticket = _workspaceRegistration.select(normalizedWorkspaceId);
     _registeredKey = null;
+    _cancelFcmTokenRetry();
     return _workspaceRegistration.enqueue(
       ticket,
       () => _registerForWorkspace(ticket),
@@ -278,6 +288,10 @@ final class PushNotificationService {
       if (!_canContinue(ticket)) return;
     }
     _registeredKey = key;
+    _scheduleFcmTokenRetry(
+      ticket,
+      needed: Platform.isIOS && firebase && canReceivePush && token == null,
+    );
     if (canReceivePush) {
       _voipTokenSubscription ??= NativeIncomingCallService.voipTokens.listen((
         nextToken,
@@ -372,6 +386,7 @@ final class PushNotificationService {
   Future<void> unregister() {
     if (_disposed) return Future<void>.value();
     _registeredKey = null;
+    _cancelFcmTokenRetry();
     return _workspaceRegistration.clearAndEnqueue(() async {
       final device = await _deviceIdentityRepository.currentDevice();
       await _api.delete<Object>('/api/v1/mobile/devices/${_e(device.id)}');
@@ -386,6 +401,7 @@ final class PushNotificationService {
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
+    _cancelFcmTokenRetry();
     _workspaceRegistration.invalidate();
     await _tokenRefreshSubscription?.cancel();
     await _voipTokenSubscription?.cancel();
@@ -464,14 +480,56 @@ final class PushNotificationService {
     };
   }
 
-  Future<String?> _readFcmToken() async {
-    try {
-      final token = await FirebaseMessaging.instance.getToken();
-      final trimmed = token?.trim();
-      return trimmed == null || trimmed.isEmpty ? null : trimmed;
-    } on Object {
-      return null;
+  Future<String?> _readFcmToken() {
+    final messaging = FirebaseMessaging.instance;
+    return readFcmTokenWhenReady(
+      waitForApnsToken: Platform.isIOS,
+      // Gọi lại bước xin mã Apple của firebase_messaging (đã bỏ qua lúc mở app
+      // vì Firebase khởi động từ Dart) và giao mã Apple đang giữ cho Firebase.
+      prepareApns: () => messaging.setAutoInitEnabled(true),
+      readApnsToken: messaging.getAPNSToken,
+      readFcmToken: messaging.getToken,
+    );
+  }
+
+  /// iPhone có quyền thông báo mà chưa có mã FCM (mã Apple đến muộn): đăng ký
+  /// lại sau vài nhịp. firebase_messaging trên iOS không tự báo mã FCM mới, nên
+  /// không thử lại thì máy chỉ có mã ở lần mở app sau.
+  void _scheduleFcmTokenRetry(
+    WorkspaceRegistrationTicket ticket, {
+    required bool needed,
+  }) {
+    _fcmTokenRetryTimer?.cancel();
+    _fcmTokenRetryTimer = null;
+    if (!needed) {
+      _fcmTokenRetryCount = 0;
+      return;
     }
+    if (_fcmTokenRetryCount >= fcmTokenRetryDelays.length) return;
+    final delay = fcmTokenRetryDelays[_fcmTokenRetryCount];
+    _fcmTokenRetryCount += 1;
+    _fcmTokenRetryTimer = Timer(delay, () {
+      _fcmTokenRetryTimer = null;
+      if (!_canContinue(ticket)) return;
+      _registeredKey = null;
+      unawaited(
+        _workspaceRegistration
+            .enqueue(ticket, () => _registerForWorkspace(ticket))
+            .catchError((Object _) {
+              // Mất mạng lúc gửi lên máy chủ: vẫn thử nhịp kế tiếp (tối đa
+              // đủ số nhịp), không để máy kẹt ở "không nhận thông báo".
+              if (_canContinue(ticket)) {
+                _scheduleFcmTokenRetry(ticket, needed: true);
+              }
+            }),
+      );
+    });
+  }
+
+  void _cancelFcmTokenRetry() {
+    _fcmTokenRetryTimer?.cancel();
+    _fcmTokenRetryTimer = null;
+    _fcmTokenRetryCount = 0;
   }
 
   Future<void> _upsertDevice({
