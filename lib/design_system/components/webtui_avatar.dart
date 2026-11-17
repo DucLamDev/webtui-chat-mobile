@@ -273,6 +273,7 @@ class WebTuiBoundedNetworkImage extends StatelessWidget {
     this.maxBytes = webTuiMaxBrandImageBytes,
     this.allowPublicRequest = false,
     this.semanticLabel,
+    this.loading,
     super.key,
   });
 
@@ -280,6 +281,9 @@ class WebTuiBoundedNetworkImage extends StatelessWidget {
   final double width;
   final double height;
   final Widget fallback;
+
+  /// Hiện trong lúc tải; trống thì dùng [fallback].
+  final Widget? loading;
   final BoxFit fit;
   final AlignmentGeometry alignment;
   final int maxBytes;
@@ -318,7 +322,7 @@ class WebTuiBoundedNetworkImage extends StatelessWidget {
       height: height,
       semanticLabel: semanticLabel,
       fallback: fallback,
-      loading: fallback,
+      loading: loading ?? fallback,
     );
   }
 }

@@ -7,6 +7,7 @@ import '../../../../core/result/result.dart';
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
+import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
@@ -40,13 +41,14 @@ class AppSettingsScreen extends ConsumerWidget {
       });
     }
 
+    // Sáng: nền xám nhạt, mỗi nhóm một thẻ trắng bo góc (kiểu Cài đặt
+    // iPhone). Tối: nền trang trùng nền các dòng, liền một mảng.
+    final pageColor = _settingsPageColor();
     return Scaffold(
-      // Nền trang trùng nền các dòng (sáng: trắng; tối: nền tối) để màn liền
-      // một mảng như app, không lộ dải xám giữa các nhóm như trang web.
-      backgroundColor: WebTuiColors.page,
+      backgroundColor: pageColor,
       appBar: AppBar(
         title: Text(strings.appSettingsTitle),
-        backgroundColor: WebTuiColors.page,
+        backgroundColor: pageColor,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
       ),
@@ -89,7 +91,13 @@ class AppSettingsScreen extends ConsumerWidget {
                           dimension: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : TextButton(
+                      : SettingsActionButton(
+                          label:
+                              notificationPermission.valueOrNull == 'granted' ||
+                                  notificationPermission.valueOrNull ==
+                                      'provisional'
+                              ? strings.recheck
+                              : strings.allow,
                           onPressed: workspaceId == null
                               ? null
                               : () => _requestNotificationPermission(
@@ -97,13 +105,6 @@ class AppSettingsScreen extends ConsumerWidget {
                                   ref,
                                   workspaceId,
                                 ),
-                          child: Text(
-                            notificationPermission.valueOrNull == 'granted' ||
-                                    notificationPermission.valueOrNull ==
-                                        'provisional'
-                                ? strings.recheck
-                                : strings.allow,
-                          ),
                         ),
                 ),
                 WebTuiSettingRow(
@@ -203,7 +204,10 @@ class AppSettingsScreen extends ConsumerWidget {
                               _setAppLock(context, ref, value),
                         ),
                 ),
-                const AppLockTimeoutSettingRow(),
+                // Dòng tự ẩn (trả SizedBox) vẫn sinh đường kẻ trong thẻ, nên
+                // chỉ thêm khi chắc chắn hiện.
+                if (appLockEnabled.valueOrNull == true)
+                  const AppLockTimeoutSettingRow(),
                 if (ref
                         .watch(activeServerDiscoveryProvider)
                         ?.capabilities
@@ -218,7 +222,8 @@ class AppSettingsScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
-                CallPrivacySettingRow(workspaceId: workspaceId),
+                if (workspaceId?.trim().isNotEmpty == true)
+                  CallPrivacySettingRow(workspaceId: workspaceId),
               ],
             ),
             _SettingsSection(
@@ -227,11 +232,11 @@ class AppSettingsScreen extends ConsumerWidget {
                 WebTuiSettingRow(
                   title: strings.clearWorkspaceCache,
                   icon: WebTuiIcons.clearCache,
-                  trailing: TextButton(
+                  trailing: SettingsActionButton(
+                    label: strings.delete,
                     onPressed: workspaceId == null
                         ? null
                         : () => controller.clearWorkspaceCache(workspaceId),
-                    child: Text(strings.delete),
                   ),
                 ),
               ],
@@ -492,14 +497,14 @@ class _ReleasePolicyRow extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (updateRecommended && updateUrl != null)
-            TextButton(
+            SettingsActionButton(
+              label: updateRequired ? strings.mandatory : strings.update,
               onPressed: () => onOpenUpdate(updateUrl),
-              child: Text(updateRequired ? strings.mandatory : strings.update),
             )
           else
-            TextButton(
+            SettingsActionButton(
+              label: isChecking ? strings.checking : strings.check,
               onPressed: isChecking ? null : onCheck,
-              child: Text(isChecking ? strings.checking : strings.check),
             ),
         ],
       ),
@@ -573,8 +578,13 @@ class _LanguageRow extends StatelessWidget {
   }
 }
 
-/// Một nhóm cài đặt trên nền liền: tiêu đề nhóm màu nhấn ngay trên các dòng,
-/// các nhóm cách nhau bằng khoảng trắng (không dải xám, không viền khối).
+Color _settingsPageColor() => WebTuiColors.brightness == Brightness.light
+    ? WebTuiColors.groupBackground
+    : WebTuiColors.page;
+
+/// Một nhóm cài đặt. Tiêu đề nhóm chữ nhỏ màu xám (không dùng màu nhấn).
+/// Sáng: các dòng nằm trong thẻ trắng bo góc, cách mép 16. Tối: các dòng
+/// liền nền trang, các nhóm cách nhau bằng khoảng trống.
 class _SettingsSection extends StatelessWidget {
   const _SettingsSection({required this.label, required this.children});
 
@@ -583,15 +593,21 @@ class _SettingsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final grouped = WebTuiColors.brightness == Brightness.light;
+    final inset = grouped ? WebTuiSpacing.lg : 0.0;
+    final rows = WebTuiListSurface(
+      dividerIndent: webTuiSettingDividerIndent,
+      children: children,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(
-            WebTuiSpacing.lg,
-            WebTuiSpacing.xl,
-            WebTuiSpacing.lg,
-            WebTuiSpacing.xs,
+          padding: EdgeInsets.fromLTRB(
+            inset + WebTuiSpacing.lg,
+            WebTuiSpacing.xxl,
+            inset + WebTuiSpacing.lg,
+            WebTuiSpacing.sm,
           ),
           child: Semantics(
             header: true,
@@ -600,18 +616,82 @@ class _SettingsSection extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: WebTuiTypography.labelSmall.copyWith(
-                color: WebTuiColors.primary,
-                fontSize: 13.5,
-                fontWeight: FontWeight.w600,
+                color: WebTuiColors.textMuted,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.1,
               ),
             ),
           ),
         ),
-        WebTuiListSurface(
-          dividerIndent: webTuiSettingDividerIndent,
-          children: children,
-        ),
+        if (grouped)
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: inset),
+            child: ClipRRect(
+              key: const Key('settings_section_card'),
+              borderRadius: BorderRadius.circular(WebTuiRadii.md),
+              child: rows,
+            ),
+          )
+        else
+          rows,
       ],
+    );
+  }
+}
+
+/// Nút hành động ở cuối dòng cài đặt (Cho phép, Xóa, Kiểm tra...): viên
+/// thuốc nền xám nhạt, chữ đậm màu chữ chính, cao 32 (vùng bấm 44). Không
+/// dùng chữ xanh trơn như nút web. `onPressed` null thì chữ nhạt, không bấm.
+class SettingsActionButton extends StatelessWidget {
+  const SettingsActionButton({
+    required this.label,
+    required this.onPressed,
+    super.key,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null;
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: label,
+      excludeSemantics: true,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 44),
+        child: Center(
+          widthFactor: 1,
+          child: Material(
+            color: WebTuiColors.chipBackground,
+            shape: const StadiumBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onPressed,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 6,
+                ),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  style: WebTuiTypography.labelSmall.copyWith(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: enabled
+                        ? WebTuiColors.textPrimary
+                        : WebTuiColors.textMuted,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

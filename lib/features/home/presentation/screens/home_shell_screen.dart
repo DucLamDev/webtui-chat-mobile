@@ -39,6 +39,7 @@ import '../../../conversations/presentation/controllers/channel_membership_event
 import '../../../conversations/presentation/controllers/chat_room_controller.dart';
 import '../../../conversations/presentation/controllers/conversation_home_controller.dart';
 import '../../../conversations/presentation/controllers/messages_tab_unread.dart';
+import '../../../conversations/presentation/controllers/peer_presence.dart';
 import '../../../conversations/presentation/controllers/pending_chat_share_controller.dart';
 import '../../../conversations/presentation/screens/webrtc_call_screen.dart';
 import '../../../conversations/presentation/screens/workspace_tools_screen.dart';
@@ -186,6 +187,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     }
     if (state == AppLifecycleState.resumed) {
       _activatePresence(workspaceId);
+      refreshPresenceNow(ref.read);
       _startIncomingCallPolling(workspaceId);
       unawaited(_groupCalls.restoreRinging(workspaceId));
       unawaited(_runWorkspaceCatchUp(workspaceId));
@@ -1563,9 +1565,18 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           if (event.workspaceId != workspaceId) {
             return;
           }
+          if (handlePresenceRealtimeEvent(
+            read: ref.read,
+            event: event,
+            workspaceId: workspaceId,
+          )) {
+            return;
+          }
           if (event.type == ConversationRealtimeEventType.reconnected) {
             // Mỗi phòng đang mở cũng nhận sự kiện này; danh sách chỉ tải 1 lần.
             if (event.channelId.isNotEmpty) return;
+            // Sự kiện hiện diện trong lúc mất kết nối không được đẩy lại.
+            refreshPresenceNow(ref.read);
             final home = conversationHomeControllerProvider(workspaceId);
             unawaited(ref.read(home.notifier).syncSilently());
             // WebSocket nối lại = có mạng lại: gửi tin chờ của mọi hội thoại.
