@@ -3,6 +3,15 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.41.1 · 17/11/2026
+### Sửa lỗi
+- iPhone (bản TestFlight): xem được video gửi trong nhóm, video và ghi âm ở mục Tệp
+  - Trước đây mở lên chỉ thấy ảnh bìa, hình không chạy, đồng hồ đứng ở 0:00, không báo lỗi. Nguyên nhân: trên iPhone, app
+    phát thẳng từ đường dẫn phát dần của máy chủ và trình phát của iPhone đứng ở bước chuẩn bị mà không báo lỗi, nên app
+    cũng không lùi về cách khác. Tin thoại trong tin nhắn (tải về máy rồi mới phát) vẫn nghe được bình thường.
+  - Nay trên iPhone, video và ghi âm luôn được tải về máy rồi phát (như tin thoại). Video lớn sẽ chờ tải xong mới chạy.
+  - Trên Android, nếu phát dần quá 12 giây chưa sẵn sàng thì app tự tải tệp về rồi phát, không đứng hình mãi.
+
 ## 1.41.0 · 17/11/2026
 ### Tính năng
 - Ấn giữ một cuộc trò chuyện ở màn Tin nhắn để mở menu thao tác (giống nút ba chấm của Zalo trên web)
