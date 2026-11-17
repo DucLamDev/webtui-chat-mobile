@@ -10,6 +10,7 @@ import 'package:webtui_chat/design_system/components/webtui_components.dart';
 import 'package:webtui_chat/design_system/theme/webtui_theme.dart';
 import 'package:webtui_chat/design_system/tokens/webtui_colors.dart';
 import 'package:webtui_chat/design_system/tokens/webtui_spacing.dart';
+import '../../../support/system_font.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -115,25 +116,14 @@ void main() {
 }
 
 Future<void> _loadBundledFonts() async {
-  final textLoader = FontLoader('WebTuiRoboto');
-  for (final path in const [
-    'assets/fonts/roboto-regular.ttf',
-    'assets/fonts/roboto-medium.ttf',
-    'assets/fonts/roboto-bold.ttf',
-  ]) {
-    textLoader.addFont(rootBundle.load(path));
-  }
+  await loadSystemRobotoForTests();
   final iconLoader = FontLoader('MaterialIcons')
     ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
   final cupertinoIconLoader =
       FontLoader('packages/cupertino_icons/CupertinoIcons')..addFont(
         rootBundle.load('packages/cupertino_icons/assets/CupertinoIcons.ttf'),
       );
-  await Future.wait([
-    textLoader.load(),
-    iconLoader.load(),
-    cupertinoIconLoader.load(),
-  ]);
+  await Future.wait([iconLoader.load(), cupertinoIconLoader.load()]);
 }
 
 Future<void> _capture({

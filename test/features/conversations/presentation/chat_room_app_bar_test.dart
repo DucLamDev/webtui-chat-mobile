@@ -1,29 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/design_system/icons/webtui_icons.dart';
 import 'package:webtui_chat/design_system/theme/webtui_theme.dart';
 import 'package:webtui_chat/design_system/tokens/webtui_colors.dart';
 import 'package:webtui_chat/features/conversations/presentation/controllers/peer_presence.dart';
 import 'package:webtui_chat/features/conversations/presentation/widgets/chat_room_app_bar.dart';
+import '../../../support/system_font.dart';
 
 /// Đầu phòng chat đo bằng phông chữ thật của app (Roboto đóng gói kèm) để biết
 /// tên người có bị cắt "…" trên các khổ điện thoại thường gặp hay không.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUpAll(() async {
-    final roboto = FontLoader('WebTuiRoboto');
-    for (final path in const [
-      'assets/fonts/roboto-regular.ttf',
-      'assets/fonts/roboto-medium.ttf',
-      'assets/fonts/roboto-bold.ttf',
-    ]) {
-      roboto.addFont(rootBundle.load(path));
-    }
-    await roboto.load();
-  });
+  setUpAll(loadSystemRobotoForTests);
 
   Future<void> pumpHeader(
     WidgetTester tester, {

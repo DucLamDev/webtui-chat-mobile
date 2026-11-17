@@ -21,6 +21,13 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
 - Bước kiểm tra tự động của app (định dạng mã) báo đỏ trên nhánh chính sau bản 1.47.x vì 2 tệp chưa định dạng, nên
   tag TestFlight / Google Play không dựng được: đã định dạng lại, không đổi mã.
 
+## 1.47.2 · 17/11/2026
+### Giao diện
+- Chữ trong app dùng phông của hệ thống giống Zalo trên điện thoại: iPhone hiện bằng San Francisco (phông của Apple),
+  Android hiện bằng Roboto. Trước đây app tự kèm phông Roboto nhưng menu, hộp thoại, một số nút lại theo phông hệ
+  thống nên trên iPhone chữ bị lẫn hai kiểu; nay toàn app cùng một phông, chữ Việt hiển thị chuẩn của máy. App nhẹ hơn
+  khoảng 0,5 MB vì không còn kèm phông chữ.
+
 ## 1.47.1 · 17/11/2026
 ### Sửa lỗi
 - Bớt giật / đơ khi nhiều người gọi nhau liên tục (máy chủ không quá tải; nguyên nhân ở app)

@@ -79,7 +79,6 @@ class SharedFileTypeBadge extends StatelessWidget {
         child: Text(
           style.letter,
           style: TextStyle(
-            fontFamily: WebTuiTypography.fontFamily,
             color: Colors.white,
             fontWeight: FontWeight.w800,
             fontSize: isPdf ? size * 0.27 : size * 0.44,
@@ -444,7 +443,6 @@ class _SharedMediaGridTileState extends State<SharedMediaGridTile>
                                   Text(
                                     sharedFileDurationText(duration),
                                     style: const TextStyle(
-                                      fontFamily: WebTuiTypography.fontFamily,
                                       color: Colors.white,
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
@@ -818,7 +816,6 @@ class _FilterPill extends StatelessWidget {
                     Text(
                       label,
                       style: TextStyle(
-                        fontFamily: WebTuiTypography.fontFamily,
                         fontSize: 14,
                         fontWeight: selected
                             ? FontWeight.w800
@@ -831,7 +828,6 @@ class _FilterPill extends StatelessWidget {
                       Text(
                         '$count',
                         style: TextStyle(
-                          fontFamily: WebTuiTypography.fontFamily,
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: selected
