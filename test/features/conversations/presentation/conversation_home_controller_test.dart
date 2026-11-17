@@ -7,8 +7,10 @@ import 'package:webtui_chat/features/conversations/application/use_cases/load_co
 import 'package:webtui_chat/features/conversations/application/use_cases/open_direct_conversation_use_case.dart';
 import 'package:webtui_chat/features/conversations/domain/entities/channel_file.dart';
 import 'package:webtui_chat/features/conversations/domain/entities/chat_message.dart';
+import 'package:webtui_chat/features/conversations/domain/entities/conversation_list_prefs.dart';
 import 'package:webtui_chat/features/conversations/domain/entities/conversation_realtime_event.dart';
 import 'package:webtui_chat/features/conversations/domain/entities/conversation_summary.dart';
+import 'package:webtui_chat/features/conversations/domain/repositories/conversation_list_prefs_repository.dart';
 import 'package:webtui_chat/features/conversations/domain/repositories/conversation_repository.dart';
 import 'package:webtui_chat/features/conversations/presentation/controllers/conversation_home_controller.dart';
 import 'package:webtui_chat/features/workspace/domain/repositories/workspace_session_repository.dart';
@@ -423,6 +425,198 @@ void main() {
     controller.dispose();
     expect(realtime.watched.last, isEmpty);
   });
+
+  group('menu ấn giữ: ghim / chưa đọc / ẩn lưu trên máy', () {
+    List<String> inboxIds(ConversationHomeController controller) => [
+      for (final item in controller.state.inbox) item.channelId,
+    ];
+
+    _FakeConversationRepository twoChats() => _FakeConversationRepository(
+      conversations: [
+        _summary(
+          id: 'dm-new',
+          channelId: 'dm-new',
+          updatedAt: DateTime.utc(2026, 11, 2),
+        ),
+        _summary(
+          id: 'dm-old',
+          channelId: 'dm-old',
+          updatedAt: DateTime.utc(2026, 11, 1),
+        ),
+      ],
+    );
+
+    test('ghim đưa lên đầu, lưu theo tài khoản + không gian', () async {
+      final prefsRepo = _FakeListPrefsRepository();
+      final controller = _controller(twoChats(), listPrefs: prefsRepo);
+      addTearDown(controller.dispose);
+      await controller.load();
+      expect(inboxIds(controller), ['dm-new', 'dm-old']);
+
+      controller.setPinned(controller.state.inbox.last, true);
+      expect(inboxIds(controller), ['dm-old', 'dm-new']);
+      expect(controller.state.inbox.first.favorite, isTrue);
+      expect(prefsRepo.saved['me:workspace-1']?.pinned, {'dm-old'});
+
+      controller.setPinned(controller.state.inbox.first, false);
+      expect(inboxIds(controller), ['dm-new', 'dm-old']);
+    });
+
+    test('mở lại app: đọc tuỳ chọn đã lưu trước khi dựng danh sách', () async {
+      final prefsRepo = _FakeListPrefsRepository()
+        ..saved['me:workspace-1'] = ConversationListPrefs.empty.withPinned(
+          'dm-old',
+          true,
+        );
+      final controller = _controller(twoChats(), listPrefs: prefsRepo);
+      addTearDown(controller.dispose);
+      await controller.load();
+      expect(inboxIds(controller), ['dm-old', 'dm-new']);
+
+      // Tài khoản khác trên cùng máy chủ không thấy ghim của người này.
+      final other = _controller(
+        twoChats(),
+        listPrefs: prefsRepo,
+        currentUserId: () => 'nguoi-khac',
+      );
+      addTearDown(other.dispose);
+      await other.load();
+      expect(inboxIds(other), ['dm-new', 'dm-old']);
+    });
+
+    test('đánh dấu chưa đọc: hiện số 1, mở hội thoại thì hết', () async {
+      final controller = _controller(
+        twoChats(),
+        listPrefs: _FakeListPrefsRepository(),
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+
+      controller.setMarkedUnread(controller.state.inbox.first, true);
+      expect(controller.state.inbox.first.unreadCount, 1);
+      expect(controller.state.unreadBadgeCount(), 1);
+
+      controller.selectConversation(controller.state.inbox.first);
+      expect(controller.state.listPrefs.markedUnread, isEmpty);
+      expect(controller.state.inbox.first.unreadCount, 0);
+    });
+
+    test('đánh dấu đã đọc xoá số chưa đọc trên danh sách', () async {
+      final repository = _FakeConversationRepository(
+        conversations: [_summary(id: 'dm', channelId: 'dm', unread: 4)],
+      );
+      final controller = _controller(repository);
+      addTearDown(controller.dispose);
+      await controller.load();
+
+      controller.setMarkedUnread(controller.state.inbox.single, false);
+      expect(controller.state.inbox.single.unreadCount, 0);
+      expect(controller.state.unreadBadgeCount(), 0);
+    });
+
+    test(
+      'ẩn: mất khỏi danh sách, tìm vẫn thấy, tin mới thì hiện lại',
+      () async {
+        final repository = twoChats();
+        final controller = _controller(
+          repository,
+          listPrefs: _FakeListPrefsRepository(),
+        );
+        addTearDown(controller.dispose);
+        await controller.load();
+
+        final target = controller.state.inbox.first;
+        controller.setHidden(target, true);
+        expect(inboxIds(controller), ['dm-old']);
+        expect(controller.state.isHiddenOnDevice(target), isTrue);
+
+        controller.setSearchQuery('Lam');
+        expect(inboxIds(controller), contains('dm-new'));
+        controller.setSearchQuery('');
+
+        // Có tin mới (hoạt động sau mốc ẩn): tải lại thì hiện.
+        repository.conversations = [
+          _summary(
+            id: 'dm-new',
+            channelId: 'dm-new',
+            updatedAt: DateTime.utc(2026, 11, 3),
+          ),
+          repository.conversations.last,
+        ];
+        await controller.load();
+        expect(inboxIds(controller), ['dm-new', 'dm-old']);
+      },
+    );
+
+    test('gỡ khỏi danh sách: bỏ ghim, bỏ chọn hội thoại đang mở', () async {
+      final controller = _controller(
+        twoChats(),
+        listPrefs: _FakeListPrefsRepository(),
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+      controller.setPinned(controller.state.inbox.last, true);
+      final target = controller.state.inbox.first;
+      controller.selectConversation(target);
+
+      controller.removeFromList(target);
+      expect(inboxIds(controller), ['dm-new']);
+      expect(controller.state.selectedConversation, isNull);
+      expect(controller.state.listPrefs.pinned, isEmpty);
+    });
+
+    test('tắt tiếng cập nhật ngay trên danh sách', () async {
+      final controller = _controller(twoChats());
+      addTearDown(controller.dispose);
+      await controller.load();
+
+      controller.setMutedLocally('dm-old', true);
+      expect(
+        controller.state.inbox.firstWhere((c) => c.channelId == 'dm-old').muted,
+        isTrue,
+      );
+      expect(
+        controller.state.inbox.firstWhere((c) => c.channelId == 'dm-new').muted,
+        isFalse,
+      );
+    });
+
+    test('đọc tuỳ chọn lỗi: danh sách vẫn tải bình thường', () async {
+      final controller = _controller(
+        twoChats(),
+        listPrefs: _FakeListPrefsRepository(failRead: true),
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+      expect(inboxIds(controller), ['dm-new', 'dm-old']);
+    });
+  });
+}
+
+final class _FakeListPrefsRepository
+    implements ConversationListPrefsRepository {
+  _FakeListPrefsRepository({this.failRead = false});
+
+  final bool failRead;
+  final Map<String, ConversationListPrefs> saved = {};
+
+  @override
+  Future<ConversationListPrefs> read({
+    required String userId,
+    required String workspaceId,
+  }) async {
+    if (failRead) throw StateError('hỏng bộ nhớ');
+    return saved['$userId:$workspaceId'] ?? ConversationListPrefs.empty;
+  }
+
+  @override
+  Future<void> save({
+    required String userId,
+    required String workspaceId,
+    required ConversationListPrefs prefs,
+  }) async {
+    saved['$userId:$workspaceId'] = prefs;
+  }
 }
 
 final class _FakeRealtimeRepository implements ConversationRealtimeRepository {
@@ -516,8 +710,10 @@ ConversationHomeController _controller(
   bool automationEnabled = false,
   ConversationRealtimeRepository? realtime,
   String? Function()? currentUserId,
+  ConversationListPrefsRepository? listPrefs,
 }) {
   return ConversationHomeController(
+    listPrefs: listPrefs,
     workspaceId: 'workspace-1',
     loadConversationHomeUseCase: LoadConversationHomeUseCase(
       conversationRepository: repository,
@@ -541,6 +737,7 @@ ConversationSummary _summary({
   int unread = 0,
   bool isAutomation = false,
   String? slug,
+  DateTime? updatedAt,
 }) {
   return ConversationSummary(
     id: id,
@@ -549,7 +746,7 @@ ConversationSummary _summary({
     kind: kind,
     title: kind == ConversationKind.direct ? 'Lam Đức' : 'Thông báo chung',
     preview: 'Tin nhắn mới',
-    updatedAt: DateTime.utc(2026, 7, 16),
+    updatedAt: updatedAt ?? DateTime.utc(2026, 7, 16),
     unreadCount: unread,
     channelVisibility: kind == ConversationKind.direct
         ? ChannelVisibility.direct

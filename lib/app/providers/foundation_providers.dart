@@ -115,6 +115,7 @@ import '../../features/conversations/data/repositories/collaboration_task_reposi
 import '../../features/conversations/data/repositories/conversation_repository_impl.dart';
 import '../../features/conversations/data/repositories/image_picker_message_attachment_repository.dart';
 import '../../features/conversations/data/repositories/local_conversation_draft_repository.dart';
+import '../../features/conversations/data/repositories/local_conversation_list_prefs_repository.dart';
 import '../../features/conversations/data/repositories/local_message_outbox_repository.dart';
 import '../../features/conversations/data/repositories/message_attachment_repository_impl.dart';
 import '../../features/conversations/data/repositories/rich_message_repository_impl.dart';
@@ -125,6 +126,7 @@ import '../../features/conversations/domain/repositories/channel_avatar_reposito
 import '../../features/conversations/domain/repositories/channel_exit_repository.dart';
 import '../../features/conversations/domain/repositories/collaboration_document_history_repository.dart';
 import '../../features/conversations/domain/repositories/collaboration_task_repository.dart';
+import '../../features/conversations/domain/repositories/conversation_list_prefs_repository.dart';
 import '../../features/conversations/domain/repositories/conversation_repository.dart';
 import '../../features/conversations/domain/repositories/message_attachment_repository.dart';
 import '../../features/conversations/domain/repositories/message_outbox_repository.dart';
@@ -1232,6 +1234,14 @@ final updatePresenceUseCaseProvider = Provider<UpdatePresenceUseCase>((ref) {
 final conversationDraftRepositoryProvider =
     Provider<ConversationDraftRepository>((ref) {
       return LocalConversationDraftRepository(
+        ref.watch(appDatabaseProvider),
+        ref.watch(activeInstanceScopeProvider),
+      );
+    });
+
+final conversationListPrefsRepositoryProvider =
+    Provider<ConversationListPrefsRepository>((ref) {
+      return LocalConversationListPrefsRepository(
         ref.watch(appDatabaseProvider),
         ref.watch(activeInstanceScopeProvider),
       );
