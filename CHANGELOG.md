@@ -3,7 +3,7 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
-## 1.43.1 · 17/11/2026
+## 1.44.1 · 17/11/2026
 ### Sửa lỗi
 - Cài đặt: thanh Âm lượng và Cỡ chữ nay có tác dụng thật (trước đây kéo chỉ di chuyển nút, không đổi gì, không lưu)
   - Cỡ chữ: 7 nấc từ 85% tới 130% (mặc định 100%); kéo là chữ cả app đổi ngay, nhân thêm với cỡ chữ của điện thoại, tổng
@@ -12,6 +12,26 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
     liên lạc được, nấc 10%; kéo về 0 thì không đổ chuông (vẫn rung, vẫn hiện cuộc gọi). Thả tay khỏi thanh là phát thử tiếng chuông khoảng 1,5 giây. Âm báo tin nhắn
     do điện thoại phát theo âm lượng thông báo của máy nên không đổi theo thanh này.
   - Chữ to không còn làm nhãn "Âm lượng" bị cắt thành "Âm lượ…".
+
+## 1.44.0 · 17/11/2026
+### Tính năng
+- Đẩy tag là tự cập nhật app trên CH Play
+  - Sau khi đẩy tag `mobile-vX.Y.Z`, GitHub build, ký, kiểm bản AAB rồi tự đưa lên Google Play, không phải tải AAB về và
+    tạo bản phát hành bằng tay trên Play Console nữa. Mặc định vẫn tắt; bật bằng biến `ENABLE_ANDROID_PLAY_UPLOAD=true`
+    trong môi trường `production` của GitHub, kèm khoá tài khoản dịch vụ Google `PLAY_SERVICE_ACCOUNT_JSON`.
+  - Chọn kênh bằng `PLAY_TRACK` (mặc định `internal`; `production` là cập nhật thẳng cho người dùng). Muốn phát hành dần
+    thì đặt `PLAY_ROLLOUT_FRACTION` (vd `0.2` = 20% người dùng), sau đó tăng dần trên Play Console.
+  - Mục "Có gì mới" trên CH Play lấy từ lời nhắn của tag (`git tag -a ... -m "..."`, tối đa 500 ký tự); tag không có lời
+    nhắn thì ghi "Cải thiện và sửa lỗi.". Chữ ký số của tag được lọc bỏ, không lọt vào ghi chú.
+  - Bản lên kênh `production` vẫn qua Google duyệt như khi tải lên bằng tay; người dùng nhận bản mới sau khi duyệt xong.
+
+## 1.43.1 · 17/11/2026
+### Sửa lỗi
+- iPhone không nhận được thông báo tin nhắn khi thoát ra màn hình chính: app chưa bao giờ xin mã thông báo của Apple nên
+  máy chủ không có địa chỉ để gửi tin (mọi iPhone đăng ký "không nhận thông báo"). Nay app xin mã ngay khi mở, chờ có mã
+  rồi mới đăng ký với máy chủ, và tự thử lại sau 10 giây / 30 giây / 2 phút nếu mã đến muộn.
+- Chuẩn bị cho thông báo hiển thị từ máy chủ: tin đẩy nào iPhone đã tự hiện thì app không hiện thêm một thông báo nữa.
+- Lưu ý: cuộc gọi đến trên iPhone khi app đã thoát còn cần khoá APNs đặt trên máy chủ (không nằm trong bản app).
 
 ## 1.43.0 · 17/11/2026
 ### Tính năng

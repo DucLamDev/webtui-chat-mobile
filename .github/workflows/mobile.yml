@@ -167,17 +167,91 @@ jobs:
             release/native-debug-symbols.zip
           if-no-files-found: error
           retention-days: 30
-      # Tuỳ chọn: đẩy AAB lên kênh thử nội bộ của Google Play. Chỉ chạy khi bật
-      # biến ENABLE_ANDROID_PLAY_INTERNAL=true (xem docs/release-credentials.md).
-      - name: Upload AAB to Google Play internal track
-        if: ${{ vars.ENABLE_ANDROID_PLAY_INTERNAL == 'true' }}
+      # Tuỳ chọn: tự đẩy AAB lên Google Play sau khi build và kiểm xong. Chỉ chạy
+      # khi bật biến ENABLE_ANDROID_PLAY_UPLOAD=true (tên cũ ENABLE_ANDROID_PLAY_INTERNAL
+      # vẫn nhận). Kênh: PLAY_TRACK (mặc định internal; production = cập nhật
+      # thẳng cho người dùng). Ghi chú "Có gì mới" lấy từ lời nhắn của tag
+      # (git tag -a -m). Xem docs/release-credentials.md.
+      - name: Prepare Google Play release
+        id: play
+        if: ${{ vars.ENABLE_ANDROID_PLAY_UPLOAD == 'true' || vars.ENABLE_ANDROID_PLAY_INTERNAL == 'true' }}
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          PLAY_TRACK: ${{ vars.PLAY_TRACK || 'internal' }}
+          PLAY_ROLLOUT_FRACTION: ${{ vars.PLAY_ROLLOUT_FRACTION }}
+          # Biến mới mặc định phát hành luôn; chỉ bật bằng tên cũ thì giữ mặc định cũ (draft).
+          PLAY_RELEASE_STATUS: ${{ vars.PLAY_RELEASE_STATUS || vars.PLAY_INTERNAL_STATUS || (vars.ENABLE_ANDROID_PLAY_UPLOAD == 'true' && 'completed' || 'draft') }}
+          PLAY_RELEASE_NOTES_LANG: ${{ vars.PLAY_RELEASE_NOTES_LANG || 'vi-VN' }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$RELEASE_TAG" =~ ^mobile-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Release tag must look like mobile-v1.2.3."
+            exit 1
+          fi
+          if ! [[ "$PLAY_TRACK" =~ ^[A-Za-z0-9:_-]+$ ]]; then
+            echo "::error::PLAY_TRACK must be a Play track id such as internal, alpha, beta or production."
+            exit 1
+          fi
+          if [ -n "$PLAY_ROLLOUT_FRACTION" ]; then
+            # Phát hành dần: 0 < tỉ lệ < 1 (vd 0.2 = 20% người dùng).
+            if ! [[ "$PLAY_ROLLOUT_FRACTION" =~ ^0\.[0-9]*[1-9][0-9]*$ ]]; then
+              echo "::error::PLAY_ROLLOUT_FRACTION must be between 0 and 1 (exclusive), e.g. 0.2."
+              exit 1
+            fi
+            STATUS=inProgress
+          else
+            STATUS="$PLAY_RELEASE_STATUS"
+            if [ "$STATUS" != completed ] && [ "$STATUS" != draft ]; then
+              echo "::error::PLAY_RELEASE_STATUS must be completed or draft (set PLAY_ROLLOUT_FRACTION for a staged rollout)."
+              exit 1
+            fi
+          fi
+          if ! [[ "$PLAY_RELEASE_NOTES_LANG" =~ ^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$ ]]; then
+            echo "::error::PLAY_RELEASE_NOTES_LANG must be a Play language code such as vi-VN or en-US."
+            exit 1
+          fi
+          # Ghi chú = lời nhắn của tag có chú thích (tag nhẹ không có lời nhắn
+          # riêng, git sẽ trả lời nhắn commit, nên dùng câu mặc định).
+          git fetch --depth=1 --force origin "+refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+          NOTES=""
+          if [ "$(git cat-file -t "refs/tags/${RELEASE_TAG}")" = tag ]; then
+            # Bỏ chữ ký số (SSH, PGP, X.509) ở cuối lời nhắn tag.
+            NOTES="$(git tag -l --format='%(contents)' "$RELEASE_TAG" | sed -E '/^-----BEGIN [A-Z ]*(SIGNATURE|SIGNED MESSAGE)-----$/,$d')"
+          fi
+          if [ -z "${NOTES//[[:space:]]/}" ]; then
+            NOTES="Cải thiện và sửa lỗi."
+          fi
+          mkdir -p release/whatsnew
+          # Google Play nhận tối đa 500 ký tự mỗi ngôn ngữ.
+          printf '%s' "$NOTES" | python3 -c 'import sys; sys.stdout.write(sys.stdin.read().strip()[:500])' \
+            > "release/whatsnew/whatsnew-${PLAY_RELEASE_NOTES_LANG}"
+          # Ký hiệu gỡ lỗi native đã nằm trong AAB (bước kiểm ở trên bắt buộc
+          # có libapp.so.sym), Play tự lấy; không tải thêm tệp riêng.
+          {
+            echo "track=$PLAY_TRACK"
+            echo "status=$STATUS"
+            echo "fraction=$PLAY_ROLLOUT_FRACTION"
+          } >> "$GITHUB_OUTPUT"
+          echo "Google Play: track=$PLAY_TRACK status=$STATUS fraction=${PLAY_ROLLOUT_FRACTION:-100%}"
+          echo "Release notes ($PLAY_RELEASE_NOTES_LANG):"
+          # Lời nhắn tag chỉ in ra để xem, không để runner hiểu dòng "::...::" là lệnh.
+          STOP_TOKEN="$(python3 -c 'import secrets; print(secrets.token_hex(16))')"
+          echo "::stop-commands::${STOP_TOKEN}"
+          cat "release/whatsnew/whatsnew-${PLAY_RELEASE_NOTES_LANG}"
+          echo
+          echo "::${STOP_TOKEN}::"
+      - name: Upload AAB to Google Play
+        if: ${{ steps.play.outcome == 'success' }}
         uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: ${{ vars.PLAY_PACKAGE_NAME || 'com.vpsttt.webtui_chat' }}
           releaseFiles: release/app-prod-release.aab
-          track: internal
-          status: ${{ vars.PLAY_INTERNAL_STATUS || 'draft' }}
+          track: ${{ steps.play.outputs.track }}
+          status: ${{ steps.play.outputs.status }}
+          userFraction: ${{ steps.play.outputs.fraction }}
+          whatsNewDirectory: release/whatsnew
+          changesNotSentForReview: ${{ vars.PLAY_CHANGES_NOT_SENT_FOR_REVIEW == 'true' }}
       # The upload-key APK is used only for checks inside this job and is not
       # uploaded or published. With the recommended Play App Signing setup, the
       # upload key differs from the app-signing key; distributing this APK would

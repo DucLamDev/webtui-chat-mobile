@@ -106,8 +106,8 @@ Get-FileHash build\app\outputs\flutter-apk\app-prod-release.apk -Algorithm SHA25
 ```
 
 For customer distribution, upload the AAB to Play Internal/Closed testing (CI
-can do the internal upload automatically; see "Automatic upload to the Play
-internal track" in `docs/release-credentials.md`). Do
+can upload to any Play track automatically on tag push; see "Automatic upload to
+Google Play on tag push" in `docs/release-credentials.md`). Do
 not turn the locally built upload-key APK into a public fallback. If a fallback
 is approved later, follow the certificate-safe procedure above.
 

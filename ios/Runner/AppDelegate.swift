@@ -37,6 +37,11 @@ import flutter_callkit_incoming
     registry.delegate = self
     registry.desiredPushTypes = [.voIP]
     voipRegistry = registry
+    // Firebase được khởi động từ Dart, muộn hơn lúc này, nên firebase_messaging
+    // bỏ qua bước xin mã APNs khi mở app và iPhone không bao giờ có mã FCM.
+    // Bước này không hỏi quyền người dùng; mã Apple được firebase_messaging giữ
+    // lại rồi giao cho Firebase khi Dart khởi động xong.
+    application.registerForRemoteNotifications()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

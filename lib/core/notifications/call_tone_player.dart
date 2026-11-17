@@ -75,7 +75,6 @@ final class CallTonePlayer {
   static AudioPlayer? _previewPlayer;
   static Timer? _previewTimer;
 
-
   /// Tiếng chờ phía người gọi trong lúc máy bên kia đổ chuông (lặp).
   static const ringbackAsset = 'sounds/nguoi-goi-cho-nguoi-khac-nghe.mp3';
 
