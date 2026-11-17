@@ -801,6 +801,13 @@ final class ConversationHomeController
     state = state.copyWith(isRefreshing: false);
   }
 
+  /// Hiện diện mới từ `workspacePresenceProvider` (tải lại mỗi 30 giây): cập
+  /// nhật chấm trực tuyến của danh sách mà không tải lại cả danh sách.
+  void applyPresence(Map<String, ConversationPresence> presence) {
+    if (mapEquals(presence, state.presenceByUserId)) return;
+    state = state.copyWith(presenceByUserId: presence);
+  }
+
   void setMessageFilter(ConversationListFilter filter) {
     state = state.copyWith(messageFilter: filter);
   }

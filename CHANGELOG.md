@@ -3,6 +3,15 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.44.3 · 17/11/2026
+### Sửa lỗi
+- Chat bot thông báo hiện đúng giờ và nội dung tin mới nhất; chấm "đang hoạt động" khớp giữa danh sách và chi tiết nhóm
+  Dòng bot thông báo ở màn Tin nhắn trước đây hiện giờ tạo kênh (vd. 09:45) và chữ "Thông báo của bạn" dù tin mới nhất
+  (vd. cuộc gọi nhỡ lúc 10:35) đến sau. Nay hiện đúng giờ và nội dung tin bot mới nhất (cần máy chủ bản mới; máy chủ cũ
+  vẫn hiện như trước). Danh sách thành viên trong chi tiết nhóm trước đây hiện chấm xanh cho mọi người còn trong nhóm;
+  nay chấm xanh chỉ hiện khi người đó thật sự đang trực tuyến, cùng nguồn với màn Tin nhắn và Danh bạ, và cả ba nơi tự
+  cập nhật mỗi 30 giây.
+
 ## 1.44.2 · 17/11/2026
 ### Dọn mã
 - Bỏ mã không còn dùng, không đổi chức năng hay giao diện
