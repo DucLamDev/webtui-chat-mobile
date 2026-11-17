@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/design_system/icons/webtui_icons.dart';
 import 'package:webtui_chat/design_system/theme/webtui_theme.dart';
+import 'package:webtui_chat/design_system/tokens/webtui_colors.dart';
 import 'package:webtui_chat/features/conversations/presentation/controllers/peer_presence.dart';
 import 'package:webtui_chat/features/conversations/presentation/widgets/chat_room_app_bar.dart';
 
@@ -130,5 +131,21 @@ void main() {
         reason: key,
       );
     }
+  });
+
+  testWidgets('nền sáng: thanh trắng liền mạch, không phải thanh xanh đặc', (
+    tester,
+  ) async {
+    await pumpHeader(tester, width: 375, title: 'Hồ Đức Lâm');
+
+    final bar = tester.widget<AppBar>(find.byType(AppBar));
+    expect(bar.backgroundColor, WebTuiColors.surface);
+    expect(bar.backgroundColor, isNot(WebTuiColors.primary));
+    expect(bar.flexibleSpace, isNull);
+    // Chữ / nút quay lại màu chữ chính, nút gọi / ≡ màu xanh chính; icon thanh
+    // trạng thái hệ thống tối để thấy trên nền trắng.
+    expect(bar.foregroundColor, WebTuiColors.textPrimary);
+    expect(bar.actionsIconTheme?.color, WebTuiColors.primary);
+    expect(bar.systemOverlayStyle?.statusBarIconBrightness, Brightness.dark);
   });
 }

@@ -90,48 +90,28 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
             memberCount == 1 ? '1 member' : '$memberCount members',
           )
         : null;
-    // Kiểu Zalo: nền sáng = thanh xanh (gradient nhẹ) chữ / nút trắng; nền tối
-    // = nền tối đậm của theme, chữ / nút sáng.
+    // Thanh đầu liền mạch như các màn khác: nền `surface` (sáng = trắng, tối =
+    // xám xanh đậm) + đường kẻ mảnh; tên / quay lại màu chữ chính, nút gọi / ≡
+    // màu `primary`. Không dùng thanh xanh đặc (nặng mắt).
     final dark = WebTuiColors.brightness == Brightness.dark;
-    final fg = dark ? WebTuiColors.textPrimary : Colors.white;
-    final subFg = dark ? WebTuiColors.textMuted : const Color(0xE6FFFFFF);
+    final fg = WebTuiColors.textPrimary;
+    final subFg = WebTuiColors.textMuted;
+    final actionFg = WebTuiColors.primary;
     return AppBar(
       toolbarHeight: 64,
-      backgroundColor: dark ? WebTuiColors.surface : WebTuiColors.primary,
+      backgroundColor: WebTuiColors.surface,
       foregroundColor: fg,
       iconTheme: IconThemeData(color: fg),
-      actionsIconTheme: IconThemeData(color: fg),
+      actionsIconTheme: IconThemeData(color: actionFg),
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       scrolledUnderElevation: 0,
       systemOverlayStyle: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
-        statusBarBrightness: Brightness.dark,
+        statusBarIconBrightness: dark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: dark ? Brightness.dark : Brightness.light,
       ),
-      flexibleSpace: dark
-          ? DecoratedBox(
-              decoration: BoxDecoration(
-                color: WebTuiColors.surface,
-                border: Border(
-                  bottom: BorderSide(
-                    color: WebTuiColors.border.withValues(alpha: 0.8),
-                  ),
-                ),
-              ),
-            )
-          : DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [
-                    WebTuiColors.primary,
-                    Color.lerp(WebTuiColors.primary, Colors.white, 0.14)!,
-                  ],
-                ),
-              ),
-            ),
+      shape: Border(bottom: BorderSide(color: WebTuiColors.hairline)),
       automaticallyImplyLeading: false,
       leadingWidth: _actionSize,
       leading: IconButton(
