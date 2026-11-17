@@ -40,6 +40,7 @@ Các màn hình chính trong reference:
 | Số tin chưa đọc | `WebTuiUnreadBadge` / `webTuiUnreadLabel`: chat 1-1 (cả bot thông báo) hiện 1–5 rồi `5+`; nhóm / kênh hiện 1–99 rồi `99+`. Web dùng cùng trần (`unread-badge.ts`) |
 | Dòng tin chưa đọc | Hội thoại còn tin chưa đọc: dòng tin cuối đậm 700, màu `textPrimary` (thường: 400, `textSecondary`), giờ màu `primary` đậm 700. Không chỉ dựa vào số đỏ để báo chưa đọc |
 | Chip chọn có icon | `ChoiceChip` / `FilterChip` có `avatar` phải đặt `showCheckmark: false`: để mặc định thì lúc chọn Flutter phủ vòng tối lên icon (trông như lỗi hover). Màu nền chip đã đủ báo đang chọn |
+| Menu ấn giữ hội thoại | Ấn giữ một dòng chat mở menu nổi ngay tại dòng đó (`showConversationQuickActions`), thay cho nút ba chấm trên web: canh phải, ngay dưới dòng; không đủ chỗ (chừa thanh tab nổi) thì bật lên phía trên. Rộng 240, bo 12, nền `surface`, bóng mềm (elevation 6, bóng đen 22%; nền tối 60% + viền trắng 8%), không viền ở nền sáng. Dòng chữ cỡ 15.5 cao 48, không icon. Dòng đang mở menu tô nền như đang chọn. Xoá / rời / báo xấu ở cuối, có kẻ mảnh ngăn; chữ xoá / rời màu `danger` (nền sáng làm đậm thêm 20% cho đủ tương phản). Ghim / chưa đọc / ẩn lưu trên máy; kênh nghiệp vụ chỉ có đánh dấu đã đọc / chưa đọc |
 | Gọi tên "nhóm" | Chữ trên giao diện gọi kênh chat là **nhóm** (EN: group), không dùng "kênh". Chỉ giữ "kênh" cho kênh nghiệp vụ / bot có phiên riêng và kênh bán hàng của hộp thư khách (Zalo, Facebook) |
 
 ## Quy tắc kiểm tra UI

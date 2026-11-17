@@ -26,6 +26,7 @@ import '../controllers/notice_bot_identity.dart';
 import '../models/conversation_privacy_projection.dart';
 import '../screens/chat_room_screen.dart';
 import 'business_channel_grid.dart';
+import 'conversation_quick_actions.dart';
 
 class MessagesHomeView extends ConsumerWidget {
   const MessagesHomeView({
@@ -605,6 +606,8 @@ class _MessagesList extends StatelessWidget {
                 final conversation = conversations[index];
                 return _ConversationTile(
                   conversation: conversation,
+                  workspaceId: state.workspaceId,
+                  hiddenOnDevice: state.isHiddenOnDevice(conversation),
                   blockedUserIds: blockedUserIds,
                   presence: state.presenceForConversation(conversation),
                   selected: selectedId == conversation.id,
@@ -705,13 +708,19 @@ class _PinnedSearchHeader extends SliverPersistentHeaderDelegate {
 class _ConversationTile extends ConsumerWidget {
   const _ConversationTile({
     required this.conversation,
+    required this.workspaceId,
     required this.blockedUserIds,
     required this.onTap,
+    this.hiddenOnDevice = false,
     this.presence,
     this.selected = false,
   });
 
   final ConversationSummary conversation;
+  final String workspaceId;
+
+  /// Đang ẩn trên máy (chỉ thấy khi tìm): menu ấn giữ đổi thành "Bỏ ẩn".
+  final bool hiddenOnDevice;
   final Set<String> blockedUserIds;
   final VoidCallback onTap;
   final ConversationPresence? presence;
@@ -726,47 +735,69 @@ class _ConversationTile extends ConsumerWidget {
     final bot = conversation.noticeBot
         ? ref.watch(noticeBotIdentityProvider)
         : null;
-    return WebTuiConversationListItem(
-      title: bot?.title ?? conversation.title,
-      preview: privacy.preview,
-      timeLabel: _timeLabel(conversation.updatedAt),
-      avatarLabel:
-          bot?.avatarLabel ?? conversation.avatarLabel ?? conversation.title,
-      avatarUrl: bot != null ? bot.logoUrl : conversation.avatarUrl,
-      personAvatar: bot == null && conversation.kind == ConversationKind.direct,
-      avatarGender: conversation.gender,
-      avatarPublicImage: bot != null,
-      // Kênh: ô vuông bo góc + biểu tượng theo loại; người: ảnh tròn. Chat bot
-      // thông báo giữ logo tổ chức nhưng cũng là ô vuông.
-      avatarIcon: bot != null || conversation.kind != ConversationKind.channel
-          ? null
-          : conversationChannelIcon(conversation),
-      squareAvatar: bot != null,
-      pinned: conversation.favorite,
-      badgeLabel: bot != null ? 'BOT' : null,
-      unreadCount: privacy.isBlocked ? 0 : conversation.unreadCount,
-      // Chat 1-1 và bot thông báo: 1–5 rồi "5+"; nhóm / kênh: 1–99 rồi "99+".
-      unreadMax: conversation.kind == ConversationKind.channel
-          ? webTuiUnreadMaxGroup
-          : webTuiUnreadMaxDirect,
-      muted: conversation.muted,
-      status:
-          conversation.kind == ConversationKind.direct &&
-              !privacy.isBlocked &&
-              !conversation.noticeBot
-          ? (presence == ConversationPresence.online
-                ? WebTuiPresenceStatus.online
-                : null)
-          : null,
-      selected: selected,
-      onTap: onTap,
-      onLongPress: privacy.isBlocked ? onTap : null,
-      trailing: privacy.isBlocked
-          ? Tooltip(
-              message: tr('Quản lý người dùng đã chặn', 'Manage blocked users'),
-              child: Icon(Icons.block_rounded, color: WebTuiColors.danger),
-            )
-          : null,
+    return ValueListenableBuilder<String?>(
+      valueListenable: conversationMenuTarget,
+      builder: (context, menuTarget, _) => WebTuiConversationListItem(
+        title: bot?.title ?? conversation.title,
+        preview: privacy.preview,
+        timeLabel: _timeLabel(conversation.updatedAt),
+        avatarLabel:
+            bot?.avatarLabel ?? conversation.avatarLabel ?? conversation.title,
+        avatarUrl: bot != null ? bot.logoUrl : conversation.avatarUrl,
+        personAvatar:
+            bot == null && conversation.kind == ConversationKind.direct,
+        avatarGender: conversation.gender,
+        avatarPublicImage: bot != null,
+        // Kênh: ô vuông bo góc + biểu tượng theo loại; người: ảnh tròn. Chat bot
+        // thông báo giữ logo tổ chức nhưng cũng là ô vuông.
+        avatarIcon: bot != null || conversation.kind != ConversationKind.channel
+            ? null
+            : conversationChannelIcon(conversation),
+        squareAvatar: bot != null,
+        pinned: conversation.favorite,
+        badgeLabel: bot != null ? 'BOT' : null,
+        unreadCount: privacy.isBlocked ? 0 : conversation.unreadCount,
+        // Chat 1-1 và bot thông báo: 1–5 rồi "5+"; nhóm / kênh: 1–99 rồi "99+".
+        unreadMax: conversation.kind == ConversationKind.channel
+            ? webTuiUnreadMaxGroup
+            : webTuiUnreadMaxDirect,
+        muted: conversation.muted,
+        status:
+            conversation.kind == ConversationKind.direct &&
+                !privacy.isBlocked &&
+                !conversation.noticeBot
+            ? (presence == ConversationPresence.online
+                  ? WebTuiPresenceStatus.online
+                  : null)
+            : null,
+        selected: selected || menuTarget == conversation.channelId,
+        onTap: onTap,
+        // Ấn giữ: menu thao tác nổi ngay tại dòng (kiểu Zalo); chat với người
+        // đã chặn thì mở bảng quản lý chặn như cũ.
+        onLongPress: privacy.isBlocked
+            ? onTap
+            : () {
+                final box = context.findRenderObject();
+                if (box is! RenderBox || !box.hasSize) return;
+                showConversationQuickActions(
+                  context,
+                  ref,
+                  workspaceId: workspaceId,
+                  conversation: conversation,
+                  hidden: hiddenOnDevice,
+                  anchor: box.localToGlobal(Offset.zero) & box.size,
+                );
+              },
+        trailing: privacy.isBlocked
+            ? Tooltip(
+                message: tr(
+                  'Quản lý người dùng đã chặn',
+                  'Manage blocked users',
+                ),
+                child: Icon(Icons.block_rounded, color: WebTuiColors.danger),
+              )
+            : null,
+      ),
     );
   }
 }

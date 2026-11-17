@@ -611,6 +611,168 @@ void main() {
       expect(badge(), 'badge 9');
     },
   );
+
+  group('ấn giữ dòng chat mở menu thao tác', () {
+    List<String> menuLabels(WidgetTester tester) => [
+      for (final element
+          in find
+              .byWidgetPredicate(
+                (widget) =>
+                    widget.key is ValueKey<String> &&
+                    (widget.key! as ValueKey<String>).value.startsWith(
+                      'conversation-action-',
+                    ),
+              )
+              .evaluate())
+        (element.widget.key! as ValueKey<String>).value.substring(
+          'conversation-action-'.length,
+        ),
+    ];
+
+    testWidgets('chat 1-1: đủ thao tác kiểu Zalo, bấm Ghim thì lên đầu', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        automation: false,
+        directs: [
+          _item('dm-a', 'An', channel: false, peer: 'user-an'),
+          _item('dm-b', 'Bình', channel: false, peer: 'user-binh'),
+        ],
+      );
+      double top(String name) => tester
+          .getTopLeft(find.widgetWithText(WebTuiConversationListItem, name))
+          .dy;
+      // Cùng giờ: An trước Bình theo thứ tự máy chủ trả.
+      expect(top('An'), lessThan(top('Bình')));
+      await tester.longPress(find.text('Bình'));
+      await tester.pumpAndSettle();
+
+      expect(menuLabels(tester), [
+        'pin',
+        'markUnread',
+        'mute',
+        'hide',
+        'removeFromList',
+        'report',
+      ]);
+      expect(find.text('Ghim hội thoại'), findsOneWidget);
+      expect(find.text('Xoá hội thoại'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('conversation-action-pin')));
+      await tester.pumpAndSettle();
+      expect(top('Bình'), lessThan(top('An')));
+      expect(
+        find.descendant(
+          of: find.widgetWithText(WebTuiConversationListItem, 'Bình'),
+          matching: find.byIcon(WebTuiIcons.pinFilled),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('ẩn trò chuyện: biến khỏi danh sách, tìm tên thì thấy lại', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        automation: false,
+        directs: [
+          _item('dm-a', 'An', channel: false, peer: 'user-an'),
+          _item('dm-b', 'Bình', channel: false, peer: 'user-binh'),
+        ],
+      );
+      await tester.longPress(find.text('Bình'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('conversation-action-hide')));
+      await tester.pumpAndSettle();
+      expect(
+        find.widgetWithText(WebTuiConversationListItem, 'Bình'),
+        findsNothing,
+      );
+
+      await tester.enterText(find.byType(TextField).first, 'Bình');
+      await tester.pumpAndSettle();
+      await tester.longPress(
+        find.widgetWithText(WebTuiConversationListItem, 'Bình'),
+      );
+      await tester.pumpAndSettle();
+      expect(menuLabels(tester), contains('unhide'));
+    });
+
+    testWidgets('xoá chat 1-1 hỏi lại rồi gỡ khỏi danh sách', (tester) async {
+      await pump(
+        tester,
+        automation: false,
+        directs: [_item('dm-a', 'An', channel: false, peer: 'user-an')],
+      );
+      await tester.longPress(find.text('An'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('conversation-action-removeFromList')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Xoá hội thoại?'), findsOneWidget);
+      await tester.tap(find.text('Xoá').last);
+      await tester.pumpAndSettle();
+      expect(
+        find.widgetWithText(WebTuiConversationListItem, 'An'),
+        findsNothing,
+      );
+    });
+
+    testWidgets('nhóm riêng rời được: có Rời nhóm, không có Báo xấu', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        automation: false,
+        channels: [
+          _item('g', 'Nhóm bạn', private: true, canLeave: true, unread: 2),
+        ],
+      );
+      await tester.longPress(find.text('Nhóm bạn'));
+      await tester.pumpAndSettle();
+      expect(menuLabels(tester), [
+        'pin',
+        'markRead',
+        'mute',
+        'hide',
+        'leaveGroup',
+      ]);
+
+      await tester.tap(
+        find.byKey(const ValueKey('conversation-action-markRead')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.widgetWithText(WebTuiConversationListItem, 'Nhóm bạn'),
+          matching: find.byType(WebTuiUnreadBadge),
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('kênh nghiệp vụ: chỉ đánh dấu đã đọc / chưa đọc', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        width: 700,
+        automation: true,
+        channels: [
+          _item('orders', 'Đơn hàng', automation: true, slug: 'orders'),
+        ],
+      );
+      await tapChip(tester, 'bot');
+      await tester.longPress(
+        find.widgetWithText(WebTuiConversationListItem, 'Đơn hàng'),
+      );
+      await tester.pumpAndSettle();
+      expect(menuLabels(tester), ['markUnread']);
+    });
+  });
 }
 
 ConversationSummary _item(
@@ -626,6 +788,7 @@ ConversationSummary _item(
   String? peer,
   bool muted = false,
   bool member = true,
+  bool canLeave = false,
   // Kênh trong bài test mặc định đã có tin (máy chủ trả `last_message_at`).
   bool hasMessages = true,
 }) {
@@ -650,6 +813,7 @@ ConversationSummary _item(
     slug: slug,
     peerUserId: peer,
     muted: muted,
+    canLeave: canLeave,
     lastMessageAt: channel && hasMessages ? DateTime.utc(2026, 7, 16) : null,
   );
 }

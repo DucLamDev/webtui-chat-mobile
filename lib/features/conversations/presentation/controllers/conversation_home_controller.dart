@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
@@ -11,9 +12,11 @@ import '../../application/use_cases/load_conversation_home_use_case.dart';
 import '../../application/use_cases/open_direct_conversation_use_case.dart';
 import '../../domain/entities/business_channel_catalog.dart';
 import '../../domain/entities/chat_message.dart';
+import '../../domain/entities/conversation_list_prefs.dart';
 import '../../domain/entities/conversation_realtime_event.dart';
 import '../../domain/entities/conversation_summary.dart';
 import '../../domain/entities/inbox_channel_rules.dart';
+import '../../domain/repositories/conversation_list_prefs_repository.dart';
 import '../../domain/repositories/conversation_repository.dart';
 import '../models/conversation_privacy_projection.dart';
 
@@ -40,6 +43,7 @@ final conversationHomeControllerProvider = StateNotifierProvider.autoDispose
         // Cùng kết nối nền với cuộc gọi đến (màn chính đã nối sẵn).
         realtime: ref.watch(incomingCallRealtimeRepositoryProvider),
         currentUserId: () => ref.read(profileControllerProvider).profile?.id,
+        listPrefs: ref.watch(conversationListPrefsRepositoryProvider),
       )..load();
     });
 
@@ -87,6 +91,7 @@ final class ConversationHomeState {
     this.searchQuery = '',
     this.selectedConversation,
     this.automationEnabled = false,
+    this.listPrefs = ConversationListPrefs.empty,
   });
 
   final String workspaceId;
@@ -112,6 +117,16 @@ final class ConversationHomeState {
   /// `automation`. Khi `false`, kênh automation / bot bị ẩn khỏi mọi tab (kể cả
   /// danh sách Tin nhắn) và tab "Automation" không hiển thị.
   final bool automationEnabled;
+
+  /// Ghim / chưa đọc / ẩn lưu trên máy, áp lên hộp thư (xem
+  /// [ConversationListPrefs]).
+  final ConversationListPrefs listPrefs;
+
+  /// Bản hội thoại sau khi áp ghim / chưa đọc của máy (cho menu ấn giữ).
+  ConversationSummary withListPrefs(ConversationSummary item) =>
+      listPrefs.apply(item);
+
+  bool isHiddenOnDevice(ConversationSummary item) => listPrefs.isHidden(item);
 
   /// Số tab của màn Kênh: Tất cả/Công khai/Riêng tư, cộng tab Automation khi bật.
   int get channelTabCount => automationEnabled ? 4 : 3;
@@ -144,6 +159,7 @@ final class ConversationHomeState {
       filter: ConversationListFilter.unread,
       query: '',
       automationEnabled: automationEnabled,
+      prefs: listPrefs,
     );
     final counts = <ConversationListFilter, int>{};
     void bump(ConversationListFilter filter) {
@@ -183,6 +199,7 @@ final class ConversationHomeState {
       filter: ConversationListFilter.unread,
       query: '',
       automationEnabled: automationEnabled,
+      prefs: listPrefs,
     );
     var total = 0;
     for (final item in unread) {
@@ -212,7 +229,9 @@ final class ConversationHomeState {
         byChannel[item.channelId] = item;
       }
     }
-    return byChannel.values.toList()..sort(compareBusinessChannels);
+    // Chỉ "chưa đọc" của máy có tác dụng ở đây; thứ tự kênh nghiệp vụ cố định.
+    return byChannel.values.map(listPrefs.apply).toList()
+      ..sort(compareBusinessChannels);
   }
 
   /// Hộp thư gộp: tin nhắn riêng và nhóm / kênh đã tham gia trong một danh
@@ -236,6 +255,7 @@ final class ConversationHomeState {
       automationEnabled: automationEnabled,
       // Kênh đang mở (màn rộng) không biến mất khỏi danh sách dù chưa có tin.
       openChannelId: selectedConversation?.channelId,
+      prefs: listPrefs,
     );
   }
 
@@ -348,6 +368,7 @@ final class ConversationHomeState {
     int? channelTab,
     String? searchQuery,
     ConversationSummary? selectedConversation,
+    ConversationListPrefs? listPrefs,
     bool clearError = false,
     bool clearNotice = false,
     bool clearSelection = false,
@@ -374,6 +395,7 @@ final class ConversationHomeState {
           ? null
           : selectedConversation ?? this.selectedConversation,
       automationEnabled: automationEnabled,
+      listPrefs: listPrefs ?? this.listPrefs,
     );
   }
 }
@@ -388,11 +410,13 @@ final class ConversationHomeController
     bool automationEnabled = false,
     ConversationRealtimeRepository? realtime,
     String? Function()? currentUserId,
+    ConversationListPrefsRepository? listPrefs,
   }) : _loadConversationHomeUseCase = loadConversationHomeUseCase,
        _openDirectConversationUseCase = openDirectConversationUseCase,
        _openPrivateChannelSessionUseCase = openPrivateChannelSessionUseCase,
        _realtime = realtime,
        _currentUserId = currentUserId,
+       _listPrefsRepository = listPrefs,
        super(
          ConversationHomeState(
            workspaceId: workspaceId,
@@ -405,6 +429,9 @@ final class ConversationHomeController
   final OpenPrivateChannelSessionUseCase _openPrivateChannelSessionUseCase;
   final ConversationRealtimeRepository? _realtime;
   final String? Function()? _currentUserId;
+  final ConversationListPrefsRepository? _listPrefsRepository;
+  // Tài khoản đã đọc tuỳ chọn danh sách (đổi tài khoản thì đọc lại).
+  String? _listPrefsUserId;
   StreamSubscription<ConversationRealtimeEvent>? _realtimeSubscription;
   Set<String> _watchedChannelIds = const <String>{};
   // Mã tin realtime đã xử lý (bỏ tin tới trùng), giữ tối đa 200 mã gần nhất.
@@ -600,9 +627,12 @@ final class ConversationHomeController
       clearError: true,
       clearNotice: true,
     );
+    await _loadListPrefs();
+    if (!mounted) return;
     final result = await _loadConversationHomeUseCase.execute(
       workspaceId: state.workspaceId,
     );
+    if (!mounted) return;
     switch (result) {
       case Success<ConversationHomeData>(value: final data):
         _applyData(data);
@@ -615,6 +645,8 @@ final class ConversationHomeController
   /// lỗi mạng thì giữ nguyên danh sách đang có. Trả `false` khi tải lỗi.
   Future<bool> syncSilently() async {
     if (state.isLoading) return true;
+    await _loadListPrefs();
+    if (!mounted) return false;
     final result = await _loadConversationHomeUseCase.execute(
       workspaceId: state.workspaceId,
     );
@@ -665,6 +697,104 @@ final class ConversationHomeController
     _watchListRealtime();
   }
 
+  Future<void> _loadListPrefs() async {
+    final repository = _listPrefsRepository;
+    final userId = _currentUserId?.call()?.trim();
+    if (repository == null || userId == null || userId.isEmpty) return;
+    if (_listPrefsUserId == userId) return;
+    try {
+      final prefs = await repository.read(
+        userId: userId,
+        workspaceId: state.workspaceId,
+      );
+      if (!mounted) return;
+      _listPrefsUserId = userId;
+      state = state.copyWith(listPrefs: prefs);
+    } on Object catch (error) {
+      // Đọc lỗi: danh sách vẫn chạy, chỉ thiếu ghim / ẩn của máy.
+      debugPrint('Không đọc được ghim / ẩn trên máy: $error');
+    }
+  }
+
+  void _setListPrefs(ConversationListPrefs next) {
+    state = state.copyWith(listPrefs: next);
+    final repository = _listPrefsRepository;
+    final userId = _currentUserId?.call()?.trim();
+    if (repository == null || userId == null || userId.isEmpty) return;
+    _listPrefsUserId = userId;
+    unawaited(
+      repository
+          .save(userId: userId, workspaceId: state.workspaceId, prefs: next)
+          .catchError((Object error) {
+            debugPrint('Không lưu được ghim / ẩn trên máy: $error');
+          }),
+    );
+  }
+
+  void _clearMarkedUnread(String channelId) {
+    if (!state.listPrefs.markedUnread.contains(channelId)) return;
+    _setListPrefs(state.listPrefs.withMarkedUnread(channelId, false));
+  }
+
+  /// Ghim / bỏ ghim hội thoại trên máy này.
+  void setPinned(ConversationSummary conversation, bool pinned) {
+    _setListPrefs(state.listPrefs.withPinned(conversation.channelId, pinned));
+  }
+
+  /// Đánh dấu chưa đọc (chấm / số 1 tới khi mở lại) hoặc đã đọc trên máy này.
+  /// Đánh dấu đã đọc khi còn tin chưa đọc thì chỉ xoá số trên danh sách; máy
+  /// chủ vẫn tính là chưa đọc tới khi mở phòng.
+  void setMarkedUnread(ConversationSummary conversation, bool unread) {
+    final id = conversation.channelId;
+    _setListPrefs(state.listPrefs.withMarkedUnread(id, unread));
+    if (!unread && conversation.unreadCount > 0) {
+      _forgetUnreadMessages(id);
+      final read = _withoutUnread(conversation);
+      state = state.copyWith(
+        conversations: _markOpenedInList(state.conversations, read),
+        channels: _markOpenedInList(state.channels, read),
+      );
+    }
+  }
+
+  /// Ẩn trò chuyện khỏi danh sách (tin mới thì hiện lại) hoặc bỏ ẩn.
+  void setHidden(ConversationSummary conversation, bool hidden) {
+    _setListPrefs(
+      state.listPrefs.withHidden(
+        conversation.channelId,
+        hidden ? ConversationListPrefs.activityOf(conversation) : null,
+      ),
+    );
+  }
+
+  /// Gỡ chat 1-1 khỏi danh sách trên máy này (tin trên máy chủ vẫn còn; có
+  /// tin mới thì hiện lại): bỏ ghim, bỏ chưa đọc.
+  void removeFromList(ConversationSummary conversation) {
+    _setListPrefs(
+      state.listPrefs.removed(
+        conversation.channelId,
+        ConversationListPrefs.activityOf(conversation),
+      ),
+    );
+    final selected = state.selectedConversation;
+    if (selected != null && _sameConversation(selected, conversation)) {
+      state = state.copyWith(clearSelection: true);
+    }
+  }
+
+  /// Cập nhật tắt tiếng của một hội thoại ngay trên danh sách sau khi máy chủ
+  /// đã lưu (không chờ tải lại).
+  void setMutedLocally(String channelId, bool muted) {
+    List<ConversationSummary> update(List<ConversationSummary> items) => [
+      for (final item in items)
+        item.channelId == channelId ? item.copyWith(muted: muted) : item,
+    ];
+    state = state.copyWith(
+      conversations: update(state.conversations),
+      channels: update(state.channels),
+    );
+  }
+
   Future<void> refresh() async {
     state = state.copyWith(isRefreshing: true, clearError: true);
     await load();
@@ -690,6 +820,7 @@ final class ConversationHomeController
   }
 
   void selectConversation(ConversationSummary conversation) {
+    _clearMarkedUnread(conversation.channelId);
     _forgetUnreadMessages(conversation.channelId);
     final opened = _withoutUnread(conversation);
     state = state.copyWith(
@@ -700,6 +831,7 @@ final class ConversationHomeController
   }
 
   void markConversationOpened(ConversationSummary conversation) {
+    _clearMarkedUnread(conversation.channelId);
     if (!conversation.isUnread) {
       return;
     }
@@ -836,13 +968,15 @@ List<ConversationSummary> _buildInbox({
   required String query,
   required bool automationEnabled,
   String? openChannelId,
+  ConversationListPrefs prefs = ConversationListPrefs.empty,
 }) {
   final normalizedQuery = query.trim().toLowerCase();
   // Kênh chưa tham gia không vào hộp thư (ở Danh bạ > Kênh); kênh thường đã
-  // tham gia chỉ vào khi là kênh nội bộ mặc định hoặc đã có tin.
+  // tham gia chỉ vào khi là kênh nội bộ mặc định hoặc đã có tin. Ghim / chưa
+  // đọc của máy áp trước khi gộp để thứ tự (ghim lên đầu) đúng.
   final items = mergeInboxConversations(
-    directs: directs,
-    channels: channels,
+    directs: prefs.isEmpty ? directs : directs.map(prefs.apply).toList(),
+    channels: prefs.isEmpty ? channels : channels.map(prefs.apply).toList(),
     openChannelId: openChannelId,
   );
 
@@ -850,6 +984,8 @@ List<ConversationSummary> _buildInbox({
       .where((item) {
         if (item.isAutomation && !automationEnabled) return false;
         if (isHiddenSystemChannel(item)) return false;
+        // Ẩn trên máy: chỉ hiện khi tìm (như Zalo tìm lại trò chuyện ẩn).
+        if (normalizedQuery.isEmpty && prefs.isHidden(item)) return false;
         final matchesFilter = switch (filter) {
           ConversationListFilter.all =>
             !item.isAutomation || normalizedQuery.isNotEmpty,
