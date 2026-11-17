@@ -23,7 +23,10 @@ final class WebSocketConversationRealtimeRepository
     required AuthTokenRepository tokenRepository,
     Future<WebSocket> Function(String url, {Map<String, dynamic>? headers})?
     connectWebSocket,
-  }) : _wsBaseUri = _validatedRealtimeWsBaseUri(
+    Duration idleDisconnectGrace = realtimeIdleDisconnectGrace,
+  }) : _idleDisconnectGrace = idleDisconnectGrace,
+       _apiBaseUri = apiBaseUri,
+       _wsBaseUri = _validatedRealtimeWsBaseUri(
          wsBaseUri ?? defaultConversationRealtimeWsUri(apiBaseUri),
          instanceScope,
        ),
@@ -31,7 +34,9 @@ final class WebSocketConversationRealtimeRepository
        _tokenRepository = tokenRepository,
        _connectWebSocket = connectWebSocket ?? _defaultConnectWebSocket;
 
+  final Uri _apiBaseUri;
   final Uri _wsBaseUri;
+  final Duration _idleDisconnectGrace;
   final InstanceScope _instanceScope;
   final AuthTokenRepository _tokenRepository;
   final Future<WebSocket> Function(String url, {Map<String, dynamic>? headers})
@@ -40,6 +45,15 @@ final class WebSocketConversationRealtimeRepository
   WebSocket? _socket;
   StreamController<ConversationRealtimeEvent>? _controller;
   final Set<String> _joinedRooms = <String>{};
+
+  /// Số luồng đang nghe mỗi phòng (phòng chat, hộp thư ticket). Cả app dùng
+  /// chung một kết nối sống suốt phiên, nên màn rời phòng thì chỉ bớt đếm; về 0
+  /// mới rời phòng trên máy chủ (không đóng kết nối).
+  final Map<String, int> _roomListeners = <String, int>{};
+
+  /// Hết người nghe: chờ chừng này mới đóng kết nối, để lúc chuyển màn (một
+  /// màn huỷ nghe trước khi màn sau nghe) không bị ngắt rồi nối lại.
+  Timer? _idleDisconnectTimer;
 
   /// Phòng của các hội thoại trong danh sách chat ([watchChannels]): chỉ để
   /// nhận tin mới (cập nhật số chưa đọc), không phát `reconnected` riêng từng
@@ -60,10 +74,40 @@ final class WebSocketConversationRealtimeRepository
   DateTime? _lastPongAt;
   final RecentRealtimeEventIds _seenEventIds = RecentRealtimeEventIds();
 
+  /// Kết nối phụ cho workspace KHÁC workspace đang có người nghe (vd mở phòng
+  /// của workspace khác từ thông báo): không đóng kết nối đang dùng (cuộc gọi
+  /// đến, danh sách chat) chỉ vì một màn của workspace khác.
+  WebSocketConversationRealtimeRepository? _otherWorkspace;
+
+  /// Kho phục vụ [workspaceId]: chính kho này, trừ khi nó đang nối workspace
+  /// khác mà vẫn còn người nghe (khi đó dùng kết nối phụ). Không còn ai nghe
+  /// thì đổi workspace như trước (đóng kết nối cũ, nối workspace mới).
+  WebSocketConversationRealtimeRepository _serving(String workspaceId) {
+    final active = _activeWorkspaceId;
+    if (active == null ||
+        active == workspaceId ||
+        _disposed ||
+        _controller?.hasListener != true) {
+      return this;
+    }
+    return _otherWorkspace ??= WebSocketConversationRealtimeRepository(
+      apiBaseUri: _apiBaseUri,
+      wsBaseUri: _wsBaseUri,
+      instanceScope: _instanceScope,
+      tokenRepository: _tokenRepository,
+      connectWebSocket: _connectWebSocket,
+      idleDisconnectGrace: _idleDisconnectGrace,
+    );
+  }
+
   @override
   Stream<ConversationRealtimeEvent> subscribeToUser({
     required String workspaceId,
   }) {
+    final target = _serving(workspaceId);
+    if (!identical(target, this)) {
+      return target.subscribeToUser(workspaceId: workspaceId);
+    }
     return _subscribe(workspaceId: workspaceId, channelId: '');
   }
 
@@ -72,6 +116,13 @@ final class WebSocketConversationRealtimeRepository
     required String workspaceId,
     required String channelId,
   }) {
+    final target = _serving(workspaceId);
+    if (!identical(target, this)) {
+      return target.subscribeToChannel(
+        workspaceId: workspaceId,
+        channelId: channelId,
+      );
+    }
     return _subscribe(workspaceId: workspaceId, channelId: channelId);
   }
 
@@ -86,11 +137,6 @@ final class WebSocketConversationRealtimeRepository
     _activeWorkspaceId = workspaceId;
     final controller = _ensureController();
     final normalizedChannelId = channelId.trim();
-    if (normalizedChannelId.isNotEmpty) {
-      final room = _roomFor(workspaceId, normalizedChannelId);
-      _joinedRooms.add(room);
-      _joinRoomIfOpen(room);
-    }
     unawaited(_ensureConnected(workspaceId: workspaceId));
 
     final events = controller.stream.where(
@@ -99,7 +145,54 @@ final class WebSocketConversationRealtimeRepository
     if (normalizedChannelId.isEmpty) {
       return events;
     }
-    return events.where((event) => event.channelId == normalizedChannelId);
+    return _holdingRoom(
+      events.where((event) => event.channelId == normalizedChannelId),
+      _roomFor(workspaceId, normalizedChannelId),
+    );
+  }
+
+  /// Nghe [events] và giữ [room] trong lúc còn nghe: người nghe đầu tiên vào
+  /// phòng, người cuối huỷ thì rời phòng (kết nối vẫn mở cho phần còn lại).
+  Stream<ConversationRealtimeEvent> _holdingRoom(
+    Stream<ConversationRealtimeEvent> events,
+    String room,
+  ) {
+    return Stream<ConversationRealtimeEvent>.multi((listener) {
+      _retainRoom(room);
+      final subscription = events.listen(
+        listener.addSync,
+        onError: listener.addErrorSync,
+        onDone: listener.closeSync,
+      );
+      listener
+        ..onPause = subscription.pause
+        ..onResume = subscription.resume
+        ..onCancel = () {
+          _releaseRoom(room);
+          return subscription.cancel();
+        };
+    });
+  }
+
+  void _retainRoom(String room) {
+    final count = (_roomListeners[room] ?? 0) + 1;
+    _roomListeners[room] = count;
+    if (count == 1 && _joinedRooms.add(room)) {
+      _joinRoomIfOpen(room);
+    }
+  }
+
+  void _releaseRoom(String room) {
+    final count = (_roomListeners[room] ?? 0) - 1;
+    if (count > 0) {
+      _roomListeners[room] = count;
+      return;
+    }
+    _roomListeners.remove(room);
+    if (!_joinedRooms.remove(room)) return;
+    // Phòng vẫn nằm trong danh sách chat đang theo dõi: giữ để nhận tin mới.
+    if (_watchedRooms.contains(room)) return;
+    _sendCommand({'type': 'leave', 'room': room});
   }
 
   /// Phòng hộp thư ticket khách `workspace:<ws>:order-tickets` (máy chủ tự kiểm
@@ -108,14 +201,18 @@ final class WebSocketConversationRealtimeRepository
   Stream<ConversationRealtimeEvent> subscribeToOrderTickets({
     required String workspaceId,
   }) {
+    final target = _serving(workspaceId);
+    if (!identical(target, this)) {
+      return target.subscribeToOrderTickets(workspaceId: workspaceId);
+    }
     final events = _subscribe(workspaceId: workspaceId, channelId: '');
-    final room = _orderTicketsRoomFor(workspaceId);
-    _joinedRooms.add(room);
-    _joinRoomIfOpen(room);
-    return events.where(
-      (event) =>
-          event.type == ConversationRealtimeEventType.orderTicketUpdated ||
-          event.type == ConversationRealtimeEventType.reconnected,
+    return _holdingRoom(
+      events.where(
+        (event) =>
+            event.type == ConversationRealtimeEventType.orderTicketUpdated ||
+            event.type == ConversationRealtimeEventType.reconnected,
+      ),
+      _orderTicketsRoomFor(workspaceId),
     );
   }
 
@@ -124,6 +221,10 @@ final class WebSocketConversationRealtimeRepository
   Stream<ConversationRealtimeEvent> subscribeToInbox({
     required String workspaceId,
   }) {
+    final target = _serving(workspaceId);
+    if (!identical(target, this)) {
+      return target.subscribeToInbox(workspaceId: workspaceId);
+    }
     return _subscribe(workspaceId: workspaceId, channelId: '').where(
       (event) =>
           event.type ==
@@ -176,9 +277,22 @@ final class WebSocketConversationRealtimeRepository
     required String channelId,
     required bool isTyping,
   }) async {
+    final other = _otherWorkspace;
+    if (_activeWorkspaceId != workspaceId &&
+        other != null &&
+        other._activeWorkspaceId == workspaceId) {
+      return other.sendTyping(
+        workspaceId: workspaceId,
+        channelId: channelId,
+        isTyping: isTyping,
+      );
+    }
     final room = _roomFor(workspaceId, channelId);
-    _joinedRooms.add(room);
-    _joinRoomIfOpen(room);
+    // Phòng chat đang mở đã được giữ bởi luồng nghe của nó; chưa có thì vào
+    // tạm (máy chủ chỉ nhận "đang gõ" từ người ở trong phòng).
+    if (!_joinedRooms.contains(room) && !_watchedRooms.contains(room)) {
+      _joinRoomIfOpen(room);
+    }
     if (!_sendCommand({
       'type': isTyping ? 'TypingStarted' : 'TypingStopped',
       'room': room,
@@ -191,21 +305,31 @@ final class WebSocketConversationRealtimeRepository
   Future<void> disconnect() async {
     _disposed = true;
     _closeCurrentConnection(leaveRooms: true, closeController: true);
+    final other = _otherWorkspace;
+    _otherWorkspace = null;
+    await other?.disconnect();
   }
 
   StreamController<ConversationRealtimeEvent> _ensureController() {
     return _controller ??=
         StreamController<ConversationRealtimeEvent>.broadcast(
           onListen: () {
+            _idleDisconnectTimer?.cancel();
+            _idleDisconnectTimer = null;
             final workspaceId = _activeWorkspaceId;
             if (workspaceId != null && workspaceId.isNotEmpty) {
               unawaited(_ensureConnected(workspaceId: workspaceId));
             }
           },
           onCancel: () {
-            if (_controller?.hasListener == false) {
-              unawaited(disconnect());
-            }
+            if (_controller?.hasListener != false) return;
+            _idleDisconnectTimer?.cancel();
+            _idleDisconnectTimer = Timer(_idleDisconnectGrace, () {
+              _idleDisconnectTimer = null;
+              if (_controller?.hasListener == false) {
+                unawaited(disconnect());
+              }
+            });
           },
         );
   }
@@ -391,6 +515,10 @@ final class WebSocketConversationRealtimeRepository
     _reconnectTimer = null;
     _heartbeatTimer?.cancel();
     _heartbeatTimer = null;
+    if (closeController) {
+      _idleDisconnectTimer?.cancel();
+      _idleDisconnectTimer = null;
+    }
     final socket = _socket;
     if (leaveRooms && socket != null && socket.readyState == WebSocket.open) {
       for (final room in {..._joinedRooms, ..._watchedRooms}) {
@@ -409,6 +537,7 @@ final class WebSocketConversationRealtimeRepository
       unawaited(_controller?.close());
       _controller = null;
       _joinedRooms.clear();
+      _roomListeners.clear();
       _watchedRooms.clear();
       unawaited(_watchController?.close());
       _watchController = null;
@@ -472,6 +601,9 @@ final class WebSocketConversationRealtimeRepository
 }
 
 const _realtimeHeartbeatInterval = Duration(seconds: 25);
+
+/// Hết người nghe bao lâu thì đóng kết nối realtime (xem `_idleDisconnectTimer`).
+const realtimeIdleDisconnectGrace = Duration(seconds: 30);
 const _realtimeHeartbeatTimeout = Duration(seconds: 70);
 
 Uri defaultConversationRealtimeWsUri(Uri apiBaseUri) {
