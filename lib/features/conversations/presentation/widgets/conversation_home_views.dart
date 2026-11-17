@@ -24,6 +24,7 @@ import '../../domain/contact_alphabet.dart';
 import '../../domain/entities/conversation_summary.dart';
 import '../controllers/conversation_home_controller.dart';
 import '../controllers/notice_bot_identity.dart';
+import '../controllers/peer_presence.dart';
 import '../models/conversation_privacy_projection.dart';
 import '../screens/chat_room_screen.dart';
 import 'business_channel_grid.dart';
@@ -52,6 +53,7 @@ class MessagesHomeView extends ConsumerWidget {
     final provider = conversationHomeControllerProvider(workspaceId);
     final state = ref.watch(provider);
     final controller = ref.read(provider.notifier);
+    _listenPresence(ref, workspaceId);
     final moderationProvider = moderationControllerProvider(workspaceId);
     final moderationState = ref.watch(moderationProvider);
 
@@ -215,6 +217,7 @@ class _ContactsHomeViewState extends ConsumerState<ContactsHomeView> {
     final provider = conversationHomeControllerProvider(workspaceId);
     final state = ref.watch(provider);
     final controller = ref.read(provider.notifier);
+    _listenPresence(ref, workspaceId);
     final channelsTab = _tab == ContactsHomeView.channelsTab;
     final currentUserId = ref.watch(
       profileControllerProvider.select((state) => state.profile?.id),
@@ -1231,4 +1234,20 @@ String _channelTrailing(ConversationSummary channel) {
   return channel.channelVisibility == ChannelVisibility.private
       ? tr('Yêu cầu', 'Request')
       : tr('Mở nhóm', 'Open group');
+}
+
+/// Giữ chấm trực tuyến của danh sách luôn mới (cùng nguồn với danh sách thành
+/// viên nhóm): nghe `workspacePresenceProvider` và đẩy vào controller.
+void _listenPresence(WidgetRef ref, String workspaceId) {
+  ref.listen<AsyncValue<Map<String, ConversationPresence>>>(
+    workspacePresenceProvider(workspaceId),
+    (_, next) {
+      final presence = next.valueOrNull;
+      if (presence != null) {
+        ref
+            .read(conversationHomeControllerProvider(workspaceId).notifier)
+            .applyPresence(presence);
+      }
+    },
+  );
 }

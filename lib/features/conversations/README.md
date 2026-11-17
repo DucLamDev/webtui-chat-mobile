@@ -39,4 +39,9 @@ Phase M4 triển khai feature-first Clean Architecture cho màn Tin nhắn, Danh
   announcements / random / chung / thong-bao / tro-chuyen) luôn có; kênh khác đã tham gia chỉ khi có
   `last_message_at` (trường tuỳ chọn của danh sách kênh), còn tin chưa đọc hoặc đang mở. Mọi kênh đã tham gia và
   kênh công khai có thể tham gia nằm ở Danh bạ > Kênh.
+- Dòng bot thông báo (kênh `notice_bot`, loại `direct`): giờ và dòng xem trước lấy từ `last_message` /
+  `last_message_at` máy chủ trả trong danh sách kênh; máy chủ cũ không trả thì dùng giờ sửa kênh và mô tả kênh.
+- Chấm trực tuyến: danh sách hội thoại, Danh bạ và danh sách thành viên nhóm cùng đọc `workspacePresenceProvider`
+  (`GET /presence`, gộp nhiều thiết bị theo người, tải lại mỗi 30 giây). Không vẽ chấm theo trạng thái thành viên
+  nhóm (`active` chỉ nghĩa là còn ở trong nhóm).
 - Tìm kiếm nhanh trong danh sách hiện tại chạy trên dữ liệu API đã tải; tìm kiếm nội dung đầy đủ dùng endpoint search phía server.

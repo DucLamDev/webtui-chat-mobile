@@ -80,7 +80,7 @@ final class LoadConversationHomeUseCase {
         channels: _sortByUpdated(channelsResult.valueOrNull ?? const []),
         contacts: contacts,
         workspaceMembers: members,
-        presenceByUserId: _presenceByUser(
+        presenceByUserId: presenceByUser(
           presenceResult.valueOrNull ?? const [],
         ),
         contactsErrorMessage: members.isNotEmpty
@@ -100,7 +100,9 @@ final class LoadConversationHomeUseCase {
   }
 }
 
-Map<String, ConversationPresence> _presenceByUser(List<PresenceSummary> items) {
+/// Gộp hiện diện theo người (một người nhiều thiết bị): online thắng away, away
+/// thắng offline. Dùng chung cho danh sách hội thoại và danh sách thành viên.
+Map<String, ConversationPresence> presenceByUser(List<PresenceSummary> items) {
   final result = <String, ConversationPresence>{};
   for (final item in items) {
     final current = result[item.userId];
