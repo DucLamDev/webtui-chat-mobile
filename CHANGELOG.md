@@ -3,6 +3,14 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.45.1 · 17/11/2026
+### Giao diện
+- Thanh trên cùng màn chat nhẹ hơn
+  - Nền sáng: thanh không còn màu xanh đặc mà là nền trắng có đường kẻ mảnh bên dưới, giống các màn Tin nhắn, Bạn bè,
+    Cài đặt. Tên người / nhóm chữ đậm màu chữ chính, dòng "Đang hoạt động" / số thành viên màu xám, nút gọi thoại,
+    gọi video và nút ba gạch màu xanh; icon giờ / pin của điện thoại chuyển sang màu tối để vẫn thấy rõ.
+  - Nền tối: giữ nền tối như cũ, nút gọi đổi sang màu xanh dịu cho đồng bộ.
+
 ## 1.45.0 · 17/11/2026
 ### Giao diện
 - Nút gọi ở trang Bạn bè và màn Thiết lập ứng dụng gọn, liền mạch hơn
