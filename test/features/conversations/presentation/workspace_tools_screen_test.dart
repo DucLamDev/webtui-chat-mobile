@@ -316,7 +316,7 @@ void main() {
         );
       }
 
-      // Ô ứng dụng: nền gradient riêng, bo 14, biểu tượng trắng; ô Thêm khác.
+      // Ô ứng dụng: nền gradient riêng, bo 14; ô Thêm khác.
       Iterable<Decoration> decorations(String key) => tester
           .widgetList<DecoratedBox>(
             find.descendant(
@@ -349,10 +349,10 @@ void main() {
         3,
         reason: 'mỗi ứng dụng một màu riêng',
       );
+      // Nền sáng: ô pastel nhạt (biểu tượng màu riêng, kiểm ở test work_hub).
       for (final gradient in gradients) {
         for (final color in gradient.colors) {
-          final l = color.computeLuminance();
-          expect(1.05 / (l + 0.05), greaterThanOrEqualTo(3));
+          expect(color.computeLuminance(), greaterThan(0.75));
         }
       }
       final add = find.byKey(const Key('app_add'));

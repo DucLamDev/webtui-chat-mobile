@@ -80,6 +80,26 @@ Color workAppColorForKey(String? key) => switch (key?.trim()) {
   );
 }
 
+/// Màu một ô ứng dụng theo nền: (đầu gradient, cuối gradient, biểu tượng).
+/// - Tối: gradient đậm của màu riêng, biểu tượng trắng.
+/// - Sáng: nền pastel nhạt của màu riêng, biểu tượng mang màu riêng đậm hơn một
+///   chút; tương phản biểu tượng / nền ≥ 3:1.
+({Color top, Color bottom, Color icon}) workAppTileColors(
+  Color base,
+  Brightness brightness,
+) {
+  if (brightness == Brightness.dark) {
+    final (top, bottom) = workAppGradient(base);
+    return (top: top, bottom: bottom, icon: Colors.white);
+  }
+  final hsl = HSLColor.fromColor(base);
+  return (
+    top: Color.alphaBlend(base.withValues(alpha: 0.10), Colors.white),
+    bottom: Color.alphaBlend(base.withValues(alpha: 0.16), Colors.white),
+    icon: hsl.withLightness((hsl.lightness - 0.06).clamp(0.0, 1.0)).toColor(),
+  );
+}
+
 /// Biểu tượng Material của lối tắt; khoá lạ là liên kết.
 IconData workShortcutIcon(String? key) => switch (key?.trim()) {
   'globe' => Icons.public_rounded,
@@ -244,9 +264,11 @@ const workAppTileSize = 52.0;
 const workAppTileRadius = 14.0;
 const workAppIconSize = 26.0;
 
-/// Một ô ứng dụng: ô vuông 52 bo 14, gradient nhẹ của màu riêng, biểu tượng
-/// trắng 26, bóng rất nhẹ; nhãn 12 (1–2 dòng, căn giữa) bên dưới. Ô [dashed]
-/// (Thêm) là nền surface, viền đứt, biểu tượng màu chữ phụ.
+/// Một ô ứng dụng: ô vuông 52 bo 14, biểu tượng 26; nhãn 12 (1–2 dòng, căn
+/// giữa) bên dưới. Màu theo [workAppTileColors]: nền tối là gradient đậm +
+/// biểu tượng trắng + bóng nhẹ; nền sáng là pastel phẳng + biểu tượng màu. Ô
+/// [dashed] (Thêm) viền đứt: tối nền surface + biểu tượng xám, sáng nền xanh
+/// rất nhạt + biểu tượng xanh.
 class _AppTile extends StatelessWidget {
   const _AppTile({
     required this.icon,
@@ -265,23 +287,38 @@ class _AppTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = WebTuiColors.brightness == Brightness.dark;
     final Widget box;
     if (dashed) {
+      // Sáng: ô Thêm nhạt màu xanh chủ đạo, không xám; tối giữ nền surface.
       box = CustomPaint(
         key: const Key('app_tile_dashed'),
         painter: _DashedRRectPainter(
-          color: WebTuiColors.textMuted.withValues(alpha: 0.55),
-          fill: WebTuiColors.surface,
+          color: dark
+              ? WebTuiColors.textMuted.withValues(alpha: 0.55)
+              : WebTuiColors.primary.withValues(alpha: 0.40),
+          fill: dark
+              ? WebTuiColors.surface
+              : Color.alphaBlend(
+                  WebTuiColors.primary.withValues(alpha: 0.05),
+                  Colors.white,
+                ),
           radius: workAppTileRadius,
         ),
         child: SizedBox(
           width: workAppTileSize,
           height: workAppTileSize,
-          child: Icon(icon, size: workAppIconSize, color: color),
+          child: Icon(
+            icon,
+            size: workAppIconSize,
+            color: dark ? color : WebTuiColors.primary,
+          ),
         ),
       );
     } else {
-      final (top, bottom) = workAppGradient(color);
+      final colors = workAppTileColors(color, WebTuiColors.brightness);
+      final top = colors.top;
+      final bottom = colors.bottom;
       box = DecoratedBox(
         key: const Key('app_tile_color'),
         decoration: BoxDecoration(
@@ -291,18 +328,21 @@ class _AppTile extends StatelessWidget {
             end: Alignment.bottomRight,
             colors: [top, bottom],
           ),
-          boxShadow: [
-            BoxShadow(
-              color: bottom.withValues(alpha: 0.22),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          // Sáng: ô pastel phẳng, không bóng.
+          boxShadow: dark
+              ? [
+                  BoxShadow(
+                    color: bottom.withValues(alpha: 0.22),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: SizedBox(
           width: workAppTileSize,
           height: workAppTileSize,
-          child: Icon(icon, size: workAppIconSize, color: Colors.white),
+          child: Icon(icon, size: workAppIconSize, color: colors.icon),
         ),
       );
     }

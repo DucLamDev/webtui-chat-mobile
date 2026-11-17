@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/core/error/failure.dart';
@@ -12,6 +14,7 @@ import 'package:webtui_chat/features/work_hub/presentation/screens/my_tasks_scre
 import 'package:webtui_chat/features/work_hub/presentation/screens/shared_files_screen.dart';
 import 'package:webtui_chat/features/work_hub/presentation/screens/shortcuts_manage_screen.dart';
 import 'package:webtui_chat/features/work_hub/presentation/widgets/shared_file_widgets.dart';
+import 'package:webtui_chat/features/work_hub/presentation/widgets/work_apps_grid.dart';
 
 import '../../meeting_calendar/meeting_calendar_fakes.dart';
 import '../work_hub_fakes.dart';
@@ -597,6 +600,30 @@ void main() {
   });
 
   group('khu Ứng dụng', () {
+    test('màu ô ứng dụng: sáng pastel + biểu tượng màu, tối đậm + trắng', () {
+      const palette = [
+        workAppBlue,
+        workAppOrange,
+        workAppGreen,
+        workAppViolet,
+        workAppRed,
+        workAppTeal,
+        workAppGray,
+      ];
+      for (final base in palette) {
+        final light = workAppTileColors(base, Brightness.light);
+        for (final bg in [light.top, light.bottom]) {
+          expect(bg.computeLuminance(), greaterThan(0.75), reason: '$base');
+          expect(_contrast(light.icon, bg), greaterThanOrEqualTo(3));
+        }
+        final dark = workAppTileColors(base, Brightness.dark);
+        expect(dark.icon, Colors.white);
+        for (final bg in [dark.top, dark.bottom]) {
+          expect(_contrast(Colors.white, bg), greaterThanOrEqualTo(3));
+        }
+      }
+    });
+
     testWidgets(
       'ô Lịch họp, Tệp, Ghi chú: ô màu bo 14 gradient riêng; ô Thêm khác kiểu',
       (tester) async {
@@ -627,14 +654,18 @@ void main() {
           expect(decoration.borderRadius, BorderRadius.circular(14));
           final gradient = decoration.gradient! as LinearGradient;
           firstColors.add(gradient.colors.first);
-          for (final color in gradient.colors) {
-            expect(1.05 / (color.computeLuminance() + 0.05), greaterThan(3));
-          }
           final icon = tester.widget<Icon>(
             find.descendant(of: colorBox(key), matching: find.byType(Icon)),
           );
           expect(icon.size, 26);
-          expect(icon.color, Colors.white);
+          // Nền sáng: ô pastel nhạt, biểu tượng mang màu riêng (không trắng),
+          // tương phản biểu tượng / nền ≥ 3:1; không bóng.
+          expect(icon.color, isNot(Colors.white));
+          expect(decoration.boxShadow, isNull);
+          for (final color in gradient.colors) {
+            expect(color.computeLuminance(), greaterThan(0.75));
+            expect(_contrast(icon.color!, color), greaterThanOrEqualTo(3));
+          }
         }
         expect(firstColors, hasLength(3), reason: 'mỗi ứng dụng một màu');
         // Ô Thêm: nền surface + viền đứt, không gradient.
@@ -724,4 +755,10 @@ class _MyTasksOnly extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       MyTasksScreen(workspaceId: 'ws', now: DateTime.utc(2026, 11, 14, 12));
+}
+
+double _contrast(Color a, Color b) {
+  final la = a.computeLuminance();
+  final lb = b.computeLuminance();
+  return (math.max(la, lb) + 0.05) / (math.min(la, lb) + 0.05);
 }
