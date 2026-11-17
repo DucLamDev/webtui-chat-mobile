@@ -150,7 +150,9 @@ void refreshPresenceNow(T Function<T>(ProviderListenable<T>) read) {
 
 /// Gộp danh sách `GET /presence` (nhiều thiết bị) thành một bản ghi mỗi người:
 /// trạng thái tốt nhất (online > away > offline), mốc heartbeat mới nhất.
-Map<String, PresenceSummary> presenceSummaryByUser(List<PresenceSummary> items) {
+Map<String, PresenceSummary> presenceSummaryByUser(
+  List<PresenceSummary> items,
+) {
   final status = presenceByUser(items);
   final latest = <String, DateTime>{};
   for (final item in items) {
@@ -178,8 +180,7 @@ Map<String, PresenceSummary> presenceSummaryByUser(List<PresenceSummary> items) 
 final workspacePresenceSourceProvider = StreamProvider.autoDispose
     .family<Map<String, PresenceSummary>, String>((ref, workspaceId) {
       final repository = ref.watch(conversationRepositoryProvider);
-      final controller =
-          StreamController<Map<String, PresenceSummary>>();
+      final controller = StreamController<Map<String, PresenceSummary>>();
       var current = <String, PresenceSummary>{};
       Timer? timer;
       var disposed = false;

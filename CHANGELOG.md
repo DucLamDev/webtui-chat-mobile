@@ -7,7 +7,8 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
 ### Tính năng
 - Chuyển sang video ngay trong cuộc gọi thoại: màn gọi có nút "Video" khi đã kết nối. Bấm là bật camera của mình,
   loa ngoài bật theo, có nút tắt camera và đổi camera. Bên kia tự chuyển sang màn video và có nút "Bật camera" để bật
-  camera của họ. Nếu máy bên kia còn dùng bản cũ chưa hỗ trợ, sau 8 giây camera tự tắt và app báo rõ.
+  camera của họ. Camera bật giữa chừng dùng cùng cấu hình video nhẹ như cuộc gọi video (960×540, tối đa 800 kbps).
+  Nếu máy bên kia còn dùng bản cũ chưa hỗ trợ, sau 8 giây camera tự tắt và app báo rõ.
 ### Sửa lỗi
 - Đã bắt máy mà hộp "Cuộc gọi đến" vẫn hiện lại: khi nghe từ màn hình khoá / thông báo của điện thoại, app mở lên còn
   thấy cuộc gọi "đang đổ chuông" (máy chủ chưa kịp nhận lệnh nghe) nên hiện hộp lần nữa. Nay cuộc gọi đã nghe hoặc màn
@@ -17,6 +18,8 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   - người gọi thấy "Người nhận đang bận trong cuộc gọi khác.";
   - đang có cuộc gọi mà bấm gọi người khác thì app báo "Bạn đang trong một cuộc gọi khác.".
   Cần máy chủ bản 1.48.0 để người nhận đang bận cũng thấy cuộc gọi nhỡ.
+- Bước kiểm tra tự động của app (định dạng mã) báo đỏ trên nhánh chính sau bản 1.47.x vì 2 tệp chưa định dạng, nên
+  tag TestFlight / Google Play không dựng được: đã định dạng lại, không đổi mã.
 
 ## 1.47.1 · 17/11/2026
 ### Sửa lỗi

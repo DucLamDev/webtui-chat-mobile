@@ -72,13 +72,12 @@ void main() {
       addTearDown(container.dispose);
     });
 
-    ConversationRealtimeEvent event(String workspace, String status) =>
-        _parse({
-          'workspace_id': workspace,
-          'user_id': 'u2',
-          'status': status,
-          'last_heartbeat_at': '2026-11-17T04:00:00Z',
-        })!;
+    ConversationRealtimeEvent event(String workspace, String status) => _parse({
+      'workspace_id': workspace,
+      'user_id': 'u2',
+      'status': status,
+      'last_heartbeat_at': '2026-11-17T04:00:00Z',
+    })!;
 
     test('chấm xanh + thanh phòng chat đổi ngay, không gọi API thêm', () async {
       final list = container.listen(
@@ -110,9 +109,7 @@ void main() {
         ConversationPresence.online,
       );
       final summary = container
-          .read(
-            peerPresenceProvider((workspaceId: 'ws-1', peerUserId: 'u2')),
-          )
+          .read(peerPresenceProvider((workspaceId: 'ws-1', peerUserId: 'u2')))
           .value!;
       expect(summary.status, ConversationPresence.online);
       expect(summary.lastHeartbeatAt, DateTime.utc(2026, 11, 17, 4));

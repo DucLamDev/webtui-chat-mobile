@@ -566,6 +566,8 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     await _sendSignal(CallSignalType.answer, {
       'sdp': {'type': answer.type, 'sdp': answer.sdp},
     });
+    // Thương lượng xong mới có lớp mã hoá cho camera vừa bật: đặt giới hạn.
+    unawaited(_limitVideoSender());
     // Lượt thương lượng xong: chạy yêu cầu đã ghi nhớ (bật camera giữa chừng).
     unawaited(_drainRenegotiation());
   }
@@ -581,6 +583,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     );
     _hasRemoteDescription = true;
     await _flushCandidates();
+    unawaited(_limitVideoSender());
     unawaited(_drainRenegotiation());
   }
 
@@ -662,13 +665,10 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     setState(() => _startingLocalVideo = true);
     MediaStream? camera;
     try {
+      // Cùng cấu hình video nhẹ với cuộc gọi video từ đầu (CallVideoProfile).
       camera = await navigator.mediaDevices.getUserMedia({
         'audio': false,
-        'video': {
-          'facingMode': 'user',
-          'width': {'ideal': 1280},
-          'height': {'ideal': 720},
-        },
+        'video': CallVideoProfile.cameraConstraints(),
       });
       final tracks = camera.getVideoTracks();
       if (tracks.isEmpty) {
@@ -832,18 +832,20 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     }
   }
 
-  /// Áp [CallVideoProfile] cho luồng video gửi đi. Lỗi (máy không hỗ trợ đổi
-  /// tham số) thì bỏ qua: cuộc gọi vẫn chạy với mặc định của WebRTC.
+  /// Áp [CallVideoProfile] cho mọi luồng video gửi đi (camera từ đầu và camera
+  /// bật giữa cuộc gọi thoại). Lỗi (máy không hỗ trợ đổi tham số) thì bỏ qua:
+  /// cuộc gọi vẫn chạy với mặc định của WebRTC.
   Future<void> _limitVideoSender() async {
-    final sender = _videoSender;
-    if (sender == null) return;
-    try {
-      final parameters = sender.parameters;
-      if (CallVideoProfile.applyTo(parameters)) {
-        await sender.setParameters(parameters);
+    for (final sender in [_videoSender, _upgradeVideoSender]) {
+      if (sender == null) continue;
+      try {
+        final parameters = sender.parameters;
+        if (CallVideoProfile.applyTo(parameters)) {
+          await sender.setParameters(parameters);
+        }
+      } on Object {
+        // Giữ cuộc gọi; chỉ mất phần giới hạn.
       }
-    } on Object {
-      // Giữ cuộc gọi; chỉ mất phần giới hạn.
     }
   }
 
