@@ -10,6 +10,7 @@ import 'package:webtui_chat/core/error/failure.dart';
 import 'package:webtui_chat/core/result/result.dart';
 import 'package:webtui_chat/design_system/components/webtui_components.dart';
 import 'package:webtui_chat/design_system/components/webtui_person_silhouette.dart';
+import 'package:webtui_chat/design_system/icons/webtui_icons.dart';
 import 'package:webtui_chat/design_system/theme/webtui_theme.dart';
 import 'package:webtui_chat/design_system/tokens/webtui_density.dart';
 import 'package:webtui_chat/features/conversations/application/use_cases/channel_use_cases.dart';
@@ -384,6 +385,17 @@ void main() {
       expect(tester.getSize(button).width, greaterThanOrEqualTo(44));
       expect(tester.getSize(button).height, greaterThanOrEqualTo(44));
     }
+    // Biểu tượng kiểu Zalo: ống nghe + máy quay nét mềm của bộ Phosphor, cỡ 24.
+    final audioIcon = tester.widget<Icon>(
+      find.descendant(of: audio, matching: find.byType(Icon)),
+    );
+    final videoIcon = tester.widget<Icon>(
+      find.descendant(of: video, matching: find.byType(Icon)),
+    );
+    expect(audioIcon.icon, WebTuiIcons.phone);
+    expect(videoIcon.icon, WebTuiIcons.video);
+    expect(audioIcon.size, 24);
+    expect(videoIcon.size, 24);
     await tester.tap(video);
     await tester.pumpAndSettle();
     expect(find.text('Phòng dm-u-lan call=video'), findsOneWidget);

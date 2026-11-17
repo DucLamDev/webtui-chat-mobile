@@ -8,6 +8,7 @@ import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
+import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../auth/presentation/widgets/app_lock_timeout_setting_row.dart';
 import '../../../call_privacy/presentation/widgets/call_privacy_setting_row.dart';
@@ -40,21 +41,22 @@ class AppSettingsScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      backgroundColor: WebTuiColors.background,
+      // Nền trang trùng nền các dòng (sáng: trắng; tối: nền tối) để màn liền
+      // một mảng như app, không lộ dải xám giữa các nhóm như trang web.
+      backgroundColor: WebTuiColors.page,
       appBar: AppBar(
         title: Text(strings.appSettingsTitle),
+        backgroundColor: WebTuiColors.page,
         surfaceTintColor: Colors.transparent,
-        shape: Border(
-          bottom: BorderSide(color: WebTuiColors.border.withValues(alpha: 0.7)),
-        ),
+        scrolledUnderElevation: 0,
       ),
       body: SafeArea(
         top: false,
         child: ListView(
           padding: const EdgeInsets.only(bottom: WebTuiSpacing.xl),
           children: [
-            WebTuiSectionLabel(strings.sectionAppearance),
-            WebTuiListSurface(
+            _SettingsSection(
+              label: strings.sectionAppearance,
               children: [
                 _ThemeRow(
                   settings: settings,
@@ -65,41 +67,23 @@ class AppSettingsScreen extends ConsumerWidget {
                     );
                   },
                 ),
-                WebTuiSettingRow(
-                  title: strings.languageTitle,
-                  subtitle: settings.languageCode == 'vi'
-                      ? strings.languageNameVi
-                      : strings.languageNameEn,
-                  icon: Icons.language_rounded,
-                  trailing: DropdownButton<String>(
-                    value: settings.languageCode,
-                    underline: const SizedBox.shrink(),
-                    items: const [
-                      DropdownMenuItem(value: 'vi', child: Text('VI')),
-                      DropdownMenuItem(value: 'en', child: Text('EN')),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) {
-                        controller.update(
-                          settings.copyWith(languageCode: value),
-                          workspaceId: workspaceId,
-                        );
-                      }
-                    },
-                  ),
+                _LanguageRow(
+                  languageCode: settings.languageCode,
+                  onChanged: (value) {
+                    controller.update(
+                      settings.copyWith(languageCode: value),
+                      workspaceId: workspaceId,
+                    );
+                  },
                 ),
               ],
             ),
-            WebTuiSectionLabel(strings.sectionNotifications),
-            WebTuiListSurface(
+            _SettingsSection(
+              label: strings.sectionNotifications,
               children: [
                 WebTuiSettingRow(
                   title: strings.systemNotificationPermission,
-                  subtitle: _notificationPermissionLabel(
-                    strings,
-                    notificationPermission.valueOrNull,
-                  ),
-                  icon: Icons.notifications_active_outlined,
+                  icon: WebTuiIcons.notificationPermission,
                   trailing: notificationPermission.isLoading
                       ? const SizedBox.square(
                           dimension: 20,
@@ -124,8 +108,7 @@ class AppSettingsScreen extends ConsumerWidget {
                 ),
                 WebTuiSettingRow(
                   title: strings.receiveNotifications,
-                  subtitle: strings.receiveNotificationsSubtitle,
-                  icon: Icons.notifications_none_rounded,
+                  icon: WebTuiIcons.bell,
                   trailing: WebTuiToggle(
                     value: settings.notificationsEnabled,
                     onChanged: (value) async {
@@ -145,8 +128,7 @@ class AppSettingsScreen extends ConsumerWidget {
                 ),
                 WebTuiSettingRow(
                   title: strings.hideSensitivePreview,
-                  subtitle: strings.hideSensitivePreviewSubtitle,
-                  icon: Icons.privacy_tip_outlined,
+                  icon: WebTuiIcons.hidePreview,
                   trailing: WebTuiToggle(
                     value: settings.sensitivePreviewEnabled,
                     onChanged: (value) {
@@ -159,8 +141,8 @@ class AppSettingsScreen extends ConsumerWidget {
                 ),
                 WebTuiSettingRow(
                   title: strings.quietHours,
-                  subtitle: '${settings.quietStart} - ${settings.quietEnd}',
-                  icon: Icons.bedtime_outlined,
+                  value: '${settings.quietStart} – ${settings.quietEnd}',
+                  icon: WebTuiIcons.quietHours,
                   trailing: WebTuiToggle(
                     value: settings.quietHoursEnabled,
                     onChanged: (value) {
@@ -173,13 +155,12 @@ class AppSettingsScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            WebTuiSectionLabel(strings.sectionCalls),
-            WebTuiListSurface(
+            _SettingsSection(
+              label: strings.sectionCalls,
               children: [
                 WebTuiSettingRow(
                   title: strings.muteMicOnJoin,
-                  subtitle: strings.muteMicOnJoinSubtitle,
-                  icon: Icons.mic_off_outlined,
+                  icon: WebTuiIcons.micOff,
                   trailing: WebTuiToggle(
                     value: !settings.microphoneEnabledOnJoin,
                     onChanged: (value) {
@@ -192,8 +173,7 @@ class AppSettingsScreen extends ConsumerWidget {
                 ),
                 WebTuiSettingRow(
                   title: strings.cameraOffOnJoin,
-                  subtitle: strings.cameraOffOnJoinSubtitle,
-                  icon: Icons.videocam_off_outlined,
+                  icon: WebTuiIcons.videoOff,
                   trailing: WebTuiToggle(
                     value: !settings.cameraEnabledOnJoin,
                     onChanged: (value) {
@@ -206,13 +186,12 @@ class AppSettingsScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            WebTuiSectionLabel(strings.sectionAppSecurity),
-            WebTuiListSurface(
+            _SettingsSection(
+              label: strings.sectionAppSecurity,
               children: [
                 WebTuiSettingRow(
                   title: strings.appLock,
-                  subtitle: strings.appLockSubtitle,
-                  icon: Icons.phonelink_lock_rounded,
+                  icon: WebTuiIcons.lock,
                   trailing: appLockEnabled.isLoading
                       ? const SizedBox.square(
                           dimension: 22,
@@ -232,8 +211,7 @@ class AppSettingsScreen extends ConsumerWidget {
                     true)
                   WebTuiSettingRow(
                     title: strings.totpTitle,
-                    subtitle: strings.totpSubtitle,
-                    icon: Icons.security,
+                    icon: WebTuiIcons.shieldCheck,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
                         builder: (_) => const MfaSettingsScreen(),
@@ -243,13 +221,12 @@ class AppSettingsScreen extends ConsumerWidget {
                 CallPrivacySettingRow(workspaceId: workspaceId),
               ],
             ),
-            WebTuiSectionLabel(strings.sectionOfflineData),
-            WebTuiListSurface(
+            _SettingsSection(
+              label: strings.sectionOfflineData,
               children: [
                 WebTuiSettingRow(
                   title: strings.clearWorkspaceCache,
-                  subtitle: strings.clearWorkspaceCacheSubtitle,
-                  icon: Icons.cleaning_services_outlined,
+                  icon: WebTuiIcons.clearCache,
                   trailing: TextButton(
                     onPressed: workspaceId == null
                         ? null
@@ -259,19 +236,18 @@ class AppSettingsScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            WebTuiSectionLabel(strings.sectionFeedback),
-            WebTuiListSurface(
+            _SettingsSection(
+              label: strings.sectionFeedback,
               children: [
                 WebTuiSettingRow(
                   title: strings.sendFeedback,
-                  subtitle: strings.sendFeedbackSubtitle,
-                  icon: Icons.feedback_outlined,
+                  icon: WebTuiIcons.feedback,
                   onTap: () => context.push('/feedback'),
                 ),
               ],
             ),
-            WebTuiSectionLabel(strings.sectionVersion),
-            WebTuiListSurface(
+            _SettingsSection(
+              label: strings.sectionVersion,
               children: [
                 _ReleasePolicyRow(
                   policy: state.mobileReleasePolicy,
@@ -293,7 +269,7 @@ class AppSettingsScreen extends ConsumerWidget {
                   WebTuiSettingRow(
                     title: strings.checkFailed,
                     subtitle: state.releaseErrorMessage!,
-                    icon: Icons.warning_amber_rounded,
+                    icon: WebTuiIcons.warning,
                   ),
               ],
             ),
@@ -329,16 +305,6 @@ Future<void> _requestNotificationPermission(
     _ => strings.notifUnknown,
   };
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-}
-
-String _notificationPermissionLabel(AppStrings strings, String? permission) {
-  return switch (permission) {
-    'granted' => strings.notifLabelGranted,
-    'provisional' => strings.notifLabelProvisional,
-    'denied' => strings.notifLabelDenied,
-    'unknown' || null => strings.notifLabelAsk,
-    _ => strings.notifLabelOther,
-  };
 }
 
 Future<void> _setAppLock(
@@ -521,12 +487,7 @@ class _ReleasePolicyRow extends StatelessWidget {
           : updateRecommended
           ? strings.updateAvailable
           : strings.appUpToDate,
-      subtitle: policy == null
-          ? strings.versionCheckHint
-          : _releaseSubtitle(policy!),
-      icon: updateRequired
-          ? Icons.system_update_alt_rounded
-          : Icons.verified_outlined,
+      icon: updateRequired ? WebTuiIcons.update : WebTuiIcons.upToDate,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -555,46 +516,171 @@ class _ThemeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
+    final options = <(WebTuiThemePreference, String)>[
+      (WebTuiThemePreference.system, strings.themeSystem),
+      (WebTuiThemePreference.light, strings.themeLight),
+      (WebTuiThemePreference.dark, strings.themeDark),
+    ];
+    final current = options.firstWhere((option) => option.$1 == settings.theme);
     return WebTuiSettingRow(
+      key: const ValueKey('app-settings-theme'),
       title: strings.themeTitle,
-      subtitle: switch (settings.theme) {
-        WebTuiThemePreference.system => strings.themeSystemSubtitle,
-        WebTuiThemePreference.light => strings.themeLight,
-        WebTuiThemePreference.dark => strings.themeDark,
+      icon: WebTuiIcons.theme,
+      value: current.$2,
+      onTap: () async {
+        final picked = await showSettingsChoiceSheet<WebTuiThemePreference>(
+          context: context,
+          title: strings.themeTitle,
+          selected: settings.theme,
+          options: options,
+        );
+        if (picked != null && picked != settings.theme) onChanged(picked);
       },
-      icon: Icons.palette_outlined,
-      trailing: DropdownButton<WebTuiThemePreference>(
-        value: settings.theme,
-        underline: const SizedBox.shrink(),
-        items: [
-          DropdownMenuItem(
-            value: WebTuiThemePreference.system,
-            child: Text(strings.themeSystem),
-          ),
-          DropdownMenuItem(
-            value: WebTuiThemePreference.light,
-            child: Text(strings.themeLight),
-          ),
-          DropdownMenuItem(
-            value: WebTuiThemePreference.dark,
-            child: Text(strings.themeDark),
-          ),
-        ],
-        onChanged: (value) {
-          if (value != null) {
-            onChanged(value);
-          }
-        },
-      ),
     );
   }
 }
 
-String _releaseSubtitle(MobileReleasePolicy policy) {
-  final target = policy.minimumVersion?.trim().isNotEmpty == true
-      ? 'min ${policy.minimumVersion}'
-      : 'recommended ${policy.recommendedVersion ?? policy.currentVersion}';
-  return '${policy.platform}/${policy.channel} ${policy.currentVersion} - $target';
+class _LanguageRow extends StatelessWidget {
+  const _LanguageRow({required this.languageCode, required this.onChanged});
+
+  final String languageCode;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+    final options = <(String, String)>[
+      ('vi', strings.languageNameVi),
+      ('en', strings.languageNameEn),
+    ];
+    return WebTuiSettingRow(
+      key: const ValueKey('app-settings-language'),
+      title: strings.languageTitle,
+      icon: WebTuiIcons.language,
+      value: languageCode == 'vi'
+          ? strings.languageNameVi
+          : strings.languageNameEn,
+      onTap: () async {
+        final picked = await showSettingsChoiceSheet<String>(
+          context: context,
+          title: strings.languageTitle,
+          selected: languageCode,
+          options: options,
+        );
+        if (picked != null && picked != languageCode) onChanged(picked);
+      },
+    );
+  }
+}
+
+/// Một nhóm cài đặt trên nền liền: tiêu đề nhóm màu nhấn ngay trên các dòng,
+/// các nhóm cách nhau bằng khoảng trắng (không dải xám, không viền khối).
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection({required this.label, required this.children});
+
+  final String label;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            WebTuiSpacing.lg,
+            WebTuiSpacing.xl,
+            WebTuiSpacing.lg,
+            WebTuiSpacing.xs,
+          ),
+          child: Semantics(
+            header: true,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: WebTuiTypography.labelSmall.copyWith(
+                color: WebTuiColors.primary,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+        WebTuiListSurface(
+          dividerIndent: webTuiSettingDividerIndent,
+          children: children,
+        ),
+      ],
+    );
+  }
+}
+
+/// Bảng chọn một giá trị (chủ đề, ngôn ngữ) trượt từ dưới lên: mỗi lựa chọn
+/// một dòng cao 52, lựa chọn hiện tại chữ đậm + dấu tích màu nhấn. Trả giá trị
+/// được chọn; đóng bảng thì trả `null`.
+Future<T?> showSettingsChoiceSheet<T>({
+  required BuildContext context,
+  required String title,
+  required T selected,
+  required List<(T, String)> options,
+}) {
+  return showWebTuiSheet<T>(
+    context: context,
+    builder: (sheetContext) => SafeArea(
+      top: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          WebTuiSheetHeader(title: title),
+          for (final (value, label) in options)
+            Semantics(
+              selected: value == selected,
+              button: true,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  key: ValueKey('settings-choice-$value'),
+                  onTap: () => Navigator.of(sheetContext).pop(value),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 52),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: WebTuiSpacing.xl,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              label,
+                              style: WebTuiTypography.bodyMedium.copyWith(
+                                fontSize: 16,
+                                color: WebTuiColors.textPrimary,
+                                fontWeight: value == selected
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                              ),
+                            ),
+                          ),
+                          if (value == selected)
+                            Icon(
+                              WebTuiIcons.check,
+                              size: 22,
+                              color: WebTuiColors.primary,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          const SizedBox(height: WebTuiSpacing.md),
+        ],
+      ),
+    ),
+  );
 }
 
 String? _updateUrl(MobileReleasePolicy? policy) {

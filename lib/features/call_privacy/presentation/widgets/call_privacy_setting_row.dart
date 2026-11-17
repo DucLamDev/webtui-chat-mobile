@@ -29,12 +29,12 @@ class CallPrivacySettingRow extends ConsumerWidget {
       return const SizedBox.shrink();
     }
     final state = ref.watch(callPrivacyProvider(id));
-    final String subtitle;
+    // Chỉ hiện dòng phụ khi lỗi (để biết chạm là thử lại); bình thường gọn một dòng.
+    String? subtitle;
     WhoCanCallMe? current;
     switch (state) {
       case AsyncData(value: Success<WhoCanCallMe>(value: final value)):
         current = value;
-        subtitle = value.description;
       case AsyncData(value: FailureResult<WhoCanCallMe>()):
       case AsyncError():
         subtitle = tr(
@@ -42,7 +42,7 @@ class CallPrivacySettingRow extends ConsumerWidget {
           'Could not load the setting. Tap to retry.',
         );
       default:
-        subtitle = tr('Đang tải...', 'Loading...');
+        break;
     }
     return WebTuiSettingRow(
       key: const Key('call_privacy_row'),
@@ -53,8 +53,7 @@ class CallPrivacySettingRow extends ConsumerWidget {
               'Who can call me: ${current.label}',
             ),
       subtitle: subtitle,
-      icon: Icons.phone_locked_outlined,
-      trailing: const Icon(Icons.chevron_right_rounded),
+      icon: WebTuiIcons.phoneCall,
       onTap: () {
         if (current == null) {
           ref.invalidate(callPrivacyProvider(id));
