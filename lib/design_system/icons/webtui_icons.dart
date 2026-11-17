@@ -250,32 +250,6 @@ IconData webTuiShortcutIcon(String? key) {
   };
 }
 
-/// Biểu tượng hai lớp của lối tắt (lưới Ứng dụng); khoá lạ là liên kết.
-PhosphorDuotoneGlyph webTuiShortcutDuotoneIcon(String? key) {
-  return switch (key?.trim()) {
-    'globe' => PhosphorDuotone.globe,
-    'server' => PhosphorDuotone.hardDrives,
-    'cloud' => PhosphorDuotone.cloud,
-    'code' => PhosphorDuotone.code,
-    'terminal' => PhosphorDuotone.terminalWindow,
-    'database' => PhosphorDuotone.database,
-    'calendar' => PhosphorDuotone.calendarBlank,
-    'folder' => PhosphorDuotone.folderSimple,
-    'file-text' => PhosphorDuotone.fileText,
-    'chart' => PhosphorDuotone.chartBar,
-    'shield' => PhosphorDuotone.shield,
-    'shopping-bag' => PhosphorDuotone.shoppingBag,
-    'ticket' => PhosphorDuotone.ticket,
-    'headphones' => PhosphorDuotone.headphones,
-    'mail' => PhosphorDuotone.envelopeSimple,
-    'book-open' => PhosphorDuotone.bookOpen,
-    'briefcase' => PhosphorDuotone.briefcase,
-    'wallet' => PhosphorDuotone.wallet,
-    'settings' => PhosphorDuotone.gearSix,
-    _ => PhosphorDuotone.link,
-  };
-}
-
 /// Khoá màu lối tắt do máy chủ trả về. Khoá lạ dùng màu xanh.
 const webTuiShortcutColorKeys = <String>[
   'blue',

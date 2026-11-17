@@ -169,6 +169,9 @@ class WebTuiSliderRow extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.label,
+    this.divisions,
+    this.onChangeEnd,
+    this.semanticValue,
     super.key,
   });
 
@@ -178,6 +181,16 @@ class WebTuiSliderRow extends StatelessWidget {
 
   /// Nhãn ngắn trước thanh (vd "Âm lượng"); cũng là nhãn cho trình đọc màn hình.
   final String? label;
+
+  /// Số nấc (thanh nhảy theo nấc, không hiện chấm nấc); null = kéo liền.
+  final int? divisions;
+
+  /// Gọi khi thả tay (vd phát thử âm lượng vừa chọn).
+  final ValueChanged<double>? onChangeEnd;
+
+  /// Giá trị đọc cho trình đọc màn hình (vd "100%"); mặc định là phần trăm vị
+  /// trí thanh.
+  final String Function(double value)? semanticValue;
 
   @override
   Widget build(BuildContext context) {
@@ -193,7 +206,9 @@ class WebTuiSliderRow extends StatelessWidget {
               const SizedBox(width: 14),
               if (label != null)
                 SizedBox(
-                  width: 92,
+                  // Cột nhãn giãn theo cỡ chữ (Cài đặt > Cỡ chữ, chữ hệ thống):
+                  // chữ to không bị cắt thành "Âm lượ…".
+                  width: MediaQuery.textScalerOf(context).scale(92),
                   child: Text(
                     label!,
                     maxLines: 1,
@@ -223,13 +238,18 @@ class WebTuiSliderRow extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 13),
                     overlayColor: WebTuiColors.primary.withValues(alpha: 0.08),
                     trackShape: const RoundedRectSliderTrackShape(),
+                    // Thanh có nấc vẫn trơn như iOS, không chấm nấc trên rãnh.
+                    tickMarkShape: SliderTickMarkShape.noTickMark,
                   ),
                   child: Slider(
-                    value: value,
+                    value: value.clamp(0.0, 1.0),
+                    divisions: divisions,
                     onChanged: onChanged,
+                    onChangeEnd: onChangeEnd,
                     semanticFormatterCallback: label == null
                         ? null
-                        : (value) => '$label ${(value * 100).round()}%',
+                        : (value) =>
+                              '$label ${semanticValue?.call(value) ?? '${(value * 100).round()}%'}',
                   ),
                 ),
               ),
