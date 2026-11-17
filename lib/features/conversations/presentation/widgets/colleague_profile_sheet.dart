@@ -137,16 +137,13 @@ class ColleagueProfileSheet extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Center(
-              child: WebTuiAvatar(
-                label: name,
+              child: _ProfileAvatar(
+                name: name,
                 imageUrl: _nonEmpty(profile?.avatarUrl) ?? avatarUrl,
                 gender: profile?.gender == null
                     ? gender
                     : WebTuiAvatarGender.parse(profile!.gender),
-                status: presence?.online == true
-                    ? WebTuiPresenceStatus.online
-                    : null,
-                size: 88,
+                online: presence?.online == true,
               ),
             ),
             const SizedBox(height: WebTuiSpacing.md),
@@ -207,6 +204,46 @@ class ColleagueProfileSheet extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Ảnh đại diện 88 px đầu bảng. Có ảnh thì bấm để xem toàn màn hình; chưa có
+/// ảnh (chữ cái / hình người) thì không bấm được.
+class _ProfileAvatar extends StatelessWidget {
+  const _ProfileAvatar({
+    required this.name,
+    required this.imageUrl,
+    required this.gender,
+    required this.online,
+  });
+
+  final String name;
+  final String? imageUrl;
+  final WebTuiAvatarGender? gender;
+  final bool online;
+
+  @override
+  Widget build(BuildContext context) {
+    final avatar = WebTuiAvatar(
+      label: name,
+      imageUrl: imageUrl,
+      gender: gender,
+      status: online ? WebTuiPresenceStatus.online : null,
+      size: 88,
+    );
+    if (!webTuiAvatarHasImage(imageUrl)) return avatar;
+    return Semantics(
+      button: true,
+      label: tr('Xem ảnh đại diện của $name', 'View $name profile photo'),
+      excludeSemantics: true,
+      child: GestureDetector(
+        key: const Key('colleague_profile_avatar'),
+        behavior: HitTestBehavior.opaque,
+        onTap: () =>
+            showWebTuiAvatarViewer(context, imageUrl: imageUrl, name: name),
+        child: avatar,
       ),
     );
   }

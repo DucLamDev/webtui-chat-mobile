@@ -1194,22 +1194,18 @@ final catchUpWorkspaceSyncUseCaseProvider =
       );
     });
 
+/// Realtime của phòng chat, màn gọi, "đang gõ": dùng CHUNG kết nối nền
+/// ([incomingCallRealtimeRepositoryProvider]) sống suốt phiên. Trước đây là kết
+/// nối riêng, mở khi vào phòng và đóng khi rời, nên gọi / chuyển phòng liên
+/// tục làm kết nối rớt - nối lại liên tục và các màn tải lại dồn dập.
 final conversationRealtimeRepositoryProvider =
-    Provider<ConversationRealtimeRepository>((ref) {
-      final activeServerUri = ref.watch(activeServerUriProvider);
-      final activeServerWsUri = ref.watch(activeServerWsUriProvider);
-      final repository = WebSocketConversationRealtimeRepository(
-        apiBaseUri: activeServerUri,
-        wsBaseUri: activeServerWsUri,
-        instanceScope: ref.watch(activeInstanceScopeProvider),
-        tokenRepository: ref.watch(authTokenRepositoryProvider),
-      );
-      ref.onDispose(() {
-        unawaited(repository.disconnect());
-      });
-      return repository;
-    });
+    Provider<ConversationRealtimeRepository>(
+      (ref) => ref.watch(incomingCallRealtimeRepositoryProvider),
+    );
 
+/// Kết nối realtime duy nhất của app (cuộc gọi đến, danh sách chat, phòng chat,
+/// màn gọi). Đóng khi đổi máy chủ / phiên (provider dựng lại) hoặc khi không
+/// còn ai nghe quá [realtimeIdleDisconnectGrace].
 final incomingCallRealtimeRepositoryProvider =
     Provider<ConversationRealtimeRepository>((ref) {
       final repository = WebSocketConversationRealtimeRepository(
