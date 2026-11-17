@@ -3,6 +3,15 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.44.2 · 17/11/2026
+### Dọn mã
+- Bỏ mã không còn dùng, không đổi chức năng hay giao diện
+  - Xoá 3 tệp không còn nơi nào mở / gọi: bảng lịch sử phiên bản ghi chú / bảng trắng (chưa từng gắn vào màn nào)
+    và DTO workspace cũ.
+  - Xoá các hàm không ai gọi: các hàm đọc phản hồi máy chủ kiểu cũ trong DTO hội thoại / đăng nhập, hàm chọn icon hai lớp
+    cho lối tắt, hàm icon tệp chia sẻ, hàm in JSON và một hàm xoá token xác thực lại rỗng. Tổng bớt khoảng 900 dòng.
+  - Nén không mất dữ liệu 5 ảnh icon đơn sắc Android (30,2 KB còn 24,7 KB); điểm ảnh giống hệt bản cũ.
+
 ## 1.44.1 · 17/11/2026
 ### Sửa lỗi
 - Cài đặt: thanh Âm lượng và Cỡ chữ nay có tác dụng thật (trước đây kéo chỉ di chuyển nút, không đổi gì, không lưu)
