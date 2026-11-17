@@ -15,6 +15,7 @@ import '../../../../core/notifications/native_incoming_call_service.dart';
 import '../../../../core/notifications/notification_permission_offer.dart';
 import '../../../../core/notifications/scoped_local_notification_service.dart';
 import '../../../../core/platform/chat_share_intent_service.dart';
+import '../../../../core/security/active_call_tracker.dart';
 import '../../../../core/security/instance_scope.dart';
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
@@ -29,6 +30,7 @@ import '../../../auth/presentation/controllers/device_approval_controllers.dart'
 import '../../../auth/presentation/controllers/legal_acceptance_controller.dart';
 import '../../../auth/presentation/screens/device_approval_review_screen.dart';
 import '../../../conversations/domain/entities/business_channel_catalog.dart';
+import '../../../conversations/domain/entities/call_busy_policy.dart';
 import '../../../conversations/domain/entities/call_device_routing.dart';
 import '../../../conversations/domain/entities/call_session.dart';
 import '../../../conversations/domain/entities/conversation_realtime_event.dart';
@@ -145,7 +147,12 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   String? _activeIncomingCallId;
   GroupCallCoordinator? _groupCallCoordinator;
   String? _ringingDialogCallId;
-  ValueNotifier<bool>? _ringingDialogDismiss;
+  ValueNotifier<_IncomingCallDialogResult?>? _ringingDialogDismiss;
+
+  /// Cuộc gọi giao diện gốc đã bấm nghe trong lúc luồng trong app đang xử lý
+  /// chính cuộc đó (hộp "Cuộc gọi đến" sắp / đang hiện): luồng trong app mở màn
+  /// gọi thay cho hộp, đúng một lần.
+  final Set<String> _nativeAcceptedCallIds = <String>{};
   ({String scopeId, String deviceId})? _callDeviceId;
 
   @override
@@ -1107,7 +1114,10 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       return;
     }
     if (_activeIncomingCallId == callId ||
-        _notRingingCallIds.contains(callId)) {
+        _notRingingCallIds.contains(callId) ||
+        _incomingCallDecision(callId) == IncomingCallDecision.alreadyHandled) {
+      // Đã nghe cuộc này (màn gọi đang mở / giao diện gốc đã bấm nghe): không
+      // hiện lại hộp "Cuộc gọi đến" từ realtime, thông báo đẩy hoặc polling.
       return;
     }
     final ringGate = ref.read(incomingCallRingGateProvider);
@@ -1143,6 +1153,18 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         return;
       }
       if (_notRingingCallIds.contains(callId)) return;
+      switch (_incomingCallDecision(callId)) {
+        case IncomingCallDecision.alreadyHandled:
+          return;
+        case IncomingCallDecision.rejectBusy:
+          // Đang trong cuộc gọi khác: tự từ chối "busy", không hiện hộp, không
+          // đổ chuông.
+          await _rejectBusyIncomingCall(target.workspaceId, callId);
+          return;
+        case IncomingCallDecision.show:
+          break;
+      }
+      if (!mounted) return;
       // Người gọi: tìm ngay trên máy (danh bạ, trò chuyện 1-1); chưa có thì
       // hiện màn trước rồi hỏi máy chủ thành viên cuộc trò chuyện để điền tên.
       final localCaller = _localIncomingCaller(initialCall);
@@ -1152,30 +1174,40 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       if (localCaller == null) {
         unawaited(_loadIncomingCaller(initialCall, caller));
       }
-      final dismiss = ValueNotifier<bool>(false);
+      final dismiss = ValueNotifier<_IncomingCallDialogResult?>(
+        _nativeAcceptedCallIds.remove(callId)
+            ? _IncomingCallDialogResult.accepted
+            : null,
+      );
       _ringingDialogCallId = callId;
       _ringingDialogDismiss = dismiss;
       final _IncomingCallDialogResult? choice;
       try {
-        choice = await showDialog<_IncomingCallDialogResult>(
-          context: context,
-          useRootNavigator: true,
-          barrierDismissible: false,
-          // Toàn màn hình, tràn mép (màn tự chừa vùng an toàn bên trong).
-          useSafeArea: false,
-          builder: (dialogContext) => _IncomingCallDialog(
-            caller: caller,
-            mode: initialCall.mode,
-            canMessage: initialCall.channelId.trim().isNotEmpty,
-            dismissSignal: dismiss,
-            checkStatus: () async {
-              final result = await ref
-                  .read(getCallUseCaseProvider)
-                  .execute(workspaceId: target.workspaceId, callId: callId);
-              return result.valueOrNull?.status;
-            },
-          ),
-        );
+        // Giao diện gốc đã bấm nghe trong lúc đang chuẩn bị: mở màn gọi luôn.
+        choice = dismiss.value == _IncomingCallDialogResult.accepted
+            ? _IncomingCallDialogResult.accepted
+            : await showDialog<_IncomingCallDialogResult>(
+                context: context,
+                useRootNavigator: true,
+                barrierDismissible: false,
+                // Toàn màn hình, tràn mép (màn tự chừa vùng an toàn bên trong).
+                useSafeArea: false,
+                builder: (dialogContext) => _IncomingCallDialog(
+                  caller: caller,
+                  mode: initialCall.mode,
+                  canMessage: initialCall.channelId.trim().isNotEmpty,
+                  dismissSignal: dismiss,
+                  checkStatus: () async {
+                    final result = await ref
+                        .read(getCallUseCaseProvider)
+                        .execute(
+                          workspaceId: target.workspaceId,
+                          callId: callId,
+                        );
+                    return result.valueOrNull?.status;
+                  },
+                ),
+              );
       } finally {
         // Không dispose `dismiss`: hộp thoại còn gỡ listener khi hiệu ứng đóng
         // chạy xong (sau khi future trả về).
@@ -1268,10 +1300,42 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         ),
       );
     } finally {
+      _nativeAcceptedCallIds.remove(callId);
       if (_activeIncomingCallId == callId) {
         _activeIncomingCallId = null;
       }
     }
+  }
+
+  IncomingCallDecision _incomingCallDecision(String callId) {
+    return decideIncomingCall(
+      callId: callId,
+      activeCallIds: ref.read(activeCallTrackerProvider),
+      nativeAcceptPending:
+          NativeIncomingCallService.hasPendingAccept(callId) &&
+          !_nativeAcceptedCallIds.contains(callId),
+    );
+  }
+
+  /// Máy này đang trong cuộc gọi khác: tắt giao diện gốc của cuộc mới (nếu có)
+  /// và từ chối với lý do "busy" (người gọi thấy "Người nhận đang bận").
+  Future<void> _rejectBusyIncomingCall(
+    String workspaceId,
+    String callId,
+  ) async {
+    _notRingingCallIds.add(callId);
+    await NativeIncomingCallService.endCallIfActive(
+      callId,
+      remoteEnded: true,
+      incomingOnly: true,
+    );
+    await ref
+        .read(rejectCallUseCaseProvider)
+        .execute(
+          workspaceId: workspaceId,
+          callId: callId,
+          reason: callBusyRejectReason,
+        );
   }
 
   /// Người gọi tìm được trên máy: danh bạ / thành viên đã tải, trò chuyện 1-1.
@@ -1403,8 +1467,25 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     if (!mounted || callId == null || callId.isEmpty) {
       return false;
     }
-    if (_activeIncomingCallId == callId) {
-      return false;
+    switch (decideNativeAccept(
+      callId: callId,
+      activeCallIds: ref.read(activeCallTrackerProvider),
+      inAppFlowCallId: _activeIncomingCallId,
+    )) {
+      case NativeAcceptRoute.alreadyOpen:
+        return true;
+      case NativeAcceptRoute.handOverToInAppFlow:
+        // Hộp "Cuộc gọi đến" trong app đang (sắp) hiện cho đúng cuộc này: đóng
+        // hộp với kết quả "đã nghe", luồng đó mở màn gọi đúng một lần.
+        _nativeAcceptedCallIds.add(callId);
+        if (_ringingDialogCallId == callId) {
+          _ringingDialogDismiss?.value = _IncomingCallDialogResult.accepted;
+        }
+        return true;
+      case NativeAcceptRoute.rejectBusy:
+        return _rejectBusyNativeAccept(target, callId);
+      case NativeAcceptRoute.openCallScreen:
+        break;
     }
     _activeIncomingCallId = callId;
     try {
@@ -1466,6 +1547,33 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         _activeIncomingCallId = null;
       }
     }
+  }
+
+  /// Bấm nghe ở giao diện gốc khi màn gọi của cuộc khác đang mở: tắt giao diện
+  /// gốc của cuộc mới, từ chối "busy" nếu nó vẫn đổ chuông.
+  Future<bool> _rejectBusyNativeAccept(
+    NotificationTarget target,
+    String callId,
+  ) async {
+    _notRingingCallIds.add(callId);
+    await NativeIncomingCallService.endCall(callId, remoteEnded: true);
+    final currentResult = await ref
+        .read(getCallUseCaseProvider)
+        .execute(workspaceId: target.workspaceId, callId: callId);
+    final current = currentResult.valueOrNull;
+    if (current == null) {
+      return currentResult.failureOrNull?.kind == FailureKind.notFound;
+    }
+    if (current.status != CallStatus.ringing) return true;
+    final result = await ref
+        .read(rejectCallUseCaseProvider)
+        .execute(
+          workspaceId: target.workspaceId,
+          callId: callId,
+          reason: callBusyRejectReason,
+        );
+    if (result.isSuccess) return true;
+    return _isCallConfirmedTerminal(target.workspaceId, callId);
   }
 
   Future<bool> _rejectNativeIncomingCall(
@@ -1783,7 +1891,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   /// reject / hangup. Chỉ đụng tới cuộc gọi đang thật sự đổ chuông trên máy.
   Future<void> _dismissRingingCall(String callId) async {
     if (_ringingDialogCallId == callId) {
-      _ringingDialogDismiss?.value = true;
+      _ringingDialogDismiss?.value ??= _IncomingCallDialogResult.closedRemotely;
     }
     await NativeIncomingCallService.endCallIfActive(
       callId,
@@ -2125,8 +2233,10 @@ class _IncomingCallDialog extends StatefulWidget {
   final CallMode mode;
   final Future<CallStatus?> Function() checkStatus;
 
-  /// Bật `true` khi máy chủ báo cuộc gọi đã được nhận ở máy khác / đã huỷ.
-  final ValueListenable<bool> dismissSignal;
+  /// Có giá trị khi hộp phải tự đóng: [_IncomingCallDialogResult.closedRemotely]
+  /// (máy chủ báo đã nhận ở máy khác / đã huỷ) hoặc
+  /// [_IncomingCallDialogResult.accepted] (đã bấm nghe ở giao diện gốc).
+  final ValueListenable<_IncomingCallDialogResult?> dismissSignal;
   final bool canMessage;
 
   @override
@@ -2149,7 +2259,7 @@ class _IncomingCallDialogState extends State<_IncomingCallDialog> {
     unawaited(_ringtone.start());
     unawaited(HapticFeedback.vibrate());
     widget.dismissSignal.addListener(_onDismissSignal);
-    if (widget.dismissSignal.value) {
+    if (widget.dismissSignal.value != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _onDismissSignal());
     }
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -2177,9 +2287,8 @@ class _IncomingCallDialogState extends State<_IncomingCallDialog> {
   }
 
   void _onDismissSignal() {
-    if (widget.dismissSignal.value) {
-      _close(_IncomingCallDialogResult.closedRemotely);
-    }
+    final result = widget.dismissSignal.value;
+    if (result != null) _close(result);
   }
 
   /// Tắt chuông + rung, cuộc gọi vẫn chờ tới khi trả lời / từ chối / hết giờ.

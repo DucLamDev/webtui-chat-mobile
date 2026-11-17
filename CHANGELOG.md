@@ -3,6 +3,21 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.47.0 · 17/11/2026
+### Tính năng
+- Chuyển sang video ngay trong cuộc gọi thoại: màn gọi có nút "Video" khi đã kết nối. Bấm là bật camera của mình,
+  loa ngoài bật theo, có nút tắt camera và đổi camera. Bên kia tự chuyển sang màn video và có nút "Bật camera" để bật
+  camera của họ. Nếu máy bên kia còn dùng bản cũ chưa hỗ trợ, sau 8 giây camera tự tắt và app báo rõ.
+### Sửa lỗi
+- Đã bắt máy mà hộp "Cuộc gọi đến" vẫn hiện lại: khi nghe từ màn hình khoá / thông báo của điện thoại, app mở lên còn
+  thấy cuộc gọi "đang đổ chuông" (máy chủ chưa kịp nhận lệnh nghe) nên hiện hộp lần nữa. Nay cuộc gọi đã nghe hoặc màn
+  gọi đang mở thì không hiện lại hộp, và chỉ mở màn gọi đúng một lần.
+- Đang trong cuộc gọi mà có người khác gọi tới thì lỗi:
+  - cuộc gọi tới sau được tự từ chối với lý do "đang bận", không hiện hộp, không đổ chuông;
+  - người gọi thấy "Người nhận đang bận trong cuộc gọi khác.";
+  - đang có cuộc gọi mà bấm gọi người khác thì app báo "Bạn đang trong một cuộc gọi khác.".
+  Cần máy chủ bản 1.48.0 để người nhận đang bận cũng thấy cuộc gọi nhỡ.
+
 ## 1.46.1 · 17/11/2026
 ### Sửa lỗi
 - Bước kiểm tra tự động của app báo đỏ sau bản 1.46.0 nên không dựng được bản TestFlight / Google Play: màn hồ sơ đồng

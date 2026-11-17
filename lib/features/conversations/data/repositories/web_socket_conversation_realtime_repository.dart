@@ -815,6 +815,7 @@ ConversationRealtimeEventType _eventType(String value) {
     'CallAccepted' => ConversationRealtimeEventType.callAccepted,
     'CallReady' => ConversationRealtimeEventType.callReady,
     'CallOffer' => ConversationRealtimeEventType.callOffer,
+    'CallRenegotiate' => ConversationRealtimeEventType.callRenegotiate,
     'CallAnswer' => ConversationRealtimeEventType.callAnswer,
     'CallIceCandidate' => ConversationRealtimeEventType.callIceCandidate,
     'CallRejected' => ConversationRealtimeEventType.callRejected,

@@ -15,6 +15,9 @@ enum CallSignalType {
   answer,
   iceCandidate,
   ready,
+
+  /// Xin bên kia gửi SDP offer mới (chỉ khi cuộc gọi đã accepted).
+  renegotiate,
   ringing,
   accepted,
   rejected,

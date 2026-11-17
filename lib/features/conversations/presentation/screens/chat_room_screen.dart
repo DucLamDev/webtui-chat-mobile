@@ -11,6 +11,7 @@ import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/error/error_mapper.dart';
 import '../../../../core/platform/chat_share_intent_service.dart';
 import '../../../../core/result/result.dart';
+import '../../../../core/security/active_call_tracker.dart';
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
@@ -25,6 +26,7 @@ import '../../../moderation/presentation/widgets/moderation_actions.dart';
 import '../../../my_notes/presentation/widgets/save_message_to_my_note.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
 import '../../application/use_cases/collaboration_task_use_cases.dart';
+import '../../domain/entities/call_busy_policy.dart';
 import '../../domain/entities/call_session.dart';
 import '../../domain/entities/channel_exit.dart';
 import '../../domain/entities/chat_message.dart';
@@ -1342,6 +1344,13 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
     final targetUserId = _callTargetUserId(state);
     if (targetUserId == null) {
       _showCallUnavailable(context);
+      return;
+    }
+    if (ref.read(activeCallTrackerProvider).isNotEmpty) {
+      // Màn gọi khác đang mở trên máy này: không tạo cuộc gọi mới.
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(callAlreadyInProgressMessage)));
       return;
     }
     _draftFocusNode.unfocus();

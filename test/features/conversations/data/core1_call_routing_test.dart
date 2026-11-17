@@ -5,6 +5,7 @@ import 'package:webtui_chat/core/notifications/native_incoming_call_service.dart
 import 'package:webtui_chat/features/conversations/data/datasources/call_remote_data_source.dart';
 import 'package:webtui_chat/features/conversations/data/repositories/web_socket_conversation_realtime_repository.dart';
 import 'package:webtui_chat/features/conversations/domain/entities/call_device_routing.dart';
+import 'package:webtui_chat/features/conversations/domain/entities/call_session.dart';
 import 'package:webtui_chat/features/notifications/domain/entities/mobile_notification.dart';
 
 void main() {
@@ -112,6 +113,22 @@ void main() {
       expect(old.answeredDeviceId, isNull);
     },
   );
+
+  test('gửi tín hiệu renegotiate đúng tên máy chủ', () async {
+    final transport = _Transport();
+    final source = CallRemoteDataSource(transport);
+    await source.sendSignal(
+      workspaceId: 'ws',
+      callId: 'call',
+      signalType: CallSignalType.renegotiate,
+      payload: const {'reason': 'video'},
+    );
+    expect(transport.path, '/api/v1/workspaces/ws/calls/call/signals');
+    expect(transport.body, {
+      'signal_type': 'renegotiate',
+      'payload': {'reason': 'video'},
+    });
+  });
 
   test('khử trùng có giới hạn và vẫn nhận sự kiện không có mã', () {
     final seen = RecentRealtimeEventIds(capacity: 2);

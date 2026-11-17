@@ -254,6 +254,18 @@ final class NativeIncomingCallService {
     );
   }
 
+  /// Giao diện gốc đã bấm nghe [callId] nhưng app chưa xử lý xong (hành động
+  /// còn chờ / đang thử lại): app không được hiện thêm hộp "Cuộc gọi đến".
+  static bool hasPendingAccept(String callId) {
+    final id = callId.trim();
+    if (id.isEmpty) return false;
+    return _pendingActions.values.any(
+      (action) =>
+          action.type == NativeIncomingCallActionType.accept &&
+          action.target.callId?.trim() == id,
+    );
+  }
+
   static void retryLater(NativeIncomingCallAction action) {
     if (!_pendingActions.containsKey(action.actionId) ||
         _retryTimers.containsKey(action.actionId)) {

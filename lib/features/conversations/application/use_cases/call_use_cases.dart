@@ -4,6 +4,7 @@ import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../auth/domain/repositories/device_identity_repository.dart';
+import '../../domain/entities/call_busy_policy.dart';
 import '../../domain/entities/call_session.dart';
 import '../../domain/repositories/call_repository.dart';
 import '../incoming_call_ring_gate.dart';
@@ -34,6 +35,15 @@ bool isCallAlreadyHandledFailure(Failure? failure) {
   if (failure == null || failure.kind != FailureKind.conflict) return false;
   final code = failure.code?.trim();
   return code == null || code.isEmpty || code == 'CALL_INVALID_TRANSITION';
+}
+
+/// Câu báo khi tạo cuộc gọi thất bại: 409 `CALL_TARGET_BUSY` /
+/// `CALL_INITIATOR_BUSY` dùng câu thống nhất với web (máy chủ đã ghi cuộc gọi
+/// nhỡ cho người nhận); lỗi khác giữ câu máy chủ trả.
+String startCallFailureMessage(Failure failure) {
+  if (failure.hasCode(callTargetBusyCode)) return callTargetBusyMessage;
+  if (failure.hasCode(callInitiatorBusyCode)) return callInitiatorBusyMessage;
+  return failure.message;
 }
 
 final class StartCallUseCase {

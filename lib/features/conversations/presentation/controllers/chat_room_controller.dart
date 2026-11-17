@@ -1294,9 +1294,10 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
         );
         return call;
       case FailureResult<CallSession>(failure: final failure):
+        // 409 bận: không mở màn gọi, chỉ báo đúng câu.
         state = state.copyWith(
           isStartingCall: false,
-          errorMessage: failure.message,
+          errorMessage: startCallFailureMessage(failure),
         );
         return null;
     }
