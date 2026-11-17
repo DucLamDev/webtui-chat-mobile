@@ -83,6 +83,8 @@ dev_dependencies:
     sdk: flutter
   integration_test:
     sdk: flutter
+  # Trình phát video giả trong test (đã có sẵn qua video_player, khoá đúng bản).
+  video_player_platform_interface: 6.9.0
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -115,8 +117,11 @@ flutter:
 
   assets:
     - assets/branding/logo_webtui.png
-    - assets/sounds/ringback.wav
-    - assets/sounds/ringtone.wav
+    # Âm thanh cuộc gọi (bộ mới 17/11/2026).
+    - assets/sounds/nhac-chuong-khi-co-cuoc-goi-den.mp3
+    - assets/sounds/nguoi-goi-cho-nguoi-khac-nghe.mp3
+    - assets/sounds/ket-thuc-cuoc-goi.mp3
+    - assets/sounds/khi-nguoi-nhan-o-noi-mat-wifi.mp3
 
   fonts:
     - family: WebTuiRoboto

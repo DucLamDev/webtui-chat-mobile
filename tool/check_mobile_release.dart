@@ -56,8 +56,18 @@ void main() {
         "grep -Eq '^26\\.'",
         'The upload-key APK is used only for checks inside this job',
         'exact Play app-signing certificate',
+        // Tự đẩy lên Google Play: chỉ khi bật biến, chỉ sau khi bước kiểm
+        // tham số qua, ghi chú lấy từ tag đã lọc chữ ký.
+        "vars.ENABLE_ANDROID_PLAY_UPLOAD == 'true'",
+        "if: \${{ steps.play.outcome == 'success' }}",
+        'PLAY_ROLLOUT_FRACTION must be between 0 and 1',
+        'PLAY_RELEASE_STATUS must be completed or draft',
+        "sed -E '/^-----BEGIN [A-Z ]*(SIGNATURE|SIGNED MESSAGE)-----\$/,\$d'",
+        '::stop-commands::',
+        'serviceAccountJsonPlainText: \${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}',
       ],
       exactOccurrences: const {
+        'uses: r0adkll/upload-google-play@': 1,
         'flutter pub get': 5,
         'flutter pub get --enforce-lockfile': 5,
       },
@@ -71,6 +81,7 @@ void main() {
         'subosito/flutter-action@v',
         'actions/upload-artifact@v',
         'softprops/action-gh-release@v',
+        'r0adkll/upload-google-play@v',
         '--no-pub',
       ],
     ),

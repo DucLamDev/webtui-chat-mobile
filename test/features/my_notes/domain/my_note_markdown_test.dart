@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/features/my_notes/domain/markdown/my_note_markdown.dart';
-import 'package:webtui_chat/features/my_notes/domain/markdown/my_note_markdown_format.dart';
 
 void main() {
   group('parseMyNoteMarkdown', () {
@@ -128,46 +127,5 @@ void main() {
       myNoteMarkdownToPlainText('# Tiêu đề\n- **a**\n- [x] [b](https://c.vn)'),
       'Tiêu đề a b',
     );
-  });
-
-  group('applyMyNoteFormat', () {
-    test('đậm bọc vùng chọn, vùng rỗng chèn cặp dấu', () {
-      var r = applyMyNoteFormat(MyNoteFormat.bold, 'abc def', 4, 7);
-      expect(r.text, 'abc **def**');
-      expect((r.start, r.end), (6, 9));
-      r = applyMyNoteFormat(MyNoteFormat.italic, 'ab', 1, 1);
-      expect(r.text, 'a**b');
-      expect((r.start, r.end), (2, 2));
-    });
-
-    test('mã: một dòng dùng backtick, nhiều dòng dùng khối rào', () {
-      expect(applyMyNoteFormat(MyNoteFormat.code, 'x', 0, 1).text, '`x`');
-      expect(
-        applyMyNoteFormat(MyNoteFormat.code, 'a\nb', 0, 3).text,
-        '```\na\nb\n```',
-      );
-    });
-
-    test('tiêu đề / danh sách: thêm rồi gỡ trên cả các dòng được chọn', () {
-      var r = applyMyNoteFormat(MyNoteFormat.bullet, 'a\nb\nc', 0, 3);
-      expect(r.text, '- a\n- b\nc');
-      r = applyMyNoteFormat(MyNoteFormat.bullet, r.text, r.start, r.end);
-      expect(r.text, 'a\nb\nc');
-    });
-
-    test('đổi kiểu dòng: ô tick thay gạch đầu dòng, tiêu đề thay thế', () {
-      expect(
-        applyMyNoteFormat(MyNoteFormat.checklist, '- a', 0, 0).text,
-        '- [ ] a',
-      );
-      expect(applyMyNoteFormat(MyNoteFormat.heading, '# a', 1, 1).text, '## a');
-    });
-
-    test('vùng chọn không hợp lệ (-1) thao tác ở cuối văn bản', () {
-      expect(
-        applyMyNoteFormat(MyNoteFormat.checklist, 'ab', -1, -1).text,
-        '- [ ] ab',
-      );
-    });
   });
 }

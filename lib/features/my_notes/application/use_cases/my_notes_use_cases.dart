@@ -14,6 +14,7 @@ final class MyNotesUseCases {
       updateNote = UpdateMyNoteUseCase(repository),
       deleteNote = DeleteMyNoteUseCase(repository),
       saveMessage = SaveMessageToMyNoteUseCase(repository),
+      attachLocalFile = AttachLocalFileToMyNoteUseCase(repository),
       removeAttachment = RemoveMyNoteAttachmentUseCase(repository),
       listFolders = ListMyNoteFoldersUseCase(repository),
       createFolder = CreateMyNoteFolderUseCase(repository),
@@ -27,6 +28,7 @@ final class MyNotesUseCases {
   final UpdateMyNoteUseCase updateNote;
   final DeleteMyNoteUseCase deleteNote;
   final SaveMessageToMyNoteUseCase saveMessage;
+  final AttachLocalFileToMyNoteUseCase attachLocalFile;
   final RemoveMyNoteAttachmentUseCase removeAttachment;
   final ListMyNoteFoldersUseCase listFolders;
   final CreateMyNoteFolderUseCase createFolder;
@@ -239,6 +241,135 @@ final class SaveMessageToMyNoteUseCase {
       folderId: folder == null || folder.isEmpty ? null : folder,
     );
   }
+}
+
+/// Tải ảnh / tệp trên máy lên rồi gắn vào ghi chú. [onProgress] chạy 0 → 1
+/// (phần tải lên chiếm tới 0,95; gắn xong mới báo 1).
+final class AttachLocalFileToMyNoteUseCase {
+  const AttachLocalFileToMyNoteUseCase(this._repository);
+
+  final MyNotesRepository _repository;
+
+  Future<Result<MyNoteAttachment>> execute({
+    required String workspaceId,
+    required String noteId,
+    required MyNoteLocalFile file,
+    void Function(double progress)? onProgress,
+  }) async {
+    final ws = workspaceId.trim();
+    final id = noteId.trim();
+    if (ws.isEmpty) return _workspaceRequired();
+    if (id.isEmpty) return _noteRequired();
+    final name = file.name.trim();
+    if (file.path.trim().isEmpty || name.isEmpty) {
+      return _invalid(
+        tr('Chưa chọn tệp đính kèm.', 'No attachment selected.'),
+        'MY_NOTE_FILE_REQUIRED',
+      );
+    }
+    if (file.byteSize <= 0) {
+      return _invalid(
+        tr(
+          'Tệp "$name" trống, không đính kèm được.',
+          '"$name" is empty and can\'t be attached.',
+        ),
+        'MY_NOTE_FILE_EMPTY',
+      );
+    }
+    if (file.byteSize > MyNoteLimits.attachmentMaxBytes) {
+      return _invalid(
+        tr(
+          'Tệp "$name" quá lớn. Mỗi tệp đính kèm tối đa 100 MB.',
+          '"$name" is too large. Each attachment can be up to 100 MB.',
+        ),
+        'MY_NOTE_FILE_TOO_LARGE',
+      );
+    }
+    final uploaded = await _repository.uploadFile(
+      workspaceId: ws,
+      file: file,
+      onProgress: onProgress == null
+          ? null
+          : (value) => onProgress(value.clamp(0.0, 1.0).toDouble() * 0.95),
+    );
+    final String fileId;
+    switch (uploaded) {
+      case Success(:final value):
+        fileId = value;
+      case FailureResult(:final failure):
+        return FailureResult(_friendlyUploadFailure(failure, name));
+    }
+    final attached = await _repository.addAttachment(
+      workspaceId: ws,
+      noteId: id,
+      fileId: fileId,
+    );
+    if (attached case FailureResult(:final failure)) {
+      return FailureResult(_friendlyAttachFailure(failure));
+    }
+    onProgress?.call(1);
+    return attached;
+  }
+}
+
+Failure _friendlyUploadFailure(Failure failure, String name) {
+  return switch (failure.kind) {
+    FailureKind.forbidden => failure.copyWith(
+      message: tr(
+        'Bạn không có quyền tải tệp lên workspace này.',
+        'You don\'t have permission to upload files to this workspace.',
+      ),
+    ),
+    FailureKind.unauthorized => failure.copyWith(
+      message: tr(
+        'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại rồi đính kèm.',
+        'Your session has expired. Sign in again, then attach the file.',
+      ),
+    ),
+    FailureKind.server ||
+    FailureKind.unknown ||
+    FailureKind.decoding => failure.copyWith(
+      message: tr(
+        'Chưa tải "$name" lên được. Vui lòng thử lại.',
+        'Couldn\'t upload "$name". Please try again.',
+      ),
+    ),
+    _ => failure,
+  };
+}
+
+Failure _friendlyAttachFailure(Failure failure) {
+  if (failure.hasCode('NOTE_ATTACHMENT_LIMIT')) {
+    return failure.copyWith(
+      message: tr(
+        'Mỗi ghi chú gắn tối đa ${MyNoteLimits.attachmentsMax} tệp.',
+        'Each note can have up to ${MyNoteLimits.attachmentsMax} attachments.',
+      ),
+    );
+  }
+  return switch (failure.kind) {
+    FailureKind.forbidden => failure.copyWith(
+      message: tr(
+        'Bạn không có quyền gắn tệp này vào ghi chú.',
+        'You don\'t have permission to attach this file to the note.',
+      ),
+    ),
+    FailureKind.notFound => failure.copyWith(
+      message: tr(
+        'Ghi chú không còn tồn tại hoặc đã bị xoá.',
+        'The note no longer exists or was deleted.',
+      ),
+    ),
+    FailureKind.server ||
+    FailureKind.unknown ||
+    FailureKind.decoding => failure.copyWith(
+      message: tr(
+        'Đã tải tệp lên nhưng chưa gắn vào ghi chú được. Vui lòng thử lại.',
+        'The file was uploaded but couldn\'t be attached to the note. Please try again.',
+      ),
+    ),
+    _ => failure,
+  };
 }
 
 final class RemoveMyNoteAttachmentUseCase {

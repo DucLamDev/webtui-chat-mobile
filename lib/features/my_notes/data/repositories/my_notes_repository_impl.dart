@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:dio/dio.dart';
 import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../core/error/failure.dart';
@@ -11,6 +14,16 @@ import '../datasources/my_notes_remote_data_source.dart';
 String get myNotesOfflineWriteMessage => tr(
   'Bạn đang ngoại tuyến. My Note chưa lưu được thay đổi khi mất mạng, hãy thử lại khi có kết nối.',
   'You\'re offline. My Note can\'t save changes without a connection. Try again when you\'re back online.',
+);
+
+String get myNoteFileTooLargeMessage => tr(
+  'Tệp quá lớn nên máy chủ không nhận. Hãy chọn tệp nhỏ hơn 100 MB.',
+  'The file is too large for the server. Choose a file under 100 MB.',
+);
+
+String get myNoteFileUnreadableMessage => tr(
+  'Không đọc được tệp trên máy (có thể tệp đã bị xoá hoặc di chuyển). Hãy chọn lại.',
+  'Couldn\'t read the file on this device (it may have been moved or deleted). Choose it again.',
 );
 
 /// Đọc: máy chủ trước, lưu bản sao trên máy; mất mạng thì trả bản lưu.
@@ -210,6 +223,45 @@ final class MyNotesRepositoryImpl implements MyNotesRepository {
   }
 
   @override
+  Future<Result<String>> uploadFile({
+    required String workspaceId,
+    required MyNoteLocalFile file,
+    void Function(double progress)? onProgress,
+  }) async {
+    final result = await _write(() async {
+      try {
+        return await _remote.uploadFile(
+          workspaceId: workspaceId,
+          file: file,
+          onProgress: onProgress,
+        );
+      } on FileSystemException catch (error) {
+        throw FailureException(
+          Failure(
+            kind: FailureKind.storage,
+            message: myNoteFileUnreadableMessage,
+            code: 'MY_NOTE_FILE_UNREADABLE',
+            cause: error,
+          ),
+        );
+      }
+    });
+    if (result case FailureResult(
+      failure: final failure,
+    ) when _httpStatus(failure) == 413) {
+      // Proxy / máy chủ chặn vì tệp quá lớn: thường trả HTML, không có câu dễ hiểu.
+      return FailureResult(
+        failure.copyWith(
+          kind: FailureKind.validation,
+          message: myNoteFileTooLargeMessage,
+          code: 'MY_NOTE_FILE_TOO_LARGE',
+        ),
+      );
+    }
+    return result;
+  }
+
+  @override
   Future<Result<void>> removeAttachment({
     required String workspaceId,
     required String noteId,
@@ -363,6 +415,11 @@ final class MyNotesRepositoryImpl implements MyNotesRepository {
     await _cache.removeNote(workspaceId: workspaceId, noteId: noteId);
     await _cache.removeSummary(workspaceId: workspaceId, noteId: noteId);
   }
+}
+
+int? _httpStatus(Failure failure) {
+  final cause = failure.cause;
+  return cause is DioException ? cause.response?.statusCode : null;
 }
 
 bool _isOffline(Failure failure) =>
