@@ -23,15 +23,6 @@ import '../widgets/work_common.dart';
 /// Kích thước tệp dạng "1,2 MB".
 String sharedFileSizeLabel(int bytes) => sharedFileSizeText(bytes);
 
-IconData sharedFileIcon(SharedFileKind kind) {
-  return switch (kind) {
-    SharedFileKind.image => WebTuiIcons.image,
-    SharedFileKind.video => WebTuiIcons.videoFile,
-    SharedFileKind.audio => WebTuiIcons.audioFile,
-    SharedFileKind.document => WebTuiIcons.file,
-  };
-}
-
 /// Tệp đã chia sẻ trong workspace: lọc theo loại (kèm số tệp), tìm theo tên,
 /// chia nhóm theo thời gian; Ảnh / Video hiện dạng lưới, còn lại là các khối
 /// bo tròn.

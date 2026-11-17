@@ -181,17 +181,6 @@ final class UserSessionDto {
   }
 }
 
-List<UserSessionDto> sessionsFromEnvelope(Object? envelope) {
-  final json = _unwrapDataMap(envelope);
-  final sessions = json['sessions'];
-  if (sessions is! List) {
-    throw const FormatException('Sessions response missing sessions list.');
-  }
-  return sessions
-      .map((session) => UserSessionDto.fromJson(_mapOf(session)))
-      .toList(growable: false);
-}
-
 Map<String, dynamic> _unwrapDataMap(Object? envelope) {
   final root = _mapOf(envelope);
   final data = root.containsKey('data') ? root['data'] : root;

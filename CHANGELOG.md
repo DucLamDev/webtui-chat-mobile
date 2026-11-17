@@ -3,12 +3,52 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
-## 1.43.2 · 17/11/2026
+## 1.44.4 · 17/11/2026
 ### Sửa lỗi bảo mật
 - Đăng nhập SSO (OIDC) dùng PKCE: mỗi lần bấm đăng nhập SSO, app tạo một mã bí mật chỉ giữ trong bộ nhớ và gửi bản
   băm lên máy chủ; khi trình duyệt trả về, app phải trình đúng mã bí mật đó mới đổi được token. Trước đây một app khác
   cài trên máy đăng ký cùng đường dẫn `webtui://` có thể chặn mã đăng nhập và chiếm phiên. Giao diện không đổi.
   - Cần máy chủ đã cập nhật bản có PKCE mới được bảo vệ; với máy chủ cũ, SSO vẫn đăng nhập được như trước.
+
+## 1.44.3 · 17/11/2026
+### Sửa lỗi
+- Chat bot thông báo hiện đúng giờ và nội dung tin mới nhất; chấm "đang hoạt động" khớp giữa danh sách và chi tiết nhóm
+  Dòng bot thông báo ở màn Tin nhắn trước đây hiện giờ tạo kênh (vd. 09:45) và chữ "Thông báo của bạn" dù tin mới nhất
+  (vd. cuộc gọi nhỡ lúc 10:35) đến sau. Nay hiện đúng giờ và nội dung tin bot mới nhất (cần máy chủ bản mới; máy chủ cũ
+  vẫn hiện như trước). Danh sách thành viên trong chi tiết nhóm trước đây hiện chấm xanh cho mọi người còn trong nhóm;
+  nay chấm xanh chỉ hiện khi người đó thật sự đang trực tuyến, cùng nguồn với màn Tin nhắn và Danh bạ, và cả ba nơi tự
+  cập nhật mỗi 30 giây.
+
+## 1.44.2 · 17/11/2026
+### Dọn mã
+- Bỏ mã không còn dùng, không đổi chức năng hay giao diện
+  - Xoá 3 tệp không còn nơi nào mở / gọi: bảng lịch sử phiên bản ghi chú / bảng trắng (chưa từng gắn vào màn nào)
+    và DTO workspace cũ.
+  - Xoá các hàm không ai gọi: các hàm đọc phản hồi máy chủ kiểu cũ trong DTO hội thoại / đăng nhập, hàm chọn icon hai lớp
+    cho lối tắt, hàm icon tệp chia sẻ, hàm in JSON và một hàm xoá token xác thực lại rỗng. Tổng bớt khoảng 900 dòng.
+  - Nén không mất dữ liệu 5 ảnh icon đơn sắc Android (30,2 KB còn 24,7 KB); điểm ảnh giống hệt bản cũ.
+
+## 1.44.1 · 17/11/2026
+### Sửa lỗi
+- Cài đặt: thanh Âm lượng và Cỡ chữ nay có tác dụng thật (trước đây kéo chỉ di chuyển nút, không đổi gì, không lưu)
+  - Cỡ chữ: 7 nấc từ 85% tới 130% (mặc định 100%); kéo là chữ cả app đổi ngay, nhân thêm với cỡ chữ của điện thoại, tổng
+    giữ trong 80%–150% để màn hình không vỡ. Được lưu lại, mở lại app vẫn giữ.
+  - Âm lượng: chỉnh độ to nhạc chuông cuộc gọi đến (khi đang mở app), chuông chờ khi gọi đi và âm báo kết thúc / không
+    liên lạc được, nấc 10%; kéo về 0 thì không đổ chuông (vẫn rung, vẫn hiện cuộc gọi). Thả tay khỏi thanh là phát thử tiếng chuông khoảng 1,5 giây. Âm báo tin nhắn
+    do điện thoại phát theo âm lượng thông báo của máy nên không đổi theo thanh này.
+  - Chữ to không còn làm nhãn "Âm lượng" bị cắt thành "Âm lượ…".
+
+## 1.44.0 · 17/11/2026
+### Tính năng
+- Đẩy tag là tự cập nhật app trên CH Play
+  - Sau khi đẩy tag `mobile-vX.Y.Z`, GitHub build, ký, kiểm bản AAB rồi tự đưa lên Google Play, không phải tải AAB về và
+    tạo bản phát hành bằng tay trên Play Console nữa. Mặc định vẫn tắt; bật bằng biến `ENABLE_ANDROID_PLAY_UPLOAD=true`
+    trong môi trường `production` của GitHub, kèm khoá tài khoản dịch vụ Google `PLAY_SERVICE_ACCOUNT_JSON`.
+  - Chọn kênh bằng `PLAY_TRACK` (mặc định `internal`; `production` là cập nhật thẳng cho người dùng). Muốn phát hành dần
+    thì đặt `PLAY_ROLLOUT_FRACTION` (vd `0.2` = 20% người dùng), sau đó tăng dần trên Play Console.
+  - Mục "Có gì mới" trên CH Play lấy từ lời nhắn của tag (`git tag -a ... -m "..."`, tối đa 500 ký tự); tag không có lời
+    nhắn thì ghi "Cải thiện và sửa lỗi.". Chữ ký số của tag được lọc bỏ, không lọt vào ghi chú.
+  - Bản lên kênh `production` vẫn qua Google duyệt như khi tải lên bằng tay; người dùng nhận bản mới sau khi duyệt xong.
 
 ## 1.43.1 · 17/11/2026
 ### Sửa lỗi

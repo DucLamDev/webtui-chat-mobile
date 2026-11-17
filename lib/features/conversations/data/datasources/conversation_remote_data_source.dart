@@ -1328,12 +1328,18 @@ ConversationSummary _channelFromMap(JsonMap map) {
   final visibility = _visibilityFromApi(
     stringField(map, const ['type', 'kind'], fallback: 'public'),
   );
+  // Tin mới nhất: máy chủ chỉ trả cho kênh bot thông báo (hiện như chat 1-1:
+  // giờ và dòng xem trước theo tin bot mới nhất, không theo giờ sửa kênh / mô
+  // tả kênh). Máy chủ cũ không trả thì giữ cách cũ.
+  final lastMessage = jsonMap(
+    field(map, const ['last_message', 'lastMessage']),
+  );
+  final lastMessageBody = stringField(lastMessage, const ['body']).trim();
   // Thời điểm tin mới nhất của kênh; máy chủ cũ không trả / kênh chưa có tin
   // thì `null`.
-  final lastMessageAt = nullableDateTimeField(map, const [
-    'last_message_at',
-    'lastMessageAt',
-  ]);
+  final lastMessageAt =
+      nullableDateTimeField(map, const ['last_message_at', 'lastMessageAt']) ??
+      nullableDateTimeField(lastMessage, const ['created_at', 'createdAt']);
   return ConversationSummary(
     id: channelId,
     workspaceId: workspaceId,
@@ -1342,7 +1348,9 @@ ConversationSummary _channelFromMap(JsonMap map) {
         ? ConversationKind.direct
         : ConversationKind.channel,
     title: stringField(map, const ['name', 'title'], fallback: channelId),
-    preview: stringField(map, const ['description', 'preview']),
+    preview: lastMessageBody.isNotEmpty
+        ? lastMessageBody
+        : stringField(map, const ['description', 'preview']),
     avatarLabel: _avatarLabel(stringField(map, const ['name', 'title'])),
     avatarUrl: nullableStringField(map, const ['avatar_url', 'avatarUrl']),
     gender: visibility == ChannelVisibility.direct

@@ -23,6 +23,7 @@ import '../../domain/entities/conversation_summary.dart';
 import '../controllers/channel_detail_controller.dart';
 import '../controllers/channel_membership_events.dart';
 import '../controllers/conversation_home_controller.dart';
+import '../controllers/peer_presence.dart';
 import '../widgets/channel_avatar_setting.dart';
 import '../widgets/channel_exit_actions.dart';
 import '../widgets/message_media_widgets.dart';
@@ -180,7 +181,7 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
                   ),
                   const SizedBox(height: WebTuiSpacing.sm),
                   switch (_tabIndex) {
-                    0 => _MembersTab(
+                    0 => ChannelMembersTab(
                       state: state,
                       inviteController: _inviteController,
                       onInvite: () async {
@@ -191,6 +192,11 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
                       onReject: controller.rejectJoinRequest,
                       currentUserId: currentUserId,
                       blockedUserIds: moderationState.blockedUserIds,
+                      presenceByUserId:
+                          ref
+                              .watch(workspacePresenceProvider(workspaceId))
+                              .valueOrNull ??
+                          const {},
                       onSafety: (member) => showUserSafetyActions(
                         context,
                         ref,
@@ -497,8 +503,9 @@ class _HeaderAvatar extends StatelessWidget {
   }
 }
 
-class _MembersTab extends StatelessWidget {
-  const _MembersTab({
+/// Tab Thành viên của chi tiết nhóm (công khai để test được chấm trực tuyến).
+class ChannelMembersTab extends StatelessWidget {
+  const ChannelMembersTab({
     required this.state,
     required this.inviteController,
     required this.onInvite,
@@ -506,7 +513,9 @@ class _MembersTab extends StatelessWidget {
     required this.onReject,
     required this.currentUserId,
     required this.blockedUserIds,
+    required this.presenceByUserId,
     required this.onSafety,
+    super.key,
   });
 
   final ChannelDetailState state;
@@ -516,6 +525,11 @@ class _MembersTab extends StatelessWidget {
   final ValueChanged<String> onReject;
   final String? currentUserId;
   final Set<String> blockedUserIds;
+
+  /// Hiện diện thật của từng người (cùng nguồn danh sách hội thoại). Trước đây
+  /// chấm xanh vẽ theo trạng thái thành viên nhóm (`active`) nên ai còn trong
+  /// nhóm cũng hiện "đang hoạt động".
+  final Map<String, ConversationPresence> presenceByUserId;
   final ValueChanged<ChannelMember> onSafety;
 
   @override
@@ -602,9 +616,7 @@ class _MembersTab extends StatelessWidget {
                 avatarUrl: member.avatarUrl,
                 personAvatar: true,
                 avatarGender: member.gender,
-                status: member.status == 'active'
-                    ? WebTuiPresenceStatus.online
-                    : null,
+                status: memberPresenceStatus(presenceByUserId[member.userId]),
                 onLongPress: member.userId == currentUserId
                     ? null
                     : () => onSafety(member),
