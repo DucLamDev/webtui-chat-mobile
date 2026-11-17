@@ -3,6 +3,17 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.47.0 · 17/11/2026
+### Tính năng
+- Trạng thái hoạt động (chấm xanh "Đang hoạt động") cập nhật gần như ngay lập tức: app nhận sự kiện `PresenceChanged`
+  từ máy chủ qua kết nối realtime thay vì chờ lượt hỏi lại 30 giây. Mở lại app hoặc nối lại mạng thì app tự tải lại
+  trạng thái. Máy chủ chưa có sự kiện này thì app vẫn hỏi lại mỗi 30 giây như cũ.
+- Hồ sơ đồng nghiệp: chạm vào ảnh đại diện để xem toàn màn hình, phóng to bằng hai ngón, chạm hoặc vuốt xuống để đóng.
+  Người chưa có ảnh thì ảnh đại diện không bấm được.
+- Thiết lập ứng dụng làm lại cho nền sáng: mỗi nhóm là một thẻ trắng bo góc trên nền xám, tiêu đề nhóm chữ xám thay
+  chữ xanh, nút cuối dòng ("Cho phép", "Xóa", "Cập nhật"...) thành nút viên thuốc xám. Nền tối giữ như cũ. Bỏ đường kẻ
+  thừa khi dòng "Tự khóa sau" / quyền riêng tư cuộc gọi bị ẩn.
+
 ## 1.46.1 · 17/11/2026
 ### Sửa lỗi
 - Bước kiểm tra tự động của app báo đỏ sau bản 1.46.0 nên không dựng được bản TestFlight / Google Play: màn hồ sơ đồng

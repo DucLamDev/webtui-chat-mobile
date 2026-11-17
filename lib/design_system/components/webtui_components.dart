@@ -1,4 +1,5 @@
 export 'webtui_avatar.dart';
+export 'webtui_avatar_viewer.dart';
 export 'webtui_badges.dart';
 export 'webtui_bottom_inset.dart';
 export 'webtui_dialogs.dart';
