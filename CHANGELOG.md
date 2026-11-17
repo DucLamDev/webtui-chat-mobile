@@ -3,6 +3,16 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.47.1 · 17/11/2026
+### Sửa lỗi
+- Bớt giật / đơ khi nhiều người gọi nhau liên tục (máy chủ không quá tải; nguyên nhân ở app)
+  - Phòng chat, màn gọi dùng chung một kết nối realtime sống suốt phiên. Trước đây mỗi lần mở / rời một cuộc trò chuyện
+    hay vào màn gọi, app mở kết nối mới rồi đóng (kết nối chỉ sống khoảng 20 giây), kèm tải lại hàng loạt dữ liệu, làm
+    điện thoại giật đúng lúc đang gọi. Nay rời phòng chỉ rời phòng; không còn màn nào nghe thì 30 giây sau mới đóng kết nối.
+  - Mở phòng chat / bắt đầu cuộc gọi không còn tải lại hồ sơ của chính mình mỗi lần (lấy từ phiên đăng nhập trên máy).
+  - Gọi video quay 960×540, 24 hình/giây, tối đa 800 kbps (trước: 1280×720 không giới hạn): máy đỡ nóng, nhiều cuộc gọi
+    cùng một Wi-Fi văn phòng không còn chiếm hết băng thông; mạng yếu thì hình giảm độ nét trước, giữ chuyển động mượt.
+
 ## 1.47.0 · 17/11/2026
 ### Tính năng
 - Trạng thái hoạt động (chấm xanh "Đang hoạt động") cập nhật gần như ngay lập tức: app nhận sự kiện `PresenceChanged`

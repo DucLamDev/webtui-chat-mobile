@@ -78,6 +78,8 @@ final chatRoomControllerProvider = StateNotifierProvider.autoDispose
         saveDraftUseCase: ref.watch(saveDraftUseCaseProvider),
         clearDraftUseCase: ref.watch(clearDraftUseCaseProvider),
         loadProfileUseCase: ref.watch(loadProfileUseCaseProvider),
+        resolveCurrentUserId: () =>
+            ref.read(resolveCurrentUserIdUseCaseProvider).execute(),
         getMessageUseCase: ref.watch(getMessageUseCaseProvider),
         canCreateUserContent: () => legalPolicy.canCreateUserContent,
         onLegalAcceptanceRequired: legalPolicy.requireAcceptance,
@@ -324,6 +326,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     required SaveDraftUseCase saveDraftUseCase,
     required ClearDraftUseCase clearDraftUseCase,
     required LoadProfileUseCase loadProfileUseCase,
+    Future<String?> Function()? resolveCurrentUserId,
     GetMessageUseCase? getMessageUseCase,
     bool Function()? canCreateUserContent,
     void Function()? onLegalAcceptanceRequired,
@@ -362,6 +365,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
        _saveDraftUseCase = saveDraftUseCase,
        _clearDraftUseCase = clearDraftUseCase,
        _loadProfileUseCase = loadProfileUseCase,
+       _resolveCurrentUserId = resolveCurrentUserId,
        _getMessageUseCase = getMessageUseCase,
        _canCreateUserContent =
            canCreateUserContent ?? _allowUserContentByDefault,
@@ -400,6 +404,10 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   final SaveDraftUseCase _saveDraftUseCase;
   final ClearDraftUseCase _clearDraftUseCase;
   final LoadProfileUseCase _loadProfileUseCase;
+
+  /// Mã người dùng hiện tại lấy từ token trên máy (không gọi mạng); `null` thì
+  /// tải hồ sơ như trước.
+  final Future<String?> Function()? _resolveCurrentUserId;
 
   /// Tải lại một tin chạy dần khi thiếu đoạn (`null` = không tải lại, chờ bản cuối).
   final GetMessageUseCase? _getMessageUseCase;
@@ -440,15 +448,21 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
       workspaceId: state.scope.workspaceId,
       channelId: state.scope.channelId,
     );
-    final profileFuture = _loadProfileUseCase.execute();
+    // Mở phòng, nối lại, đồng bộ đều gọi lại hàm này: đã biết mình là ai thì
+    // dùng lại, không tải lại hồ sơ (`/users/me`) mỗi lần.
+    final currentUserIdFuture = resolveChatRoomUserId(
+      known: state.currentUserId,
+      fromToken: _resolveCurrentUserId,
+      fromProfile: () async =>
+          (await _loadProfileUseCase.execute()).valueOrNull?.id,
+    );
     final result = await _loadMessagesUseCase.execute(
       workspaceId: state.scope.workspaceId,
       channelId: state.scope.channelId,
     );
     final draft = await draftFuture;
     final outboxItems = await outboxFuture;
-    final profileResult = await profileFuture;
-    final currentUserId = profileResult.valueOrNull?.id;
+    final currentUserId = await currentUserIdFuture;
     final pendingMessages = outboxItems
         .map((item) => _optimisticMessage(item, currentUserId))
         .toList(growable: false);
@@ -2005,4 +2019,26 @@ MessageVoiceMetadata? _uploadedVoiceMetadata(
     }
   }
   return null;
+}
+
+/// Mã người dùng hiện tại cho phòng chat: đã biết ([known]) thì dùng lại; chưa
+/// thì lấy từ token trên máy ([fromToken], không gọi mạng); chỉ khi không có /
+/// lỗi mới tải hồ sơ ([fromProfile], `GET /users/me`). Phòng chat gọi lại hàm
+/// này mỗi lần mở, nối lại realtime, đồng bộ nên không được tải hồ sơ mỗi lần.
+Future<String?> resolveChatRoomUserId({
+  required String? known,
+  required Future<String?> Function()? fromToken,
+  required Future<String?> Function() fromProfile,
+}) async {
+  final knownId = known?.trim();
+  if (knownId != null && knownId.isNotEmpty) return knownId;
+  if (fromToken != null) {
+    try {
+      final id = (await fromToken())?.trim();
+      if (id != null && id.isNotEmpty) return id;
+    } on Object {
+      // Đọc token lỗi: tải hồ sơ bên dưới.
+    }
+  }
+  return fromProfile();
 }
