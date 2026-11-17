@@ -123,15 +123,10 @@ flutter:
     - assets/sounds/ket-thuc-cuoc-goi.mp3
     - assets/sounds/khi-nguoi-nhan-o-noi-mat-wifi.mp3
 
+  # Chữ dùng phông hệ thống như Zalo (iPhone: San Francisco, Android: Roboto),
+  # không đóng gói phông chữ. assets/fonts/roboto-*.ttf chỉ để test đo chữ và
+  # tool/generate_google_play_assets.py, không vào app.
   fonts:
-    - family: WebTuiRoboto
-      fonts:
-        - asset: assets/fonts/roboto-regular.ttf
-          weight: 400
-        - asset: assets/fonts/roboto-medium.ttf
-          weight: 500
-        - asset: assets/fonts/roboto-bold.ttf
-          weight: 700
     # Bộ biểu tượng Phosphor (MIT, assets/fonts/phosphor_license.txt).
     - family: PhosphorRegular
       fonts:

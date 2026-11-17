@@ -8,6 +8,7 @@ import 'package:webtui_chat/design_system/icons/webtui_icons.dart';
 import 'package:webtui_chat/features/home/presentation/screens/home_shell_screen.dart';
 import 'package:webtui_chat/features/settings/domain/entities/app_settings.dart';
 import 'package:webtui_chat/l10n/app_strings.dart';
+import '../../../support/system_font.dart';
 
 void main() {
   testWidgets('dòng Workspace bấm được cả khi tài khoản chỉ có 1 workspace', (
@@ -247,15 +248,7 @@ void main() {
   testWidgets('chữ 130%: nhãn Âm lượng / Cỡ chữ không bị cắt', (tester) async {
     // Phông thật của app (phông giả của test rộng 1em mỗi ký tự, đo sai).
     await tester.runAsync(() async {
-      final loader = FontLoader('WebTuiRoboto');
-      for (final path in const [
-        'assets/fonts/roboto-regular.ttf',
-        'assets/fonts/roboto-medium.ttf',
-        'assets/fonts/roboto-bold.ttf',
-      ]) {
-        loader.addFont(rootBundle.load(path));
-      }
-      await loader.load();
+      await loadSystemRobotoForTests();
     });
     tester.platformDispatcher.textScaleFactorTestValue = 1.3;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);

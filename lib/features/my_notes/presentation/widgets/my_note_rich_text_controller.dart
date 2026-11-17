@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
-import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../domain/markdown/my_note_line_ops.dart';
 
@@ -232,9 +231,8 @@ final class _SpanBuilder {
     required this.selection,
     required this.composing,
   }) {
-    final family = base.fontFamily ?? WebTuiTypography.fontFamily;
+    // Giữ phông của ô nhập (phông hệ thống của theme).
     bodyStyle = base.copyWith(
-      fontFamily: family,
       fontSize: 17,
       fontWeight: FontWeight.w400,
       height: 1.35,

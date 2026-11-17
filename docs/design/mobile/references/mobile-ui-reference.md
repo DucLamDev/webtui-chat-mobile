@@ -32,7 +32,7 @@ Các màn hình chính trong reference:
 | Border | Mảnh, độ tương phản thấp, dùng để tách list/card |
 | Radius | Vừa phải; card/list item khoảng 10-16px, không bo quá tròn kiểu landing page |
 | Shadow | Rất nhẹ, chỉ dùng cho phone mock/card nổi cần phân cấp |
-| Typography | Rõ, gọn, ưu tiên scan nhanh; tên người/kênh đậm vừa |
+| Typography | Rõ, gọn, ưu tiên scan nhanh; tên người/kênh đậm vừa. Phông hệ thống như Zalo trên điện thoại (iPhone: San Francisco, Android: Roboto), không đóng gói phông chữ; `WebTuiTypography` và mọi `TextStyle` không đặt `fontFamily` (trừ `monospace` cho mã) để toàn app, kể cả menu / hộp thoại Material, cùng một phông. Test đo / chụp chữ nạp Roboto bằng `test/support/system_font.dart` |
 | List density | Dày hơn landing page, mỗi item đủ avatar, tên, preview, thời gian/badge |
 | Bottom navigation | 4 tab chính: Tin nhắn, Danh bạ, Khám phá/Kênh, Thêm/Cài đặt |
 | Thanh tab dưới | Viên thuốc nổi kính trong cao 56 (viên chọn cao 48), biểu tượng 24, chữ 10.5; mỗi mục bấm ≥ 44; danh sách chừa đáy theo `WebTuiFloatingTabBar.contentBottomPadding` |
