@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/core/error/failure.dart';
@@ -12,6 +14,7 @@ import 'package:webtui_chat/features/work_hub/presentation/screens/my_tasks_scre
 import 'package:webtui_chat/features/work_hub/presentation/screens/shared_files_screen.dart';
 import 'package:webtui_chat/features/work_hub/presentation/screens/shortcuts_manage_screen.dart';
 import 'package:webtui_chat/features/work_hub/presentation/widgets/shared_file_widgets.dart';
+import 'package:webtui_chat/features/work_hub/presentation/widgets/work_apps_grid.dart';
 
 import '../../meeting_calendar/meeting_calendar_fakes.dart';
 import '../work_hub_fakes.dart';
@@ -597,8 +600,32 @@ void main() {
   });
 
   group('khu Ứng dụng', () {
+    test('màu ô ứng dụng: sáng pastel + biểu tượng màu, tối đậm + trắng', () {
+      const palette = [
+        workAppBlue,
+        workAppOrange,
+        workAppGreen,
+        workAppViolet,
+        workAppRed,
+        workAppTeal,
+        workAppGray,
+      ];
+      for (final base in palette) {
+        final light = workAppTileColors(base, Brightness.light);
+        for (final bg in [light.top, light.bottom]) {
+          expect(bg.computeLuminance(), greaterThan(0.75), reason: '$base');
+          expect(_contrast(light.icon, bg), greaterThanOrEqualTo(3));
+        }
+        final dark = workAppTileColors(base, Brightness.dark);
+        expect(dark.icon, Colors.white);
+        for (final bg in [dark.top, dark.bottom]) {
+          expect(_contrast(Colors.white, bg), greaterThanOrEqualTo(3));
+        }
+      }
+    });
+
     testWidgets(
-      'ô Lịch họp, Tệp, Ghi chú, Thêm: icon hai lớp 36, không ô nền',
+      'ô Lịch họp, Tệp, Ghi chú: ô màu bo 14 gradient riêng; ô Thêm khác kiểu',
       (tester) async {
         phone(tester);
         await tester.pumpWidget(
@@ -614,30 +641,42 @@ void main() {
           'workspace_module_my_notes',
           'app_add',
         ];
-        final icons = find.descendant(
-          of: find.byKey(const Key('work_apps_section')),
-          matching: find.byType(WebTuiDuotoneIcon),
+        Finder colorBox(String key) => find.descendant(
+          of: find.byKey(Key(key)),
+          matching: find.byKey(const Key('app_tile_color')),
         );
-        expect(icons, findsNWidgets(4));
-        expect(
-          tester.widgetList<WebTuiDuotoneIcon>(icons).map((icon) => icon.size),
-          everyElement(36),
-        );
-        // Không còn ô nền / thẻ bo góc quanh ô ứng dụng.
-        expect(find.byKey(const Key('app_tile_icon_box')), findsNothing);
-        for (final key in keys) {
-          expect(
-            find.descendant(
-              of: find.byKey(Key(key)),
-              matching: find.byWidgetPredicate(
-                (widget) =>
-                    widget is DecoratedBox &&
-                    (widget.decoration as BoxDecoration?)?.color != null,
-              ),
-            ),
-            findsNothing,
+        final firstColors = <Color>{};
+        for (final key in keys.take(3)) {
+          expect(tester.getSize(colorBox(key)), const Size(52, 52));
+          final decoration =
+              tester.widget<DecoratedBox>(colorBox(key)).decoration
+                  as BoxDecoration;
+          expect(decoration.borderRadius, BorderRadius.circular(14));
+          final gradient = decoration.gradient! as LinearGradient;
+          firstColors.add(gradient.colors.first);
+          final icon = tester.widget<Icon>(
+            find.descendant(of: colorBox(key), matching: find.byType(Icon)),
           );
+          expect(icon.size, 26);
+          // Nền sáng: ô pastel nhạt, biểu tượng mang màu riêng (không trắng),
+          // tương phản biểu tượng / nền ≥ 3:1; không bóng.
+          expect(icon.color, isNot(Colors.white));
+          expect(decoration.boxShadow, isNull);
+          for (final color in gradient.colors) {
+            expect(color.computeLuminance(), greaterThan(0.75));
+            expect(_contrast(icon.color!, color), greaterThanOrEqualTo(3));
+          }
         }
+        expect(firstColors, hasLength(3), reason: 'mỗi ứng dụng một màu');
+        // Ô Thêm: nền surface + viền đứt, không gradient.
+        expect(colorBox('app_add'), findsNothing);
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('app_add')),
+            matching: find.byKey(const Key('app_tile_dashed')),
+          ),
+          findsOneWidget,
+        );
         // Lưới 4 cột: 4 ô cùng hàng, cùng cỡ, chữ thẳng hàng.
         final rects = [
           for (final key in keys) tester.getRect(find.byKey(Key(key))),
@@ -645,7 +684,8 @@ void main() {
         for (final rect in rects) {
           expect(rect.top, moreOrLessEquals(rects.first.top));
           expect(rect.width, moreOrLessEquals(rects.first.width));
-          expect(rect.height, moreOrLessEquals(rects.first.height));
+          // Nhãn tối đa 2 dòng nên chiều cao ô có thể khác; ô vuông màu thì
+          // cùng đỉnh (kiểm ở trên).
         }
         final labels = [
           'Lịch họp',
@@ -715,4 +755,10 @@ class _MyTasksOnly extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       MyTasksScreen(workspaceId: 'ws', now: DateTime.utc(2026, 11, 14, 12));
+}
+
+double _contrast(Color a, Color b) {
+  final la = a.computeLuminance();
+  final lb = b.computeLuminance();
+  return (math.max(la, lb) + 0.05) / (math.min(la, lb) + 0.05);
 }

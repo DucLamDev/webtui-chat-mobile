@@ -18,6 +18,7 @@ import 'package:webtui_chat/features/conversations/application/use_cases/open_di
 import 'package:webtui_chat/features/conversations/domain/entities/conversation_summary.dart';
 import 'package:webtui_chat/features/conversations/domain/repositories/conversation_repository.dart';
 import 'package:webtui_chat/features/conversations/presentation/controllers/conversation_home_controller.dart';
+import 'package:webtui_chat/features/conversations/presentation/widgets/contact_directory.dart';
 import 'package:webtui_chat/features/conversations/presentation/widgets/conversation_home_views.dart';
 import 'package:webtui_chat/features/customer_tickets/application/customer_ticket_access_policy.dart';
 import 'package:webtui_chat/features/customer_tickets/presentation/controllers/customer_ticket_access_provider.dart';
@@ -55,8 +56,12 @@ void main() {
         ),
         GoRoute(
           path: '/conversations/:id',
-          builder: (context, state) =>
-              Scaffold(body: Text('Phòng ${state.pathParameters['id']}')),
+          builder: (context, state) => Scaffold(
+            body: Text(
+              'Phòng ${state.pathParameters['id']}'
+              ' call=${state.uri.queryParameters['startCall']}',
+            ),
+          ),
         ),
         GoRoute(
           path: '/channels/:id',
@@ -120,8 +125,10 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  WebTuiFilterChipBar tabsBar(WidgetTester tester) => tester
-      .widget<WebTuiFilterChipBar>(find.byKey(const ValueKey('contacts-tabs')));
+  ContactsUnderlineTabs tabsBar(WidgetTester tester) =>
+      tester.widget<ContactsUnderlineTabs>(
+        find.byKey(const ValueKey('contacts-tabs')),
+      );
 
   testWidgets('hai tab Đồng nghiệp / Kênh, mặc định Đồng nghiệp', (
     tester,
@@ -133,12 +140,9 @@ void main() {
     );
 
     final tabs = tabsBar(tester);
-    expect(
-      [for (final chip in tabs.chips) chip.label],
-      ['Đồng nghiệp', 'Nhóm'],
-    );
+    expect([for (final tab in tabs.tabs) tab.label], ['Đồng nghiệp', 'Nhóm']);
     // Kèm số: 1 đồng nghiệp (ẩn chính mình), 1 kênh.
-    expect([for (final chip in tabs.chips) chip.count], [1, 1]);
+    expect([for (final tab in tabs.tabs) tab.count], [1, 1]);
     expect(tabs.selectedIndex, 0);
     for (final key in ['contacts-tab-colleagues', 'contacts-tab-channels']) {
       expect(
@@ -146,7 +150,8 @@ void main() {
         greaterThanOrEqualTo(44),
       );
     }
-    expect(find.widgetWithText(WebTuiLargeTitleBar, 'Bạn bè'), findsOneWidget);
+    expect(find.byType(WebTuiLargeTitleBar), findsNothing);
+    expect(find.text('Bạn bè'), findsNothing, reason: 'bỏ tiêu đề lớn');
     expect(find.byType(WebTuiSegmentedTabs), findsNothing);
     expect(find.text('Bạn bè trong workspace'), findsNothing);
     expect(find.text('Lan'), findsOneWidget);
@@ -192,7 +197,7 @@ void main() {
 
     await tester.tap(find.text('Nhóm im lặng'));
     await tester.pumpAndSettle();
-    expect(find.text('Phòng im-lang'), findsOneWidget);
+    expect(find.text('Phòng im-lang call=null'), findsOneWidget);
   });
 
   testWidgets('tab Kênh: rỗng thì báo "Chưa có nhóm nào"', (tester) async {
@@ -243,11 +248,15 @@ void main() {
       find.descendant(of: row, matching: find.byType(WebTuiAvatar)),
     );
     expect(avatar.size, WebTuiListDensity.avatarSize);
-    expect(find.text('u-lan@example.com'), findsOneWidget);
+    expect(
+      find.text('u-lan@example.com'),
+      findsNothing,
+      reason: 'kiểu Zalo chỉ hiện tên; email chỉ khi trùng tên',
+    );
     expect(
       find.descendant(of: row, matching: find.byType(IconButton)),
-      findsNothing,
-      reason: 'bỏ nút khiên cuối dòng',
+      findsNWidgets(2),
+      reason: 'chỉ hai nút gọi, không nút khiên',
     );
     expect(find.byTooltip('Báo cáo hoặc chặn Lan'), findsNothing);
     expect(
@@ -318,7 +327,98 @@ void main() {
     await pump(tester, members: [_member('u-lan', 'Lan')]);
     await tester.tap(find.text('Lan'));
     await tester.pumpAndSettle();
-    expect(find.text('Phòng dm-u-lan'), findsOneWidget);
+    expect(find.text('Phòng dm-u-lan call=null'), findsOneWidget);
+  });
+
+  testWidgets('xếp A–Z có tiêu đề chữ cái, "#" ở cuối, trùng tên hiện email', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      members: [
+        _member('u-1', '123 Bot'),
+        _member('u-2', 'Đức'),
+        _member('u-3', 'Ánh'),
+        _member('u-4', 'bình'),
+        _member('u-5', 'Bình'),
+        _member('u-6', 'Dũng'),
+      ],
+    );
+    double top(String id) =>
+        tester.getTopLeft(find.byKey(ValueKey('contact-$id'))).dy;
+    // Ánh (A) < bình/Bình (B) < Đức, Dũng (D) < 123 (#).
+    expect(top('u-3'), lessThan(top('u-4')));
+    expect(top('u-4'), lessThan(top('u-5')), reason: 'trùng tên: giữ thứ tự');
+    expect(top('u-5'), lessThan(top('u-2')));
+    expect(top('u-2'), lessThan(top('u-6')));
+    expect(top('u-6'), lessThan(top('u-1')));
+    for (final letter in ['A', 'B', 'D', '#']) {
+      expect(find.byKey(ValueKey('contact-letter-$letter')), findsOneWidget);
+    }
+    expect(find.text('u-4@example.com'), findsOneWidget);
+    expect(find.text('u-5@example.com'), findsOneWidget);
+    expect(find.text('u-3@example.com'), findsNothing);
+  });
+
+  testWidgets('mỗi dòng có hai nút gọi bên phải tên; bấm gọi video mở chat '
+      'với startCall=video', (tester) async {
+    await pump(tester, members: [_member('u-lan', 'Lan')]);
+    final row = find.byKey(const ValueKey('contact-u-lan'));
+    final audio = find.descendant(
+      of: row,
+      matching: find.byKey(const ValueKey('contact-call-audio')),
+    );
+    final video = find.descendant(
+      of: row,
+      matching: find.byKey(const ValueKey('contact-call-video')),
+    );
+    expect(find.byTooltip('Gọi thoại'), findsOneWidget);
+    expect(find.byTooltip('Gọi video'), findsOneWidget);
+    final nameRight = tester.getTopRight(find.text('Lan')).dx;
+    expect(tester.getTopLeft(audio).dx, greaterThan(nameRight));
+    expect(
+      tester.getTopLeft(video).dx,
+      greaterThan(tester.getTopLeft(audio).dx),
+    );
+    for (final button in [audio, video]) {
+      expect(tester.getSize(button).width, greaterThanOrEqualTo(44));
+      expect(tester.getSize(button).height, greaterThanOrEqualTo(44));
+    }
+    await tester.tap(video);
+    await tester.pumpAndSettle();
+    expect(find.text('Phòng dm-u-lan call=video'), findsOneWidget);
+  });
+
+  testWidgets('bấm gọi thoại mở chat với startCall=audio', (tester) async {
+    await pump(tester, members: [_member('u-lan', 'Lan')]);
+    await tester.tap(find.byKey(const ValueKey('contact-call-audio')));
+    await tester.pumpAndSettle();
+    expect(find.text('Phòng dm-u-lan call=audio'), findsOneWidget);
+  });
+
+  testWidgets('không mở được chat riêng thì không có nút gọi', (tester) async {
+    await pump(
+      tester,
+      members: [
+        _member('u-lan', 'Lan'),
+        const ContactSummary(
+          userId: 'u-cho',
+          displayName: 'Chờ',
+          username: 'cho',
+          email: 'cho@example.com',
+          status: 'active',
+          contactStatus: 'pending',
+        ),
+      ],
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('contact-u-cho')),
+        matching: find.byType(ContactCallButtons),
+      ),
+      findsNothing,
+    );
+    expect(find.byType(ContactCallButtons), findsOneWidget);
   });
 }
 

@@ -26,7 +26,9 @@ void main() {
       expect(find.byIcon(WebTuiIcons.send), findsOneWidget);
     });
 
-    testWidgets('nút + bên trái, emoji nằm trong ô nhập', (tester) async {
+    testWidgets('emoji bên trái, ô nhập giữa, ⋯ / ảnh / mic bên phải', (
+      tester,
+    ) async {
       await pumpChatRoom(tester, messages: const []);
       final attach = tester.getCenter(
         find.byKey(const Key('chat_composer_attach')),
@@ -37,11 +39,25 @@ void main() {
       final emoji = tester.getCenter(
         find.byKey(const Key('chat_composer_emoji')),
       );
+      final image = tester.getCenter(
+        find.byKey(const Key('chat_composer_image')),
+      );
       final mic = tester.getCenter(find.byKey(const Key('chat_composer_mic')));
 
-      expect(attach.dx, lessThan(input.left));
-      expect(emoji.dx, greaterThan(input.right - 1));
-      expect(mic.dx, greaterThan(emoji.dx));
+      expect(emoji.dx, lessThan(input.left));
+      expect(attach.dx, greaterThan(input.right - 1));
+      expect(image.dx, greaterThan(attach.dx));
+      expect(mic.dx, greaterThan(image.dx));
+      for (final key in const [
+        'chat_composer_emoji',
+        'chat_composer_attach',
+        'chat_composer_image',
+        'chat_composer_mic',
+      ]) {
+        final size = tester.getSize(find.byKey(Key(key)));
+        expect(size.width, greaterThanOrEqualTo(44), reason: key);
+        expect(size.height, greaterThanOrEqualTo(44), reason: key);
+      }
       expect(find.text('Nhập tin nhắn...'), findsOneWidget);
     });
   });
@@ -518,8 +534,9 @@ void main() {
           .color;
     }
 
-    // Màu nhấn thương hiệu (đậm hơn một bậc từ 1.33.0 để đạt tương phản 4,5:1).
-    expect(bubbleColor('tin mình'), const Color(0xFF0A6CDE));
+    // Kiểu Zalo: tin của mình xanh nhạt, chữ màu thường (không còn xanh đậm).
+    expect(bubbleColor('tin mình'), WebTuiColors.messageOutgoing);
+    expect(bubbleColor('tin mình'), const Color(0xFFD9E8FF));
     expect(bubbleColor('tin người kia'), const Color(0xFFFFFFFF));
   });
 }

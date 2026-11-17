@@ -71,6 +71,7 @@ void main() {
     expect(bar.right, 390 - WebTuiBottomTabTokens.sideMargin);
     expect(bar.bottom, 844 - WebTuiBottomTabTokens.margin);
     expect(bar.height, WebTuiBottomTabTokens.height);
+    expect(WebTuiBottomTabTokens.height, 56, reason: 'thanh hẹp kiểu Telegram');
     // Thanh đè lên thân (extendBody): danh sách chạy tới đáy màn hình, nội dung
     // cuộn ra phía sau lớp kính mờ và chạy hai bên viên thuốc.
     final list = tester.getRect(find.byType(ListView));

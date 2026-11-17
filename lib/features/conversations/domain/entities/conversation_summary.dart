@@ -119,6 +119,8 @@ final class ConversationSummary {
     String? preview,
     DateTime? updatedAt,
     DateTime? lastMessageAt,
+    bool? favorite,
+    bool? muted,
   }) {
     return ConversationSummary(
       id: id,
@@ -133,8 +135,8 @@ final class ConversationSummary {
       gender: gender,
       peerUserId: peerUserId,
       unreadCount: unreadCount ?? this.unreadCount,
-      favorite: favorite,
-      muted: muted,
+      favorite: favorite ?? this.favorite,
+      muted: muted ?? this.muted,
       memberCount: memberCount ?? this.memberCount,
       participantIds: participantIds,
       channelVisibility: channelVisibility,

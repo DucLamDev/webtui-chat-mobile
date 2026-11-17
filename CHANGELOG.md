@@ -3,7 +3,7 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
-## 1.37.0 · 16/11/2026
+## 1.42.0 · 17/11/2026
 ### Tính năng
 - Trình soạn Ghi chú làm lại giống app Ghi chú iPhone: một ô soạn, dòng đầu là tiêu đề, tự lưu, định dạng hiện trực tiếp
   - Mở ghi chú là sửa được ngay: bỏ chế độ xem riêng, nút Sửa, nút Lưu và ô tiêu đề riêng. Dòng đầu tiên tự thành tiêu
@@ -25,6 +25,62 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
     màn khi chưa lưu được (mất mạng) thì hỏi ở lại hay bỏ phần chưa lưu. Xoá hết chữ của ghi chú cũ rồi thoát thì hỏi
     xoá ghi chú hay giữ bản đã lưu.
   - Nội dung vẫn lưu dạng markdown như trước nên trang web và ghi chú cũ vẫn đọc / sửa bình thường.
+
+## 1.41.0 · 17/11/2026
+### Tính năng
+- Ấn giữ một cuộc trò chuyện ở màn Tin nhắn để mở menu thao tác (giống nút ba chấm của Zalo trên web)
+  - Menu hiện ngay tại dòng vừa ấn (dòng gần đáy thì menu bật lên phía trên), dòng đó được tô nền để biết menu của ai.
+  - Chat 1-1: Ghim hội thoại, Đánh dấu chưa đọc / đã đọc, Tắt / Bật thông báo, Ẩn trò chuyện, Xoá hội thoại, Báo xấu.
+  - Nhóm: như trên nhưng thay "Xoá hội thoại" bằng Rời nhóm (hoặc Xoá nhóm nếu bạn có quyền xoá), không có Báo xấu.
+    Kênh nghiệp vụ (Đơn hàng, Gia hạn...) chỉ có Đánh dấu đã đọc / chưa đọc vì chỗ của chúng cố định.
+  - Ghim, đánh dấu chưa đọc và ẩn được lưu trên máy này, riêng cho từng tài khoản: cài lại app hoặc dùng máy khác sẽ
+    không còn. Hội thoại ghim nằm trên cùng danh sách.
+  - Đánh dấu chưa đọc hiện số 1 tới khi mở lại hội thoại. Đánh dấu đã đọc báo lên máy chủ như khi mở phòng (máy khác
+    cũng hết số chưa đọc); mất mạng thì báo lỗi và giữ nguyên số. Ẩn trò chuyện: biến khỏi danh sách, gõ tên vào ô tìm để mở lại;
+    có tin nhắn mới thì tự hiện lại.
+  - Xoá hội thoại (chat 1-1) hỏi lại trước khi gỡ khỏi danh sách trên máy này; tin nhắn trên máy chủ vẫn còn, có tin mới
+    thì hội thoại hiện lại. Tắt thông báo, Rời / Xoá nhóm và Báo xấu dùng đúng chức năng sẵn có của máy chủ.
+
+## 1.40.0 · 17/11/2026
+### Tính năng
+- Trang Bạn bè thiết kế lại kiểu Zalo
+  - Bỏ tiêu đề lớn: ô tìm đồng nghiệp ngay trên cùng, hai tab gạch chân Đồng nghiệp / Nhóm.
+  - Danh bạ chia nhóm theo chữ cái A–Z (bỏ dấu tiếng Việt: "Ánh" vào A, "Đức" vào D; tên bắt đầu bằng số / ký tự lạ vào
+    nhóm "#" ở cuối), tiêu đề chữ cái dính khi cuộn.
+  - Mỗi người có nút gọi thoại và gọi video bên phải tên: bấm là mở chat riêng và gọi ngay. Người đã chặn hoặc chưa
+    mở được chat riêng thì không có hai nút này.
+  - Chỉ hiện tên như Zalo; email chỉ hiện khi hai người trùng tên để phân biệt.
+- Bộ icon ứng dụng tab Công việc dạng ô màu bo góc kiểu mini app: Lịch họp cam, Tệp xanh lá, Ghi chú tím, các ứng dụng
+  khác theo màu máy chủ đặt; ô "Thêm" viền đứt. Giao diện sáng: nền ô màu pastel rất nhạt, biểu tượng mang màu riêng
+  tươi và nhạt (vẫn đủ tương phản 3:1 để nhìn rõ), ô "Thêm" xanh rất nhạt (không còn xám); giao diện tối: ô màu đậm, biểu tượng trắng.
+- Khung phòng chat kiểu Zalo
+  - Thanh đầu nền xanh, chữ và nút gọi / gọi video / menu màu trắng (nền tối: thanh tối, chữ sáng).
+  - Nền danh sách xám xanh nhạt; tin của mình nền xanh nhạt chữ đậm, tin người khác nền trắng; bo góc kiểu Zalo.
+  - Ô soạn: emoji bên trái, ô nhập ở giữa, bên phải nút thêm (đính kèm), ảnh, ghi âm; gõ chữ thì ảnh + ghi âm đổi
+    thành nút gửi.
+  - Nhãn ngày ("Hôm nay") rõ hơn ở nền tối.
+
+## 1.39.0 · 17/11/2026
+### Tính năng
+- Gọn khung các tab chính để dành chỗ cho nội dung
+  - Bỏ tiêu đề lớn "Tin nhắn", "Công việc", "Cài đặt": ô tìm kiếm nằm ngay dưới thanh trạng thái. Tab Bạn bè đổi ở bản
+    sau (cùng đợt thiết kế lại kiểu Zalo).
+  - Tab Tin nhắn: nút soạn tin (cây bút) nằm bên trái ô tìm kiếm, kính lúp nằm trong ô tìm.
+  - Tab Công việc: thay tiêu đề bằng ô tìm việc, bấm vào mở danh sách việc của tôi với ô tìm.
+  - Tab Cài đặt: bỏ tiêu đề và nút "Sửa hồ sơ"; bấm vào thẻ hồ sơ (ảnh, tên) để sửa như trước.
+  - Thanh tab nổi thấp hơn: 64 → 56 px, biểu tượng 24 px, chữ 10,5 px, giống Telegram.
+  - Chip lọc (Tất cả / Nhóm / Cá nhân / Nghiệp vụ / Chưa đọc) kiểu Messenger: không viền, nền xám nhạt, chip đang chọn
+    nền xanh nhạt chữ xanh, số đếm nằm trong chip.
+
+## 1.38.1 · 16/11/2026
+### Sửa lỗi
+- Trang đăng nhập / đăng ký ở giao diện tối không còn mất chữ
+  - Trước đây nền, ô nhập, nút và các hộp cảnh báo cố định màu sáng, còn chữ tự đổi sang màu sáng khi bật nền tối nên
+    chữ chìm vào nền. Nay mọi màu theo giao diện sáng / tối; thanh cảnh báo điều khoản cũng sửa theo.
+  - Chữ phụ ở nền sáng đậm hơn một chút cho đủ độ tương phản 4,5:1.
+- Mở bàn phím trong phòng chat không còn che tin nhắn cuối
+  - Đang ở cuối cuộc trò chuyện thì khi bàn phím mở (hoặc đóng), danh sách tự đẩy lên để tin cuối nằm ngay trên ô soạn.
+    Đang kéo lên đọc tin cũ thì danh sách giữ nguyên chỗ đang đọc.
 
 ## 1.36.0 · 16/11/2026
 ### Tính năng
