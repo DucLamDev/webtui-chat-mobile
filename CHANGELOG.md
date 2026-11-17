@@ -3,7 +3,7 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
-## 1.37.0 · 17/11/2026
+## 1.41.0 · 17/11/2026
 ### Tính năng
 - Ấn giữ một cuộc trò chuyện ở màn Tin nhắn để mở menu thao tác (giống nút ba chấm của Zalo trên web)
   - Menu hiện ngay tại dòng vừa ấn (dòng gần đáy thì menu bật lên phía trên), dòng đó được tô nền để biết menu của ai.
@@ -16,6 +16,28 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
     có tin nhắn mới thì tự hiện lại.
   - Xoá hội thoại (chat 1-1) hỏi lại trước khi gỡ khỏi danh sách trên máy này; tin nhắn trên máy chủ vẫn còn, có tin mới
     thì hội thoại hiện lại. Tắt thông báo, Rời / Xoá nhóm và Báo xấu dùng đúng chức năng sẵn có của máy chủ.
+
+## 1.39.0 · 17/11/2026
+### Tính năng
+- Gọn khung các tab chính để dành chỗ cho nội dung
+  - Bỏ tiêu đề lớn "Tin nhắn", "Công việc", "Cài đặt": ô tìm kiếm nằm ngay dưới thanh trạng thái. Tab Bạn bè đổi ở bản
+    sau (cùng đợt thiết kế lại kiểu Zalo).
+  - Tab Tin nhắn: nút soạn tin (cây bút) nằm bên trái ô tìm kiếm, kính lúp nằm trong ô tìm.
+  - Tab Công việc: thay tiêu đề bằng ô tìm việc, bấm vào mở danh sách việc của tôi với ô tìm.
+  - Tab Cài đặt: bỏ tiêu đề và nút "Sửa hồ sơ"; bấm vào thẻ hồ sơ (ảnh, tên) để sửa như trước.
+  - Thanh tab nổi thấp hơn: 64 → 56 px, biểu tượng 24 px, chữ 10,5 px, giống Telegram.
+  - Chip lọc (Tất cả / Nhóm / Cá nhân / Nghiệp vụ / Chưa đọc) kiểu Messenger: không viền, nền xám nhạt, chip đang chọn
+    nền xanh nhạt chữ xanh, số đếm nằm trong chip.
+
+## 1.38.1 · 16/11/2026
+### Sửa lỗi
+- Trang đăng nhập / đăng ký ở giao diện tối không còn mất chữ
+  - Trước đây nền, ô nhập, nút và các hộp cảnh báo cố định màu sáng, còn chữ tự đổi sang màu sáng khi bật nền tối nên
+    chữ chìm vào nền. Nay mọi màu theo giao diện sáng / tối; thanh cảnh báo điều khoản cũng sửa theo.
+  - Chữ phụ ở nền sáng đậm hơn một chút cho đủ độ tương phản 4,5:1.
+- Mở bàn phím trong phòng chat không còn che tin nhắn cuối
+  - Đang ở cuối cuộc trò chuyện thì khi bàn phím mở (hoặc đóng), danh sách tự đẩy lên để tin cuối nằm ngay trên ô soạn.
+    Đang kéo lên đọc tin cũ thì danh sách giữ nguyên chỗ đang đọc.
 
 ## 1.36.0 · 16/11/2026
 ### Tính năng

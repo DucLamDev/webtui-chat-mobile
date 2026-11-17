@@ -336,8 +336,8 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         title: organization == null
             ? titles[_tabIndex]
             : '${organization.name} · ${titles[_tabIndex]}',
-        // Mọi tab tự dựng tiêu đề lớn kiểu iOS (WebTuiLargeTitleBar) ngay trong
-        // thân: không còn thanh tiêu đề "Tổ chức · Tab".
+        // Các tab chính không có tiêu đề: bỏ cả thanh "Tổ chức · Tab" lẫn tiêu đề
+        // lớn để dành chỗ cho nội dung.
         showAppBar: false,
         tabBadges: {if (messagesUnread > 0) 0: messagesUnread},
         selectedTab: _tabIndex,
@@ -2317,18 +2317,10 @@ class SettingsTab extends StatelessWidget {
           bottom: WebTuiFloatingTabBar.contentBottomPadding(context),
         ),
         children: [
+          // Không có tiêu đề: thẻ hồ sơ ngay dưới thanh trạng thái.
           ColoredBox(
             color: WebTuiColors.page,
-            child: WebTuiLargeTitleBar(
-              title: strings.tabSettings,
-              actions: [
-                WebTuiHeaderTextButton(
-                  key: const Key('settings_edit_profile_button'),
-                  label: strings.isEnglish ? 'Edit profile' : 'Sửa hồ sơ',
-                  onPressed: onProfileTap,
-                ),
-              ],
-            ),
+            child: const SizedBox(height: WebTuiSpacing.sm),
           ),
           _SettingsProfileHeader(
             name: displayName,

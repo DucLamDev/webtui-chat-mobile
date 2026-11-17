@@ -17,7 +17,8 @@ class WebTuiFilterChipData {
   final Key? key;
 }
 
-/// Thanh lọc trượt ngang kiểu YouTube: chip phẳng cao 32, bo 8, không viền;
+/// Thanh lọc trượt ngang kiểu Messenger: chip viên thuốc cao 32, không viền,
+/// nền xám nhạt; chip chọn nền xanh trong suốt, chữ màu nhấn đậm;
 /// hàng chip tràn tới mép màn hình, cuộn có quán tính và nảy ở hai đầu, không
 /// thanh cuộn; mép phải mờ dần khi còn chip phía sau; bấm chip thì rung nhẹ và
 /// tự cuộn chip đó vào giữa. Vùng bấm mỗi chip cao 44.
@@ -172,9 +173,12 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    // Sáng: chữ chọn dùng primaryPressed (đậm hơn) để đủ tương phản 4.5:1 trên
+    // nền xanh nhạt.
     final foreground = selected
-        ? WebTuiColors.textOnPrimary
-        : WebTuiColors.textPrimary;
+        ? (dark ? WebTuiColors.primary : WebTuiColors.primaryPressed)
+        : WebTuiColors.textSecondary;
     final count = data.count ?? 0;
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     return Semantics(
@@ -193,9 +197,9 @@ class _FilterChip extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14),
             decoration: BoxDecoration(
               color: selected
-                  ? WebTuiColors.primaryFill
+                  ? WebTuiColors.primary.withValues(alpha: dark ? 0.2 : 0.14)
                   : WebTuiColors.chipBackground,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -206,7 +210,7 @@ class _FilterChip extends StatelessWidget {
                   style: WebTuiTypography.bodyMedium.copyWith(
                     fontSize: 14,
                     height: 1.2,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                     color: foreground,
                   ),
                 ),
@@ -215,12 +219,10 @@ class _FilterChip extends StatelessWidget {
                   Text(
                     count > 99 ? '99+' : '$count',
                     style: WebTuiTypography.bodySmall.copyWith(
-                      fontSize: 12,
+                      fontSize: 11,
                       height: 1.2,
                       fontWeight: FontWeight.w700,
-                      color: selected
-                          ? WebTuiColors.textOnPrimary
-                          : WebTuiColors.textSecondary,
+                      color: foreground,
                       fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
