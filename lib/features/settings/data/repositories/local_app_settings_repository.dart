@@ -36,6 +36,13 @@ final class LocalAppSettingsRepository implements AppSettingsRepository {
       quietEnd: map['quietEnd']?.toString() ?? '07:00',
       microphoneEnabledOnJoin: map['microphoneEnabledOnJoin'] != false,
       cameraEnabledOnJoin: map['cameraEnabledOnJoin'] != false,
+      // Bản cũ chưa lưu hai trường này: dùng mặc định.
+      textScale: normalizeAppTextScale(
+        _number(map['textScale']) ?? appTextScaleDefault,
+      ),
+      soundVolume: normalizeAppSoundVolume(
+        _number(map['soundVolume']) ?? appSoundVolumeDefault,
+      ),
     );
   }
 
@@ -54,7 +61,11 @@ final class LocalAppSettingsRepository implements AppSettingsRepository {
         'quietEnd': settings.quietEnd,
         'microphoneEnabledOnJoin': settings.microphoneEnabledOnJoin,
         'cameraEnabledOnJoin': settings.cameraEnabledOnJoin,
+        'textScale': settings.textScale,
+        'soundVolume': settings.soundVolume,
       }),
     );
   }
 }
+
+double? _number(Object? value) => value is num ? value.toDouble() : null;
