@@ -28,6 +28,13 @@ final class FakeMyNotesRepository implements MyNotesRepository {
   Map<String, Object?>? lastSave;
   Map<String, Object?>? lastFolder;
 
+  /// `uploadFile`: kết quả trả về, tiến độ giả báo cho [onProgress].
+  Result<String>? uploadResult;
+  final uploadedFiles = <MyNoteLocalFile>[];
+  List<double> uploadProgressSteps = const [0.5, 1];
+  Result<MyNoteAttachment>? addAttachmentResult;
+  Map<String, Object?>? lastAddAttachment;
+
   @override
   Future<Result<MyNotesCached<MyNotePage>>> listNotes({
     required String workspaceId,
@@ -127,7 +134,29 @@ final class FakeMyNotesRepository implements MyNotesRepository {
     required String fileId,
   }) async {
     calls.add('addAttachment');
-    return FailureResult(_notConfigured);
+    lastAddAttachment = {
+      'workspaceId': workspaceId,
+      'noteId': noteId,
+      'fileId': fileId,
+    };
+    return addAttachmentResult ?? FailureResult(_notConfigured);
+  }
+
+  @override
+  Future<Result<String>> uploadFile({
+    required String workspaceId,
+    required MyNoteLocalFile file,
+    void Function(double progress)? onProgress,
+  }) async {
+    calls.add('uploadFile:${file.name}');
+    uploadedFiles.add(file);
+    final result = uploadResult ?? FailureResult(_notConfigured);
+    if (result.isSuccess) {
+      for (final step in uploadProgressSteps) {
+        onProgress?.call(step);
+      }
+    }
+    return result;
   }
 
   @override
