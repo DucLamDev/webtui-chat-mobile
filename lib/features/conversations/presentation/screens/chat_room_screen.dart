@@ -42,8 +42,10 @@ import '../controllers/peer_read_controller.dart';
 import '../controllers/pending_chat_share_controller.dart';
 import '../widgets/channel_exit_actions.dart';
 import '../widgets/chat_call_history_card.dart';
+import '../widgets/chat_greeting_empty_state.dart';
 import '../widgets/chat_room_app_bar.dart';
 import '../widgets/collaboration_room_sheet.dart';
+import '../widgets/colleague_profile_sheet.dart';
 import '../widgets/message_cards/message_card_view.dart';
 import '../widgets/message_cards/streaming_message_bubble.dart';
 import '../widgets/message_media_widgets.dart';
@@ -562,6 +564,10 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         (conversationKind == null && senderDirectory.length > 2);
     // "Đã xem" chỉ cho chat 1-1 thật, không cho nhóm / kênh / chat bot.
     final conversation = widget.conversation;
+    // Chat với bot tự động / phiên riêng của kênh nghiệp vụ: không vẫy tay chào.
+    final automationRoom =
+        (conversation?.isAutomation ?? false) ||
+        (conversation?.privateSessionMode ?? false);
     final isDirectChat =
         !noticeBot &&
         !(conversation?.isAutomation ?? false) &&
@@ -684,6 +690,24 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
             : widget.conversation?.avatarUrl,
         directAvatarGender: roomAvatarGender,
         noticeBot: noticeBot,
+        onGreetingWave: noticeBot || interactionBlocked || automationRoom
+            ? null
+            : () => unawaited(controller.sendCardReply(chatGreetingWaveText)),
+        onGreetingSuggestion: noticeBot || interactionBlocked || automationRoom
+            ? null
+            : (text) => _fillDraft(controller, text),
+        greetingAvatarUrl: isDirectChat ? roomAvatarUrl : null,
+        greetingGroup: !automationRoom,
+        onOpenSenderProfile: showSenderNames && !noticeBot
+            ? (senderId) => _openSenderProfile(
+                context,
+                workspaceId,
+                senderId,
+                senderDirectory,
+                callsEnabled: callsEnabled,
+                blocked: moderationState.blockedUserIds.contains(senderId),
+              )
+            : null,
         draftController: _draftController,
         draftFocusNode: _draftFocusNode,
         onDraftChanged: controller.updateDraft,
@@ -837,6 +861,17 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
               avatarGender: roomAvatarGender,
               presence: peerPresence,
               onDetails: () => _openDetails(context),
+              onViewProfile: isDirectChat && safetyTargetUserId != null
+                  ? () => _openPeerProfile(
+                      context,
+                      workspaceId,
+                      safetyTargetUserId,
+                      title: roomTitle,
+                      avatarUrl: roomAvatarUrl,
+                      gender: roomAvatarGender,
+                      presence: peerPresence,
+                    )
+                  : null,
               onSafety: safetyTargetUserId == null
                   ? null
                   : () => showUserSafetyActions(
@@ -914,6 +949,27 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
           );
         },
         onDetails: () => _openDetails(context),
+        onViewProfile: isDirectChat && safetyTargetUserId != null
+            ? () => _openPeerProfile(
+                context,
+                workspaceId,
+                safetyTargetUserId,
+                title: roomTitle,
+                avatarUrl: roomAvatarUrl,
+                gender: roomAvatarGender,
+                presence: peerPresence,
+                onCall: callsEnabled && !interactionBlocked
+                    ? (mode) => unawaited(
+                        _startCallFromCurrentConversation(
+                          context,
+                          controller,
+                          state,
+                          mode,
+                        ),
+                      )
+                    : null,
+              )
+            : null,
         onLeaveGroup: groupFlags?.canLeave == true
             ? () => _leaveGroup(context, workspaceId)
             : null,
@@ -966,6 +1022,116 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
         channel: group,
       ),
     );
+  }
+
+  /// Hồ sơ người kia trong chat 1-1 (bấm ảnh / tên đầu trang, "Xem hồ sơ").
+  void _openPeerProfile(
+    BuildContext context,
+    String workspaceId,
+    String userId, {
+    required String title,
+    String? avatarUrl,
+    WebTuiAvatarGender? gender,
+    PeerPresenceLabel? presence,
+    ValueChanged<CallMode>? onCall,
+  }) {
+    unawaited(
+      showColleagueProfileSheet(
+        context,
+        workspaceId: workspaceId,
+        userId: userId,
+        fallbackName: title,
+        avatarUrl: avatarUrl,
+        gender: gender,
+        presence: presence,
+        onCall: onCall,
+      ),
+    );
+  }
+
+  /// Hồ sơ người gửi trong nhóm (bấm ảnh cạnh tin): nhắn tin / gọi mở chat
+  /// riêng với người đó (gọi thì gọi ngay khi phòng mở).
+  void _openSenderProfile(
+    BuildContext context,
+    String workspaceId,
+    String senderId,
+    MessageSenderDirectory directory, {
+    required bool callsEnabled,
+    required bool blocked,
+  }) {
+    final sender = directory[senderId];
+    unawaited(
+      showColleagueProfileSheet(
+        context,
+        workspaceId: workspaceId,
+        userId: senderId,
+        fallbackName: directory.nameOf(senderId),
+        avatarUrl: sender?.avatarUrl,
+        gender: WebTuiAvatarGender.parse(sender?.gender),
+        onMessage: blocked
+            ? null
+            : () => unawaited(_openDirectWith(context, workspaceId, senderId)),
+        onCall: callsEnabled && !blocked
+            ? (mode) => unawaited(
+                _openDirectWith(
+                  context,
+                  workspaceId,
+                  senderId,
+                  startCall: mode,
+                ),
+              )
+            : null,
+      ),
+    );
+  }
+
+  /// Mở (tạo nếu chưa có) chat riêng với [userId]; [startCall] thì gọi ngay.
+  Future<void> _openDirectWith(
+    BuildContext context,
+    String workspaceId,
+    String userId, {
+    CallMode? startCall,
+  }) async {
+    try {
+      final conversation = await ref
+          .read(conversationRemoteDataSourceProvider)
+          .createDirectConversation(
+            workspaceId: workspaceId,
+            participantIds: [userId],
+            sourceChannelId: widget.channelId,
+          );
+      if (!context.mounted) return;
+      await context.push(
+        Uri(
+          path: '/conversations/${conversation.channelId}',
+          queryParameters: {
+            'workspaceId': workspaceId,
+            'title': conversation.title,
+            'kind': conversation.kind.name,
+            if (conversation.peerUserId != null)
+              'peerUserId': conversation.peerUserId,
+            if (startCall != null) 'startCall': startCall.name,
+          },
+        ).toString(),
+        extra: conversation,
+      );
+    } on Object catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(userFacingErrorMessage(error))));
+      }
+    }
+  }
+
+  /// Câu gợi ý ở màn chào: điền vào ô soạn (chưa gửi) và mở bàn phím.
+  void _fillDraft(ChatRoomController controller, String text) {
+    _draftController.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+    controller.updateDraft(text);
+    _draftFocusNode.requestFocus();
   }
 
   void _openDetails(BuildContext context) {
@@ -1546,11 +1712,31 @@ class ChatRoomBody extends StatefulWidget {
     required this.onCancelComposerContext,
     required this.onRetryCall,
     this.seenMessageId,
+    this.onGreetingWave,
+    this.onGreetingSuggestion,
+    this.greetingAvatarUrl,
+    this.greetingGroup = true,
+    this.onOpenSenderProfile,
     super.key,
   });
 
   /// Tin CUỐI của mình đã được người kia đọc (chỉ chat 1-1): hiện "Đã xem".
   final String? seenMessageId;
+
+  /// Màn chào phòng trống: nút "Vẫy tay chào" (gửi 👋) và câu gợi ý điền vào
+  /// ô soạn; `null` thì ẩn (bị chặn, chat bot).
+  final VoidCallback? onGreetingWave;
+  final ValueChanged<String>? onGreetingSuggestion;
+
+  /// Ảnh người kia ở màn chào chat 1-1 (ảnh phòng, kể cả ảnh truyền qua link).
+  final String? greetingAvatarUrl;
+
+  /// Màn chào kiểu nhóm; `false` cho chat bot tự động / phiên riêng (lời mời
+  /// trung tính).
+  final bool greetingGroup;
+
+  /// Nhóm: bấm ảnh người gửi cạnh tin để xem hồ sơ (`null`: không bấm được).
+  final ValueChanged<String>? onOpenSenderProfile;
 
   final String workspaceId;
   final ChatRoomState state;
@@ -1616,6 +1802,21 @@ class ChatRoomBody extends StatefulWidget {
 }
 
 class _ChatRoomBodyState extends State<ChatRoomBody> {
+  /// Ảnh người gửi trong nhóm mở hồ sơ; tin của bot / người không có trong
+  /// danh bạ phòng thì không.
+  VoidCallback? _senderProfileTap(ChatMessage message) {
+    final open = widget.onOpenSenderProfile;
+    final senderId = message.senderId?.trim() ?? '';
+    if (open == null ||
+        message.isMine ||
+        message.kind == 'bot' ||
+        senderId.isEmpty ||
+        widget.senderDirectory[senderId] == null) {
+      return null;
+    }
+    return () => open(senderId);
+  }
+
   /// Tin đang hiện dòng giờ vì người dùng vừa chạm vào.
   String? _timeShownMessageId;
 
@@ -1715,7 +1916,17 @@ class _ChatRoomBodyState extends State<ChatRoomBody> {
                     message: tr('Đang tải tin nhắn...', 'Loading messages...'),
                   )
                 : widget.state.messages.isEmpty
-                ? const _ChatEmptyState()
+                ? ChatGreetingEmptyState(
+                    directChat: widget.directChat,
+                    groupChat: widget.greetingGroup,
+                    title: widget.state.scope.title,
+                    avatarUrl: widget.directChat
+                        ? widget.greetingAvatarUrl ?? widget.directAvatarUrl
+                        : null,
+                    avatarGender: widget.directAvatarGender,
+                    onWave: widget.onGreetingWave,
+                    onSuggestion: widget.onGreetingSuggestion,
+                  )
                 : _stickToBottomOnResize(
                     ListView.builder(
                       controller: _scrollController,
@@ -1894,6 +2105,7 @@ class _ChatRoomBodyState extends State<ChatRoomBody> {
                                         ),
                                         showAvatar:
                                             !message.isMine && !sameSender,
+                                        onAvatarTap: _senderProfileTap(message),
                                         outgoing: message.isMine,
                                         text: _displayMessageBody(message),
                                         timeLabel: _messageTimeLabel(message),
@@ -4122,6 +4334,7 @@ class _MessageRow extends StatelessWidget {
     this.hasAvatarColumn = true,
     this.statusLine,
     this.mediaTimeLabel,
+    this.onAvatarTap,
   });
 
   final ChatMessage message;
@@ -4149,11 +4362,31 @@ class _MessageRow extends StatelessWidget {
   /// Chat 1-1 không có cột ảnh đại diện (tên phòng đã là người kia).
   final bool hasAvatarColumn;
 
+  /// Nhóm: bấm ảnh người gửi để xem hồ sơ (`null`: ảnh chỉ để nhìn).
+  final VoidCallback? onAvatarTap;
+
   /// Dòng "13:42 · Đã xem" dưới tin (null: không hiện).
   final Widget? statusLine;
 
   /// Giờ hiện trên ảnh / video của tin.
   final String? mediaTimeLabel;
+
+  Widget _tappableAvatar(Widget avatar) {
+    final onTap = onAvatarTap;
+    if (onTap == null) return avatar;
+    // Vùng bấm 44 quanh ảnh 30 (tràn ra ngoài cột, không đẩy bố cục).
+    return Semantics(
+      button: true,
+      label: tr('Xem hồ sơ $avatarLabel', 'View $avatarLabel profile'),
+      excludeSemantics: true,
+      child: InkResponse(
+        key: ValueKey('sender_avatar_${message.id}'),
+        onTap: onTap,
+        radius: 22,
+        child: avatar,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -4162,12 +4395,14 @@ class _MessageRow extends StatelessWidget {
         SizedBox.square(
           dimension: 30,
           child: showAvatar
-              ? WebTuiAvatar(
-                  label: avatarLabel,
-                  imageUrl: avatarUrl,
-                  gender: avatarGender,
-                  allowPublicRequest: avatarPublicImage,
-                  size: 30,
+              ? _tappableAvatar(
+                  WebTuiAvatar(
+                    label: avatarLabel,
+                    imageUrl: avatarUrl,
+                    gender: avatarGender,
+                    allowPublicRequest: avatarPublicImage,
+                    size: 30,
+                  ),
                 )
               : const SizedBox.shrink(),
         ),
@@ -5056,6 +5291,7 @@ class _EmbeddedChatHeader extends StatelessWidget {
   const _EmbeddedChatHeader({
     required this.title,
     required this.onDetails,
+    this.onViewProfile,
     this.avatarUrl,
     this.avatarGender,
     this.onSafety,
@@ -5066,12 +5302,19 @@ class _EmbeddedChatHeader extends StatelessWidget {
   final PeerPresenceLabel? presence;
   final String title;
   final VoidCallback onDetails;
+
+  /// Chat 1-1: xem hồ sơ người kia thay cho chi tiết nhóm.
+  final VoidCallback? onViewProfile;
   final String? avatarUrl;
   final WebTuiAvatarGender? avatarGender;
   final VoidCallback? onSafety;
 
   @override
   Widget build(BuildContext context) {
+    final openInfo = onViewProfile ?? onDetails;
+    final infoLabel = onViewProfile != null
+        ? tr('Xem hồ sơ', 'View profile')
+        : tr('Chi tiết nhóm', 'Group details');
     return Material(
       color: WebTuiColors.surface,
       child: SizedBox(
@@ -5080,14 +5323,23 @@ class _EmbeddedChatHeader extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.lg),
           child: Row(
             children: [
-              WebTuiAvatar(
-                label: title,
-                imageUrl: avatarUrl,
-                gender: avatarGender,
-                status: presence?.online == true
-                    ? WebTuiPresenceStatus.online
-                    : null,
-                size: 36,
+              Semantics(
+                button: true,
+                label: infoLabel,
+                excludeSemantics: true,
+                child: InkResponse(
+                  onTap: openInfo,
+                  radius: 24,
+                  child: WebTuiAvatar(
+                    label: title,
+                    imageUrl: avatarUrl,
+                    gender: avatarGender,
+                    status: presence?.online == true
+                        ? WebTuiPresenceStatus.online
+                        : null,
+                    size: 36,
+                  ),
+                ),
               ),
               const SizedBox(width: WebTuiSpacing.md),
               Expanded(
@@ -5125,8 +5377,8 @@ class _EmbeddedChatHeader extends StatelessWidget {
                   icon: const Icon(Icons.shield_outlined),
                 ),
               IconButton(
-                tooltip: tr('Chi tiết nhóm', 'Group details'),
-                onPressed: onDetails,
+                tooltip: infoLabel,
+                onPressed: openInfo,
                 icon: const Icon(CupertinoIcons.ellipsis),
               ),
             ],
@@ -5225,58 +5477,6 @@ class _BlockedConversationComposer extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ChatEmptyState extends StatelessWidget {
-  const _ChatEmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(WebTuiSpacing.xxl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: WebTuiColors.primarySoft,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.chat_bubble_outline_rounded,
-                color: WebTuiColors.primary,
-                size: 28,
-              ),
-            ),
-            const SizedBox(height: WebTuiSpacing.md),
-            Text(
-              tr('Bắt đầu cuộc trò chuyện', 'Start the conversation'),
-              textAlign: TextAlign.center,
-              style: WebTuiTypography.titleMedium.copyWith(
-                color: WebTuiColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: WebTuiSpacing.xs),
-            Text(
-              tr(
-                'Tin nhắn đầu tiên của bạn sẽ xuất hiện tại đây.',
-                'Your first message will appear here.',
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: WebTuiTypography.bodySmall.copyWith(
-                color: WebTuiColors.textMuted,
-              ),
-            ),
-          ],
         ),
       ),
     );

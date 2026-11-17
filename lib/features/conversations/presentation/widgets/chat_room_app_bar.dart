@@ -13,8 +13,9 @@ import 'channel_exit_actions.dart';
 
 /// Đầu phòng chat: quay lại, ảnh đại diện (chấm xanh khi 1-1) + tên + dòng phụ,
 /// chỉ hai nút gọi thoại / gọi video và nút ba gạch (≡) gom: tìm tin nhắn, báo
-/// cáo hoặc chặn, công cụ làm việc, chi tiết kênh, rời / xoá nhóm (khi máy chủ
-/// cho phép). Các phần đều gọn (nút 44
+/// cáo hoặc chặn, công cụ làm việc, chi tiết nhóm (chat 1-1: "Xem hồ sơ" người
+/// kia), rời / xoá nhóm (khi máy chủ cho phép). Bấm ảnh / tên: chat 1-1 mở hồ
+/// sơ, nhóm mở chi tiết nhóm. Các phần đều gọn (nút 44
 /// điểm, ảnh 38 điểm) và chữ tên tự nhỏ dần khi thiếu chỗ để tên người thường
 /// gặp (vd. "Nguyễn Thanh Tiền") hiện đủ trên điện thoại khổ 360–390 điểm.
 ///
@@ -32,6 +33,7 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onSearch,
     required this.onTools,
     required this.onDetails,
+    this.onViewProfile,
     this.avatarUrl,
     this.avatarGender,
     this.publicAvatar = false,
@@ -63,6 +65,10 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onSafety;
   final VoidCallback onTools;
   final VoidCallback onDetails;
+
+  /// Chat 1-1: mở hồ sơ người kia (bấm ảnh / tên, mục "Xem hồ sơ" trong menu
+  /// thay cho "Chi tiết nhóm"). `null`: chưa biết người kia, ẩn mục.
+  final VoidCallback? onViewProfile;
   final Widget? notificationAction;
 
   /// "Rời nhóm" trong menu ≡ (`null`: ẩn — không phải nhóm / máy chủ không
@@ -122,36 +128,44 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
         icon: const Icon(WebTuiIcons.back, size: 28),
       ),
       titleSpacing: 0,
-      title: Row(
-        children: [
-          WebTuiAvatar(
-            label: title,
-            imageUrl: avatarUrl,
-            gender: avatarGender,
-            allowPublicRequest: publicAvatar,
-            status: presence?.online == true
-                ? WebTuiPresenceStatus.online
-                : null,
-            size: 38,
-          ),
-          const SizedBox(width: WebTuiSpacing.sm),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _ChatRoomTitle(title, color: fg),
-                if (subtitle != null)
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: WebTuiTypography.bodySmall.copyWith(color: subFg),
-                  ),
-              ],
+      // Bấm ảnh / tên: chat 1-1 mở hồ sơ người kia, nhóm mở chi tiết nhóm (như
+      // Zalo); chat bot thông báo không có trang chi tiết.
+      title: _TappableTitle(
+        onTap: noticeBot ? null : (directChat ? onViewProfile : onDetails),
+        semanticLabel: directChat
+            ? tr('Xem hồ sơ $title', 'View $title profile')
+            : tr('Xem chi tiết nhóm $title', 'View $title group details'),
+        child: Row(
+          children: [
+            WebTuiAvatar(
+              label: title,
+              imageUrl: avatarUrl,
+              gender: avatarGender,
+              allowPublicRequest: publicAvatar,
+              status: presence?.online == true
+                  ? WebTuiPresenceStatus.online
+                  : null,
+              size: 38,
             ),
-          ),
-        ],
+            const SizedBox(width: WebTuiSpacing.sm),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _ChatRoomTitle(title, color: fg),
+                  if (subtitle != null)
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: WebTuiTypography.bodySmall.copyWith(color: subFg),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
       actions: [
         if (noticeBot)
@@ -188,6 +202,8 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 onTools();
               case 'details':
                 onDetails();
+              case 'profile':
+                onViewProfile?.call();
               case 'leave':
                 onLeaveGroup?.call();
               case 'delete':
@@ -222,8 +238,20 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
                   label: tr('Công cụ làm việc', 'Work tools'),
                 ),
               ),
-            if (!noticeBot)
+            // Chat 1-1 không phải nhóm: "Xem hồ sơ" người kia thay cho
+            // "Chi tiết nhóm".
+            if (!noticeBot && directChat && onViewProfile != null)
               PopupMenuItem(
+                key: const Key('chat_room_view_profile'),
+                value: 'profile',
+                child: _ChatMenuRow(
+                  icon: WebTuiIcons.profile,
+                  label: tr('Xem hồ sơ', 'View profile'),
+                ),
+              ),
+            if (!noticeBot && !directChat)
+              PopupMenuItem(
+                key: const Key('chat_room_group_details'),
                 value: 'details',
                 child: _ChatMenuRow(
                   icon: WebTuiIcons.channel,
@@ -259,6 +287,36 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
         const SizedBox(width: WebTuiSpacing.xs),
       ],
+    );
+  }
+}
+
+/// Vùng ảnh + tên ở đầu phòng chat bấm được (cao bằng thanh đầu, gợn nhẹ khi
+/// bấm); [onTap] `null` thì chỉ là chữ.
+class _TappableTitle extends StatelessWidget {
+  const _TappableTitle({
+    required this.onTap,
+    required this.semanticLabel,
+    required this.child,
+  });
+
+  final VoidCallback? onTap;
+  final String semanticLabel;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final onTap = this.onTap;
+    if (onTap == null) return child;
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: InkWell(
+        key: const Key('chat_room_title_tap'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(height: 56, child: child),
+      ),
     );
   }
 }

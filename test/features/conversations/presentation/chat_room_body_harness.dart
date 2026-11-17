@@ -166,6 +166,12 @@ Future<void> pumpChatRoom(
   Size size = const Size(390, 844),
   MessageSenderDirectory senderDirectory = const MessageSenderDirectory.empty(),
   ThemeData? theme,
+  VoidCallback? onViewProfile,
+  VoidCallback? onDetails,
+  VoidCallback? onGreetingWave,
+  ValueChanged<String>? onGreetingSuggestion,
+  ValueChanged<String>? onOpenSenderProfile,
+  TextEditingController? draftController,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -182,9 +188,9 @@ Future<void> pumpChatRoom(
         const MethodChannel('xyz.luan/audioplayers.global'),
         (call) async => null,
       );
-  final controller = TextEditingController(text: draft);
+  final controller = draftController ?? TextEditingController(text: draft);
   final focusNode = FocusNode();
-  addTearDown(controller.dispose);
+  if (draftController == null) addTearDown(controller.dispose);
   addTearDown(focusNode.dispose);
   void noop() {}
   void noop1(Object? _) {}
@@ -245,6 +251,9 @@ Future<void> pumpChatRoom(
     onFocusMessage: noop1,
     onCancelComposerContext: noop,
     onRetryCall: (mode) => onCall?.call(mode),
+    onGreetingWave: onGreetingWave,
+    onGreetingSuggestion: onGreetingSuggestion,
+    onOpenSenderProfile: onOpenSenderProfile,
   );
   Widget app = MaterialApp(
     debugShowCheckedModeBanner: false,
@@ -263,7 +272,8 @@ Future<void> pumpChatRoom(
               onSearch: noop,
               onSafety: noop,
               onTools: noop,
-              onDetails: noop,
+              onDetails: onDetails ?? noop,
+              onViewProfile: onViewProfile ?? (directChat ? noop : null),
             )
           : null,
       // Giống màn thật: thanh cuối thân tự lo vùng an toàn đáy.

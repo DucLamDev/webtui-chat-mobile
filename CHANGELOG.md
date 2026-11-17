@@ -3,6 +3,22 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.46.0 · 17/11/2026
+### Tính năng
+- Xem hồ sơ đồng nghiệp ngay trong chat
+  - Chat 1-1: bấm ảnh hoặc tên ở đầu phòng chat, hoặc chọn "Xem hồ sơ" trong menu ≡, để mở hồ sơ người kia. Menu chat
+    1-1 không còn mục "Chi tiết nhóm" (trước đây mở nhầm trang chi tiết nhóm cho cuộc trò chuyện riêng). Ở nhóm, bấm
+    ảnh / tên vẫn mở chi tiết nhóm.
+  - Trong nhóm: bấm ảnh người gửi cạnh tin nhắn (trừ tin của bot) để xem hồ sơ người đó, có nút Nhắn tin / Gọi thoại /
+    Gọi video mở chat riêng với họ.
+  - Hồ sơ gồm ảnh, tên, chức danh · phòng ban, trạng thái hoạt động, email và điện thoại (có nút chép), nơi làm việc,
+    ngày vào làm. Máy chủ chỉ trả hồ sơ người cùng tổ chức; không xem được thì báo rõ, mất mạng thì có nút Thử lại.
+- Màn chào khi cuộc trò chuyện chưa có tin nhắn (thay câu "Bắt đầu cuộc trò chuyện")
+  - Chat 1-1: ảnh người kia trong các vòng "sóng chào", câu "Gửi lời chào tới {tên}", nút "Vẫy tay chào" gửi ngay 👋
+    (giống web) và 3 câu gợi ý bấm vào là điền sẵn vào ô soạn để sửa trước khi gửi.
+  - Nhóm: "Hãy là người mở đầu cuộc trò chuyện" và nút "Chào cả nhóm". Chat với bot tự động: lời mời chung, không có
+    nút. Đang chặn người kia hoặc chat bot thông báo: không có nút gửi.
+
 ## 1.45.1 · 17/11/2026
 ### Giao diện
 - Thanh trên cùng màn chat nhẹ hơn

@@ -35,6 +35,23 @@ void main() {
     expect(api.data, {'title': 'X'});
   });
 
+  test('hồ sơ đồng nghiệp gọi /users/{id} theo workspace đang mở', () async {
+    final api = _Api();
+    final remote = ProfileRemoteDataSource(
+      api,
+      loadWorkspaceId: () async => 'workspace-token',
+    );
+    final profile = await remote.byId('user-1', workspaceId: 'workspace-a');
+    expect(api.path, '/api/v1/users/user-1');
+    expect(api.query, {'workspace_id': 'workspace-a'});
+    expect(profile.id, 'user-1');
+    expect(profile.work.title, 'Kỹ sư');
+
+    // Không truyền workspace: dùng workspace đang chọn như hồ sơ của mình.
+    await remote.byId('user-1');
+    expect(api.query, {'workspace_id': 'workspace-token'});
+  });
+
   test('ngày không hợp lệ không tự nhảy sang tháng sau', () {
     final profile = userProfileFromMap({
       'profile': {'start_date': '2026-02-31'},
@@ -46,6 +63,7 @@ void main() {
 final class _Api implements ApiTransport {
   Map<String, dynamic>? query;
   Object? data;
+  String? path;
   Response<T> response<T>(String path) => Response<T>(
     requestOptions: RequestOptions(path: path),
     data:
@@ -68,6 +86,7 @@ final class _Api implements ApiTransport {
     Options? options,
   }) async {
     query = queryParameters;
+    this.path = path;
     return response(path);
   }
 
