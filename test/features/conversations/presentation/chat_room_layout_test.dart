@@ -456,7 +456,9 @@ void main() {
         expect(find.text('Tìm tin nhắn'), findsOneWidget);
         expect(find.text('Báo cáo hoặc chặn người dùng'), findsOneWidget);
         expect(find.text('Công cụ làm việc'), findsOneWidget);
-        expect(find.text('Chi tiết nhóm'), findsOneWidget);
+        // Chat 1-1 không phải nhóm: "Xem hồ sơ" người kia thay "Chi tiết nhóm".
+        expect(find.text('Xem hồ sơ'), findsOneWidget);
+        expect(find.text('Chi tiết nhóm'), findsNothing);
       },
     );
 

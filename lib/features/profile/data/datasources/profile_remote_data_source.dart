@@ -22,6 +22,21 @@ final class ProfileRemoteDataSource {
     return userProfileFromMap(envelopeItem(response.data, 'user'));
   }
 
+  /// Hồ sơ đồng nghiệp (`GET /api/v1/users/{id}`): máy chủ chỉ trả người cùng
+  /// workspace / zone (404 với người ngoài phạm vi), đã bỏ IP và thiết bị khi
+  /// người xem không phải quản trị. `profile` theo [workspaceId] (chức danh,
+  /// phòng ban, nơi làm việc, ngày vào làm).
+  Future<UserProfile> byId(String userId, {String? workspaceId}) async {
+    final scoped = workspaceId?.trim();
+    final response = await _api.get<Object>(
+      '/api/v1/users/${Uri.encodeComponent(userId.trim())}',
+      queryParameters: scoped == null || scoped.isEmpty
+          ? await _workspaceQuery()
+          : {'workspace_id': scoped},
+    );
+    return userProfileFromMap(envelopeItem(response.data, 'user'));
+  }
+
   Future<UserProfile> updateMe(UpdateProfileCommand command) async {
     final response = await _api.patch<Object>(
       '/api/v1/users/me',

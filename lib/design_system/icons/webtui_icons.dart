@@ -137,6 +137,13 @@ abstract final class WebTuiIcons {
   static const IconData block = PhosphorRegular.prohibit;
   static const IconData unblock = PhosphorRegular.userCheck;
 
+  // Hồ sơ đồng nghiệp, lời chào phòng chat trống.
+  static const IconData profile = PhosphorRegular.userCircle;
+  static const IconData email = PhosphorRegular.envelopeSimple;
+  static const IconData location = PhosphorRegular.mapPin;
+  static const IconData startDate = PhosphorRegular.calendarBlank;
+  static const IconData wave = PhosphorRegular.handWaving;
+
   // Thiết lập ứng dụng.
   static const IconData theme = PhosphorRegular.palette;
   static const IconData language = PhosphorRegular.globe;

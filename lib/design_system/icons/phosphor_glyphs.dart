@@ -189,6 +189,10 @@ abstract final class PhosphorRegular {
     fontFamily: 'PhosphorRegular',
   );
   static const IconData hash = IconData(0xe2a2, fontFamily: 'PhosphorRegular');
+  static const IconData handWaving = IconData(
+    0xe580,
+    fontFamily: 'PhosphorRegular',
+  );
   static const IconData headphones = IconData(
     0xe2a6,
     fontFamily: 'PhosphorRegular',
@@ -215,6 +219,10 @@ abstract final class PhosphorRegular {
   );
   static const IconData magnifyingGlass = IconData(
     0xe30c,
+    fontFamily: 'PhosphorRegular',
+  );
+  static const IconData mapPin = IconData(
+    0xe316,
     fontFamily: 'PhosphorRegular',
   );
   static const IconData megaphone = IconData(
@@ -325,6 +333,10 @@ abstract final class PhosphorRegular {
     fontFamily: 'PhosphorRegular',
   );
   static const IconData trash = IconData(0xe4a6, fontFamily: 'PhosphorRegular');
+  static const IconData userCircle = IconData(
+    0xe4c4,
+    fontFamily: 'PhosphorRegular',
+  );
   static const IconData userCheck = IconData(
     0xeafa,
     fontFamily: 'PhosphorRegular',
