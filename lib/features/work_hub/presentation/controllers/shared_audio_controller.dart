@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/audio/playable_audio.dart';
+import '../../../../core/media/media_playback.dart';
 import '../../domain/entities/work_hub.dart';
 import 'shared_file_logic.dart';
 
@@ -62,8 +63,13 @@ final class SharedAudioController extends ChangeNotifier {
     required Future<Directory> Function() playableDirectory,
     bool Function(SharedFile file)? needsTranscode,
     Future<File> Function(File local, SharedFile file)? transcode,
+    // iPhone: luôn tải về rồi phát tệp (xem preferLocalMediaPlayback).
+    bool Function()? preferLocalPlayback,
+    Duration streamStartTimeout = mediaStreamStartTimeout,
   }) : _engineFactory = engineFactory,
        _resolver = resolver,
+       _preferLocalPlayback = preferLocalPlayback ?? preferLocalMediaPlayback,
+       _streamStartTimeout = streamStartTimeout,
        _needsTranscode =
            needsTranscode ??
            ((file) =>
@@ -77,6 +83,8 @@ final class SharedAudioController extends ChangeNotifier {
            ));
 
   final bool Function(SharedFile file) _needsTranscode;
+  final bool Function() _preferLocalPlayback;
+  final Duration _streamStartTimeout;
   final Future<File> Function(File local, SharedFile file) _transcode;
 
   final SharedAudioEngine Function() _engineFactory;
@@ -167,15 +175,24 @@ final class SharedAudioController extends ChangeNotifier {
         _notify();
         return;
       }
-      final stream = await resolver.streamUri(file);
-      if (generation != _generation) return;
       var started = false;
-      if (stream != null) {
-        try {
-          await engine.playUrl(stream);
-          started = true;
-        } on Object {
-          started = false;
+      if (!_preferLocalPlayback()) {
+        final stream = await resolver.streamUri(file);
+        if (generation != _generation) return;
+        if (stream != null) {
+          try {
+            await engine.playUrl(stream).timeout(_streamStartTimeout);
+            started = true;
+          } on Object {
+            started = false;
+            // Phát dần lỗi / treo: dừng hẳn trước khi phát tệp tải về, để
+            // luồng cũ không tự chạy chồng lên sau đó.
+            try {
+              await engine.stop();
+            } on Object {
+              // Bỏ qua: bước sau vẫn phát tệp cục bộ.
+            }
+          }
         }
       }
       if (generation != _generation) return;
