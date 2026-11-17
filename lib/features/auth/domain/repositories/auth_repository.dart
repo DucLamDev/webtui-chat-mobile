@@ -44,12 +44,14 @@ abstract interface class AuthRepository {
     required String domain,
     required String providerId,
     required String returnTo,
+    required String codeChallenge,
     required DeviceIdentity device,
   });
 
   Future<Result<AuthSession>> completeOidc({
     required String code,
     required String domain,
+    required String codeVerifier,
     required DeviceIdentity device,
   });
 

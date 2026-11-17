@@ -557,6 +557,7 @@ final class _WidgetAuthRepository implements AuthRepository {
     required String domain,
     required String providerId,
     required String returnTo,
+    required String codeChallenge,
     required DeviceIdentity device,
   }) {
     throw UnimplementedError();
@@ -566,6 +567,7 @@ final class _WidgetAuthRepository implements AuthRepository {
   Future<Result<AuthSession>> completeOidc({
     required String code,
     required String domain,
+    required String codeVerifier,
     required DeviceIdentity device,
   }) {
     throw UnimplementedError();

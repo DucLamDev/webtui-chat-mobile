@@ -9,6 +9,7 @@ import '../../domain/entities/oidc_provider.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/repositories/auth_token_repository.dart';
 import '../../domain/repositories/device_identity_repository.dart';
+import '../oidc_pkce.dart';
 
 final class OidcLoginUseCase {
   OidcLoginUseCase({
@@ -72,6 +73,9 @@ final class OidcLoginUseCase {
         throw StateError('Active instance is not live validated.');
       }
       final attemptId = _uuid.v4();
+      // PKCE với máy chủ: app khác chặn được oidc_code qua scheme webtui://
+      // cũng không đổi được mã vì không có verifier của lượt này.
+      final pkce = generateOidcPkcePair();
       final device = await _deviceIdentityRepository.currentDevice();
       if (await _tokenRepository.captureMutationGuard() != guard) {
         throw StateError('Active instance changed during OIDC start.');
@@ -89,6 +93,7 @@ final class OidcLoginUseCase {
             'attempt': attemptId,
           },
         ).toString(),
+        codeChallenge: pkce.challenge,
         device: device,
       );
       if (await _tokenRepository.captureMutationGuard() != guard) {
@@ -102,6 +107,7 @@ final class OidcLoginUseCase {
           id: attemptId,
           domain: normalizedDomain,
           guard: guard,
+          codeVerifier: pkce.verifier,
         );
       }
       return result;
@@ -177,6 +183,7 @@ final class OidcLoginUseCase {
       final result = await _authRepository.completeOidc(
         code: code.trim(),
         domain: normalizedDomain,
+        codeVerifier: pending.codeVerifier,
         device: device,
       );
       if (result case Success<AuthSession>(:final value)) {
@@ -223,11 +230,15 @@ final class _PendingOidcAttempt {
     required this.id,
     required this.domain,
     required this.guard,
+    required this.codeVerifier,
   });
 
   final String id;
   final String domain;
   final AuthTokenMutationGuard guard;
+
+  /// Verifier PKCE của lượt này: chỉ giữ trong bộ nhớ, không ghi đĩa, không log.
+  final String codeVerifier;
 }
 
 String _domainHost(String value) {

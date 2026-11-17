@@ -8,6 +8,7 @@ import 'package:webtui_chat/core/result/result.dart';
 import 'package:webtui_chat/core/security/instance_scope.dart';
 import 'package:webtui_chat/core/security/secure_key_value_store.dart';
 import 'package:webtui_chat/core/security/server_account_registry.dart';
+import 'package:webtui_chat/features/auth/application/oidc_pkce.dart';
 import 'package:webtui_chat/features/auth/application/use_cases/login_use_case.dart';
 import 'package:webtui_chat/features/auth/application/use_cases/logout_use_case.dart';
 import 'package:webtui_chat/features/auth/application/use_cases/oidc_login_use_case.dart';
@@ -349,6 +350,53 @@ void main() {
     expect(tokens.refreshToken, 'refresh-b');
   });
 
+  test('OIDC sends PKCE challenge on start and the pending verifier on '
+      'complete; a new attempt replaces the old verifier', () async {
+    final auth = _FakeAuthRepository();
+    final useCase = OidcLoginUseCase(
+      authRepository: auth,
+      tokenRepository: _FakeTokenRepository(),
+      deviceIdentityRepository: _FakeDeviceIdentityRepository(),
+      loadExpectedServerOrigin: () => Uri.parse('https://server-a.example'),
+    );
+    final challengePattern = RegExp(r'^[A-Za-z0-9_-]{43}$');
+
+    expect(
+      (await useCase.start(
+        domain: 'server-a.example',
+        providerId: 'provider-a',
+      )).isSuccess,
+      isTrue,
+    );
+    final firstChallenge = auth.lastOidcCodeChallenge!;
+    expect(firstChallenge, matches(challengePattern));
+
+    expect(
+      (await useCase.start(
+        domain: 'server-a.example',
+        providerId: 'provider-a',
+      )).isSuccess,
+      isTrue,
+    );
+    final secondChallenge = auth.lastOidcCodeChallenge!;
+    expect(secondChallenge, matches(challengePattern));
+    expect(secondChallenge, isNot(firstChallenge));
+
+    final returnTo = Uri.parse(auth.lastOidcReturnTo!);
+    final result = await useCase.complete(
+      code: 'one-time-code',
+      domain: 'server-a.example',
+      instanceScopeId: returnTo.queryParameters['instance_scope']!,
+      attemptId: returnTo.queryParameters['attempt']!,
+    );
+
+    expect(result.isSuccess, isTrue);
+    final verifier = auth.lastOidcCodeVerifier!;
+    expect(verifier, matches(RegExp(r'^[A-Za-z0-9_-]{43}$')));
+    expect(oidcPkceChallengeS256(verifier), secondChallenge);
+    expect(oidcPkceChallengeS256(verifier), isNot(firstChallenge));
+  });
+
   test(
     'OIDC callback from A is rejected after same-origin instance replacement',
     () async {
@@ -621,6 +669,8 @@ final class _FakeAuthRepository implements AuthRepository {
   bool? lastPrivacyAccepted;
   String? lastPrivacyVersion;
   String? lastOidcReturnTo;
+  String? lastOidcCodeChallenge;
+  String? lastOidcCodeVerifier;
 
   @override
   Future<Result<LegalAcceptance>> loadLegalAcceptance({
@@ -698,10 +748,12 @@ final class _FakeAuthRepository implements AuthRepository {
     required String domain,
     required String providerId,
     required String returnTo,
+    required String codeChallenge,
     required DeviceIdentity device,
   }) async {
     startOidcCalls += 1;
     lastOidcReturnTo = returnTo;
+    lastOidcCodeChallenge = codeChallenge;
     return Success(Uri.parse('https://identity.example/authorize'));
   }
 
@@ -709,9 +761,11 @@ final class _FakeAuthRepository implements AuthRepository {
   Future<Result<AuthSession>> completeOidc({
     required String code,
     required String domain,
+    required String codeVerifier,
     required DeviceIdentity device,
   }) {
     completeOidcCalls += 1;
+    lastOidcCodeVerifier = codeVerifier;
     return completeOidcFuture ??
         Future<Result<AuthSession>>.value(Success(_session()));
   }

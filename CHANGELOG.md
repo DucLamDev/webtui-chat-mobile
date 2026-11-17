@@ -3,6 +3,13 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.44.4 · 17/11/2026
+### Sửa lỗi bảo mật
+- Đăng nhập SSO (OIDC) dùng PKCE: mỗi lần bấm đăng nhập SSO, app tạo một mã bí mật chỉ giữ trong bộ nhớ và gửi bản
+  băm lên máy chủ; khi trình duyệt trả về, app phải trình đúng mã bí mật đó mới đổi được token. Trước đây một app khác
+  cài trên máy đăng ký cùng đường dẫn `webtui://` có thể chặn mã đăng nhập và chiếm phiên. Giao diện không đổi.
+  - Cần máy chủ đã cập nhật bản có PKCE mới được bảo vệ; với máy chủ cũ, SSO vẫn đăng nhập được như trước.
+
 ## 1.44.3 · 17/11/2026
 ### Sửa lỗi
 - Chat bot thông báo hiện đúng giờ và nội dung tin mới nhất; chấm "đang hoạt động" khớp giữa danh sách và chi tiết nhóm
