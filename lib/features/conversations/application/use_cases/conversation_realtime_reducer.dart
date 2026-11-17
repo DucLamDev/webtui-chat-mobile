@@ -141,6 +141,7 @@ final class ConversationRealtimeReducer {
       ConversationRealtimeEventType.callAccepted ||
       ConversationRealtimeEventType.callReady ||
       ConversationRealtimeEventType.callOffer ||
+      ConversationRealtimeEventType.callRenegotiate ||
       ConversationRealtimeEventType.callAnswer ||
       ConversationRealtimeEventType.callIceCandidate ||
       ConversationRealtimeEventType.callRejected ||

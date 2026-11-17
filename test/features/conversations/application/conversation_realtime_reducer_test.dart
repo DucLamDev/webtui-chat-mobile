@@ -364,6 +364,45 @@ void main() {
     expect(ready?.callId, 'call-1');
   });
 
+  test('maps CallRenegotiate and busy CallRejected from the backend', () {
+    final renegotiate = ConversationRealtimeEventMapper.fromSocketData(
+      jsonEncode({
+        'type': 'CallRenegotiate',
+        'user_id': 'u2',
+        'payload': {
+          'call_id': 'call-1',
+          'workspace_id': 'w1',
+          'channel_id': 'c1',
+          'target_device_id': 'dev-1',
+          'signal': {'reason': 'video'},
+        },
+      }),
+      fallbackWorkspaceId: 'w1',
+      fallbackChannelId: 'c1',
+    );
+    final busy = ConversationRealtimeEventMapper.fromSocketData(
+      jsonEncode({
+        'type': 'CallRejected',
+        'user_id': 'u2',
+        'payload': {
+          'call_id': 'call-2',
+          'workspace_id': 'w1',
+          'channel_id': 'c1',
+          'reason': 'busy',
+        },
+      }),
+      fallbackWorkspaceId: 'w1',
+      fallbackChannelId: 'c1',
+    );
+
+    expect(renegotiate?.type, ConversationRealtimeEventType.callRenegotiate);
+    expect(renegotiate?.callId, 'call-1');
+    expect(renegotiate?.targetDeviceId, 'dev-1');
+    expect(renegotiate?.isCallEvent, isTrue);
+    expect(busy?.type, ConversationRealtimeEventType.callRejected);
+    expect(busy?.reason, 'busy');
+  });
+
   test('builds websocket URL from public realtime endpoint', () {
     final base = defaultConversationRealtimeWsUri(
       Uri.parse('https://chat.vpsttt.com'),

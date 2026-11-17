@@ -27,6 +27,10 @@ enum ConversationRealtimeEventType {
   callAccepted,
   callReady,
   callOffer,
+
+  /// Bên kia xin một SDP offer mới (tín hiệu `renegotiate`, vd. vừa bật camera
+  /// giữa cuộc gọi thoại). Chỉ người khởi tạo trả lời bằng `offer`.
+  callRenegotiate,
   callAnswer,
   callIceCandidate,
   callRejected,
@@ -175,6 +179,7 @@ final class ConversationRealtimeEvent {
     ConversationRealtimeEventType.callAccepted ||
     ConversationRealtimeEventType.callReady ||
     ConversationRealtimeEventType.callOffer ||
+    ConversationRealtimeEventType.callRenegotiate ||
     ConversationRealtimeEventType.callAnswer ||
     ConversationRealtimeEventType.callIceCandidate ||
     ConversationRealtimeEventType.callRejected ||

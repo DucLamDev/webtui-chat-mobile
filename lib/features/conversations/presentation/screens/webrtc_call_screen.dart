@@ -10,6 +10,7 @@ import '../../../../core/notifications/call_tone_player.dart';
 import '../../../../core/notifications/native_incoming_call_service.dart';
 import '../../../../core/security/active_call_tracker.dart';
 import '../../../../core/security/instance_scope.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
@@ -17,8 +18,10 @@ import '../../../auth/presentation/controllers/legal_acceptance_controller.dart'
 import '../../application/call_end_cue.dart';
 import '../../application/call_video_profile.dart';
 import '../../application/use_cases/call_use_cases.dart';
+import '../../domain/entities/call_busy_policy.dart';
 import '../../domain/entities/call_device_routing.dart';
 import '../../domain/entities/call_session.dart';
+import '../../domain/entities/call_video_upgrade_policy.dart';
 import '../../domain/entities/conversation_realtime_event.dart';
 import '../../domain/entities/incoming_call_policy.dart';
 
@@ -85,6 +88,51 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   bool _connected = false;
   bool _iceRestartAttempted = false;
 
+  /// Luồng camera bật giữa cuộc gọi thoại (nút "Video") và sender của nó.
+  MediaStream? _upgradeVideoStream;
+  RTCRtpSender? _upgradeVideoSender;
+
+  /// Máy này đang gửi video (cuộc gọi video từ đầu hoặc đã bật nút "Video").
+  late bool _hasLocalVideo;
+
+  /// Đã nhận video từ bên kia.
+  bool _hasRemoteVideo = false;
+  bool _startingLocalVideo = false;
+
+  /// Thương lượng lại SDP: đang chạy / còn chờ chạy khi signaling `stable`.
+  bool _renegotiating = false;
+  bool _renegotiationQueued = false;
+
+  /// Người nhận đã xin offer mới vì bật camera: chờ offer tối đa 8 giây.
+  DateTime? _videoOfferRequestedAt;
+  DateTime? _lastOfferAt;
+  Timer? _videoOfferTimer;
+
+  /// Thông báo ngắn trên màn gọi (vd. máy kia chưa hỗ trợ video giữa cuộc).
+  String? _notice;
+  Timer? _noticeTimer;
+
+  /// Câu hiện trước khi màn tự đóng (vd. người nhận đang bận).
+  String? _closingMessage;
+
+  bool get _videoActive => callUsesVideoLayout(
+    startedAsVideo: widget.mode == CallMode.video,
+    hasLocalVideo: _hasLocalVideo,
+    hasRemoteVideo: _hasRemoteVideo,
+  );
+
+  bool get _canStartLocalVideo => canStartLocalVideo(
+    connected: _connected && _status == CallStatus.accepted,
+    hasLocalVideo: _hasLocalVideo,
+    upgrading: _startingLocalVideo,
+    leaving: _leaving || _fatalErrorHandled,
+  );
+
+  List<MediaStreamTrack> get _localVideoTracks => [
+    ...?_localStream?.getVideoTracks(),
+    ...?_upgradeVideoStream?.getVideoTracks(),
+  ];
+
   /// Máy này đã nhận cuộc gọi đến (accept thành công): chỉ khi đó mới trả lời
   /// offer.
   bool _acceptedHere = false;
@@ -108,6 +156,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       ref.read(outgoingCallRegistryProvider).rememberCall(widget.callId);
     }
     _speakerEnabled = widget.mode == CallMode.video;
+    _hasLocalVideo = widget.mode == CallMode.video;
     unawaited(_initialize());
     _stateTimer = Timer.periodic(
       const Duration(seconds: 1),
@@ -122,9 +171,14 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     _stateTimer?.cancel();
     _disconnectTimer?.cancel();
     _connectTimer?.cancel();
+    _videoOfferTimer?.cancel();
+    _noticeTimer?.cancel();
     unawaited(_signals?.cancel());
     unawaited(_peer?.close());
-    for (final track in _localStream?.getTracks() ?? <MediaStreamTrack>[]) {
+    for (final track in [
+      ...?_localStream?.getTracks(),
+      ...?_upgradeVideoStream?.getTracks(),
+    ]) {
       track.stop();
     }
     unawaited(NativeIncomingCallService.endCall(widget.callId));
@@ -222,9 +276,12 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
         }
       }
       peer.onTrack = (event) {
-        if (event.streams.isNotEmpty && mounted) {
-          setState(() => _remoteRenderer.srcObject = event.streams.first);
+        if (event.streams.isEmpty || !mounted) return;
+        if (event.track.kind == 'video') {
+          unawaited(_showRemoteVideo(event.streams.first, event.track));
+          return;
         }
+        setState(() => _remoteRenderer.srcObject = event.streams.first);
       };
       peer.onIceCandidate = (candidate) {
         if (candidate.candidate?.isNotEmpty == true) {
@@ -397,6 +454,9 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
         }
       case ConversationRealtimeEventType.callOffer:
         if (widget.incoming && event.callSdp.isNotEmpty) {
+          // Có offer mới: máy kia hỗ trợ thương lượng lại, bỏ hẹn giờ 8 giây.
+          _lastOfferAt = DateTime.now();
+          _videoOfferTimer?.cancel();
           if (!_acceptedHere) {
             // Chưa nhận xong trên máy này: giữ offer, chỉ trả lời sau khi
             // accept thành công.
@@ -405,6 +465,9 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
           }
           _runSignaling(_receiveOffer(event.callSdp));
         }
+      case ConversationRealtimeEventType.callRenegotiate:
+        // Chỉ người khởi tạo gửi offer: bên nhận xin offer mới (vừa bật camera).
+        if (!widget.incoming) _requestRenegotiation();
       case ConversationRealtimeEventType.callAnswer:
         if (!widget.incoming && event.callSdp.isNotEmpty) {
           _runSignaling(_receiveAnswer(event.callSdp));
@@ -414,7 +477,13 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
           _runSignaling(_receiveCandidate(event.callCandidate));
         }
       case ConversationRealtimeEventType.callRejected:
-        unawaited(_leaveFromRemote(CallStatus.rejected));
+        if (!widget.incoming && event.reason == callBusyRejectReason) {
+          unawaited(
+            _leaveFromRemote(CallStatus.rejected, callTargetBusyMessage),
+          );
+        } else {
+          unawaited(_leaveFromRemote(CallStatus.rejected));
+        }
       case ConversationRealtimeEventType.callCancelled:
         unawaited(_leaveFromRemote(CallStatus.cancelled));
       case ConversationRealtimeEventType.callEnded:
@@ -497,6 +566,10 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     await _sendSignal(CallSignalType.answer, {
       'sdp': {'type': answer.type, 'sdp': answer.sdp},
     });
+    // Thương lượng xong mới có lớp mã hoá cho camera vừa bật: đặt giới hạn.
+    unawaited(_limitVideoSender());
+    // Lượt thương lượng xong: chạy yêu cầu đã ghi nhớ (bật camera giữa chừng).
+    unawaited(_drainRenegotiation());
   }
 
   Future<void> _receiveAnswer(Map<String, dynamic> value) async {
@@ -510,6 +583,208 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     );
     _hasRemoteDescription = true;
     await _flushCandidates();
+    unawaited(_limitVideoSender());
+    unawaited(_drainRenegotiation());
+  }
+
+  /// Cần thương lượng lại SDP (thêm / nhận video giữa cuộc gọi). Signaling
+  /// chưa `stable` thì ghi nhớ, chạy sau khi lượt đang chạy xong.
+  void _requestRenegotiation() {
+    if (_leaving || _fatalErrorHandled) return;
+    _renegotiationQueued = true;
+    unawaited(_drainRenegotiation());
+  }
+
+  Future<void> _drainRenegotiation() async {
+    final peer = _peer;
+    if (_renegotiating ||
+        !_renegotiationQueued ||
+        peer == null ||
+        !_ready ||
+        _leaving ||
+        _fatalErrorHandled) {
+      return;
+    }
+    _renegotiating = true;
+    try {
+      final signaling = await peer.getSignalingState();
+      final step = callRenegotiationStep(
+        incoming: widget.incoming,
+        signalingStable:
+            signaling == null ||
+            signaling == RTCSignalingState.RTCSignalingStateStable,
+      );
+      switch (step) {
+        case CallRenegotiationStep.waitForStable:
+          return;
+        case CallRenegotiationStep.sendOffer:
+          _renegotiationQueued = false;
+          await _sendRenegotiationOffer(peer);
+        case CallRenegotiationStep.requestOffer:
+          _renegotiationQueued = false;
+          await _sendSignal(CallSignalType.renegotiate, const {
+            'reason': callRenegotiateVideoReason,
+          });
+      }
+    } on Object catch (error) {
+      // Thương lượng lại hỏng không cắt cuộc gọi thoại đang chạy.
+      debugPrint('Không thương lượng lại được cuộc gọi: $error');
+    } finally {
+      _renegotiating = false;
+    }
+  }
+
+  /// Người khởi tạo: bảo đảm có m-line video (chưa có thì thêm transceiver
+  /// chỉ nhận) để bên kia gắn camera vừa bật, rồi gửi offer mới.
+  Future<void> _sendRenegotiationOffer(RTCPeerConnection peer) async {
+    final transceivers = await peer.getTransceivers();
+    final hasVideo = transceivers.any(
+      (item) =>
+          item.sender.track?.kind == 'video' ||
+          item.receiver.track?.kind == 'video',
+    );
+    if (!hasVideo) {
+      await peer.addTransceiver(
+        kind: RTCRtpMediaType.RTCRtpMediaTypeVideo,
+        init: RTCRtpTransceiverInit(direction: TransceiverDirection.RecvOnly),
+      );
+    }
+    final offer = await peer.createOffer();
+    await peer.setLocalDescription(offer);
+    await _sendSignal(CallSignalType.offer, {
+      'sdp': {'type': offer.type, 'sdp': offer.sdp},
+    });
+  }
+
+  /// Nút "Video" / "Bật camera": xin camera, thêm track vào kết nối đang có,
+  /// đổi sang bố cục video, bật loa ngoài rồi thương lượng lại.
+  Future<void> _startLocalVideo() async {
+    final peer = _peer;
+    final stream = _localStream;
+    if (peer == null || stream == null || !_canStartLocalVideo) return;
+    setState(() => _startingLocalVideo = true);
+    MediaStream? camera;
+    try {
+      // Cùng cấu hình video nhẹ với cuộc gọi video từ đầu (CallVideoProfile).
+      camera = await navigator.mediaDevices.getUserMedia({
+        'audio': false,
+        'video': CallVideoProfile.cameraConstraints(),
+      });
+      final tracks = camera.getVideoTracks();
+      if (tracks.isEmpty) {
+        throw StateError(
+          tr(
+            'Không mở được camera trên thiết bị.',
+            'Couldn\'t open the camera on this device.',
+          ),
+        );
+      }
+      if (!mounted || _leaving || _fatalErrorHandled) {
+        for (final track in camera.getTracks()) {
+          track.stop();
+        }
+        return;
+      }
+      // Gắn vào luồng chung với micro để bên kia nhận cùng một MediaStream.
+      final sender = await peer.addTrack(tracks.first, stream);
+      _upgradeVideoStream = camera;
+      _upgradeVideoSender = sender;
+      await Helper.setSpeakerphoneOn(true);
+      if (!mounted) return;
+      setState(() {
+        _hasLocalVideo = true;
+        _cameraEnabled = true;
+        _usingFrontCamera = true;
+        _speakerEnabled = true;
+        _localRenderer.srcObject = camera;
+      });
+      if (widget.incoming) _armVideoOfferTimeout();
+      _requestRenegotiation();
+    } on Object catch (error) {
+      for (final track in camera?.getTracks() ?? <MediaStreamTrack>[]) {
+        track.stop();
+      }
+      _showNotice(_friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _startingLocalVideo = false);
+    }
+  }
+
+  /// Người nhận vừa xin offer mới: 8 giây không có offer (máy kia bản cũ) thì
+  /// tắt camera lại và báo.
+  void _armVideoOfferTimeout() {
+    final requestedAt = DateTime.now();
+    _videoOfferRequestedAt = requestedAt;
+    _videoOfferTimer?.cancel();
+    _videoOfferTimer = Timer(callVideoUpgradeOfferTimeout, () {
+      if (!mounted || _leaving || _videoOfferRequestedAt != requestedAt) {
+        return;
+      }
+      if (!shouldRevertLocalVideoUpgrade(
+        requestedAt: requestedAt,
+        now: DateTime.now(),
+        lastOfferAt: _lastOfferAt,
+      )) {
+        return;
+      }
+      unawaited(_stopUpgradeVideo());
+      _showNotice(callVideoUpgradeUnsupportedMessage);
+    });
+  }
+
+  /// Gỡ camera đã bật giữa cuộc gọi (bên kia không thương lượng lại được).
+  Future<void> _stopUpgradeVideo() async {
+    final sender = _upgradeVideoSender;
+    final camera = _upgradeVideoStream;
+    _upgradeVideoSender = null;
+    _upgradeVideoStream = null;
+    _videoOfferRequestedAt = null;
+    _renegotiationQueued = false;
+    if (sender != null) {
+      try {
+        await _peer?.removeTrack(sender);
+      } on Object {
+        // Kết nối đã đóng: chỉ cần tắt camera.
+      }
+    }
+    for (final track in camera?.getTracks() ?? <MediaStreamTrack>[]) {
+      track.stop();
+    }
+    if (!mounted) return;
+    setState(() {
+      _hasLocalVideo = false;
+      _cameraEnabled = false;
+      _localRenderer.srcObject = _localStream;
+    });
+  }
+
+  /// Nhận video từ bên kia: gắn đúng track video, cuộc gọi thoại tự đổi sang
+  /// bố cục video (bật loa ngoài như cuộc gọi video).
+  Future<void> _showRemoteVideo(
+    MediaStream stream,
+    MediaStreamTrack track,
+  ) async {
+    try {
+      await _remoteRenderer.setSrcObject(stream: stream, trackId: track.id);
+    } on Object {
+      _remoteRenderer.srcObject = stream;
+    }
+    if (!mounted) return;
+    final switchesLayout = !_videoActive;
+    setState(() => _hasRemoteVideo = true);
+    if (switchesLayout && !_speakerEnabled) {
+      await Helper.setSpeakerphoneOn(true);
+      if (mounted) setState(() => _speakerEnabled = true);
+    }
+  }
+
+  void _showNotice(String message) {
+    if (!mounted) return;
+    _noticeTimer?.cancel();
+    setState(() => _notice = message);
+    _noticeTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted) setState(() => _notice = null);
+    });
   }
 
   Future<void> _receiveCandidate(Map<String, dynamic> value) async {
@@ -557,18 +832,20 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     }
   }
 
-  /// Áp [CallVideoProfile] cho luồng video gửi đi. Lỗi (máy không hỗ trợ đổi
-  /// tham số) thì bỏ qua: cuộc gọi vẫn chạy với mặc định của WebRTC.
+  /// Áp [CallVideoProfile] cho mọi luồng video gửi đi (camera từ đầu và camera
+  /// bật giữa cuộc gọi thoại). Lỗi (máy không hỗ trợ đổi tham số) thì bỏ qua:
+  /// cuộc gọi vẫn chạy với mặc định của WebRTC.
   Future<void> _limitVideoSender() async {
-    final sender = _videoSender;
-    if (sender == null) return;
-    try {
-      final parameters = sender.parameters;
-      if (CallVideoProfile.applyTo(parameters)) {
-        await sender.setParameters(parameters);
+    for (final sender in [_videoSender, _upgradeVideoSender]) {
+      if (sender == null) continue;
+      try {
+        final parameters = sender.parameters;
+        if (CallVideoProfile.applyTo(parameters)) {
+          await sender.setParameters(parameters);
+        }
+      } on Object {
+        // Giữ cuộc gọi; chỉ mất phần giới hạn.
       }
-    } on Object {
-      // Giữ cuộc gọi; chỉ mất phần giới hạn.
     }
   }
 
@@ -584,7 +861,10 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
             .valueOrNull;
     if (!mounted || call == null || _leaving) return;
     if (call.isTerminal) {
-      await _leaveFromRemote(call.status);
+      final busy =
+          !widget.incoming &&
+          call.metadata['end_reason']?.toString() == callBusyRejectReason;
+      await _leaveFromRemote(call.status, busy ? callTargetBusyMessage : null);
       return;
     }
     if (_answeredOnAnotherDevice(call)) {
@@ -610,14 +890,21 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   }
 
   /// [status]: trạng thái cuối máy chủ báo (null = lỗi kỹ thuật) để chọn âm
-  /// báo khi đóng màn (xem callEndCue).
-  Future<void> _leaveFromRemote([CallStatus? status]) async {
+  /// báo khi đóng màn (xem callEndCue). [message]: câu hiện ~2 giây trước khi
+  /// đóng (vd. người nhận đang bận).
+  Future<void> _leaveFromRemote([CallStatus? status, String? message]) async {
     if (_leaving) return;
     _leaving = true;
     unawaited(_ringback.stop());
     _playEndCue(callEndCue(incoming: widget.incoming, status: status));
     _stateTimer?.cancel();
     _disconnectTimer?.cancel();
+    _videoOfferTimer?.cancel();
+    if (message != null) {
+      _connectTimer?.cancel();
+      if (mounted) setState(() => _closingMessage = message);
+      await Future<void>.delayed(callErrorDisplayDuration);
+    }
     await _notifyLeave();
     await _closeScreen();
   }
@@ -766,7 +1053,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   }
 
   void _toggleCamera() {
-    final tracks = _localStream?.getVideoTracks() ?? <MediaStreamTrack>[];
+    final tracks = _localVideoTracks;
     if (tracks.isEmpty) return;
     setState(() {
       _cameraEnabled = !_cameraEnabled;
@@ -785,7 +1072,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   }
 
   Future<void> _switchCamera() async {
-    final tracks = _localStream?.getVideoTracks() ?? <MediaStreamTrack>[];
+    final tracks = _localVideoTracks;
     if (tracks.isEmpty) return;
     await Helper.switchCamera(tracks.first);
     if (mounted) {
@@ -953,6 +1240,36 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
                     ),
                   ),
                 ),
+              if (_notice != null)
+                Positioned(
+                  left: 28,
+                  right: 28,
+                  top: 102,
+                  child: Semantics(
+                    liveRegion: true,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF07111F).withValues(alpha: 0.86),
+                        border: Border.all(color: Colors.white24),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: WebTuiSpacing.md,
+                          vertical: WebTuiSpacing.sm,
+                        ),
+                        child: Text(
+                          _notice!,
+                          textAlign: TextAlign.center,
+                          style: WebTuiTypography.bodySmall.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               Positioned(
                 left: 20,
                 right: 20,
@@ -996,7 +1313,15 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
                         () => unawaited(_toggleSpeaker()),
                         active: _speakerEnabled,
                       ),
-                      if (widget.mode == CallMode.video) ...[
+                      if (_canStartLocalVideo)
+                        _control(
+                          WebTuiIcons.video,
+                          _videoActive
+                              ? tr('Bật camera', 'Camera on')
+                              : 'Video',
+                          () => unawaited(_startLocalVideo()),
+                        ),
+                      if (_hasLocalVideo) ...[
                         _control(
                           _cameraEnabled ? Icons.videocam : Icons.videocam_off,
                           _cameraEnabled
@@ -1029,6 +1354,13 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   }
 
   Widget _media() {
+    if (_closingMessage != null) {
+      return _state(
+        Icons.phone_disabled_outlined,
+        widget.title,
+        _closingMessage!,
+      );
+    }
     if (_error != null) {
       return _state(
         Icons.videocam_off_outlined,
@@ -1044,7 +1376,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
         loading: true,
       );
     }
-    if (widget.mode == CallMode.audio) {
+    if (!_videoActive) {
       return _state(
         Icons.person,
         widget.title,
@@ -1067,67 +1399,78 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
         final previewPosition = _localPreviewPosition ?? defaultPosition;
         return Stack(
           children: [
-            Positioned.fill(
-              child: InteractiveViewer(
-                minScale: 1,
-                maxScale: 4,
-                panEnabled: true,
-                scaleEnabled: true,
-                clipBehavior: Clip.hardEdge,
-                child: SizedBox.expand(
-                  child: RTCVideoView(
-                    _remoteRenderer,
-                    objectFit:
-                        RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
-                  ),
+            if (!_hasRemoteVideo && widget.mode == CallMode.audio)
+              // Mình vừa bật camera, bên kia chưa có video: giữ ô người gọi.
+              Positioned.fill(
+                child: _state(
+                  Icons.person,
+                  widget.title,
+                  tr('Đã kết nối', 'Connected'),
                 ),
-              ),
-            ),
-            Positioned(
-              left: previewPosition.dx,
-              top: previewPosition.dy,
-              width: previewWidth,
-              height: previewHeight,
-              child: GestureDetector(
-                onPanUpdate: (details) {
-                  setState(() {
-                    final current = _localPreviewPosition ?? defaultPosition;
-                    _localPreviewPosition = Offset(
-                      (current.dx + details.delta.dx).clamp(
-                        8,
-                        constraints.maxWidth - previewWidth - 8,
-                      ),
-                      (current.dy + details.delta.dy).clamp(
-                        72,
-                        constraints.maxHeight - previewHeight - 96,
-                      ),
-                    );
-                  });
-                },
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.white70, width: 2),
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Colors.black38,
-                        blurRadius: 18,
-                        offset: Offset(0, 7),
-                      ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
+              )
+            else
+              Positioned.fill(
+                child: InteractiveViewer(
+                  minScale: 1,
+                  maxScale: 4,
+                  panEnabled: true,
+                  scaleEnabled: true,
+                  clipBehavior: Clip.hardEdge,
+                  child: SizedBox.expand(
                     child: RTCVideoView(
-                      _localRenderer,
-                      mirror: _usingFrontCamera,
+                      _remoteRenderer,
                       objectFit:
-                          RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                          RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
                     ),
                   ),
                 ),
               ),
-            ),
+            if (_hasLocalVideo)
+              Positioned(
+                left: previewPosition.dx,
+                top: previewPosition.dy,
+                width: previewWidth,
+                height: previewHeight,
+                child: GestureDetector(
+                  onPanUpdate: (details) {
+                    setState(() {
+                      final current = _localPreviewPosition ?? defaultPosition;
+                      _localPreviewPosition = Offset(
+                        (current.dx + details.delta.dx).clamp(
+                          8,
+                          constraints.maxWidth - previewWidth - 8,
+                        ),
+                        (current.dy + details.delta.dy).clamp(
+                          72,
+                          constraints.maxHeight - previewHeight - 96,
+                        ),
+                      );
+                    });
+                  },
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.white70, width: 2),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black38,
+                          blurRadius: 18,
+                          offset: Offset(0, 7),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: RTCVideoView(
+                        _localRenderer,
+                        mirror: _usingFrontCamera,
+                        objectFit:
+                            RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         );
       },
@@ -1258,6 +1601,7 @@ bool isCallSignalForAnotherDevice(
     ConversationRealtimeEventType.callOffer ||
     ConversationRealtimeEventType.callAnswer ||
     ConversationRealtimeEventType.callIceCandidate ||
+    ConversationRealtimeEventType.callRenegotiate ||
     ConversationRealtimeEventType.callReady => callSignalTargetsAnotherDevice(
       targetDeviceId: event.targetDeviceId,
       localDeviceId: localDeviceId,
