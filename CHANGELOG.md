@@ -3,6 +3,18 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.45.0 · 17/11/2026
+### Giao diện
+- Nút gọi ở trang Bạn bè và màn Thiết lập ứng dụng gọn, liền mạch hơn
+  - Hai nút gọi thoại / gọi video cuối mỗi dòng đồng nghiệp đổi sang biểu tượng nét mềm bo tròn (giống kiểu Zalo),
+    cỡ 24, màu chữ phụ; vùng bấm giữ 44.
+  - Thiết lập ứng dụng (Cài đặt → Thiết lập nâng cao) ở nền sáng không còn dải xám chia khối như trang web: nền trang
+    trùng nền các dòng, tiêu đề nhóm chữ màu xanh, các nhóm cách nhau bằng khoảng trắng. Nền tối giữ như cũ.
+  - Chủ đề và Ngôn ngữ không còn hộp thả xuống: dòng hiện lựa chọn hiện tại, bấm vào mở bảng chọn trượt từ dưới lên.
+  - Mọi biểu tượng trên màn dùng chung một bộ nét mềm (trước trộn hai kiểu).
+  - Bỏ dòng mô tả nhỏ dưới mỗi mục, mỗi mục gọn một dòng. Giờ yên lặng hiện giờ bên phải cạnh công tắc; mục "Ai được
+    gọi cho tôi" chỉ hiện dòng phụ khi không tải được (để biết chạm là thử lại).
+
 ## 1.44.2 · 17/11/2026
 ### Dọn mã
 - Bỏ mã không còn dùng, không đổi chức năng hay giao diện

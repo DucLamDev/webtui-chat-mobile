@@ -83,10 +83,6 @@ class AppSettingsScreen extends ConsumerWidget {
               children: [
                 WebTuiSettingRow(
                   title: strings.systemNotificationPermission,
-                  subtitle: _notificationPermissionLabel(
-                    strings,
-                    notificationPermission.valueOrNull,
-                  ),
                   icon: WebTuiIcons.notificationPermission,
                   trailing: notificationPermission.isLoading
                       ? const SizedBox.square(
@@ -112,7 +108,6 @@ class AppSettingsScreen extends ConsumerWidget {
                 ),
                 WebTuiSettingRow(
                   title: strings.receiveNotifications,
-                  subtitle: strings.receiveNotificationsSubtitle,
                   icon: WebTuiIcons.bell,
                   trailing: WebTuiToggle(
                     value: settings.notificationsEnabled,
@@ -133,7 +128,6 @@ class AppSettingsScreen extends ConsumerWidget {
                 ),
                 WebTuiSettingRow(
                   title: strings.hideSensitivePreview,
-                  subtitle: strings.hideSensitivePreviewSubtitle,
                   icon: WebTuiIcons.hidePreview,
                   trailing: WebTuiToggle(
                     value: settings.sensitivePreviewEnabled,
@@ -147,7 +141,7 @@ class AppSettingsScreen extends ConsumerWidget {
                 ),
                 WebTuiSettingRow(
                   title: strings.quietHours,
-                  subtitle: '${settings.quietStart} - ${settings.quietEnd}',
+                  value: '${settings.quietStart} – ${settings.quietEnd}',
                   icon: WebTuiIcons.quietHours,
                   trailing: WebTuiToggle(
                     value: settings.quietHoursEnabled,
@@ -166,7 +160,6 @@ class AppSettingsScreen extends ConsumerWidget {
               children: [
                 WebTuiSettingRow(
                   title: strings.muteMicOnJoin,
-                  subtitle: strings.muteMicOnJoinSubtitle,
                   icon: WebTuiIcons.micOff,
                   trailing: WebTuiToggle(
                     value: !settings.microphoneEnabledOnJoin,
@@ -180,7 +173,6 @@ class AppSettingsScreen extends ConsumerWidget {
                 ),
                 WebTuiSettingRow(
                   title: strings.cameraOffOnJoin,
-                  subtitle: strings.cameraOffOnJoinSubtitle,
                   icon: WebTuiIcons.videoOff,
                   trailing: WebTuiToggle(
                     value: !settings.cameraEnabledOnJoin,
@@ -199,7 +191,6 @@ class AppSettingsScreen extends ConsumerWidget {
               children: [
                 WebTuiSettingRow(
                   title: strings.appLock,
-                  subtitle: strings.appLockSubtitle,
                   icon: WebTuiIcons.lock,
                   trailing: appLockEnabled.isLoading
                       ? const SizedBox.square(
@@ -220,7 +211,6 @@ class AppSettingsScreen extends ConsumerWidget {
                     true)
                   WebTuiSettingRow(
                     title: strings.totpTitle,
-                    subtitle: strings.totpSubtitle,
                     icon: WebTuiIcons.shieldCheck,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
@@ -236,7 +226,6 @@ class AppSettingsScreen extends ConsumerWidget {
               children: [
                 WebTuiSettingRow(
                   title: strings.clearWorkspaceCache,
-                  subtitle: strings.clearWorkspaceCacheSubtitle,
                   icon: WebTuiIcons.clearCache,
                   trailing: TextButton(
                     onPressed: workspaceId == null
@@ -252,7 +241,6 @@ class AppSettingsScreen extends ConsumerWidget {
               children: [
                 WebTuiSettingRow(
                   title: strings.sendFeedback,
-                  subtitle: strings.sendFeedbackSubtitle,
                   icon: WebTuiIcons.feedback,
                   onTap: () => context.push('/feedback'),
                 ),
@@ -317,16 +305,6 @@ Future<void> _requestNotificationPermission(
     _ => strings.notifUnknown,
   };
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-}
-
-String _notificationPermissionLabel(AppStrings strings, String? permission) {
-  return switch (permission) {
-    'granted' => strings.notifLabelGranted,
-    'provisional' => strings.notifLabelProvisional,
-    'denied' => strings.notifLabelDenied,
-    'unknown' || null => strings.notifLabelAsk,
-    _ => strings.notifLabelOther,
-  };
 }
 
 Future<void> _setAppLock(
@@ -509,9 +487,6 @@ class _ReleasePolicyRow extends StatelessWidget {
           : updateRecommended
           ? strings.updateAvailable
           : strings.appUpToDate,
-      subtitle: policy == null
-          ? strings.versionCheckHint
-          : _releaseSubtitle(policy!),
       icon: updateRequired ? WebTuiIcons.update : WebTuiIcons.upToDate,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -706,13 +681,6 @@ Future<T?> showSettingsChoiceSheet<T>({
       ),
     ),
   );
-}
-
-String _releaseSubtitle(MobileReleasePolicy policy) {
-  final target = policy.minimumVersion?.trim().isNotEmpty == true
-      ? 'min ${policy.minimumVersion}'
-      : 'recommended ${policy.recommendedVersion ?? policy.currentVersion}';
-  return '${policy.platform}/${policy.channel} ${policy.currentVersion} - $target';
 }
 
 String? _updateUrl(MobileReleasePolicy? policy) {

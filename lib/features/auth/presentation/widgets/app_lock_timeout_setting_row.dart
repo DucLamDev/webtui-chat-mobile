@@ -21,24 +21,12 @@ class AppLockTimeoutSettingRow extends ConsumerWidget {
     }
     final serverMax = ref.watch(appLockServerMaxMinutesProvider);
     final effective = ref.watch(effectiveAppLockMinutesProvider);
-    final subtitle = serverMax > 0
-        ? tr(
-            'Không dùng hoặc chạy nền quá thời gian này thì khóa. '
-                'Máy chủ cho phép tối đa ${AppLockTimeoutPolicy.label(serverMax)}.',
-            'The app locks if it is unused or in the background for longer than this. '
-                'The server allows at most ${AppLockTimeoutPolicy.label(serverMax)}.',
-          )
-        : tr(
-            'Không dùng hoặc chạy nền quá thời gian này thì khóa.',
-            'The app locks if it is unused or in the background for longer than this.',
-          );
     return WebTuiSettingRow(
       key: const Key('app_lock_timeout_row'),
       title: tr(
         'Tự khóa sau ${AppLockTimeoutPolicy.label(effective)}',
         'Auto-lock after ${AppLockTimeoutPolicy.label(effective)}',
       ),
-      subtitle: subtitle,
       icon: WebTuiIcons.timer,
       onTap: () => _choose(context, ref, serverMax, effective),
     );
