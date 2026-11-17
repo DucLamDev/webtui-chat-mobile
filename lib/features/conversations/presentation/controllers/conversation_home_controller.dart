@@ -742,8 +742,8 @@ final class ConversationHomeController
   }
 
   /// Đánh dấu chưa đọc (chấm / số 1 tới khi mở lại) hoặc đã đọc trên máy này.
-  /// Đánh dấu đã đọc khi còn tin chưa đọc thì chỉ xoá số trên danh sách; máy
-  /// chủ vẫn tính là chưa đọc tới khi mở phòng.
+  /// Đánh dấu đã đọc chỉ cập nhật danh sách; người gọi (menu ấn giữ) phải báo
+  /// máy chủ trước, nếu không lần đồng bộ sau số chưa đọc sẽ hiện lại.
   void setMarkedUnread(ConversationSummary conversation, bool unread) {
     final id = conversation.channelId;
     _setListPrefs(state.listPrefs.withMarkedUnread(id, unread));

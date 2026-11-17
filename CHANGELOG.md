@@ -12,7 +12,8 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
     Kênh nghiệp vụ (Đơn hàng, Gia hạn...) chỉ có Đánh dấu đã đọc / chưa đọc vì chỗ của chúng cố định.
   - Ghim, đánh dấu chưa đọc và ẩn được lưu trên máy này, riêng cho từng tài khoản: cài lại app hoặc dùng máy khác sẽ
     không còn. Hội thoại ghim nằm trên cùng danh sách.
-  - Đánh dấu chưa đọc hiện số 1 tới khi mở lại hội thoại. Ẩn trò chuyện: biến khỏi danh sách, gõ tên vào ô tìm để mở lại;
+  - Đánh dấu chưa đọc hiện số 1 tới khi mở lại hội thoại. Đánh dấu đã đọc báo lên máy chủ như khi mở phòng (máy khác
+    cũng hết số chưa đọc); mất mạng thì báo lỗi và giữ nguyên số. Ẩn trò chuyện: biến khỏi danh sách, gõ tên vào ô tìm để mở lại;
     có tin nhắn mới thì tự hiện lại.
   - Xoá hội thoại (chat 1-1) hỏi lại trước khi gỡ khỏi danh sách trên máy này; tin nhắn trên máy chủ vẫn còn, có tin mới
     thì hội thoại hiện lại. Tắt thông báo, Rời / Xoá nhóm và Báo xấu dùng đúng chức năng sẵn có của máy chủ.

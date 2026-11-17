@@ -248,6 +248,30 @@ PopupMenuItem<ConversationQuickAction> _menuItem(
   );
 }
 
+/// Đánh dấu đã đọc tới tin mới nhất trên máy chủ (cùng lời gọi phòng chat
+/// dùng khi mở). Hội thoại chưa có tin thì không cần báo. Trả về false khi
+/// không tải được tin mới nhất hoặc máy chủ từ chối.
+Future<bool> _markReadOnServer(
+  WidgetRef ref, {
+  required String workspaceId,
+  required String channelId,
+}) async {
+  final latest = await ref
+      .read(conversationRepositoryProvider)
+      .listMessages(workspaceId: workspaceId, channelId: channelId, limit: 1);
+  final messages = latest.valueOrNull;
+  if (messages == null) return false;
+  if (messages.isEmpty) return true;
+  final result = await ref
+      .read(markConversationReadUseCaseProvider)
+      .execute(
+        workspaceId: workspaceId,
+        channelId: channelId,
+        lastReadMessageId: messages.last.id,
+      );
+  return result.isSuccess;
+}
+
 Future<void> runConversationQuickAction(
   BuildContext context,
   WidgetRef ref, {
@@ -275,7 +299,22 @@ Future<void> runConversationQuickAction(
     case ConversationQuickAction.markUnread:
       controller.setMarkedUnread(conversation, true);
     case ConversationQuickAction.markRead:
-      controller.setMarkedUnread(conversation, false);
+      // Báo máy chủ như khi mở phòng, để lần đồng bộ sau (và máy khác) không
+      // hiện lại số chưa đọc. Lỗi thì giữ nguyên, không xoá số giả trên máy.
+      if (await _markReadOnServer(
+        ref,
+        workspaceId: workspaceId,
+        channelId: conversation.channelId,
+      )) {
+        controller.setMarkedUnread(conversation, false);
+      } else {
+        notice(
+          tr(
+            'Không đánh dấu được đã đọc, thử lại sau',
+            'Couldn\'t mark as read, try again later',
+          ),
+        );
+      }
     case ConversationQuickAction.mute:
     case ConversationQuickAction.unmute:
       final muted = action == ConversationQuickAction.mute;

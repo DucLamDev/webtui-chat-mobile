@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/app/providers/foundation_providers.dart';
+import 'package:webtui_chat/core/error/failure.dart';
 import 'package:webtui_chat/core/result/result.dart';
 import 'package:webtui_chat/design_system/components/webtui_components.dart';
 import 'package:webtui_chat/design_system/icons/webtui_icons.dart';
@@ -13,6 +14,7 @@ import 'package:webtui_chat/features/approvals/presentation/controllers/approval
 import 'package:webtui_chat/features/conversations/application/use_cases/channel_use_cases.dart';
 import 'package:webtui_chat/features/conversations/application/use_cases/load_conversation_home_use_case.dart';
 import 'package:webtui_chat/features/conversations/application/use_cases/open_direct_conversation_use_case.dart';
+import 'package:webtui_chat/features/conversations/domain/entities/chat_message.dart';
 import 'package:webtui_chat/features/conversations/domain/entities/conversation_summary.dart';
 import 'package:webtui_chat/features/conversations/domain/repositories/conversation_repository.dart';
 import 'package:webtui_chat/features/conversations/presentation/controllers/conversation_home_controller.dart';
@@ -39,11 +41,13 @@ void main() {
     // Rộng đủ để cả hàng chip nằm gọn (không cần cuộn ngang); < 720 để
     // không vào bố cục chia đôi.
     double width = 390,
+    _Repository? repository,
   }) async {
     tester.view.physicalSize = Size(width, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final repository = _Repository(directs: directs, channels: channels);
+    final repo =
+        repository ?? _Repository(directs: directs, channels: channels);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -51,6 +55,7 @@ void main() {
             NoticeBotIdentity.fromOrganization(name: 'Công ty A'),
           ),
           moderationRepositoryProvider.overrideWithValue(_Moderation(blocked)),
+          conversationRepositoryProvider.overrideWithValue(repo),
           approvalAccessProvider.overrideWith(
             (ref, id) => const ApprovalAccess(
               serverSupported: true,
@@ -80,14 +85,14 @@ void main() {
             (ref, id) => ConversationHomeController(
               workspaceId: id,
               loadConversationHomeUseCase: LoadConversationHomeUseCase(
-                conversationRepository: repository,
+                conversationRepository: repo,
                 workspaceSessionRepository: _Session(),
               ),
               openDirectConversationUseCase: OpenDirectConversationUseCase(
-                repository,
+                repo,
               ),
               openPrivateChannelSessionUseCase:
-                  OpenPrivateChannelSessionUseCase(repository),
+                  OpenPrivateChannelSessionUseCase(repo),
               automationEnabled: automation,
             )..load(),
           ),
@@ -766,6 +771,67 @@ void main() {
       );
     });
 
+    testWidgets(
+      'đánh dấu đã đọc báo máy chủ tới tin mới nhất; đồng bộ lại không hiện số',
+      (tester) async {
+        final repository = _Repository(
+          directs: const [],
+          channels: [_item('g', 'Nhóm bạn', private: true, unread: 4)],
+        );
+        await pump(tester, automation: false, repository: repository);
+        await tester.longPress(find.text('Nhóm bạn'));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('conversation-action-markRead')),
+        );
+        await tester.pumpAndSettle();
+        expect(repository.readMarks, ['g@g-m2']);
+
+        final container = ProviderScope.containerOf(
+          tester.element(find.text('Nhóm bạn')),
+        );
+        await container
+            .read(conversationHomeControllerProvider('ws').notifier)
+            .syncSilently();
+        await tester.pumpAndSettle();
+        expect(
+          find.descendant(
+            of: find.widgetWithText(WebTuiConversationListItem, 'Nhóm bạn'),
+            matching: find.byType(WebTuiUnreadBadge),
+          ),
+          findsNothing,
+        );
+      },
+    );
+
+    testWidgets('đánh dấu đã đọc lỗi máy chủ: giữ số chưa đọc, báo lỗi', (
+      tester,
+    ) async {
+      final repository = _Repository(
+        directs: const [],
+        channels: [_item('g', 'Nhóm bạn', private: true, unread: 4)],
+        failMarkRead: true,
+      );
+      await pump(tester, automation: false, repository: repository);
+      await tester.longPress(find.text('Nhóm bạn'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('conversation-action-markRead')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Không đánh dấu được đã đọc, thử lại sau'),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.widgetWithText(WebTuiConversationListItem, 'Nhóm bạn'),
+          matching: find.byType(WebTuiUnreadBadge),
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('kênh nghiệp vụ: chỉ đánh dấu đã đọc / chưa đọc', (
       tester,
     ) async {
@@ -859,10 +925,54 @@ final class _Moderation implements ModerationRepository {
 }
 
 final class _Repository implements ConversationRepository {
-  _Repository({required this.directs, required this.channels});
+  _Repository({
+    required this.directs,
+    required this.channels,
+    this.failMarkRead = false,
+  });
 
   final List<ConversationSummary> directs;
-  final List<ConversationSummary> channels;
+  // Đổi được: đánh dấu đã đọc thành công thì máy chủ giả trả số 0 ở lần tải sau.
+  List<ConversationSummary> channels;
+  final bool failMarkRead;
+  final List<String> readMarks = [];
+
+  @override
+  Future<Result<List<ChatMessage>>> listMessages({
+    required String workspaceId,
+    required String channelId,
+    int limit = 50,
+    String? beforeId,
+  }) async => Success([
+    for (final id in ['$channelId-m1', '$channelId-m2'].skip(2 - limit))
+      ChatMessage(
+        id: id,
+        workspaceId: workspaceId,
+        channelId: channelId,
+        kind: 'user',
+        body: 'xin chào',
+        createdAt: DateTime.utc(2026, 7, 16),
+      ),
+  ]);
+
+  @override
+  Future<Result<void>> markRead({
+    required String workspaceId,
+    required String channelId,
+    required String lastReadMessageId,
+  }) async {
+    if (failMarkRead) {
+      return const FailureResult(
+        Failure(kind: FailureKind.unknown, message: 'Mất mạng'),
+      );
+    }
+    readMarks.add('$channelId@$lastReadMessageId');
+    channels = [
+      for (final item in channels)
+        item.channelId == channelId ? item.copyWith(unreadCount: 0) : item,
+    ];
+    return const Success(null);
+  }
 
   @override
   Future<Result<List<ConversationSummary>>> listDirectConversations({
