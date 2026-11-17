@@ -847,7 +847,7 @@ class _MessageVoiceAttachmentViewState
         key: const Key('message_voice_bubble'),
         decoration: BoxDecoration(
           color: widget.outgoing
-              ? const Color(0xFFE3F0FF)
+              ? WebTuiColors.messageOutgoing
               : WebTuiColors.messageIncoming,
           borderRadius: BorderRadius.circular(24),
           boxShadow: widget.outgoing
@@ -2061,7 +2061,7 @@ class _MessageFileAttachmentViewState
       constraints: const BoxConstraints(maxWidth: 270),
       child: Material(
         color: widget.outgoing
-            ? WebTuiColors.primarySoft
+            ? WebTuiColors.messageOutgoing
             : WebTuiColors.surface,
         borderRadius: BorderRadius.circular(WebTuiRadii.lg),
         child: InkWell(

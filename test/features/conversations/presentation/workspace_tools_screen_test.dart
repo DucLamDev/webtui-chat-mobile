@@ -322,6 +322,61 @@ void main() {
         );
       }
 
+      // Ô ứng dụng: nền gradient riêng, bo 14; ô Thêm khác.
+      Iterable<Decoration> decorations(String key) => tester
+          .widgetList<DecoratedBox>(
+            find.descendant(
+              of: find.byKey(Key(key)),
+              matching: find.byKey(const Key('app_tile_color')),
+            ),
+          )
+          .map((box) => box.decoration);
+      final gradients = <LinearGradient>[];
+      for (final key in [
+        'app_meetings',
+        'app_shared_files',
+        'app_shortcut_s1',
+      ]) {
+        final decoration = decorations(key).single as BoxDecoration;
+        expect(decoration.borderRadius, BorderRadius.circular(14));
+        gradients.add(decoration.gradient! as LinearGradient);
+        expect(
+          tester.getSize(
+            find.descendant(
+              of: find.byKey(Key(key)),
+              matching: find.byKey(const Key('app_tile_color')),
+            ),
+          ),
+          const Size(52, 52),
+        );
+      }
+      expect(
+        {for (final g in gradients) g.colors.first}.length,
+        3,
+        reason: 'mỗi ứng dụng một màu riêng',
+      );
+      // Nền sáng: ô pastel nhạt (biểu tượng màu riêng, kiểm ở test work_hub).
+      for (final gradient in gradients) {
+        for (final color in gradient.colors) {
+          expect(color.computeLuminance(), greaterThan(0.75));
+        }
+      }
+      final add = find.byKey(const Key('app_add'));
+      expect(
+        find.descendant(
+          of: add,
+          matching: find.byKey(const Key('app_tile_dashed')),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: add,
+          matching: find.byKey(const Key('app_tile_color')),
+        ),
+        findsNothing,
+      );
+
       await tester.tap(find.byKey(const Key('app_shortcut_s1')));
       await tester.pumpAndSettle();
       expect(launcher.opened, ['https://panel.example.com']);

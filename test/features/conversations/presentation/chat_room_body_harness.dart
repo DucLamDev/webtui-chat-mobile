@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/app/providers/foundation_providers.dart';
 import 'package:webtui_chat/design_system/theme/webtui_theme.dart';
+import 'package:webtui_chat/design_system/tokens/webtui_colors.dart';
 import 'package:webtui_chat/features/conversations/domain/entities/call_session.dart';
 import 'package:webtui_chat/features/conversations/domain/entities/chat_message.dart';
 import 'package:webtui_chat/features/conversations/presentation/controllers/chat_room_controller.dart';
@@ -249,7 +250,7 @@ Future<void> pumpChatRoom(
     debugShowCheckedModeBanner: false,
     theme: theme ?? WebTuiTheme.light(),
     home: Scaffold(
-      backgroundColor: const Color(0xFFE8F0F7),
+      backgroundColor: WebTuiColors.chatBackground,
       appBar: withAppBar
           ? ChatRoomAppBar(
               title: 'Hồ Đức Lâm',

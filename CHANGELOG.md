@@ -3,6 +3,25 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.40.0 · 17/11/2026
+### Tính năng
+- Trang Bạn bè thiết kế lại kiểu Zalo
+  - Bỏ tiêu đề lớn: ô tìm đồng nghiệp ngay trên cùng, hai tab gạch chân Đồng nghiệp / Nhóm.
+  - Danh bạ chia nhóm theo chữ cái A–Z (bỏ dấu tiếng Việt: "Ánh" vào A, "Đức" vào D; tên bắt đầu bằng số / ký tự lạ vào
+    nhóm "#" ở cuối), tiêu đề chữ cái dính khi cuộn.
+  - Mỗi người có nút gọi thoại và gọi video bên phải tên: bấm là mở chat riêng và gọi ngay. Người đã chặn hoặc chưa
+    mở được chat riêng thì không có hai nút này.
+  - Chỉ hiện tên như Zalo; email chỉ hiện khi hai người trùng tên để phân biệt.
+- Bộ icon ứng dụng tab Công việc dạng ô màu bo góc kiểu mini app: Lịch họp cam, Tệp xanh lá, Ghi chú tím, các ứng dụng
+  khác theo màu máy chủ đặt; ô "Thêm" viền đứt. Giao diện sáng: nền ô màu pastel rất nhạt, biểu tượng mang màu riêng
+  tươi và nhạt (vẫn đủ tương phản 3:1 để nhìn rõ), ô "Thêm" xanh rất nhạt (không còn xám); giao diện tối: ô màu đậm, biểu tượng trắng.
+- Khung phòng chat kiểu Zalo
+  - Thanh đầu nền xanh, chữ và nút gọi / gọi video / menu màu trắng (nền tối: thanh tối, chữ sáng).
+  - Nền danh sách xám xanh nhạt; tin của mình nền xanh nhạt chữ đậm, tin người khác nền trắng; bo góc kiểu Zalo.
+  - Ô soạn: emoji bên trái, ô nhập ở giữa, bên phải nút thêm (đính kèm), ảnh, ghi âm; gõ chữ thì ảnh + ghi âm đổi
+    thành nút gửi.
+  - Nhãn ngày ("Hôm nay") rõ hơn ở nền tối.
+
 ## 1.39.0 · 17/11/2026
 ### Tính năng
 - Gọn khung các tab chính để dành chỗ cho nội dung
