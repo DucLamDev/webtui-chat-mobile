@@ -7,7 +7,6 @@ import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../design_system/components/webtui_seamless.dart';
-import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../application/use_cases/work_hub_use_cases.dart';
@@ -50,35 +49,115 @@ Future<void> openAppShortcut(
   }
 }
 
-/// Màu biểu tượng Lịch họp (cam) theo nền sáng / tối.
-Color get workMeetingsAppColor => WebTuiColors.brightness == Brightness.dark
-    ? const Color(0xFFFF9A5C)
-    : const Color(0xFFE8692A);
+/// Bảng màu ô ứng dụng (cùng độ đậm, biểu tượng trắng đọc được ở nền sáng
+/// lẫn tối: tương phản ≥ 3:1 với cả hai đầu gradient). Khoá trùng khoá màu
+/// lối tắt của máy chủ; khoá lạ dùng xanh dương.
+const workAppBlue = Color(0xFF2F6FED);
+const workAppOrange = Color(0xFFD9591A);
+const workAppGreen = Color(0xFF1B8F52);
+const workAppViolet = Color(0xFF7C4DDB);
+const workAppRed = Color(0xFFD23C5E);
+const workAppTeal = Color(0xFF0F8A82);
+const workAppGray = Color(0xFF5F6F86);
 
-/// Màu biểu tượng Tệp chia sẻ (xanh lá) theo nền sáng / tối.
-Color get workSharedFilesAppColor => WebTuiColors.brightness == Brightness.dark
-    ? const Color(0xFF3CCF89)
-    : const Color(0xFF1E9A57);
+Color workAppColorForKey(String? key) => switch (key?.trim()) {
+  'violet' => workAppViolet,
+  'green' => workAppGreen,
+  'orange' => workAppOrange,
+  'red' => workAppRed,
+  'teal' => workAppTeal,
+  'gray' => workAppGray,
+  _ => workAppBlue,
+};
+
+/// Hai đầu gradient nhẹ của ô: sáng hơn một chút ở trên trái, đậm hơn ở dưới
+/// phải. Đầu sáng vẫn giữ tương phản ≥ 3:1 với biểu tượng trắng.
+(Color, Color) workAppGradient(Color base) {
+  final hsl = HSLColor.fromColor(base);
+  return (
+    hsl.withLightness((hsl.lightness + 0.03).clamp(0.0, 1.0)).toColor(),
+    hsl.withLightness((hsl.lightness - 0.07).clamp(0.0, 1.0)).toColor(),
+  );
+}
+
+/// Màu một ô ứng dụng theo nền: (đầu gradient, cuối gradient, biểu tượng).
+/// - Tối: gradient đậm của màu riêng, biểu tượng trắng.
+/// - Sáng: nền pastel rất nhạt của màu riêng; biểu tượng là màu riêng tươi hơn,
+///   nâng độ sáng tới mức nhạt nhất mà vẫn giữ tương phản ≥ 3:1 với nền.
+({Color top, Color bottom, Color icon}) workAppTileColors(
+  Color base,
+  Brightness brightness,
+) {
+  if (brightness == Brightness.dark) {
+    final (top, bottom) = workAppGradient(base);
+    return (top: top, bottom: bottom, icon: Colors.white);
+  }
+  final top = Color.alphaBlend(base.withValues(alpha: 0.07), Colors.white);
+  final bottom = Color.alphaBlend(base.withValues(alpha: 0.12), Colors.white);
+  final hsl = HSLColor.fromColor(base);
+  final vivid = hsl.withSaturation((hsl.saturation + 0.08).clamp(0.0, 1.0));
+  var icon = base;
+  for (var step = 0; step <= 30; step++) {
+    final candidate = vivid
+        .withLightness((hsl.lightness + step * 0.005).clamp(0.0, 1.0))
+        .toColor();
+    if (_contrastRatio(candidate, bottom) < 3.05) break;
+    icon = candidate;
+  }
+  return (top: top, bottom: bottom, icon: icon);
+}
+
+double _contrastRatio(Color a, Color b) {
+  final la = a.computeLuminance();
+  final lb = b.computeLuminance();
+  final hi = la > lb ? la : lb;
+  final lo = la > lb ? lb : la;
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/// Biểu tượng Material của lối tắt; khoá lạ là liên kết.
+IconData workShortcutIcon(String? key) => switch (key?.trim()) {
+  'globe' => Icons.public_rounded,
+  'server' => Icons.dns_rounded,
+  'cloud' => Icons.cloud_rounded,
+  'code' => Icons.code_rounded,
+  'terminal' => Icons.terminal_rounded,
+  'database' => Icons.storage_rounded,
+  'calendar' => Icons.calendar_month_rounded,
+  'folder' => Icons.folder_rounded,
+  'file-text' => Icons.description_rounded,
+  'chart' => Icons.bar_chart_rounded,
+  'shield' => Icons.shield_rounded,
+  'shopping-bag' => Icons.shopping_bag_rounded,
+  'ticket' => Icons.confirmation_number_rounded,
+  'headphones' => Icons.headset_mic_rounded,
+  'mail' => Icons.mail_rounded,
+  'book-open' => Icons.menu_book_rounded,
+  'briefcase' => Icons.work_rounded,
+  'wallet' => Icons.account_balance_wallet_rounded,
+  'settings' => Icons.settings_rounded,
+  _ => Icons.link_rounded,
+};
 
 /// Một ô thêm vào lưới Ứng dụng từ ngoài (vd tiện ích My Note), đứng sau Lịch
 /// họp và Tệp chia sẻ, trước lối tắt.
 final class WorkAppItem {
   const WorkAppItem({
     required this.key,
-    required this.glyph,
+    required this.icon,
     required this.color,
     required this.label,
     required this.onTap,
   });
 
   final Key key;
-  final PhosphorDuotoneGlyph glyph;
+  final IconData icon;
   final Color color;
   final String label;
   final VoidCallback onTap;
 }
 
-/// Nhóm "Ứng dụng": lưới 4 cột biểu tượng hai lớp + nhãn, không ô nền: Lịch
+/// Nhóm "Ứng dụng": lưới 4 cột ô vuông bo góc màu kiểu mini app + nhãn: Lịch
 /// họp, Tệp chia sẻ, [extraApps], lối tắt quản trị thêm, ô Thêm.
 class WorkAppsSection extends ConsumerWidget {
   const WorkAppsSection({
@@ -100,9 +179,9 @@ class WorkAppsSection extends ConsumerWidget {
       if (workHub)
         _AppTile(
           key: const Key('app_meetings'),
-          glyph: WebTuiDuotoneIcons.meetings,
+          icon: Icons.calendar_month_rounded,
           label: tr('Lịch họp', 'Meetings'),
-          color: workMeetingsAppColor,
+          color: workAppOrange,
           onTap: () => context.push(
             Uri(
               path: '/meetings',
@@ -112,9 +191,9 @@ class WorkAppsSection extends ConsumerWidget {
         ),
       _AppTile(
         key: const Key('app_shared_files'),
-        glyph: WebTuiDuotoneIcons.sharedFiles,
+        icon: Icons.folder_rounded,
         label: tr('Tệp chia sẻ', 'Shared files'),
-        color: workSharedFilesAppColor,
+        color: workAppGreen,
         onTap: () => context.push(
           Uri(
             path: '/files',
@@ -125,7 +204,7 @@ class WorkAppsSection extends ConsumerWidget {
       for (final app in extraApps)
         _AppTile(
           key: app.key,
-          glyph: app.glyph,
+          icon: app.icon,
           label: app.label,
           color: app.color,
           onTap: app.onTap,
@@ -133,17 +212,18 @@ class WorkAppsSection extends ConsumerWidget {
       for (final shortcut in list?.shortcuts ?? const <AppShortcut>[])
         _AppTile(
           key: Key('app_shortcut_${shortcut.id}'),
-          glyph: webTuiShortcutDuotoneIcon(shortcut.icon),
+          icon: workShortcutIcon(shortcut.icon),
           label: shortcut.title,
-          color: webTuiShortcutColors(shortcut.color).foreground,
+          color: workAppColorForKey(shortcut.color),
           onTap: () => openAppShortcut(context, ref, shortcut),
         ),
       if (canManage)
         _AppTile(
           key: const Key('app_add'),
-          glyph: WebTuiDuotoneIcons.add,
+          icon: Icons.add_rounded,
           label: tr('Thêm', 'Add'),
           color: WebTuiColors.textMuted,
+          dashed: true,
           onTap: () => _add(context, ref),
         ),
     ];
@@ -194,26 +274,93 @@ class WorkAppsSection extends ConsumerWidget {
   }
 }
 
-/// Cỡ biểu tượng hai lớp trong lưới Ứng dụng.
-const workAppIconSize = 36.0;
+/// Cạnh ô ứng dụng, bo góc và cỡ biểu tượng.
+const workAppTileSize = 52.0;
+const workAppTileRadius = 14.0;
+const workAppIconSize = 26.0;
 
-/// Một ô ứng dụng: biểu tượng hai lớp 36 (không ô nền) + nhãn 13 bên dưới.
+/// Một ô ứng dụng: ô vuông 52 bo 14, biểu tượng 26; nhãn 12 (1–2 dòng, căn
+/// giữa) bên dưới. Màu theo [workAppTileColors]: nền tối là gradient đậm +
+/// biểu tượng trắng + bóng nhẹ; nền sáng là pastel phẳng + biểu tượng màu. Ô
+/// [dashed] (Thêm) viền đứt: tối nền surface + biểu tượng xám, sáng nền xanh
+/// rất nhạt + biểu tượng xanh.
 class _AppTile extends StatelessWidget {
   const _AppTile({
-    required this.glyph,
+    required this.icon,
     required this.label,
     required this.color,
     required this.onTap,
+    this.dashed = false,
     super.key,
   });
 
-  final PhosphorDuotoneGlyph glyph;
+  final IconData icon;
   final String label;
   final Color color;
   final VoidCallback onTap;
+  final bool dashed;
 
   @override
   Widget build(BuildContext context) {
+    final dark = WebTuiColors.brightness == Brightness.dark;
+    final Widget box;
+    if (dashed) {
+      // Sáng: ô Thêm nhạt màu xanh chủ đạo, không xám; tối giữ nền surface.
+      box = CustomPaint(
+        key: const Key('app_tile_dashed'),
+        painter: _DashedRRectPainter(
+          color: dark
+              ? WebTuiColors.textMuted.withValues(alpha: 0.55)
+              : WebTuiColors.primary.withValues(alpha: 0.40),
+          fill: dark
+              ? WebTuiColors.surface
+              : Color.alphaBlend(
+                  WebTuiColors.primary.withValues(alpha: 0.05),
+                  Colors.white,
+                ),
+          radius: workAppTileRadius,
+        ),
+        child: SizedBox(
+          width: workAppTileSize,
+          height: workAppTileSize,
+          child: Icon(
+            icon,
+            size: workAppIconSize,
+            color: dark ? color : WebTuiColors.primary,
+          ),
+        ),
+      );
+    } else {
+      final colors = workAppTileColors(color, WebTuiColors.brightness);
+      final top = colors.top;
+      final bottom = colors.bottom;
+      box = DecoratedBox(
+        key: const Key('app_tile_color'),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(workAppTileRadius),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [top, bottom],
+          ),
+          // Sáng: ô pastel phẳng, không bóng.
+          boxShadow: dark
+              ? [
+                  BoxShadow(
+                    color: bottom.withValues(alpha: 0.22),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: SizedBox(
+          width: workAppTileSize,
+          height: workAppTileSize,
+          child: Icon(icon, size: workAppIconSize, color: colors.icon),
+        ),
+      );
+    }
     return Semantics(
       button: true,
       label: label,
@@ -222,19 +369,19 @@ class _AppTile extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(2, 2, 2, 8),
+          padding: const EdgeInsets.fromLTRB(2, 4, 2, 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              WebTuiDuotoneIcon(glyph, color: color, size: workAppIconSize),
-              const SizedBox(height: 8),
+              box,
+              const SizedBox(height: 7),
               Text(
                 label,
-                maxLines: 1,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: WebTuiTypography.bodySmall.copyWith(
-                  fontSize: 13,
+                  fontSize: 12,
                   height: 1.25,
                   color: WebTuiColors.textPrimary,
                 ),
@@ -245,4 +392,41 @@ class _AppTile extends StatelessWidget {
       ),
     );
   }
+}
+
+class _DashedRRectPainter extends CustomPainter {
+  const _DashedRRectPainter({
+    required this.color,
+    required this.fill,
+    required this.radius,
+  });
+
+  final Color color;
+  final Color fill;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rrect = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      Radius.circular(radius),
+    );
+    canvas.drawRRect(rrect, Paint()..color = fill);
+    final path = Path()..addRRect(rrect.deflate(0.75));
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        canvas.drawPath(metric.extractPath(distance, distance + 4), paint);
+        distance += 7;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedRRectPainter old) =>
+      old.color != color || old.fill != fill || old.radius != radius;
 }

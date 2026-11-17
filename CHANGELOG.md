@@ -3,15 +3,122 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
-## 1.36.1 · 16/11/2026
+## 1.43.1 · 17/11/2026
 ### Sửa lỗi
 - Cài đặt: thanh Âm lượng và Cỡ chữ nay có tác dụng thật (trước đây kéo chỉ di chuyển nút, không đổi gì, không lưu)
   - Cỡ chữ: 7 nấc từ 85% tới 130% (mặc định 100%); kéo là chữ cả app đổi ngay, nhân thêm với cỡ chữ của điện thoại, tổng
     giữ trong 80%–150% để màn hình không vỡ. Được lưu lại, mở lại app vẫn giữ.
-  - Âm lượng: chỉnh độ to nhạc chuông cuộc gọi đến (khi đang mở app) và chuông chờ khi gọi đi, nấc 10%; kéo về 0 thì không
-    đổ chuông (vẫn rung, vẫn hiện cuộc gọi). Thả tay khỏi thanh là phát thử tiếng chuông khoảng 1,5 giây. Âm báo tin nhắn
+  - Âm lượng: chỉnh độ to nhạc chuông cuộc gọi đến (khi đang mở app), chuông chờ khi gọi đi và âm báo kết thúc / không
+    liên lạc được, nấc 10%; kéo về 0 thì không đổ chuông (vẫn rung, vẫn hiện cuộc gọi). Thả tay khỏi thanh là phát thử tiếng chuông khoảng 1,5 giây. Âm báo tin nhắn
     do điện thoại phát theo âm lượng thông báo của máy nên không đổi theo thanh này.
   - Chữ to không còn làm nhãn "Âm lượng" bị cắt thành "Âm lượ…".
+
+## 1.43.0 · 17/11/2026
+### Tính năng
+- Trình soạn Ghi chú làm lại giống app Ghi chú iPhone: một ô soạn, dòng đầu là tiêu đề, tự lưu, định dạng hiện trực tiếp
+  - Mở ghi chú là sửa được ngay: bỏ chế độ xem riêng, nút Sửa, nút Lưu và ô tiêu đề riêng. Dòng đầu tiên tự thành tiêu
+    đề (chữ lớn); trên cùng ghi ngày giờ sửa. Ghi chú tự lưu sau khi ngừng gõ khoảng 1 giây, khi bấm Xong, khi rời màn
+    hoặc chuyển sang app khác. Ghi chú mới chưa gõ gì thì không tạo.
+  - Định dạng hiện thẳng khi gõ, không thấy ký hiệu markdown: tiêu đề / đề mục / đề mục phụ, đậm, nghiêng, gạch ngang,
+    mã, khối đơn cách, danh sách chấm, danh sách số, trích dẫn; liên kết http và #tag tô màu. Ô tick tròn bấm thẳng
+    để đánh dấu xong (lưu ngay). Enter ở dòng danh sách / ô tick tự thêm dòng cùng kiểu, Enter ở dòng trống thì thoát
+    danh sách, xoá lùi ở đầu dòng thì bỏ kiểu danh sách.
+  - Thanh công cụ dưới cùng (nằm trên bàn phím khi đang gõ): Aa mở bảng định dạng, nút ô tick, nút máy ảnh, nút soạn
+    ghi chú mới. Nút Xong trên đầu để ẩn bàn phím.
+  - Gõ #tag trong ghi chú để gắn tag, xoá chữ là bỏ tag. Tag đặt từ trước (không có trong chữ) vẫn giữ, sửa ở menu ⋯
+    → Tag.
+  - Ảnh trong ghi chú: chụp ảnh, chọn ảnh (tối đa 10 ảnh một lần) hoặc chọn tệp. Ảnh hiện thành lưới ngay trong ghi
+    chú, bấm để xem to (vuốt qua lại, phóng to); gỡ khỏi ghi chú bằng nhấn giữ hoặc trong màn xem ảnh (có hỏi lại).
+    Tệp lớn được tải lên từng phần.
+  - Menu ⋯: ghim / bỏ ghim, chuyển thư mục, tag, sao chép nội dung, xoá ghi chú.
+  - Ghi chú vừa được sửa ở thiết bị khác: dừng tự lưu, cho chọn Giữ bản của tôi (ghi đè) hoặc Tải bản mới nhất. Rời
+    màn khi chưa lưu được (mất mạng) thì hỏi ở lại hay bỏ phần chưa lưu. Xoá hết chữ của ghi chú cũ rồi thoát thì hỏi
+    xoá ghi chú hay giữ bản đã lưu.
+  - Nội dung vẫn lưu dạng markdown như trước nên trang web và ghi chú cũ vẫn đọc / sửa bình thường.
+
+## 1.42.0 · 17/11/2026
+### Tính năng
+- Màn cuộc gọi đến mới (tông sáng, có hiệu ứng), bộ âm thanh cuộc gọi mới; sửa lỗi không hiện tên người gọi
+  - Cuộc gọi đến khi đang mở app hiện toàn màn hình thay cho hộp thoại nhỏ: nền trắng pha nhẹ màu theo người gọi (giao
+    diện tối thì dịu theo nền tối), ảnh đại diện lớn, tên người gọi chữ lớn, nhãn Cuộc gọi thoại / video đến. Hai nút
+    tròn lớn Từ chối (đỏ) và Trả lời (xanh; gọi video thì biểu tượng máy quay).
+  - Hiệu ứng cuộc gọi: màn trượt lên khi xuất hiện, ba vòng sóng lan ra quanh ảnh, ảnh "thở" nhẹ, nút Trả lời lắc như
+    chuông reo và nảy nhẹ, ba chấm chạy ở dòng "đang gọi cho bạn", mảng màu nền trôi chậm. Máy bật giảm chuyển động thì
+    tắt hết; màn nhỏ tự thu gọn, không tràn.
+  - Thêm nút Nhắn tin (từ chối rồi mở ngay trò chuyện với người gọi) và Tắt chuông (im chuông, rung mà cuộc gọi vẫn
+    chờ để trả lời). Cuộc gọi nhóm đổ chuông dùng cùng màn: tên nhóm, "người gọi đang gọi nhóm".
+  - Bộ âm thanh mới: nhạc chuông khi có cuộc gọi đến (cả chuông gốc Android khi app chạy nền), tiếng chờ khi gọi đi,
+    tiếng kết thúc khi gác máy / bên kia gác / bị từ chối, lời báo không liên lạc được khi gọi đi mà hết giờ không ai
+    bắt máy. Bỏ hai tệp chuông cũ. iPhone khi app chạy nền vẫn dùng chuông hệ thống (gói cuộc gọi chưa cho đổi).
+  - Sửa lỗi màn cuộc gọi đến chỉ ghi "Cuộc gọi đến", không có tên người gọi: báo cuộc gọi qua kết nối thời gian thực
+    (lúc đang mở app) không kèm tên, app chỉ tra danh bạ đã tải sẵn. Nay app tìm người gọi theo danh bạ / thành viên,
+    trò chuyện 1-1 của cuộc gọi, và nếu chưa có thì hỏi máy chủ danh sách thành viên cuộc trò chuyện để điền tên + ảnh
+    (màn vẫn hiện ngay, tên cập nhật khi tải xong). Màn gọi sau khi trả lời cũng mang đúng tên người gọi.
+
+## 1.41.1 · 17/11/2026
+### Sửa lỗi
+- iPhone (bản TestFlight): xem được video gửi trong nhóm, video và ghi âm ở mục Tệp
+  - Trước đây mở lên chỉ thấy ảnh bìa, hình không chạy, đồng hồ đứng ở 0:00, không báo lỗi. Nguyên nhân: trên iPhone, app
+    phát thẳng từ đường dẫn phát dần của máy chủ và trình phát của iPhone đứng ở bước chuẩn bị mà không báo lỗi, nên app
+    cũng không lùi về cách khác. Tin thoại trong tin nhắn (tải về máy rồi mới phát) vẫn nghe được bình thường.
+  - Nay trên iPhone, video và ghi âm luôn được tải về máy rồi phát (như tin thoại). Video lớn sẽ chờ tải xong mới chạy.
+  - Trên Android, nếu phát dần quá 12 giây chưa sẵn sàng thì app tự tải tệp về rồi phát, không đứng hình mãi.
+
+## 1.41.0 · 17/11/2026
+### Tính năng
+- Ấn giữ một cuộc trò chuyện ở màn Tin nhắn để mở menu thao tác (giống nút ba chấm của Zalo trên web)
+  - Menu hiện ngay tại dòng vừa ấn (dòng gần đáy thì menu bật lên phía trên), dòng đó được tô nền để biết menu của ai.
+  - Chat 1-1: Ghim hội thoại, Đánh dấu chưa đọc / đã đọc, Tắt / Bật thông báo, Ẩn trò chuyện, Xoá hội thoại, Báo xấu.
+  - Nhóm: như trên nhưng thay "Xoá hội thoại" bằng Rời nhóm (hoặc Xoá nhóm nếu bạn có quyền xoá), không có Báo xấu.
+    Kênh nghiệp vụ (Đơn hàng, Gia hạn...) chỉ có Đánh dấu đã đọc / chưa đọc vì chỗ của chúng cố định.
+  - Ghim, đánh dấu chưa đọc và ẩn được lưu trên máy này, riêng cho từng tài khoản: cài lại app hoặc dùng máy khác sẽ
+    không còn. Hội thoại ghim nằm trên cùng danh sách.
+  - Đánh dấu chưa đọc hiện số 1 tới khi mở lại hội thoại. Đánh dấu đã đọc báo lên máy chủ như khi mở phòng (máy khác
+    cũng hết số chưa đọc); mất mạng thì báo lỗi và giữ nguyên số. Ẩn trò chuyện: biến khỏi danh sách, gõ tên vào ô tìm để mở lại;
+    có tin nhắn mới thì tự hiện lại.
+  - Xoá hội thoại (chat 1-1) hỏi lại trước khi gỡ khỏi danh sách trên máy này; tin nhắn trên máy chủ vẫn còn, có tin mới
+    thì hội thoại hiện lại. Tắt thông báo, Rời / Xoá nhóm và Báo xấu dùng đúng chức năng sẵn có của máy chủ.
+
+## 1.40.0 · 17/11/2026
+### Tính năng
+- Trang Bạn bè thiết kế lại kiểu Zalo
+  - Bỏ tiêu đề lớn: ô tìm đồng nghiệp ngay trên cùng, hai tab gạch chân Đồng nghiệp / Nhóm.
+  - Danh bạ chia nhóm theo chữ cái A–Z (bỏ dấu tiếng Việt: "Ánh" vào A, "Đức" vào D; tên bắt đầu bằng số / ký tự lạ vào
+    nhóm "#" ở cuối), tiêu đề chữ cái dính khi cuộn.
+  - Mỗi người có nút gọi thoại và gọi video bên phải tên: bấm là mở chat riêng và gọi ngay. Người đã chặn hoặc chưa
+    mở được chat riêng thì không có hai nút này.
+  - Chỉ hiện tên như Zalo; email chỉ hiện khi hai người trùng tên để phân biệt.
+- Bộ icon ứng dụng tab Công việc dạng ô màu bo góc kiểu mini app: Lịch họp cam, Tệp xanh lá, Ghi chú tím, các ứng dụng
+  khác theo màu máy chủ đặt; ô "Thêm" viền đứt. Giao diện sáng: nền ô màu pastel rất nhạt, biểu tượng mang màu riêng
+  tươi và nhạt (vẫn đủ tương phản 3:1 để nhìn rõ), ô "Thêm" xanh rất nhạt (không còn xám); giao diện tối: ô màu đậm, biểu tượng trắng.
+- Khung phòng chat kiểu Zalo
+  - Thanh đầu nền xanh, chữ và nút gọi / gọi video / menu màu trắng (nền tối: thanh tối, chữ sáng).
+  - Nền danh sách xám xanh nhạt; tin của mình nền xanh nhạt chữ đậm, tin người khác nền trắng; bo góc kiểu Zalo.
+  - Ô soạn: emoji bên trái, ô nhập ở giữa, bên phải nút thêm (đính kèm), ảnh, ghi âm; gõ chữ thì ảnh + ghi âm đổi
+    thành nút gửi.
+  - Nhãn ngày ("Hôm nay") rõ hơn ở nền tối.
+
+## 1.39.0 · 17/11/2026
+### Tính năng
+- Gọn khung các tab chính để dành chỗ cho nội dung
+  - Bỏ tiêu đề lớn "Tin nhắn", "Công việc", "Cài đặt": ô tìm kiếm nằm ngay dưới thanh trạng thái. Tab Bạn bè đổi ở bản
+    sau (cùng đợt thiết kế lại kiểu Zalo).
+  - Tab Tin nhắn: nút soạn tin (cây bút) nằm bên trái ô tìm kiếm, kính lúp nằm trong ô tìm.
+  - Tab Công việc: thay tiêu đề bằng ô tìm việc, bấm vào mở danh sách việc của tôi với ô tìm.
+  - Tab Cài đặt: bỏ tiêu đề và nút "Sửa hồ sơ"; bấm vào thẻ hồ sơ (ảnh, tên) để sửa như trước.
+  - Thanh tab nổi thấp hơn: 64 → 56 px, biểu tượng 24 px, chữ 10,5 px, giống Telegram.
+  - Chip lọc (Tất cả / Nhóm / Cá nhân / Nghiệp vụ / Chưa đọc) kiểu Messenger: không viền, nền xám nhạt, chip đang chọn
+    nền xanh nhạt chữ xanh, số đếm nằm trong chip.
+
+## 1.38.1 · 16/11/2026
+### Sửa lỗi
+- Trang đăng nhập / đăng ký ở giao diện tối không còn mất chữ
+  - Trước đây nền, ô nhập, nút và các hộp cảnh báo cố định màu sáng, còn chữ tự đổi sang màu sáng khi bật nền tối nên
+    chữ chìm vào nền. Nay mọi màu theo giao diện sáng / tối; thanh cảnh báo điều khoản cũng sửa theo.
+  - Chữ phụ ở nền sáng đậm hơn một chút cho đủ độ tương phản 4,5:1.
+- Mở bàn phím trong phòng chat không còn che tin nhắn cuối
+  - Đang ở cuối cuộc trò chuyện thì khi bàn phím mở (hoặc đóng), danh sách tự đẩy lên để tin cuối nằm ngay trên ô soạn.
+    Đang kéo lên đọc tin cũ thì danh sách giữ nguyên chỗ đang đọc.
 
 ## 1.36.0 · 16/11/2026
 ### Tính năng

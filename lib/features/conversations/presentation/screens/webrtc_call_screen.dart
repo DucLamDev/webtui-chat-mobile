@@ -14,6 +14,7 @@ import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../auth/presentation/controllers/legal_acceptance_controller.dart';
+import '../../application/call_end_cue.dart';
 import '../../application/use_cases/call_use_cases.dart';
 import '../../domain/entities/call_device_routing.dart';
 import '../../domain/entities/call_session.dart';
@@ -406,10 +407,13 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
           _runSignaling(_receiveCandidate(event.callCandidate));
         }
       case ConversationRealtimeEventType.callRejected:
+        unawaited(_leaveFromRemote(CallStatus.rejected));
       case ConversationRealtimeEventType.callCancelled:
+        unawaited(_leaveFromRemote(CallStatus.cancelled));
       case ConversationRealtimeEventType.callEnded:
+        unawaited(_leaveFromRemote(CallStatus.ended));
       case ConversationRealtimeEventType.callMissed:
-        unawaited(_leaveFromRemote());
+        unawaited(_leaveFromRemote(CallStatus.missed));
       default:
         break;
     }
@@ -558,7 +562,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
             .valueOrNull;
     if (!mounted || call == null || _leaving) return;
     if (call.isTerminal) {
-      await _leaveFromRemote();
+      await _leaveFromRemote(call.status);
       return;
     }
     if (_answeredOnAnotherDevice(call)) {
@@ -583,10 +587,13 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     });
   }
 
-  Future<void> _leaveFromRemote() async {
+  /// [status]: trạng thái cuối máy chủ báo (null = lỗi kỹ thuật) để chọn âm
+  /// báo khi đóng màn (xem callEndCue).
+  Future<void> _leaveFromRemote([CallStatus? status]) async {
     if (_leaving) return;
     _leaving = true;
     unawaited(_ringback.stop());
+    _playEndCue(callEndCue(incoming: widget.incoming, status: status));
     _stateTimer?.cancel();
     _disconnectTimer?.cancel();
     await _notifyLeave();
@@ -640,6 +647,9 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     if (_leaving) return;
     _leaving = true;
     unawaited(_ringback.stop());
+    _playEndCue(
+      callEndCue(incoming: widget.incoming, status: null, localHangup: true),
+    );
     _stateTimer?.cancel();
     _disconnectTimer?.cancel();
     await NativeIncomingCallService.endCall(widget.callId);
@@ -653,6 +663,10 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     }
     await _notifyLeave();
     await _closeScreen();
+  }
+
+  void _playEndCue(CallCue? cue) {
+    if (cue != null) unawaited(CallTonePlayer.playCue(cue));
   }
 
   Future<void> _terminateServerCall({required String reason}) async {

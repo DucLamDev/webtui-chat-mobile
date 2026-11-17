@@ -915,7 +915,9 @@ final class NativeIncomingCallService {
         isShowFullLockedScreen: true,
         isShowLogo: true,
         isImportant: true,
-        ringtonePath: 'system_ringtone_default',
+        // Chuông gốc Android (app chạy nền / màn khoá): cùng nhạc chuông trong
+        // app, tệp android/app/src/main/res/raw/nhac_chuong_cuoc_goi_den.mp3.
+        ringtonePath: 'nhac_chuong_cuoc_goi_den',
         backgroundColor: '#0EA5E9',
         actionColor: '#0068FF',
         textColor: '#FFFFFF',

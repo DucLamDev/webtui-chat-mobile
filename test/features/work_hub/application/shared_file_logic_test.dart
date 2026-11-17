@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -20,6 +21,10 @@ final class _FakeEngine implements SharedAudioEngine {
   final played = <String>[];
   bool failUrl = false;
 
+  /// Giống AVPlayer đứng ở khung đầu: phát dần không bao giờ sẵn sàng.
+  bool hangUrl = false;
+  int stops = 0;
+
   @override
   Stream<Duration> get onPosition => const Stream.empty();
   @override
@@ -28,15 +33,17 @@ final class _FakeEngine implements SharedAudioEngine {
   Stream<void> get onComplete => const Stream.empty();
 
   @override
-  Future<void> playUrl(Uri uri) async {
-    if (failUrl) throw StateError('url');
+  Future<void> playUrl(Uri uri) {
+    if (hangUrl) return Completer<void>().future;
+    if (failUrl) return Future.error(StateError('url'));
     played.add('url:$uri');
+    return Future.value();
   }
 
   @override
   Future<void> playFile(File file) async => played.add('file');
   @override
-  Future<void> stop() async {}
+  Future<void> stop() async => stops++;
   @override
   Future<void> dispose() async {}
 }
@@ -158,15 +165,19 @@ void main() {
   SharedFileMediaResolver resolver({
     required bool streamOk,
     required List<String> log,
+    void Function()? onLink,
   }) {
     return SharedFileMediaResolver(
       links: SharedFileStreamLinkCache(
-        fetch: (id) async => streamOk
-            ? SharedFileStreamLink(
-                url: '/s',
-                expiresAt: DateTime.now().add(const Duration(hours: 1)),
-              )
-            : null,
+        fetch: (id) async {
+          onLink?.call();
+          return streamOk
+              ? SharedFileStreamLink(
+                  url: '/s',
+                  expiresAt: DateTime.now().add(const Duration(hours: 1)),
+                )
+              : null;
+        },
       ),
       cache: SharedFileCache(directory: () async => dir),
       absolute: (u) => Uri.parse('https://h.example.com$u'),
@@ -207,6 +218,45 @@ void main() {
     await controller.toggle(file);
     expect(engine.played.last, 'file');
     expect(log, ['download']);
+    controller.dispose();
+  });
+
+  test('iPhone: ghi âm tải về rồi phát tệp, không xin link phát dần', () async {
+    final log = <String>[];
+    var linkRequests = 0;
+    final engine = _FakeEngine();
+    final controller = SharedAudioController(
+      engineFactory: () => engine,
+      resolver: () =>
+          resolver(streamOk: true, log: log, onLink: () => linkRequests++),
+      playableDirectory: _noPlayableDirectory,
+      preferLocalPlayback: () => true,
+    );
+    await controller.toggle(_file('a.m4a', 'audio/mp4'));
+    expect(engine.played, ['file']);
+    expect(linkRequests, 0);
+    expect(log, ['download']);
+    expect(controller.failed, isFalse);
+    expect(controller.isActive('f1'), isTrue);
+    controller.dispose();
+  });
+
+  test('phát dần treo quá hạn: dừng luồng treo rồi tải về phát tệp', () async {
+    final log = <String>[];
+    final engine = _FakeEngine()..hangUrl = true;
+    final controller = SharedAudioController(
+      engineFactory: () => engine,
+      resolver: () => resolver(streamOk: true, log: log),
+      playableDirectory: _noPlayableDirectory,
+      preferLocalPlayback: () => false,
+      streamStartTimeout: const Duration(milliseconds: 100),
+    );
+    await controller.toggle(_file('a.m4a', 'audio/mp4'));
+    expect(engine.played, ['file']);
+    // Một lần dừng khi bắt đầu bấm, một lần dừng luồng phát dần bị treo.
+    expect(engine.stops, 2);
+    expect(log, ['download']);
+    expect(controller.failed, isFalse);
     controller.dispose();
   });
 

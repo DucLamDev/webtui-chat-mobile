@@ -1,13 +1,19 @@
 import '../../../../core/network/api_response.dart';
 import '../../../../core/network/api_transport.dart';
+import '../../../conversations/data/datasources/message_attachment_remote_data_source.dart';
+import '../../../conversations/domain/entities/chat_message.dart';
 import '../../domain/entities/my_note.dart';
 import '../mappers/my_note_json.dart';
 
 /// Gọi API My Note dưới `/api/v1/workspaces/{ws}/me/`.
 final class MyNotesRemoteDataSource {
-  const MyNotesRemoteDataSource(this._api);
+  /// [files]: bộ tải tệp dùng chung với chat (tệp từ 8 MB tải theo phần, nối
+  /// lại được); để trống thì tạo mới trên cùng [ApiTransport].
+  MyNotesRemoteDataSource(this._api, {MessageAttachmentRemoteDataSource? files})
+    : _files = files ?? MessageAttachmentRemoteDataSource(_api);
 
   final ApiTransport _api;
+  final MessageAttachmentRemoteDataSource _files;
 
   Future<MyNotePage> listNotes({
     required String workspaceId,
@@ -155,6 +161,33 @@ final class MyNotesRemoteDataSource {
     return myNoteAttachmentFromJson(envelopeItem(response.data, 'attachment'));
   }
 
+  /// Tải tệp lên `POST /api/v1/workspaces/{ws}/files` (multipart, trường
+  /// `file`); trả `file_id`.
+  Future<String> uploadFile({
+    required String workspaceId,
+    required MyNoteLocalFile file,
+    void Function(double progress)? onProgress,
+  }) async {
+    final mimeType = file.mimeType.trim().isEmpty
+        ? 'application/octet-stream'
+        : file.mimeType.trim();
+    final uploaded = await _files.uploadFile(
+      workspaceId: workspaceId.trim(),
+      attachment: PickedMessageAttachment(
+        path: file.path,
+        fileName: file.name,
+        mimeType: mimeType,
+        byteSize: file.byteSize,
+        kind: _kindOf(mimeType, file.name),
+      ),
+      onProgress: onProgress,
+    );
+    if (uploaded.id.trim().isEmpty) {
+      throw const FormatException('Máy chủ không trả id tệp vừa tải lên.');
+    }
+    return uploaded.id.trim();
+  }
+
   Future<void> removeAttachment({
     required String workspaceId,
     required String noteId,
@@ -247,3 +280,11 @@ String _notePath(String workspaceId, String noteId) =>
     '${_meBase(workspaceId)}/notes/${_e(noteId)}';
 
 String _e(String value) => Uri.encodeComponent(value.trim());
+
+MessageAttachmentKind _kindOf(String mimeType, String name) {
+  if (myNoteIsImageFile(mimeType, name)) return MessageAttachmentKind.image;
+  final mime = mimeType.toLowerCase();
+  if (mime.startsWith('video/')) return MessageAttachmentKind.video;
+  if (mime.startsWith('audio/')) return MessageAttachmentKind.audio;
+  return MessageAttachmentKind.file;
+}

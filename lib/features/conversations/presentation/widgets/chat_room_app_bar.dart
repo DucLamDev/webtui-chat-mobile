@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
@@ -89,18 +90,48 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
             memberCount == 1 ? '1 member' : '$memberCount members',
           )
         : null;
+    // Kiểu Zalo: nền sáng = thanh xanh (gradient nhẹ) chữ / nút trắng; nền tối
+    // = nền tối đậm của theme, chữ / nút sáng.
+    final dark = WebTuiColors.brightness == Brightness.dark;
+    final fg = dark ? WebTuiColors.textPrimary : Colors.white;
+    final subFg = dark ? WebTuiColors.textMuted : const Color(0xE6FFFFFF);
     return AppBar(
       toolbarHeight: 64,
-      backgroundColor: WebTuiColors.surface,
-      foregroundColor: WebTuiColors.textPrimary,
-      iconTheme: IconThemeData(color: WebTuiColors.primary),
-      actionsIconTheme: IconThemeData(color: WebTuiColors.primary),
+      backgroundColor: dark ? WebTuiColors.surface : WebTuiColors.primary,
+      foregroundColor: fg,
+      iconTheme: IconThemeData(color: fg),
+      actionsIconTheme: IconThemeData(color: fg),
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       scrolledUnderElevation: 0,
-      shape: Border(
-        bottom: BorderSide(color: WebTuiColors.border.withValues(alpha: 0.8)),
+      systemOverlayStyle: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
       ),
+      flexibleSpace: dark
+          ? DecoratedBox(
+              decoration: BoxDecoration(
+                color: WebTuiColors.surface,
+                border: Border(
+                  bottom: BorderSide(
+                    color: WebTuiColors.border.withValues(alpha: 0.8),
+                  ),
+                ),
+              ),
+            )
+          : DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    WebTuiColors.primary,
+                    Color.lerp(WebTuiColors.primary, Colors.white, 0.14)!,
+                  ],
+                ),
+              ),
+            ),
       automaticallyImplyLeading: false,
       leadingWidth: _actionSize,
       leading: IconButton(
@@ -129,15 +160,13 @@ class ChatRoomAppBar extends StatelessWidget implements PreferredSizeWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _ChatRoomTitle(title),
+                _ChatRoomTitle(title, color: fg),
                 if (subtitle != null)
                   Text(
                     subtitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: WebTuiTypography.bodySmall.copyWith(
-                      color: WebTuiColors.textMuted,
-                    ),
+                    style: WebTuiTypography.bodySmall.copyWith(color: subFg),
                   ),
               ],
             ),
@@ -268,9 +297,10 @@ final ButtonStyle _actionStyle = IconButton.styleFrom(
 /// chữ thường gặp vẫn hiện đủ trên máy khổ hẹp. Nhỏ tới 15 vẫn không vừa (tên
 /// nhóm dài) mới cắt bằng "…".
 class _ChatRoomTitle extends StatelessWidget {
-  const _ChatRoomTitle(this.title);
+  const _ChatRoomTitle(this.title, {required this.color});
 
   final String title;
+  final Color color;
 
   static const List<double> _fontSizes = [17, 16, 15];
 
@@ -278,7 +308,7 @@ class _ChatRoomTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = DefaultTextStyle.of(context).style.merge(
       WebTuiTypography.titleMedium.copyWith(
-        color: WebTuiColors.textPrimary,
+        color: color,
         fontWeight: FontWeight.w700,
       ),
     );

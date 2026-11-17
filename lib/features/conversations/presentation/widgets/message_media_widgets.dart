@@ -12,6 +12,7 @@ import 'package:video_player/video_player.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/audio/playable_audio.dart';
+import '../../../../core/media/media_playback.dart';
 import '../../../../core/network/redirect_safe_file_downloader.dart';
 import '../../../../core/security/instance_scope.dart';
 import '../../../../design_system/components/webtui_owned_decoded_image.dart';
@@ -847,7 +848,7 @@ class _MessageVoiceAttachmentViewState
         key: const Key('message_voice_bubble'),
         decoration: BoxDecoration(
           color: widget.outgoing
-              ? const Color(0xFFE3F0FF)
+              ? WebTuiColors.messageOutgoing
               : WebTuiColors.messageIncoming,
           borderRadius: BorderRadius.circular(24),
           boxShadow: widget.outgoing
@@ -1098,6 +1099,8 @@ class _MessageVideoAttachmentViewState
   /// Mở đường phát dần của video (xin link mới một lần nếu link cũ bị từ chối).
   /// Trả null khi không phát dần được, lúc đó caller chuyển sang tải về.
   Future<VideoPlayerController?> _openStream(int generation) async {
+    // iPhone: phát dần hay đứng ở ảnh bìa; luôn tải về rồi phát tệp.
+    if (preferLocalMediaPlayback()) return null;
     final workspaceId = workspaceIdFromFilePath(
       widget.attachment.file.downloadPath,
     );
@@ -1115,13 +1118,10 @@ class _MessageVideoAttachmentViewState
           generation != _initializationGeneration) {
         return null;
       }
-      final controller = messageVideoStreamController(stream);
-      try {
-        await controller.initialize();
-        return controller;
-      } on Object {
-        await controller.dispose();
-      }
+      final ready = await initializeStreamOrNull(
+        messageVideoStreamController(stream),
+      );
+      if (ready != null) return ready;
     }
     return null;
   }
@@ -2061,7 +2061,7 @@ class _MessageFileAttachmentViewState
       constraints: const BoxConstraints(maxWidth: 270),
       child: Material(
         color: widget.outgoing
-            ? WebTuiColors.primarySoft
+            ? WebTuiColors.messageOutgoing
             : WebTuiColors.surface,
         borderRadius: BorderRadius.circular(WebTuiRadii.lg),
         child: InkWell(

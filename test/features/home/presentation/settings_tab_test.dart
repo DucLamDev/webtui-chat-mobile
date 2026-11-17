@@ -46,22 +46,21 @@ void main() {
     expect(opened, 1);
   });
 
-  testWidgets('đầu trang có tiêu đề lớn Cài đặt và nút Sửa hồ sơ', (
+  testWidgets('không có tiêu đề lớn Cài đặt: thẻ hồ sơ bắt đầu sát đầu', (
     tester,
   ) async {
     var profileOpened = 0;
-    await tester.pumpWidget(_host(_tab(onProfileTap: () => profileOpened++)));
+    await tester.pumpWidget(
+      _host(_tab(userName: 'Lan Anh', onProfileTap: () => profileOpened++)),
+    );
     await tester.pump();
 
-    expect(
-      find.descendant(
-        of: find.byType(WebTuiLargeTitleBar),
-        matching: find.text('Cài đặt'),
-      ),
-      findsOneWidget,
-    );
-    await tester.tap(find.text('Sửa hồ sơ'));
-    expect(profileOpened, 1);
+    expect(find.byType(WebTuiLargeTitleBar), findsNothing);
+    expect(find.text('Cài đặt'), findsNothing);
+    expect(find.text('Sửa hồ sơ'), findsNothing);
+    expect(tester.getTopLeft(find.text('Lan Anh')).dy, lessThan(130));
+    await tester.tap(find.text('Lan Anh'));
+    expect(profileOpened, 1, reason: 'bấm thẻ hồ sơ mở hồ sơ');
   });
 
   testWidgets('đầu hồ sơ: ảnh 92, tên, email; bấm cả khối mở hồ sơ', (
@@ -326,8 +325,8 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Settings'), findsOneWidget);
-    expect(find.text('Edit profile'), findsOneWidget);
+    expect(find.text('Settings'), findsNothing);
+    expect(find.text('Edit profile'), findsNothing);
     expect(find.text('Profile'), findsOneWidget);
     expect(find.text('Switch workspace'), findsOneWidget);
     expect(find.text('Advanced settings'), findsOneWidget);
