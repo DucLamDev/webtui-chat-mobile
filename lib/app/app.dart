@@ -10,12 +10,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/network/bounded_image_request_pool.dart';
 import '../core/network/redirect_safe_file_downloader.dart';
+import '../core/notifications/call_tone_player.dart';
 import '../core/platform/app_deep_link_coordinator.dart';
 import '../core/privacy/background_privacy.dart';
 import '../core/security/instance_scope.dart';
 import '../design_system/components/webtui_avatar.dart';
 import '../design_system/theme/webtui_theme.dart';
 import '../design_system/tokens/webtui_colors.dart';
+import '../design_system/tokens/webtui_text_scale.dart';
 import '../features/auth/application/session_termination.dart';
 import '../features/auth/presentation/controllers/auth_flow_providers.dart';
 import '../features/auth/presentation/controllers/legal_acceptance_controller.dart';
@@ -230,6 +232,22 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
               (value) => value.settings.theme,
             ),
           );
+    // Cài đặt > Cỡ chữ / Âm lượng có tác dụng ngay trên toàn app (chưa chọn máy
+    // chủ thì dùng mặc định).
+    final textScale = activeDiscovery == null
+        ? appTextScaleDefault
+        : ref.watch(
+            appSettingsControllerProvider.select(
+              (value) => value.settings.textScale,
+            ),
+          );
+    CallTonePlayer.volume = activeDiscovery == null
+        ? appSoundVolumeDefault
+        : ref.watch(
+            appSettingsControllerProvider.select(
+              (value) => value.settings.soundVolume,
+            ),
+          );
     final brightness = switch (themePreference) {
       WebTuiThemePreference.light => Brightness.light,
       WebTuiThemePreference.dark => Brightness.dark,
@@ -270,9 +288,9 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
             ? child ?? const SizedBox.shrink()
             : MediaQuery(
                 data: mediaQuery.copyWith(
-                  textScaler: mediaQuery.textScaler.clamp(
-                    minScaleFactor: 0.85,
-                    maxScaleFactor: 1.35,
+                  textScaler: webTuiAppTextScaler(
+                    mediaQuery.textScaler,
+                    textScale,
                   ),
                 ),
                 child: child ?? const SizedBox.shrink(),

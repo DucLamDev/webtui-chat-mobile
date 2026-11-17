@@ -16,9 +16,6 @@ Future<String?> requestReauthToken(
   builder: (_) => _ReauthDialog(reason: reason),
 );
 
-/// Không có token được giữ ngoài phạm vi thao tác hiện tại.
-void clearReauthToken(WidgetRef ref) {}
-
 class _ReauthDialog extends ConsumerStatefulWidget {
   const _ReauthDialog({this.reason});
   final String? reason;
