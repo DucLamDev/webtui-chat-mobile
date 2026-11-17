@@ -340,6 +340,62 @@ void main() {
       );
     });
 
+    Future<void> pumpSheet(WidgetTester tester, {String? avatarUrl}) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            colleagueProfileProvider(
+              _profileKey,
+            ).overrideWith((ref) async => _profile()),
+          ],
+          child: MaterialApp(
+            theme: WebTuiTheme.light(),
+            home: Scaffold(
+              body: ColleagueProfileSheet(
+                profileKey: _profileKey,
+                fallbackName: 'An Nguyễn',
+                avatarUrl: avatarUrl,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    testWidgets('có ảnh: bấm ảnh mở xem toàn màn hình, nút đóng thì đóng', (
+      tester,
+    ) async {
+      await pumpSheet(tester, avatarUrl: 'https://anh.vidu.vn/an.png');
+      await tester.tap(find.byKey(const Key('colleague_profile_avatar')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byKey(const Key('avatar_viewer')), findsOneWidget);
+      // Tên người hiện ở đầu màn xem ảnh.
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('avatar_viewer')),
+          matching: find.text('An Nguyễn'),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('avatar_viewer_close')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byKey(const Key('avatar_viewer')), findsNothing);
+      expect(find.byKey(const Key('colleague_profile_sheet')), findsOneWidget);
+    });
+
+    testWidgets('chưa có ảnh: ảnh chữ cái không bấm được', (tester) async {
+      await pumpSheet(tester);
+      expect(find.byKey(const Key('colleague_profile_avatar')), findsNothing);
+      expect(find.byKey(const Key('avatar_viewer')), findsNothing);
+    });
+
     testWidgets('không có quyền xem (404): báo rõ, không có nút thử lại', (
       tester,
     ) async {

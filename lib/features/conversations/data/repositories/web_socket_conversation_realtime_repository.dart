@@ -790,6 +790,16 @@ final class ConversationRealtimeEventMapper {
     );
     final type = _eventType(stringField(map, const ['type']));
     final callStatus = _callStatusForEvent(type);
+    if (type == ConversationRealtimeEventType.presenceChanged &&
+        (stringField(payload, const ['user_id', 'userId']).isEmpty ||
+            stringField(payload, const ['status']).isEmpty ||
+            nullableDateTimeField(payload, const [
+                  'last_heartbeat_at',
+                  'lastHeartbeatAt',
+                ]) ==
+                null)) {
+      return null;
+    }
     return ConversationRealtimeEvent(
       type: type,
       workspaceId:
@@ -881,6 +891,7 @@ const _keepsPayload = {
   ConversationRealtimeEventType.inboxConversationUpdated,
   ConversationRealtimeEventType.inboxMessageCreated,
   ConversationRealtimeEventType.meetingUpdated,
+  ConversationRealtimeEventType.presenceChanged,
 };
 
 /// Sự kiện hộp thư khách: `workspace_id` của payload là nguồn đúng (tin trong
@@ -980,6 +991,7 @@ ConversationRealtimeEventType _eventType(String value) {
       ConversationRealtimeEventType.inboxConversationUpdated,
     'InboxMessageCreated' => ConversationRealtimeEventType.inboxMessageCreated,
     'MeetingUpdated' => ConversationRealtimeEventType.meetingUpdated,
+    'PresenceChanged' => ConversationRealtimeEventType.presenceChanged,
     _ => ConversationRealtimeEventType.unknown,
   };
 }
