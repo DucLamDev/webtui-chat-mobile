@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 import 'package:webtui_chat/l10n/app_strings.dart';
 
@@ -416,10 +415,3 @@ AuditLogSummary _auditLogFromMap(JsonMap map) {
 }
 
 String _e(String value) => Uri.encodeComponent(value);
-
-String prettyJson(JsonMap value) {
-  if (value.isEmpty) {
-    return '';
-  }
-  return const JsonEncoder.withIndent('  ').convert(value);
-}
