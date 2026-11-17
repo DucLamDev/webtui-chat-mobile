@@ -7,6 +7,7 @@ import 'package:pdfx/pdfx.dart';
 import 'package:video_player/video_player.dart';
 import 'package:webtui_chat/l10n/app_strings.dart';
 
+import '../../../../core/media/media_playback.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../domain/entities/work_hub.dart';
@@ -30,11 +31,20 @@ class SharedVideoPlayerPage extends StatefulWidget {
   const SharedVideoPlayerPage({
     required this.file,
     required this.resolver,
+    this.preferLocalPlayback,
+    this.streamStartTimeout = mediaStreamStartTimeout,
     super.key,
   });
 
   final SharedFile file;
   final SharedFileMediaResolver resolver;
+
+  /// null = theo máy (iPhone luôn tải về rồi phát tệp, xem
+  /// preferLocalMediaPlayback). Đặt cho test.
+  final bool? preferLocalPlayback;
+
+  /// Chờ phát dần sẵn sàng tối đa bấy lâu rồi lùi về tải tệp.
+  final Duration streamStartTimeout;
 
   @override
   State<SharedVideoPlayerPage> createState() => _SharedVideoPlayerPageState();
@@ -67,14 +77,20 @@ class _SharedVideoPlayerPageState extends State<SharedVideoPlayerPage> {
     setState(() => _failed = false);
     VideoPlayerController? ready;
     try {
-      final stream = await widget.resolver.streamUri(widget.file);
+      final preferLocal =
+          widget.preferLocalPlayback ?? preferLocalMediaPlayback();
+      final stream = preferLocal
+          ? null
+          : await widget.resolver.streamUri(widget.file);
       if (stream != null) {
         // Địa chỉ phát dần tự mang mã ngắn hạn, không gửi thông tin đăng nhập.
-        ready = await _tryInit(
+        // Treo quá hạn thì lùi về tải tệp (initializeStreamOrNull).
+        ready = await initializeStreamOrNull(
           VideoPlayerController.networkUrl(
             stream,
             videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
           ),
+          timeout: widget.streamStartTimeout,
         );
       }
       if (ready == null && !_disposed) {

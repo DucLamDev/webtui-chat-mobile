@@ -13,6 +13,10 @@ abstract final class MyNoteLimits {
   static const folderMaxDepth = 5;
   static const queryMaxLength = 200;
   static const pageSize = 50;
+
+  /// Máy chủ nhận tệp tối đa 100 MB, mỗi ghi chú gắn tối đa 20 tệp.
+  static const attachmentMaxBytes = 100 * 1024 * 1024;
+  static const attachmentsMax = 20;
 }
 
 /// Giá trị `folder_id=root` khi lọc ghi chú không thuộc thư mục nào.
@@ -99,6 +103,121 @@ final class MyNoteAttachment {
   final String mimeType;
   final int byteSize;
   final DateTime createdAt;
+}
+
+/// Ảnh / tệp vừa chọn trên máy, chờ tải lên rồi gắn vào ghi chú.
+final class MyNoteLocalFile {
+  const MyNoteLocalFile({
+    required this.path,
+    required this.name,
+    required this.mimeType,
+    required this.byteSize,
+  });
+
+  final String path;
+  final String name;
+  final String mimeType;
+  final int byteSize;
+
+  bool get isImage => myNoteIsImageFile(mimeType, name);
+}
+
+extension MyNoteAttachmentKind on MyNoteAttachment {
+  /// Ảnh xem trước được (jpeg, png, webp, heic, gif...); SVG coi là tệp.
+  bool get isImage => myNoteIsImageFile(mimeType, originalName);
+
+  /// Máy chủ tự làm ảnh nhỏ cho jpeg / png / gif / webp (HEIC thì không).
+  bool get hasServerThumbnail {
+    final mime = _normalizedMime(mimeType);
+    if (mime.isNotEmpty && mime != 'application/octet-stream') {
+      return const {
+        'image/jpeg',
+        'image/jpg',
+        'image/pjpeg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+      }.contains(mime);
+    }
+    return const {
+      'jpg',
+      'jpeg',
+      'png',
+      'gif',
+      'webp',
+    }.contains(_extensionOf(originalName));
+  }
+}
+
+const _imageExtensions = {
+  'jpg',
+  'jpeg',
+  'png',
+  'gif',
+  'webp',
+  'heic',
+  'heif',
+  'bmp',
+};
+
+/// Ảnh khi mime là `image/*` (trừ SVG); mime trống / chung chung thì xét đuôi tên.
+bool myNoteIsImageFile(String mimeType, String name) {
+  final mime = _normalizedMime(mimeType);
+  if (mime.startsWith('image/')) return !mime.startsWith('image/svg');
+  if (mime.isNotEmpty && mime != 'application/octet-stream') return false;
+  return _imageExtensions.contains(_extensionOf(name));
+}
+
+/// Đoán mime theo đuôi tên tệp (bộ chọn tệp không trả mime); không rõ thì
+/// `application/octet-stream` (máy chủ vẫn nhận).
+String myNoteMimeTypeForName(String name) {
+  return switch (_extensionOf(name)) {
+    'jpg' || 'jpeg' => 'image/jpeg',
+    'png' => 'image/png',
+    'gif' => 'image/gif',
+    'webp' => 'image/webp',
+    'heic' || 'heif' => 'image/heic',
+    'bmp' => 'image/bmp',
+    'pdf' => 'application/pdf',
+    'txt' => 'text/plain',
+    'md' || 'markdown' => 'text/markdown',
+    'csv' => 'text/csv',
+    'json' => 'application/json',
+    'rtf' => 'application/rtf',
+    'zip' => 'application/zip',
+    'doc' => 'application/msword',
+    'docx' =>
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'xls' => 'application/vnd.ms-excel',
+    'xlsx' =>
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'ppt' => 'application/vnd.ms-powerpoint',
+    'pptx' =>
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'odt' => 'application/vnd.oasis.opendocument.text',
+    'ods' => 'application/vnd.oasis.opendocument.spreadsheet',
+    'mp3' => 'audio/mpeg',
+    'm4a' => 'audio/mp4',
+    'aac' => 'audio/aac',
+    'wav' => 'audio/wav',
+    'ogg' => 'audio/ogg',
+    'mp4' => 'video/mp4',
+    'mov' => 'video/quicktime',
+    'm4v' => 'video/x-m4v',
+    'webm' => 'video/webm',
+    'mkv' => 'video/x-matroska',
+    _ => 'application/octet-stream',
+  };
+}
+
+String _normalizedMime(String mimeType) =>
+    mimeType.split(';').first.trim().toLowerCase();
+
+String _extensionOf(String name) {
+  final base = name.replaceAll('\\', '/').split('/').last;
+  final dot = base.lastIndexOf('.');
+  if (dot < 0 || dot == base.length - 1) return '';
+  return base.substring(dot + 1).toLowerCase();
 }
 
 final class MyNote {
