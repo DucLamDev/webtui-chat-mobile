@@ -99,6 +99,10 @@ enum ConversationRealtimeEventType {
   /// `series_id`, `change`. Tải lại danh sách / chi tiết họp đang mở.
   meetingUpdated,
 
+  /// Hiện diện đổi (`PresenceChanged`, room riêng): `payload` có `workspace_id`,
+  /// `user_id`, `status` (`online` / `offline`), `last_heartbeat_at`.
+  presenceChanged,
+
   /// Kết nối realtime vừa nối lại sau khi rớt: tin trong lúc mất kết nối không
   /// được đẩy lại nên màn hình phải tự tải lại.
   reconnected,

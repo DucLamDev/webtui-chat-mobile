@@ -166,7 +166,8 @@ final class ConversationRealtimeReducer {
       ConversationRealtimeEventType.inboxConversationUpdated ||
       ConversationRealtimeEventType.inboxMessageCreated => state,
       // Lịch họp đổi: màn Lịch họp tự tải lại, không đổi tin nhắn.
-      ConversationRealtimeEventType.meetingUpdated => state,
+      ConversationRealtimeEventType.meetingUpdated ||
+      ConversationRealtimeEventType.presenceChanged => state,
       // Sự kiện phiên / duyệt thiết bị do home shell xử lý, không đổi phòng chat.
       ConversationRealtimeEventType.sessionRevoked ||
       ConversationRealtimeEventType.deviceApprovalRequested => state,

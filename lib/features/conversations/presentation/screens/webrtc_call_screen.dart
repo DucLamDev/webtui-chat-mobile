@@ -16,6 +16,7 @@ import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../auth/presentation/controllers/legal_acceptance_controller.dart';
 import '../../application/call_end_cue.dart';
+import '../../application/call_video_profile.dart';
 import '../../application/use_cases/call_use_cases.dart';
 import '../../domain/entities/call_busy_policy.dart';
 import '../../domain/entities/call_device_routing.dart';
@@ -61,6 +62,9 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   MediaStream? _localStream;
   StreamSubscription<ConversationRealtimeEvent>? _signals;
   Timer? _stateTimer;
+
+  /// Luồng video gửi đi (cuộc gọi video), để đặt trần băng thông / khung hình.
+  RTCRtpSender? _videoSender;
   Timer? _disconnectTimer;
   Timer? _connectTimer;
   String? _currentUserId;
@@ -201,9 +205,10 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       _microphoneEnabled = appSettings.microphoneEnabledOnJoin;
       _cameraEnabled =
           widget.mode == CallMode.video && appSettings.cameraEnabledOnJoin;
-      _currentUserId = (await ref.read(loadProfileUseCaseProvider).execute())
-          .valueOrNull
-          ?.id;
+      // Từ token trên máy (không tải `/users/me` mỗi lần gọi).
+      _currentUserId = await ref
+          .read(resolveCurrentUserIdUseCaseProvider)
+          .execute();
       _localDeviceId = await ref
           .read(resolveCallDeviceIdUseCaseProvider)
           .execute();
@@ -236,11 +241,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
           'autoGainControl': true,
         },
         'video': widget.mode == CallMode.video
-            ? {
-                'facingMode': 'user',
-                'width': {'ideal': 1280},
-                'height': {'ideal': 720},
-              }
+            ? CallVideoProfile.cameraConstraints()
             : false,
       });
       // getUserMedia is the visible, contextual runtime permission boundary.
@@ -268,7 +269,11 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
         track.enabled = _cameraEnabled;
       }
       for (final track in stream.getTracks()) {
-        await peer.addTrack(track, stream);
+        final sender = await peer.addTrack(track, stream);
+        if (track.kind == 'video') {
+          _videoSender = sender;
+          unawaited(_limitVideoSender());
+        }
       }
       peer.onTrack = (event) {
         if (event.streams.isEmpty || !mounted) return;
@@ -298,6 +303,8 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
           _disconnectTimer?.cancel();
           _connectTimer?.cancel();
           _connected = true;
+          // Sau khi thoả thuận xong mới chắc có lớp mã hoá để đặt giới hạn.
+          unawaited(_limitVideoSender());
           setState(() {
             _status = CallStatus.accepted;
             _startedAt ??= DateTime.now().toUtc();
@@ -822,6 +829,21 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
           'Couldn\'t send WebRTC signal: ${result.failureOrNull?.message}',
         ),
       );
+    }
+  }
+
+  /// Áp [CallVideoProfile] cho luồng video gửi đi. Lỗi (máy không hỗ trợ đổi
+  /// tham số) thì bỏ qua: cuộc gọi vẫn chạy với mặc định của WebRTC.
+  Future<void> _limitVideoSender() async {
+    final sender = _videoSender;
+    if (sender == null) return;
+    try {
+      final parameters = sender.parameters;
+      if (CallVideoProfile.applyTo(parameters)) {
+        await sender.setParameters(parameters);
+      }
+    } on Object {
+      // Giữ cuộc gọi; chỉ mất phần giới hạn.
     }
   }
 

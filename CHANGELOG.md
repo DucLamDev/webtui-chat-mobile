@@ -3,7 +3,7 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
-## 1.47.0 · 17/11/2026
+## 1.48.0 · 17/11/2026
 ### Tính năng
 - Chuyển sang video ngay trong cuộc gọi thoại: màn gọi có nút "Video" khi đã kết nối. Bấm là bật camera của mình,
   loa ngoài bật theo, có nút tắt camera và đổi camera. Bên kia tự chuyển sang màn video và có nút "Bật camera" để bật
@@ -17,6 +17,27 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   - người gọi thấy "Người nhận đang bận trong cuộc gọi khác.";
   - đang có cuộc gọi mà bấm gọi người khác thì app báo "Bạn đang trong một cuộc gọi khác.".
   Cần máy chủ bản 1.48.0 để người nhận đang bận cũng thấy cuộc gọi nhỡ.
+
+## 1.47.1 · 17/11/2026
+### Sửa lỗi
+- Bớt giật / đơ khi nhiều người gọi nhau liên tục (máy chủ không quá tải; nguyên nhân ở app)
+  - Phòng chat, màn gọi dùng chung một kết nối realtime sống suốt phiên. Trước đây mỗi lần mở / rời một cuộc trò chuyện
+    hay vào màn gọi, app mở kết nối mới rồi đóng (kết nối chỉ sống khoảng 20 giây), kèm tải lại hàng loạt dữ liệu, làm
+    điện thoại giật đúng lúc đang gọi. Nay rời phòng chỉ rời phòng; không còn màn nào nghe thì 30 giây sau mới đóng kết nối.
+  - Mở phòng chat / bắt đầu cuộc gọi không còn tải lại hồ sơ của chính mình mỗi lần (lấy từ phiên đăng nhập trên máy).
+  - Gọi video quay 960×540, 24 hình/giây, tối đa 800 kbps (trước: 1280×720 không giới hạn): máy đỡ nóng, nhiều cuộc gọi
+    cùng một Wi-Fi văn phòng không còn chiếm hết băng thông; mạng yếu thì hình giảm độ nét trước, giữ chuyển động mượt.
+
+## 1.47.0 · 17/11/2026
+### Tính năng
+- Trạng thái hoạt động (chấm xanh "Đang hoạt động") cập nhật gần như ngay lập tức: app nhận sự kiện `PresenceChanged`
+  từ máy chủ qua kết nối realtime thay vì chờ lượt hỏi lại 30 giây. Mở lại app hoặc nối lại mạng thì app tự tải lại
+  trạng thái. Máy chủ chưa có sự kiện này thì app vẫn hỏi lại mỗi 30 giây như cũ.
+- Hồ sơ đồng nghiệp: chạm vào ảnh đại diện để xem toàn màn hình, phóng to bằng hai ngón, chạm hoặc vuốt xuống để đóng.
+  Người chưa có ảnh thì ảnh đại diện không bấm được.
+- Thiết lập ứng dụng làm lại cho nền sáng: mỗi nhóm là một thẻ trắng bo góc trên nền xám, tiêu đề nhóm chữ xám thay
+  chữ xanh, nút cuối dòng ("Cho phép", "Xóa", "Cập nhật"...) thành nút viên thuốc xám. Nền tối giữ như cũ. Bỏ đường kẻ
+  thừa khi dòng "Tự khóa sau" / quyền riêng tư cuộc gọi bị ẩn.
 
 ## 1.46.1 · 17/11/2026
 ### Sửa lỗi
