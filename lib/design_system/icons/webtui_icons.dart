@@ -136,6 +136,20 @@ abstract final class WebTuiIcons {
   static const IconData report = PhosphorRegular.flag;
   static const IconData block = PhosphorRegular.prohibit;
   static const IconData unblock = PhosphorRegular.userCheck;
+
+  // Thiết lập ứng dụng.
+  static const IconData theme = PhosphorRegular.palette;
+  static const IconData language = PhosphorRegular.globe;
+  static const IconData notificationPermission = PhosphorRegular.bellRinging;
+  static const IconData hidePreview = PhosphorRegular.eyeSlash;
+  static const IconData quietHours = PhosphorRegular.moon;
+  static const IconData micOff = PhosphorRegular.microphoneSlash;
+  static const IconData timer = PhosphorRegular.timer;
+  static const IconData clearCache = PhosphorRegular.broom;
+  static const IconData feedback = PhosphorRegular.chatCenteredText;
+  static const IconData update = PhosphorRegular.arrowCircleUp;
+  static const IconData upToDate = PhosphorRegular.sealCheck;
+  static const IconData warning = PhosphorRegular.warningCircle;
 }
 
 /// Biểu tượng hai lớp màu (nét đậm + nền nhạt cùng màu) cho lưới Ứng dụng ở tab

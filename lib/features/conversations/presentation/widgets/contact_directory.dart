@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
@@ -224,7 +225,8 @@ class ContactLetterHeader extends SliverPersistentHeaderDelegate {
       oldDelegate.letter != letter;
 }
 
-/// Hai nút cuối dòng đồng nghiệp: gọi thoại và gọi video (vùng bấm 44).
+/// Hai nút cuối dòng đồng nghiệp kiểu Zalo: ống nghe và máy quay nét mềm bo
+/// tròn (Phosphor) cỡ 24, màu chữ phụ; vùng bấm 44.
 class ContactCallButtons extends StatelessWidget {
   const ContactCallButtons({
     required this.onAudio,
@@ -242,13 +244,13 @@ class ContactCallButtons extends StatelessWidget {
       children: [
         _CallButton(
           key: const ValueKey('contact-call-audio'),
-          icon: Icons.call_outlined,
+          icon: WebTuiIcons.phone,
           tooltip: tr('Gọi thoại', 'Voice call'),
           onPressed: onAudio,
         ),
         _CallButton(
           key: const ValueKey('contact-call-video'),
-          icon: Icons.videocam_outlined,
+          icon: WebTuiIcons.video,
           tooltip: tr('Gọi video', 'Video call'),
           onPressed: onVideo,
         ),
@@ -274,7 +276,7 @@ class _CallButton extends StatelessWidget {
     return IconButton(
       tooltip: tooltip,
       onPressed: onPressed,
-      icon: Icon(icon, size: 22, color: WebTuiColors.textMuted),
+      icon: Icon(icon, size: 24, color: WebTuiColors.textSecondary),
       constraints: const BoxConstraints.tightFor(width: 44, height: 44),
       padding: EdgeInsets.zero,
       splashRadius: 22,

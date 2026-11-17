@@ -39,8 +39,7 @@ class AppLockTimeoutSettingRow extends ConsumerWidget {
         'Auto-lock after ${AppLockTimeoutPolicy.label(effective)}',
       ),
       subtitle: subtitle,
-      icon: Icons.timer_outlined,
-      trailing: const Icon(Icons.chevron_right_rounded),
+      icon: WebTuiIcons.timer,
       onTap: () => _choose(context, ref, serverMax, effective),
     );
   }

@@ -53,8 +53,7 @@ class CallPrivacySettingRow extends ConsumerWidget {
               'Who can call me: ${current.label}',
             ),
       subtitle: subtitle,
-      icon: Icons.phone_locked_outlined,
-      trailing: const Icon(Icons.chevron_right_rounded),
+      icon: WebTuiIcons.phoneCall,
       onTap: () {
         if (current == null) {
           ref.invalidate(callPrivacyProvider(id));

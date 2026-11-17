@@ -351,6 +351,41 @@ abstract final class PhosphorRegular {
     fontFamily: 'PhosphorRegular',
   );
   static const IconData x = IconData(0xe4f6, fontFamily: 'PhosphorRegular');
+  static const IconData arrowCircleUp = IconData(
+    0xe030,
+    fontFamily: 'PhosphorRegular',
+  );
+  static const IconData bellRinging = IconData(
+    0xe5e8,
+    fontFamily: 'PhosphorRegular',
+  );
+  static const IconData broom = IconData(0xec54, fontFamily: 'PhosphorRegular');
+  static const IconData chatCenteredText = IconData(
+    0xe166,
+    fontFamily: 'PhosphorRegular',
+  );
+  static const IconData eyeSlash = IconData(
+    0xe224,
+    fontFamily: 'PhosphorRegular',
+  );
+  static const IconData microphoneSlash = IconData(
+    0xe328,
+    fontFamily: 'PhosphorRegular',
+  );
+  static const IconData moon = IconData(0xe330, fontFamily: 'PhosphorRegular');
+  static const IconData palette = IconData(
+    0xe6c8,
+    fontFamily: 'PhosphorRegular',
+  );
+  static const IconData sealCheck = IconData(
+    0xe606,
+    fontFamily: 'PhosphorRegular',
+  );
+  static const IconData timer = IconData(0xe492, fontFamily: 'PhosphorRegular');
+  static const IconData warningCircle = IconData(
+    0xe4e2,
+    fontFamily: 'PhosphorRegular',
+  );
 }
 
 /// Dạng đặc (đang chọn).
