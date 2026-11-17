@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/flavor/app_config.dart';
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../app/router/app_router.dart';
+import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../l10n/app_strings.dart';
 import '../controllers/legal_acceptance_controller.dart';
@@ -119,7 +120,9 @@ class _LegalAcceptanceGateState extends ConsumerState<LegalAcceptanceGate> {
             alignment: Alignment.topCenter,
             child: SafeArea(
               child: Material(
-                color: const Color(0xFFFFF4D8),
+                color: WebTuiColors.brightness == Brightness.dark
+                    ? const Color(0xFF3A2E14)
+                    : const Color(0xFFFFF4D8),
                 elevation: 6,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
