@@ -1622,6 +1622,11 @@ class _ChatRoomBodyState extends State<ChatRoomBody> {
   final _scrollController = ScrollController();
   final _messageKeys = <String, GlobalKey>{};
 
+  /// Đang ở cuối danh sách (do người dùng cuộn hoặc do ta cuộn). Chỉ cập nhật
+  /// khi có cuộn thật, không đổi khi khung co lại vì bàn phím.
+  bool _pinnedToBottom = true;
+  double? _lastViewportExtent;
+
   @override
   void initState() {
     super.initState();
@@ -1711,228 +1716,235 @@ class _ChatRoomBodyState extends State<ChatRoomBody> {
                   )
                 : widget.state.messages.isEmpty
                 ? const _ChatEmptyState()
-                : ListView.builder(
-                    controller: _scrollController,
-                    scrollCacheExtent: const ScrollCacheExtent.pixels(900),
-                    addAutomaticKeepAlives: false,
-                    addRepaintBoundaries: true,
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    padding: const EdgeInsets.fromLTRB(
-                      WebTuiSpacing.md,
-                      WebTuiSpacing.md,
-                      WebTuiSpacing.md,
-                      WebTuiSpacing.xl,
-                    ),
-                    itemCount:
-                        widget.state.messages.length +
-                        (widget.state.hasMore || widget.state.isLoadingOlder
-                            ? 1
-                            : 0),
-                    itemBuilder: (context, index) {
-                      final hasOlderHeader =
-                          widget.state.hasMore || widget.state.isLoadingOlder;
-                      if (hasOlderHeader && index == 0) {
-                        return _LoadOlderTile(
-                          loading: widget.state.isLoadingOlder,
-                          onPressed: widget.onLoadOlder,
-                        );
-                      }
-                      final messageIndex = hasOlderHeader ? index - 1 : index;
-                      final message = widget.state.messages[messageIndex];
-                      final previous = messageIndex == 0
-                          ? null
-                          : widget.state.messages[messageIndex - 1];
-                      final showDay =
-                          previous == null ||
-                          !_sameDay(previous.createdAt, message.createdAt);
-                      final sameSender = !startsSenderRun(previous, message);
-                      final seen = widget.seenMessageId == message.id;
-                      final deliveryPending =
-                          message.isMine &&
-                          const {
-                            'uploading',
-                            'queued',
-                            'sending',
-                            'failed',
-                          }.contains(message.deliveryStatus);
-                      // Như mẫu: chỉ hiện dòng giờ khi tin vừa được xem, đang gửi /
-                      // lỗi, hoặc người dùng chạm vào tin để xem giờ.
-                      final showStatusLine =
-                          seen ||
-                          deliveryPending ||
-                          _timeShownMessageId == message.id;
-                      final senderId = message.senderId?.trim();
-                      final senderBlocked =
-                          !message.isMine &&
-                          senderId != null &&
-                          widget.blockedUserIds.contains(senderId);
-                      return Container(
-                        key: _messageKey(message.id),
-                        padding: EdgeInsets.only(top: sameSender ? 4 : 12),
-                        child: AnimatedContainer(
-                          duration: disableAnimations
-                              ? Duration.zero
-                              : const Duration(milliseconds: 220),
-                          decoration: BoxDecoration(
-                            color:
-                                widget.state.highlightedMessageId == message.id
-                                ? WebTuiColors.accentAmber.withValues(
-                                    alpha: 0.16,
+                : _stickToBottomOnResize(
+                    ListView.builder(
+                      controller: _scrollController,
+                      scrollCacheExtent: const ScrollCacheExtent.pixels(900),
+                      addAutomaticKeepAlives: false,
+                      addRepaintBoundaries: true,
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      padding: const EdgeInsets.fromLTRB(
+                        WebTuiSpacing.md,
+                        WebTuiSpacing.md,
+                        WebTuiSpacing.md,
+                        WebTuiSpacing.xl,
+                      ),
+                      itemCount:
+                          widget.state.messages.length +
+                          (widget.state.hasMore || widget.state.isLoadingOlder
+                              ? 1
+                              : 0),
+                      itemBuilder: (context, index) {
+                        final hasOlderHeader =
+                            widget.state.hasMore || widget.state.isLoadingOlder;
+                        if (hasOlderHeader && index == 0) {
+                          return _LoadOlderTile(
+                            loading: widget.state.isLoadingOlder,
+                            onPressed: widget.onLoadOlder,
+                          );
+                        }
+                        final messageIndex = hasOlderHeader ? index - 1 : index;
+                        final message = widget.state.messages[messageIndex];
+                        final previous = messageIndex == 0
+                            ? null
+                            : widget.state.messages[messageIndex - 1];
+                        final showDay =
+                            previous == null ||
+                            !_sameDay(previous.createdAt, message.createdAt);
+                        final sameSender = !startsSenderRun(previous, message);
+                        final seen = widget.seenMessageId == message.id;
+                        final deliveryPending =
+                            message.isMine &&
+                            const {
+                              'uploading',
+                              'queued',
+                              'sending',
+                              'failed',
+                            }.contains(message.deliveryStatus);
+                        // Như mẫu: chỉ hiện dòng giờ khi tin vừa được xem, đang gửi /
+                        // lỗi, hoặc người dùng chạm vào tin để xem giờ.
+                        final showStatusLine =
+                            seen ||
+                            deliveryPending ||
+                            _timeShownMessageId == message.id;
+                        final senderId = message.senderId?.trim();
+                        final senderBlocked =
+                            !message.isMine &&
+                            senderId != null &&
+                            widget.blockedUserIds.contains(senderId);
+                        return Container(
+                          key: _messageKey(message.id),
+                          padding: EdgeInsets.only(top: sameSender ? 4 : 12),
+                          child: AnimatedContainer(
+                            duration: disableAnimations
+                                ? Duration.zero
+                                : const Duration(milliseconds: 220),
+                            decoration: BoxDecoration(
+                              color:
+                                  widget.state.highlightedMessageId ==
+                                      message.id
+                                  ? WebTuiColors.accentAmber.withValues(
+                                      alpha: 0.16,
+                                    )
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(
+                                WebTuiRadii.lg,
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                if (showDay)
+                                  _DayDivider(date: message.createdAt),
+                                if (showDay)
+                                  const SizedBox(height: WebTuiSpacing.md),
+                                if (message.isSystem)
+                                  _isCallHistoryMessage(message)
+                                      ? ChatCallHistoryCard(
+                                          missed: _isMissedCallMessage(message),
+                                          video:
+                                              _callMessageMode(message) ==
+                                              CallMode.video,
+                                          outgoing: message.isMine,
+                                          durationSeconds:
+                                              message.callDurationSeconds,
+                                          timeLabel: _timeLabel(
+                                            message.createdAt,
+                                          ),
+                                          onRetry: () => widget.onRetryCall(
+                                            _callMessageMode(message),
+                                          ),
+                                        )
+                                      : _SystemMessage(text: message.body)
+                                else if (senderBlocked)
+                                  _BlockedMessagePlaceholder(
+                                    onManage: () =>
+                                        widget.onToggleBlockUser(message),
                                   )
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(WebTuiRadii.lg),
-                          ),
-                          child: Column(
-                            children: [
-                              if (showDay) _DayDivider(date: message.createdAt),
-                              if (showDay)
-                                const SizedBox(height: WebTuiSpacing.md),
-                              if (message.isSystem)
-                                _isCallHistoryMessage(message)
-                                    ? ChatCallHistoryCard(
-                                        missed: _isMissedCallMessage(message),
-                                        video:
-                                            _callMessageMode(message) ==
-                                            CallMode.video,
-                                        outgoing: message.isMine,
-                                        durationSeconds:
-                                            message.callDurationSeconds,
-                                        timeLabel: _timeLabel(
-                                          message.createdAt,
-                                        ),
-                                        onRetry: () => widget.onRetryCall(
-                                          _callMessageMode(message),
-                                        ),
-                                      )
-                                    : _SystemMessage(text: message.body)
-                              else if (senderBlocked)
-                                _BlockedMessagePlaceholder(
-                                  onManage: () =>
-                                      widget.onToggleBlockUser(message),
-                                )
-                              else if (message.isSecret)
-                                SecretMessageBubble(
-                                  key: ValueKey(message.id),
-                                  message: message,
-                                )
-                              else
-                                GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () => setState(
-                                    () => _timeShownMessageId =
-                                        _timeShownMessageId == message.id
-                                        ? null
-                                        : message.id,
-                                  ),
-                                  onLongPress: () => _showMessageActions(
-                                    context,
-                                    workspaceId: widget.workspaceId,
-                                    currentChannelId:
-                                        widget.state.scope.channelId,
+                                else if (message.isSecret)
+                                  SecretMessageBubble(
+                                    key: ValueKey(message.id),
                                     message: message,
-                                    onReply: widget.onReply,
-                                    onReplyPrivately: widget.onReplyPrivately,
-                                    isSenderBlocked: senderBlocked,
-                                    sharedContentBlocked:
-                                        widget.interactionBlocked,
-                                    onReportMessage: widget.onReportMessage,
-                                    onReportUser: widget.onReportUser,
-                                    onToggleBlockUser: widget.onToggleBlockUser,
-                                    onConvertToTask: widget.onConvertToTask,
-                                    onEdit: widget.onEdit,
-                                    onDelete: widget.onDelete,
-                                    onReact: widget.onReact,
-                                    onPin: widget.onPin,
-                                    onThread: widget.onThread,
-                                    onForward: widget.onForward,
-                                  ),
-                                  child: Semantics(
-                                    container: true,
-                                    excludeSemantics: true,
-                                    label: _messageSemanticLabel(
-                                      message,
-                                      _displayMessageBody(message),
-                                      _messageTimeLabel(message),
+                                  )
+                                else
+                                  GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: () => setState(
+                                      () => _timeShownMessageId =
+                                          _timeShownMessageId == message.id
+                                          ? null
+                                          : message.id,
                                     ),
-                                    child: _MessageRow(
+                                    onLongPress: () => _showMessageActions(
+                                      context,
+                                      workspaceId: widget.workspaceId,
+                                      currentChannelId:
+                                          widget.state.scope.channelId,
                                       message: message,
-                                      avatarLabel: widget.showSenderNames
-                                          ? widget.senderDirectory.nameOf(
-                                              message.senderId,
-                                            )
-                                          : widget.state.scope.title,
-                                      avatarUrl: widget.showSenderNames
-                                          ? widget
-                                                .senderDirectory[message
-                                                    .senderId]
-                                                ?.avatarUrl
-                                          : widget.directAvatarUrl,
-                                      avatarGender: widget.showSenderNames
-                                          ? _groupSenderAvatarGender(
-                                              message,
-                                              widget.senderDirectory,
-                                            )
-                                          : widget.directAvatarGender,
-                                      avatarPublicImage: widget.noticeBot,
-                                      senderName: senderNameToShow(
+                                      onReply: widget.onReply,
+                                      onReplyPrivately: widget.onReplyPrivately,
+                                      isSenderBlocked: senderBlocked,
+                                      sharedContentBlocked:
+                                          widget.interactionBlocked,
+                                      onReportMessage: widget.onReportMessage,
+                                      onReportUser: widget.onReportUser,
+                                      onToggleBlockUser:
+                                          widget.onToggleBlockUser,
+                                      onConvertToTask: widget.onConvertToTask,
+                                      onEdit: widget.onEdit,
+                                      onDelete: widget.onDelete,
+                                      onReact: widget.onReact,
+                                      onPin: widget.onPin,
+                                      onThread: widget.onThread,
+                                      onForward: widget.onForward,
+                                    ),
+                                    child: Semantics(
+                                      container: true,
+                                      excludeSemantics: true,
+                                      label: _messageSemanticLabel(
+                                        message,
+                                        _displayMessageBody(message),
+                                        _messageTimeLabel(message),
+                                      ),
+                                      child: _MessageRow(
                                         message: message,
-                                        previous: previous,
-                                        directory: widget.senderDirectory,
-                                        isGroupChat: widget.showSenderNames,
-                                      ),
-                                      showAvatar:
-                                          !message.isMine && !sameSender,
-                                      outgoing: message.isMine,
-                                      text: _displayMessageBody(message),
-                                      timeLabel: _messageTimeLabel(message),
-                                      reactions: _reactionLabels(
-                                        message.reactions,
-                                      ),
-                                      onOpenLink: widget.onOpenLink,
-                                      onReact: (emoji) =>
-                                          widget.onReact(message, emoji),
-                                      onRetryCall: widget.onRetryCall,
-                                      onCardReply: widget.onCardReply,
-                                      hasAvatarColumn:
-                                          widget.showSenderNames ||
-                                          widget.directChat ||
-                                          widget.noticeBot,
-                                      mediaTimeLabel:
-                                          message.attachments.any(
-                                            (attachment) =>
-                                                attachment.isImage ||
-                                                attachment.isVideo,
-                                          )
-                                          ? _timeLabel(message.createdAt)
-                                          : null,
-                                      statusLine: showStatusLine
-                                          ? _MessageStatusLine(
-                                              timeLabel: _timeLabel(
-                                                message.createdAt,
-                                              ),
-                                              outgoing: message.isMine,
-                                              statusLabel: message.isMine
-                                                  ? seen
-                                                        ? tr('Đã xem', 'Seen')
-                                                        : _deliveryStatusLabel(
-                                                            message,
-                                                          )
-                                                  : null,
-                                              seen: seen,
-                                              failed:
-                                                  message.deliveryStatus ==
-                                                  'failed',
+                                        avatarLabel: widget.showSenderNames
+                                            ? widget.senderDirectory.nameOf(
+                                                message.senderId,
+                                              )
+                                            : widget.state.scope.title,
+                                        avatarUrl: widget.showSenderNames
+                                            ? widget
+                                                  .senderDirectory[message
+                                                      .senderId]
+                                                  ?.avatarUrl
+                                            : widget.directAvatarUrl,
+                                        avatarGender: widget.showSenderNames
+                                            ? _groupSenderAvatarGender(
+                                                message,
+                                                widget.senderDirectory,
+                                              )
+                                            : widget.directAvatarGender,
+                                        avatarPublicImage: widget.noticeBot,
+                                        senderName: senderNameToShow(
+                                          message: message,
+                                          previous: previous,
+                                          directory: widget.senderDirectory,
+                                          isGroupChat: widget.showSenderNames,
+                                        ),
+                                        showAvatar:
+                                            !message.isMine && !sameSender,
+                                        outgoing: message.isMine,
+                                        text: _displayMessageBody(message),
+                                        timeLabel: _messageTimeLabel(message),
+                                        reactions: _reactionLabels(
+                                          message.reactions,
+                                        ),
+                                        onOpenLink: widget.onOpenLink,
+                                        onReact: (emoji) =>
+                                            widget.onReact(message, emoji),
+                                        onRetryCall: widget.onRetryCall,
+                                        onCardReply: widget.onCardReply,
+                                        hasAvatarColumn:
+                                            widget.showSenderNames ||
+                                            widget.directChat ||
+                                            widget.noticeBot,
+                                        mediaTimeLabel:
+                                            message.attachments.any(
+                                              (attachment) =>
+                                                  attachment.isImage ||
+                                                  attachment.isVideo,
                                             )
-                                          : null,
+                                            ? _timeLabel(message.createdAt)
+                                            : null,
+                                        statusLine: showStatusLine
+                                            ? _MessageStatusLine(
+                                                timeLabel: _timeLabel(
+                                                  message.createdAt,
+                                                ),
+                                                outgoing: message.isMine,
+                                                statusLabel: message.isMine
+                                                    ? seen
+                                                          ? tr('Đã xem', 'Seen')
+                                                          : _deliveryStatusLabel(
+                                                              message,
+                                                            )
+                                                    : null,
+                                                seen: seen,
+                                                failed:
+                                                    message.deliveryStatus ==
+                                                    'failed',
+                                              )
+                                            : null,
+                                      ),
                                     ),
                                   ),
-                                ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
           ),
         ),
@@ -1982,6 +1994,30 @@ class _ChatRoomBodyState extends State<ChatRoomBody> {
             onCancelContext: widget.onCancelComposerContext,
           ),
       ],
+    );
+  }
+
+  /// Bàn phím mở / đóng làm khung danh sách co / giãn. Danh sách xuôi giữ
+  /// nguyên vị trí cuộn nên tin cuối bị ô soạn che; đang ở cuối thì kéo lại.
+  Widget _stickToBottomOnResize(Widget list) {
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification.depth == 0) {
+          _pinnedToBottom = notification.metrics.extentAfter < 150;
+        }
+        return false;
+      },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final extent = constraints.maxHeight;
+          final previous = _lastViewportExtent;
+          _lastViewportExtent = extent;
+          if (previous != null && previous != extent && _pinnedToBottom) {
+            _scheduleScrollToBottom(jump: true);
+          }
+          return list;
+        },
+      ),
     );
   }
 
