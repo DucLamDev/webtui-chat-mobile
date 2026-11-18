@@ -111,6 +111,46 @@ void main() {
     );
   });
 
+  test('lỗi HTTP mang mã trạng thái để nơi gọi nhớ 403 / 404', () async {
+    final origin = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    servers.add(origin);
+    origin.listen((request) async {
+      request.response.statusCode = HttpStatus.forbidden;
+      await request.response.close();
+    });
+    final uri = Uri.parse('http://127.0.0.1:${origin.port}/avatar');
+
+    await expectLater(
+      const RedirectSafeFileDownloader().downloadBytes(
+        uri: uri,
+        maxBytes: 1024,
+        isStillCurrent: () async => true,
+      ),
+      throwsA(
+        isA<RedirectSafeDownloadException>().having(
+          (error) => error.statusCode,
+          'statusCode',
+          HttpStatus.forbidden,
+        ),
+      ),
+    );
+    await expectLater(
+      const RedirectSafeFileDownloader().download(
+        uri: uri,
+        target: File('${temporaryDirectory.path}/denied.bin'),
+        maxBytes: 1024,
+        isStillCurrent: () async => true,
+      ),
+      throwsA(
+        isA<RedirectSafeDownloadException>().having(
+          (error) => error.statusCode,
+          'statusCode',
+          HttpStatus.forbidden,
+        ),
+      ),
+    );
+  });
+
   test('bounded avatar/image bytes never follow a bearer redirect', () async {
     var sinkRequests = 0;
     final sink = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);

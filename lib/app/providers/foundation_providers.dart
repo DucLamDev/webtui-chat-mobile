@@ -80,6 +80,7 @@ import '../../features/call_privacy/data/datasources/call_privacy_remote_data_so
 import '../../features/call_privacy/data/repositories/call_privacy_repository_impl.dart';
 import '../../features/call_privacy/domain/repositories/call_privacy_repository.dart';
 import '../../features/conversations/application/incoming_call_ring_gate.dart';
+import '../../features/conversations/application/message_attachment_memo.dart';
 import '../../features/conversations/application/use_cases/call_use_cases.dart';
 import '../../features/conversations/application/use_cases/channel_avatar_use_cases.dart';
 import '../../features/conversations/application/use_cases/channel_exit_use_cases.dart';
@@ -1656,6 +1657,12 @@ final listMessageAttachmentsUseCaseProvider =
         ref.watch(messageAttachmentRepositoryProvider),
       );
     });
+
+/// Tệp đính kèm đã hỏi của từng tin, giữ suốt lần chạy app (dùng chung mọi
+/// phòng chat; khoá theo người dùng).
+final messageAttachmentMemoProvider = Provider<MessageAttachmentMemo>((ref) {
+  return MessageAttachmentMemo();
+});
 
 final listChannelMediaUseCaseProvider = Provider<ListChannelMediaUseCase>((
   ref,
