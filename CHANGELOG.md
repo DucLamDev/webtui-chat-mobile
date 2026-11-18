@@ -3,6 +3,13 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.48.2 · 18/11/2026
+### Sửa lỗi
+- Dựng bản Android khi đẩy tag (mobile-v1.0.20) bị hỏng: kho thư viện Maven Central trả "429 Too Many Requests" (giới
+  hạn lượt tải theo địa chỉ máy dựng của GitHub) vì mỗi lần dựng đều tải lại toàn bộ thư viện Gradle. Nay bước kiểm tra
+  và bước dựng lưu đệm thư viện Gradle (dùng lại bộ đệm của nhánh chính), và bước dựng bản Android ký tự thử lại tối đa
+  3 lần (chờ 1 rồi 2 phút) khi bị lỗi tải. Không đổi mã app.
+
 ## 1.48.1 · 18/11/2026
 ### Sửa lỗi
 - Gọi tới lúc máy đang khoá / app đang chạy nền thì bắt máy được nhưng không nghe thấy gì, cuộc gọi treo ở "Đang kết

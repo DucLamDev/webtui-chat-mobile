@@ -20,6 +20,10 @@ void main() {
         'flutter-version: \${{ env.FLUTTER_VERSION }}',
         'flutter build appbundle --release',
         'flutter build apk --release',
+        // Maven Central trả 429 cho máy dựng dùng chung: lưu đệm Gradle và
+        // thử lại khi dựng bản ký (tag mobile-v1.0.20 hỏng vì thiếu cả hai).
+        'retry_build flutter build appbundle --release',
+        'retry_build flutter build apk --release',
         'sha256sum',
         'app-prod-release.aab.sha256',
         '--build-number',
@@ -70,6 +74,7 @@ void main() {
         'uses: r0adkll/upload-google-play@': 1,
         'flutter pub get': 5,
         'flutter pub get --enforce-lockfile': 5,
+        'cache: gradle': 3,
       },
       mustNotContain: const [
         'files: release/*',
