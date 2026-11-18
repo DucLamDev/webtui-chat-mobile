@@ -3,6 +3,14 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.50.1 · 18/11/2026
+### Sửa lỗi
+- CI nhánh chính đỏ từ khi gộp bản 1.50.0 (bước `flutter pub get --enforce-lockfile`), nên đẩy tag TestFlight / CH Play
+  sẽ không dựng được. Nguyên nhân: tệp khoá thư viện `pubspec.lock` được tạo bằng Flutter bản mới hơn bản CI dùng
+  (3.44.9): 7 thư viện đi kèm SDK (`clock`, `intl`, `matcher`, `meta`, `stack_trace`, `test_api`, `vector_math`) bị
+  ghi bản mới hơn, và còn sót thư viện `listen` không dùng nữa. Nay tạo lại tệp khoá bằng đúng Flutter 3.44.9 của CI.
+  Không đổi tính năng.
+
 ## 1.50.0 · 18/11/2026
 ### Tính năng
 - Ấn giữ tin nhắn nay mở bảng thao tác mới kiểu Zalo thay cho bảng nút cũ: nền phía sau mờ đi, trên cùng là hàng
