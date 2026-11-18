@@ -24,7 +24,6 @@ import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../auth/domain/repositories/auth_token_repository.dart';
 import '../../application/use_cases/message_attachment_use_cases.dart';
-import '../../data/files/media_disk_cache.dart';
 import '../../data/files/scoped_attachment_file_store.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/message_voice.dart';
@@ -444,26 +443,14 @@ class _MessageImageAttachmentViewState
       apiBaseUri: widget.apiBaseUri,
     );
     if (binding == null) return null;
-    final isThumbnail = uri == _thumbnailUri;
-    final attachment = widget.attachment;
     try {
-      if (attachment.fileId.isNotEmpty) {
-        // Kho đệm trên máy: xem lại / cuộn lại / mở toàn màn hình là hiện ngay.
-        return await _cachedMessageImageBytes(
-          binding: binding,
-          uri: uri,
-          fileId: attachment.fileId,
-          cacheName: isThumbnail ? _thumbnailCacheName : attachment.file.name,
-          maxBytes: maxImagePreviewBytes,
-          expectedBytes: isThumbnail ? null : attachment.file.byteSize,
-          accept: isThumbnail ? 'image/jpeg' : attachment.file.mimeType,
-        );
-      }
       return await _imageDownloadGate.run(
         () => _downloader.downloadBytes(
           uri: uri,
           maxBytes: maxImagePreviewBytes,
-          accept: isThumbnail ? 'image/jpeg' : attachment.file.mimeType,
+          accept: uri == _thumbnailUri
+              ? 'image/jpeg'
+              : widget.attachment.file.mimeType,
           bearerToken: binding.bearerToken,
           isStillCurrent: () async =>
               mounted &&
@@ -1267,8 +1254,6 @@ class _MessageVideoAttachmentViewState
     }
 
     File? downloaded;
-    // Tệp của kho đệm chung: không xoá khi rời màn / đổi video (lần sau xem ngay).
-    var downloadedIsCached = false;
     VideoPlayerController? next;
     try {
       Future<bool> operationIsCurrent() async {
@@ -1277,26 +1262,8 @@ class _MessageVideoAttachmentViewState
             await binding.isStillCurrent();
       }
 
-      final fileId = widget.attachment.fileId;
-      final cacheTarget = fileId.isEmpty
-          ? null
-          : await _mediaCacheFile(
-              binding,
-              fileId: fileId,
-              cacheName: widget.attachment.file.name,
-            );
-      // Đã xem / đã tải trước đó: phát ngay từ máy, không tải lại.
-      final cachedFile = cacheTarget == null
-          ? null
-          : await messageMediaCache.lookup(
-              cacheTarget,
-              expectedBytes: widget.attachment.file.byteSize,
-            );
-
-      // Chưa có trên máy thì ưu tiên phát dần: không phải tải hết tệp mới xem được.
-      final streamed = cachedFile != null
-          ? null
-          : await _openStream(generation);
+      // Ưu tiên phát dần: không phải tải hết tệp mới xem được.
+      final streamed = await _openStream(generation);
       if (streamed != null) {
         if (!await operationIsCurrent()) {
           await streamed.dispose();
@@ -1322,63 +1289,41 @@ class _MessageVideoAttachmentViewState
         }
         return;
       }
-      if (cachedFile != null) {
-        downloaded = cachedFile;
-        downloadedIsCached = true;
-      } else {
-        if (previewOnly) {
-          // Chỉ xem trước: không tải cả tệp về chỉ để lấy khung hình.
-          throw const RedirectSafeDownloadException('preview unavailable');
-        }
-        if (!attachmentPreviewWithinLimit(
-          widget.attachment.file.byteSize,
-          maxBytes: maxVideoPlaybackBytes,
-        )) {
-          throw const RedirectSafeDownloadException('video too large');
-        }
-        void reportProgress(int received, int total) =>
-            _onDownloadProgress(generation, received, total);
-        if (cacheTarget != null) {
-          // Hai chỗ cùng mở một video (bong bóng + toàn màn hình) dùng chung một lượt tải.
-          downloaded = await messageMediaCache.obtain(
-            cacheTarget,
+      if (previewOnly) {
+        // Chỉ xem trước: không tải cả tệp về chỉ để lấy khung hình.
+        throw const RedirectSafeDownloadException('preview unavailable');
+      }
+      if (!attachmentPreviewWithinLimit(
+        widget.attachment.file.byteSize,
+        maxBytes: maxVideoPlaybackBytes,
+      )) {
+        throw const RedirectSafeDownloadException('video too large');
+      }
+
+      final target = await _fileStore.fileFor(
+        instanceScope: binding.instanceScope,
+        sessionGeneration: binding.guard.generation,
+        fileId: widget.attachment.fileId,
+        originalName: widget.attachment.file.name,
+        purpose: 'video${identityHashCode(this)}',
+      );
+      if (!await target.exists() ||
+          await target.length() != widget.attachment.file.byteSize) {
+        downloaded = await _videoDownloadGate.run(
+          () => _downloader.download(
+            uri: uri,
+            target: target,
+            maxBytes: maxVideoPlaybackBytes,
             expectedBytes: widget.attachment.file.byteSize,
-            onProgress: reportProgress,
-            download: (report) => _videoDownloadGate.run(
-              () => _downloader.download(
-                uri: uri,
-                target: cacheTarget,
-                maxBytes: maxVideoPlaybackBytes,
-                expectedBytes: widget.attachment.file.byteSize,
-                accept: widget.attachment.file.mimeType,
-                bearerToken: binding.bearerToken,
-                isStillCurrent: operationIsCurrent,
-                onProgress: report,
-              ),
-            ),
-          );
-          downloadedIsCached = true;
-        } else {
-          final target = await _fileStore.fileFor(
-            instanceScope: binding.instanceScope,
-            sessionGeneration: binding.guard.generation,
-            fileId: widget.attachment.fileId,
-            originalName: widget.attachment.file.name,
-            purpose: 'video${identityHashCode(this)}',
-          );
-          downloaded = await _videoDownloadGate.run(
-            () => _downloader.download(
-              uri: uri,
-              target: target,
-              maxBytes: maxVideoPlaybackBytes,
-              expectedBytes: widget.attachment.file.byteSize,
-              accept: widget.attachment.file.mimeType,
-              bearerToken: binding.bearerToken,
-              isStillCurrent: operationIsCurrent,
-              onProgress: reportProgress,
-            ),
-          );
-        }
+            accept: widget.attachment.file.mimeType,
+            bearerToken: binding.bearerToken,
+            isStillCurrent: operationIsCurrent,
+            onProgress: (received, total) =>
+                _onDownloadProgress(generation, received, total),
+          ),
+        );
+      } else {
+        downloaded = target;
       }
       final readyFile = downloaded;
       if (readyFile == null) {
@@ -1394,13 +1339,7 @@ class _MessageVideoAttachmentViewState
         readyFile,
         videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
       );
-      try {
-        await next.initialize();
-      } on Object {
-        // Tệp đệm hỏng (máy dọn dở, ghi lỗi): xoá để lần chạm sau tải lại.
-        if (downloadedIsCached) await _deleteFile(readyFile);
-        rethrow;
-      }
+      await next.initialize();
       await next.setLooping(false);
       if (!await operationIsCurrent() ||
           generation != _initializationGeneration ||
@@ -1411,7 +1350,7 @@ class _MessageVideoAttachmentViewState
       final previousFile = _videoFile;
       setState(() {
         _controller = next;
-        _videoFile = downloadedIsCached ? null : readyFile;
+        _videoFile = readyFile;
         _binding = binding;
         _loading = false;
         _failed = false;
@@ -1430,9 +1369,7 @@ class _MessageVideoAttachmentViewState
       }
     } on Object {
       await next?.dispose();
-      if (downloaded != null &&
-          !downloadedIsCached &&
-          downloaded.path != _videoFile?.path) {
+      if (downloaded != null && downloaded.path != _videoFile?.path) {
         await _deleteFile(downloaded);
       }
       _markVideoFailure(generation, previewOnly: previewOnly);
@@ -1533,7 +1470,6 @@ class _MessageVideoAttachmentViewState
           key: ValueKey('video-thumbnail-${widget.attachment.fileId}'),
           uri: thumbnailUri,
           apiBaseUri: widget.apiBaseUri,
-          fileId: widget.attachment.fileId,
           onImageSize: _onThumbnailSize,
         ),
         Center(
@@ -1869,16 +1805,12 @@ class _VideoThumbnailImage extends ConsumerStatefulWidget {
   const _VideoThumbnailImage({
     required this.uri,
     required this.apiBaseUri,
-    required this.fileId,
     this.onImageSize,
     super.key,
   });
 
   final Uri uri;
   final Uri? apiBaseUri;
-
-  /// Mã tệp video: khoá kho đệm của ảnh bìa (rỗng thì không đệm).
-  final String fileId;
   final ValueChanged<Size>? onImageSize;
 
   @override
@@ -1900,17 +1832,6 @@ class _VideoThumbnailImageState extends ConsumerState<_VideoThumbnailImage> {
     );
     if (binding == null) return null;
     try {
-      if (widget.fileId.isNotEmpty) {
-        return await _cachedMessageImageBytes(
-          binding: binding,
-          uri: widget.uri,
-          fileId: widget.fileId,
-          cacheName: _thumbnailCacheName,
-          maxBytes: _maxThumbnailBytes,
-          expectedBytes: null,
-          accept: 'image/jpeg',
-        );
-      }
       return await _imageDownloadGate.run(
         () => _downloader.downloadBytes(
           uri: widget.uri,
@@ -2350,61 +2271,6 @@ bool attachmentUriCanUseInstanceCredentials({
 }
 
 /// Tải tệp đính kèm về bộ nhớ riêng của app (dùng lại nếu đã tải đủ), đúng máy chủ và phiên đăng nhập hiện tại.
-/// Thư mục đệm ảnh / video tin nhắn (một thư mục, tính chung giới hạn 500 MB).
-const _mediaCachePurpose = 'media';
-
-/// Tên khoá đệm cho ảnh thu nhỏ (khác tên tệp gốc nên không đè bản gốc).
-const _thumbnailCacheName = 'thumbnail.jpg';
-
-/// Tệp đệm trên máy của một ảnh / video tin nhắn (theo máy chủ + phiên đăng nhập + mã tệp).
-Future<File> _mediaCacheFile(
-  _AttachmentDownloadBinding binding, {
-  required String fileId,
-  required String cacheName,
-}) {
-  return const ScopedAttachmentFileStore().fileFor(
-    instanceScope: binding.instanceScope,
-    sessionGeneration: binding.guard.generation,
-    fileId: fileId,
-    originalName: cacheName,
-    purpose: _mediaCachePurpose,
-  );
-}
-
-/// Ảnh qua kho đệm trên máy: có rồi thì đọc ngay, chưa có thì tải một lần (nhiều chỗ cùng xin thì dùng chung).
-/// Tải vẫn chạy tiếp khi bong bóng cuộn khỏi màn hình để lần sau hiện ngay; đổi / thoát phiên thì dừng.
-Future<Uint8List> _cachedMessageImageBytes({
-  required _AttachmentDownloadBinding binding,
-  required Uri uri,
-  required String fileId,
-  required String cacheName,
-  required int maxBytes,
-  required int? expectedBytes,
-  required String accept,
-}) async {
-  final target = await _mediaCacheFile(
-    binding,
-    fileId: fileId,
-    cacheName: cacheName,
-  );
-  final file = await messageMediaCache.obtain(
-    target,
-    expectedBytes: expectedBytes,
-    download: (_) => _imageDownloadGate.run(
-      () => const RedirectSafeFileDownloader().download(
-        uri: uri,
-        target: target,
-        maxBytes: maxBytes,
-        expectedBytes: expectedBytes,
-        accept: accept,
-        bearerToken: binding.bearerToken,
-        isStillCurrent: binding.isStillCurrent,
-      ),
-    ),
-  );
-  return file.readAsBytes();
-}
-
 Future<File> _downloadAttachmentFile(
   _ProviderReader read, {
   required MessageAttachment attachment,
