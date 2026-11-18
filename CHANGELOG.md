@@ -3,6 +3,24 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.49.0 · 18/11/2026
+### Tính năng
+- Lưu tệp đã tải trên điện thoại 7 ngày: ảnh, ảnh thu nhỏ, ảnh bìa video, video, tin nhắn thoại, tệp đính kèm, ảnh
+  đại diện và mục "Tệp chia sẻ" tải một lần là xem lại được ngay, kể cả sau khi tắt / mở lại app, không tải lại từ
+  máy chủ (log máy chủ 17/11: 86% lượt tải tệp là tải lại tệp đã có). Trước đây ảnh chỉ giữ trong bộ nhớ, video / tin
+  thoại bị xoá khi rời màn hình, còn tệp chỉ giữ tới lần mở app sau.
+  - Tệp không mở lại trong 7 ngày thì tự xoá; tổng kho tối đa 1 GB, đầy thì xoá tệp lâu không dùng nhất trước. App tự
+    dọn khi mở và sau khi tải.
+  - Kho chia riêng theo máy chủ và tài khoản: đăng xuất, đổi máy chủ hay phiên bị thu hồi thì xoá cùng tệp đính kèm như
+    trước; tài khoản khác đăng nhập trên máy không đọc được.
+  - Android: video lần đầu vẫn phát dần (không phải chờ tải hết); video đã tải về trước đó thì phát thẳng từ máy.
+### Sửa lỗi
+- Ảnh bị máy chủ từ chối (403 / 404, ví dụ ảnh đại diện kiểu cũ người khác không có quyền xem) bị app hỏi lại liên tục
+  mỗi lần vẽ lại màn hình (log 17/11: một ảnh 42 lần). Nay app nhớ lỗi 10 phút rồi mới thử lại.
+- Mở lại một phòng chat, app hỏi lại máy chủ danh sách tệp đính kèm của từng tin có tệp (log 17/11: cùng một tin 18
+  lần). Nay app nhớ trong lúc đang chạy; máy chủ báo tin vừa được gắn thêm tệp thì hỏi lại.
+  Không đổi giao diện; máy chủ cũ vẫn dùng được (máy chủ bản mới trả "không đổi" cho trình duyệt web).
+
 ## 1.48.2 · 18/11/2026
 ### Sửa lỗi
 - Dựng bản Android khi đẩy tag (mobile-v1.0.20) bị hỏng: kho thư viện Maven Central trả "429 Too Many Requests" (giới

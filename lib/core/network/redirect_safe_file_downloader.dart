@@ -71,6 +71,7 @@ final class RedirectSafeFileDownloader {
       if (response.statusCode != HttpStatus.ok) {
         throw RedirectSafeDownloadException(
           'unexpected HTTP status ${response.statusCode}',
+          statusCode: response.statusCode,
         );
       }
       final contentLength = response.contentLength;
@@ -181,6 +182,7 @@ final class RedirectSafeFileDownloader {
       if (response.statusCode != HttpStatus.ok) {
         throw RedirectSafeDownloadException(
           'unexpected HTTP status ${response.statusCode}',
+          statusCode: response.statusCode,
         );
       }
       if (response.contentLength > maxBytes) {
@@ -216,10 +218,17 @@ final class RedirectSafeFileDownloader {
 }
 
 final class RedirectSafeDownloadException implements Exception {
-  const RedirectSafeDownloadException(this.message, {this.cause});
+  const RedirectSafeDownloadException(
+    this.message, {
+    this.cause,
+    this.statusCode,
+  });
 
   final String message;
   final Object? cause;
+
+  /// Mã HTTP khi máy chủ trả lời khác 200 (vd. 403, 404); lỗi khác thì null.
+  final int? statusCode;
 
   @override
   String toString() => 'RedirectSafeDownloadException: $message';

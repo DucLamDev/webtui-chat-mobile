@@ -12,30 +12,50 @@ import '../../domain/entities/work_hub.dart';
 import 'shared_file_logic.dart';
 import 'shared_video_poster_cache.dart';
 
-/// Bộ nhớ đệm tệp chia sẻ, tối đa 300 MB, nằm trong kho tệp theo máy chủ +
-/// phiên đăng nhập (`ScopedAttachmentFileStore`): đăng xuất, đổi máy chủ hay
-/// phiên bị thu hồi thì bị xoá cùng tệp đính kèm chat; phiên mới không đọc lại
-/// tệp của phiên cũ.
+/// Bộ nhớ đệm tệp chia sẻ, tối đa 300 MB, nằm trong kho đệm lâu dài của tài
+/// khoản trên máy chủ (`ScopedAttachmentFileStore.cacheDirectoryFor`): mở lại
+/// app vẫn dùng lại được tới 7 ngày; đăng xuất, đổi máy chủ hay phiên bị thu
+/// hồi thì bị xoá cùng tệp đính kèm chat; tài khoản khác không đọc lại.
 final sharedFileCacheProvider = Provider<SharedFileCache>((ref) {
-  return SharedFileCache(
-    directory: () async => scopedSharedFileDirectory(
-      scope: ref.read(activeServerDiscoveryProvider)?.instanceScope,
-      guard: await ref.read(authTokenRepositoryProvider).captureMutationGuard(),
-    ),
-  );
+  return SharedFileCache(directory: () => _activeSharedFileDirectory(ref));
 });
+
+Future<Directory> _activeSharedFileDirectory(Ref ref) async {
+  final tokenRepository = ref.read(authTokenRepositoryProvider);
+  final guard = await tokenRepository.captureMutationGuard();
+  return scopedSharedFileDirectory(
+    scope: ref.read(activeServerDiscoveryProvider)?.instanceScope,
+    guard: guard,
+    accountKey: guard == null
+        ? null
+        : mediaCacheAccountKey(
+            accessToken: await tokenRepository.readAccessTokenIfCurrent(guard),
+            sessionGeneration: guard.generation,
+          ),
+  );
+}
 
 /// Thư mục bộ nhớ đệm tệp chia sẻ của phiên hiện tại; không có phiên (hoặc
 /// phiên thuộc máy chủ khác) thì báo lỗi, không ghi tệp ra ngoài kho có phạm vi.
+/// Có [accountKey] (xem `mediaCacheAccountKey`) thì dùng kho đệm lâu dài của
+/// tài khoản; không có thì dùng thư mục theo phiên (mất khi mở lại app).
 Future<Directory> scopedSharedFileDirectory({
   required InstanceScope? scope,
   required AuthTokenMutationGuard? guard,
+  String? accountKey,
   ScopedAttachmentFileStore store = const ScopedAttachmentFileStore(),
 }) async {
   if (scope == null ||
       guard == null ||
       guard.instanceScopeId != scope.storageId) {
     throw const RedirectSafeDownloadException('instance binding changed');
+  }
+  if (accountKey != null && accountKey.trim().isNotEmpty) {
+    return store.cacheDirectoryFor(
+      instanceScope: scope,
+      accountKey: accountKey,
+      purpose: 'shared-files',
+    );
   }
   return store.directoryFor(
     instanceScope: scope,
@@ -50,11 +70,13 @@ Future<Directory> scopedSharedFileDirectory({
 Future<Directory> scopedPlayableAudioDirectory({
   required InstanceScope? scope,
   required AuthTokenMutationGuard? guard,
+  String? accountKey,
   ScopedAttachmentFileStore store = const ScopedAttachmentFileStore(),
 }) async {
   final base = await scopedSharedFileDirectory(
     scope: scope,
     guard: guard,
+    accountKey: accountKey,
     store: store,
   );
   return Directory('${base.path}/playable-audio');
@@ -62,12 +84,10 @@ Future<Directory> scopedPlayableAudioDirectory({
 
 final sharedPlayableAudioDirectoryProvider =
     Provider<Future<Directory> Function()>((ref) {
-      return () async => scopedPlayableAudioDirectory(
-        scope: ref.read(activeServerDiscoveryProvider)?.instanceScope,
-        guard: await ref
-            .read(authTokenRepositoryProvider)
-            .captureMutationGuard(),
-      );
+      return () async {
+        final base = await _activeSharedFileDirectory(ref);
+        return Directory('${base.path}/playable-audio');
+      };
     });
 
 /// Tìm nguồn phát / tệp cục bộ cho tệp chia sẻ của một workspace.
@@ -98,12 +118,7 @@ final sharedVideoPosterCacheProvider =
       final compressor = ref.watch(videoCompressorProvider);
       return SharedVideoPosterCache(
         directory: () async {
-          final base = await scopedSharedFileDirectory(
-            scope: ref.read(activeServerDiscoveryProvider)?.instanceScope,
-            guard: await ref
-                .read(authTokenRepositoryProvider)
-                .captureMutationGuard(),
-          );
+          final base = await _activeSharedFileDirectory(ref);
           return Directory('${base.path}/video-posters');
         },
         streamUri: (fileId) async {
