@@ -3,6 +3,41 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.50.2 · 18/11/2026
+### Sửa lỗi
+Rà soát cuộc gọi, xem video / ảnh / tin thoại và kho tệp trên máy (18/11):
+- Cuộc gọi:
+  - Gác máy khi màn gọi còn đang chuẩn bị (mạng chậm) làm micro / camera vẫn bật, iPhone còn "cuộc gọi ma" trên thanh
+    trạng thái, Android kẹt thông báo "đang gọi": nay dừng hẳn và báo kết thúc.
+  - Bấm Tắt tiếng trên giao diện cuộc gọi của iPhone (màn hình khoá) mà bên kia vẫn nghe thấy: nay đồng bộ hai chiều
+    với nút Mic trong app.
+  - Màn gọi kẹt "Đang khôi phục kết nối…" mãi sau lần mất kết nối thứ hai: nay luôn có hạn kết thúc.
+  - Đổi Wi-Fi ↔ 4G giữa cuộc gọi: lấy lại thông tin máy chủ chuyển tiếp trước khi khôi phục, gửi lại yêu cầu khôi phục
+    nếu chưa có trả lời, bên nhận cũng xin khôi phục được; bên nhận chờ 30 giây thay vì 15 giây.
+  - Tín hiệu kết nối chỉ gửi một lần nên mất một gói là treo "Đang kết nối": nay gửi lại "sẵn sàng" / offer / ICE khi
+    chưa có trả lời (có giới hạn); các bước thương lượng chạy lần lượt, lỗi phụ không còn cắt cả cuộc gọi.
+  - Mạng chập chờn đúng lúc có cuộc gọi đến bị coi là "cuộc gọi đã kết thúc" (tắt chuông, rồi 8 giây sau hộp cuộc gọi
+    hiện lại): nay thử lại, chỉ tắt khi máy chủ báo thật sự đã kết thúc.
+  - Cuộc gọi video mà camera bị từ chối / đang bận thì hỏng cả cuộc: nay chuyển sang chỉ thoại. Nhận cuộc gọi: lấy
+    micro trước rồi mới nhận (thiếu quyền thì từ chối có thông báo, không "nhận rồi cắt").
+  - Gọi video khi đang đeo tai nghe Bluetooth / có dây không còn bị ép ra loa ngoài.
+  - Đồng hồ cuộc gọi chạy khi chưa có tiếng: nay hiện "Đang kết nối…" tới khi thông thật sự.
+  - Bắt đầu / nhận cuộc gọi thì tin thoại, video đang phát tự dừng.
+- Xem video:
+  - Android: video phát dần bị đứng hình khi đường phát hết hạn (xem lâu hơn 15 phút / tạm dừng lâu), bấm phát không
+    phản hồi: nay tự xin đường mới và phát tiếp đúng chỗ (lỗi lặp lại thì báo lỗi có nút thử lại).
+  - Nút Phát / Tạm dừng nay đổi theo trạng thái thật (phát hết, bị hệ thống dừng).
+  - iPhone không xem được video trên 250 MB: nay xem được tới mức gửi tối đa (vẫn chỉ tải khi bấm, có phần trăm).
+  - Cuộn khỏi video / tin thoại đang tải không còn huỷ lượt tải (quay lại vẫn thấy phần trăm).
+  - Video cũ chưa có ảnh bìa: chạm khi đang mở khung xem trước thì sẵn sàng là phát luôn.
+  - Xem rồi lưu video vào thư viện ảnh không còn tải lại lần nữa (dùng chung một tệp đã lưu).
+- Ảnh trên 5 MB nay xem được toàn màn hình (tới 30 MB; lớn hơn thì hiện ảnh thu nhỏ).
+- Tin thoại / video không còn phát chồng lên nhau: phát cái mới thì cái đang phát tự dừng.
+- Mở tệp: đã rời phòng chat thì không tự bật app khác lên khi tải xong; truyền đúng loại tệp cho app mở.
+- Kho tệp trên máy: tệp vừa dùng (đang phát / đang mở bằng app khác) không bị xoá khi kho đầy; mở một tệp rất lớn
+  không còn xoá sạch kho; ghi nhiều thì dọn ngay để giữ mức 1 GB; không ghi tệp vào kho sau khi đã đăng xuất. Mục Tệp
+  chia sẻ không còn xoá nhầm tệp đang tải dở của lượt khác.
+
 ## 1.50.1 · 18/11/2026
 ### Sửa lỗi
 - CI nhánh chính đỏ từ khi gộp bản 1.50.0 (bước `flutter pub get --enforce-lockfile`), nên đẩy tag TestFlight / CH Play

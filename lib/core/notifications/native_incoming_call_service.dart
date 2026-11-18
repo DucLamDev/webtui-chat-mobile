@@ -19,6 +19,20 @@ import '../security/server_account_registry.dart';
 
 enum NativeIncomingCallActionType { accept, decline, ended, timeout }
 
+/// Người dùng bấm Tắt tiếng / Bật tiếng trên giao diện cuộc gọi gốc (CallKit
+/// trên iPhone). [callId] là mã cuộc gọi gốc (thường trùng mã cuộc gọi máy
+/// chủ, iOS có thể trả chữ hoa).
+final class NativeCallMuteChange {
+  const NativeCallMuteChange({required this.callId, required this.muted});
+
+  final String callId;
+  final bool muted;
+
+  /// Sự kiện có thuộc cuộc gọi [callId] không (không phân biệt hoa thường).
+  bool matches(String callId) =>
+      this.callId.trim().toLowerCase() == callId.trim().toLowerCase();
+}
+
 final class NativeIncomingCallAction {
   const NativeIncomingCallAction({
     required this.actionId,
@@ -120,6 +134,8 @@ final class NativeIncomingCallService {
       StreamController<NativeIncomingCallAction>.broadcast();
   static final _voipTokens = StreamController<String>.broadcast();
   static final _ringing = StreamController<NotificationTarget>.broadcast();
+  static final _muteChanges =
+      StreamController<NativeCallMuteChange>.broadcast();
   static final _pendingActions = <String, NativeIncomingCallAction>{};
   static final _retryAttempts = <String, int>{};
   static final _retryTimers = <String, Timer>{};
@@ -163,6 +179,44 @@ final class NativeIncomingCallService {
   static Stream<NotificationTarget> get ringing {
     ensureStarted();
     return _ringing.stream;
+  }
+
+  /// Bấm Tắt tiếng / Bật tiếng trên giao diện cuộc gọi gốc (CallKit). Màn gọi
+  /// nghe luồng này để bật / tắt track micro cho khớp.
+  static Stream<NativeCallMuteChange> get muteChanges {
+    ensureStarted();
+    return _muteChanges.stream;
+  }
+
+  /// Sự kiện tắt tiếng của plugin (`ACTION_CALL_TOGGLE_MUTE`); `null` với sự
+  /// kiện khác hoặc thiếu mã cuộc gọi.
+  static NativeCallMuteChange? muteChangeFromCallkitEvent(CallEvent? event) {
+    if (event is! CallEventActionCallToggleMute) return null;
+    final callId = event.id.trim();
+    if (callId.isEmpty) return null;
+    return NativeCallMuteChange(callId: callId, muted: event.isMuted);
+  }
+
+  /// Đồng bộ nút Tắt tiếng của giao diện gốc với nút Mic trong app. Chỉ gọi
+  /// khi cuộc gọi gốc [callId] đang có trên máy (plugin iOS tìm theo mã, mã
+  /// lạ thì bỏ qua); lỗi plugin bỏ qua, track micro vẫn đã được tắt / bật.
+  static Future<void> setNativeMuted(
+    String callId, {
+    required bool muted,
+  }) async {
+    final normalizedCallId = callId.trim();
+    if (normalizedCallId.isEmpty || !Platform.isIOS) return;
+    try {
+      final calls = await FlutterCallkitIncoming.activeCalls();
+      for (final call in calls) {
+        if (nativeCallMatches(call.toJson(), normalizedCallId)) {
+          await FlutterCallkitIncoming.muteCall(call.id, isMuted: muted);
+          return;
+        }
+      }
+    } on Object {
+      // Không có cuộc gọi gốc / plugin không hỗ trợ: bỏ qua.
+    }
   }
 
   /// Cuộc gọi đang đổ chuông trong sự kiện `ACTION_CALL_INCOMING`; `null` với
@@ -709,6 +763,11 @@ final class NativeIncomingCallService {
   }
 
   static void _handleCallkitEvent(CallEvent? event) {
+    final muteChange = muteChangeFromCallkitEvent(event);
+    if (muteChange != null) {
+      _muteChanges.add(muteChange);
+      return;
+    }
     final ringingTarget = ringingTargetFromCallkitEvent(event);
     if (ringingTarget != null) {
       _ringing.add(ringingTarget);

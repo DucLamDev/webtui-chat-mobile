@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
+import '../../../../core/media/exclusive_media_playback.dart';
 import '../../../../core/network/api_response.dart';
 import '../../../../core/notifications/call_tone_player.dart';
 import '../../../../core/notifications/native_incoming_call_service.dart';
@@ -15,6 +16,7 @@ import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../auth/presentation/controllers/legal_acceptance_controller.dart';
+import '../../application/call_connection_policy.dart';
 import '../../application/call_end_cue.dart';
 import '../../application/call_video_profile.dart';
 import '../../application/use_cases/call_use_cases.dart';
@@ -85,8 +87,46 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   bool _speakerEnabled = false;
   bool _usingFrontCamera = true;
   bool _reconnecting = false;
+
+  /// WebRTC đã nối thông ít nhất một lần (không đặt lại khi mất kết nối).
   bool _connected = false;
-  bool _iceRestartAttempted = false;
+
+  /// Các bước SDP / ICE chạy lần lượt (xem [SerialTaskQueue]).
+  final SerialTaskQueue _signalQueue = SerialTaskQueue();
+
+  /// Đã xong lượt offer / answer đầu tiên: lỗi thương lượng sau đó chỉ ghi
+  /// log, không cắt cuộc gọi đang tốt.
+  bool _initialNegotiationDone = false;
+
+  /// Bên nhận: gửi lại `ready` tới khi có offer.
+  bool _offerReceived = false;
+  Timer? _readyResendTimer;
+  final SignalResendBudget _readyBudget = SignalResendBudget(
+    maxResends: CallSignalTiming.readyMaxResends,
+  );
+
+  /// Bên gọi: offer gần nhất đang chờ answer, gửi lại nếu quá hạn.
+  Map<String, Object?>? _pendingOfferPayload;
+  Timer? _answerTimer;
+  SignalResendBudget? _offerBudget;
+
+  /// Bên nhận: offer đã trả lời gần nhất và answer tương ứng, để trả lại đúng
+  /// answer cũ khi bên gọi gửi lại cùng offer (answer trước bị mất).
+  String? _lastAnsweredOfferSdp;
+  Map<String, Object?>? _lastAnswerPayload;
+
+  /// Bên gọi: answer đã áp dụng gần nhất, để bỏ answer trùng đến muộn.
+  String? _lastAppliedAnswerSdp;
+
+  /// Khôi phục kết nối: hẹn kết thúc (đặt một lần mỗi lần mất kết nối) và số
+  /// lần đã thử khôi phục.
+  Timer? _recoveryDeadline;
+  int _recoveryActions = 0;
+  bool _iceRestartRunning = false;
+
+  /// Cuộc gọi video nhưng không mở được camera: đã lùi về chỉ thoại.
+  bool _cameraFallback = false;
+  StreamSubscription<NativeCallMuteChange>? _nativeMute;
 
   /// Luồng camera bật giữa cuộc gọi thoại (nút "Video") và sender của nó.
   MediaStream? _upgradeVideoStream;
@@ -114,6 +154,12 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
 
   /// Câu hiện trước khi màn tự đóng (vd. người nhận đang bận).
   String? _closingMessage;
+
+  CallHeaderPhase get _headerPhase => callHeaderPhase(
+    serverAccepted: _status == CallStatus.accepted,
+    mediaConnectedOnce: _connected,
+    reconnecting: _reconnecting,
+  );
 
   bool get _videoActive => callUsesVideoLayout(
     startedAsVideo: widget.mode == CallMode.video,
@@ -157,6 +203,13 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     }
     _speakerEnabled = widget.mode == CallMode.video;
     _hasLocalVideo = widget.mode == CallMode.video;
+    // Bắt đầu gọi / nghe máy: dừng tin thoại, video trong tin nhắn đang phát.
+    unawaited(ExclusiveMediaPlayback.pauseAll());
+    // Bấm Tắt tiếng trên CallKit (iPhone): tắt / bật đúng track micro.
+    _nativeMute = NativeIncomingCallService.muteChanges.listen((change) {
+      if (!change.matches(widget.callId)) return;
+      _setMicrophoneEnabled(!change.muted, syncNative: false);
+    });
     unawaited(_initialize());
     _stateTimer = Timer.periodic(
       const Duration(seconds: 1),
@@ -173,6 +226,11 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     _connectTimer?.cancel();
     _videoOfferTimer?.cancel();
     _noticeTimer?.cancel();
+    _readyResendTimer?.cancel();
+    _answerTimer?.cancel();
+    _recoveryDeadline?.cancel();
+    _signalQueue.close();
+    unawaited(_nativeMute?.cancel());
     unawaited(_signals?.cancel());
     unawaited(_peer?.close());
     for (final track in [
@@ -187,7 +245,40 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     super.dispose();
   }
 
+  /// Màn gọi đã đóng / đang rời (gác máy lúc còn chuẩn bị): `_initialize`
+  /// phải dừng ngay sau mỗi bước chờ.
+  bool get _setupAbandoned => !mounted || _leaving || _fatalErrorHandled;
+
+  /// Dọn phần `_initialize` đã lấy khi màn gọi rời giữa chừng: dừng micro /
+  /// camera, tắt cuộc gọi gốc (CallKit / dịch vụ nền Android), đóng kết nối.
+  /// `dispose` có thể đã chạy trước khi các tài nguyên này được tạo.
+  Future<void> _releaseAbandonedSetup({
+    RTCPeerConnection? peer,
+    MediaStream? stream,
+  }) async {
+    for (final track in stream?.getTracks() ?? <MediaStreamTrack>[]) {
+      try {
+        track.stop();
+      } on Object {
+        // Track đã dừng.
+      }
+    }
+    try {
+      await stream?.dispose();
+    } on Object {
+      // Luồng đã được giải phóng.
+    }
+    try {
+      await peer?.close();
+    } on Object {
+      // Kết nối đã đóng.
+    }
+    await NativeIncomingCallService.endCall(widget.callId);
+  }
+
   Future<void> _initialize() async {
+    RTCPeerConnection? peer;
+    MediaStream? stream;
     try {
       if (!ref.read(legalAcceptanceControllerProvider).canCreateUserContent) {
         throw StateError(
@@ -202,6 +293,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       final appSettings = await ref
           .read(loadAppSettingsUseCaseProvider)
           .execute();
+      if (_setupAbandoned) return;
       _microphoneEnabled = appSettings.microphoneEnabledOnJoin;
       _cameraEnabled =
           widget.mode == CallMode.video && appSettings.cameraEnabledOnJoin;
@@ -212,6 +304,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       _localDeviceId = await ref
           .read(resolveCallDeviceIdUseCaseProvider)
           .execute();
+      if (_setupAbandoned) return;
       final realtime = ref.read(conversationRealtimeRepositoryProvider);
       _signals = realtime
           .subscribeToChannel(
@@ -228,31 +321,23 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       final realtimeReady = realtime
           .ensureConnected(workspaceId: widget.workspaceId)
           .catchError((Object _) => false);
-      if (widget.incoming) {
-        if (!await _acceptIncomingCall()) {
-          // Đã nhận ở máy khác (hoặc vừa kết thúc): báo rõ rồi đóng màn gọi
-          // đến, không gác máy hộ máy kia.
-          await _leaveWithMessage(callGoneMessage);
+
+      // Mở micro (và camera) TRƯỚC khi nhận cuộc gọi đến: thiếu quyền micro
+      // thì từ chối có thông báo, không "nhận rồi cắt".
+      try {
+        stream = await _openLocalMedia();
+      } on Object catch (error) {
+        if (_setupAbandoned) return;
+        if (widget.incoming && !_acceptedHere) {
+          await _abortCall(error, reason: 'media_setup_failed');
           return;
         }
-        _acceptedHere = true;
-        _startConnectTimer();
+        rethrow;
       }
-
-      final peer = await createPeerConnection({
-        'iceServers': await _loadIceServers(),
-        'sdpSemantics': 'unified-plan',
-      });
-      final stream = await navigator.mediaDevices.getUserMedia({
-        'audio': const {
-          'echoCancellation': true,
-          'noiseSuppression': true,
-          'autoGainControl': true,
-        },
-        'video': widget.mode == CallMode.video
-            ? CallVideoProfile.cameraConstraints()
-            : false,
-      });
+      if (_setupAbandoned) {
+        await _releaseAbandonedSetup(stream: stream);
+        return;
+      }
       // getUserMedia is the visible, contextual runtime permission boundary.
       // Keep the stream reachable so any native lifecycle failure below is
       // cleaned up when the screen closes.
@@ -260,6 +345,48 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       final audioTracks = stream.getAudioTracks();
       if (audioTracks.isEmpty) {
         throw StateError('Không tìm thấy luồng microphone trên thiết bị.');
+      }
+      for (final track in audioTracks) {
+        track.enabled = _microphoneEnabled;
+      }
+      for (final track in stream.getVideoTracks()) {
+        track.enabled = _cameraEnabled;
+      }
+
+      if (widget.incoming) {
+        if (!await _acceptIncomingCall()) {
+          if (_setupAbandoned) return;
+          // Đã nhận ở máy khác (hoặc vừa kết thúc): báo rõ rồi đóng màn gọi
+          // đến, không gác máy hộ máy kia.
+          await _leaveWithMessage(callGoneMessage);
+          return;
+        }
+        _acceptedHere = true;
+        if (_setupAbandoned) {
+          // Gác máy đúng lúc đang nhận: lượt gác máy có thể đã đọc trạng thái
+          // "ringing" trước khi nhận xong, kết thúc lại cho chắc.
+          try {
+            await _terminateServerCall(
+              reason: 'user_ended',
+            ).timeout(const Duration(seconds: 4));
+          } on Object {
+            // Máy chủ tự dọn cuộc gọi không có media.
+          }
+          await _releaseAbandonedSetup(stream: stream);
+          return;
+        }
+        _startConnectTimer();
+      }
+
+      final iceServers = await _loadIceServers();
+      if (_setupAbandoned) return;
+      peer = await createPeerConnection({
+        'iceServers': iceServers,
+        'sdpSemantics': 'unified-plan',
+      });
+      if (_setupAbandoned) {
+        await _releaseAbandonedSetup(peer: peer, stream: stream);
+        return;
       }
       if (!widget.incoming) {
         await NativeIncomingCallService.startOutgoingCall(
@@ -270,12 +397,10 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
           title: widget.title,
           isVideo: widget.mode == CallMode.video,
         );
-      }
-      for (final track in audioTracks) {
-        track.enabled = _microphoneEnabled;
-      }
-      for (final track in stream.getVideoTracks()) {
-        track.enabled = _cameraEnabled;
+        if (_setupAbandoned) {
+          await _releaseAbandonedSetup(peer: peer, stream: stream);
+          return;
+        }
       }
       for (final track in stream.getTracks()) {
         final sender = await peer.addTrack(track, stream);
@@ -283,6 +408,14 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
           _videoSender = sender;
           unawaited(_limitVideoSender());
         }
+      }
+      if (_cameraFallback && !widget.incoming) {
+        // Cuộc gọi video mà camera máy này không mở được: vẫn xin nhận hình
+        // của bên kia (offer phải có m-line video).
+        await peer.addTransceiver(
+          kind: RTCRtpMediaType.RTCRtpMediaTypeVideo,
+          init: RTCRtpTransceiverInit(direction: TransceiverDirection.RecvOnly),
+        );
       }
       peer.onTrack = (event) {
         if (event.streams.isEmpty || !mounted) return;
@@ -295,7 +428,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       peer.onIceCandidate = (candidate) {
         if (candidate.candidate?.isNotEmpty == true) {
           unawaited(
-            _sendSignal(CallSignalType.iceCandidate, {
+            _sendCandidate({
               'candidate': {
                 'candidate': candidate.candidate,
                 'sdpMid': candidate.sdpMid,
@@ -308,18 +441,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       peer.onConnectionState = (state) {
         if (!mounted) return;
         if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
-          unawaited(_ringback.stop());
-          _disconnectTimer?.cancel();
-          _connectTimer?.cancel();
-          _connected = true;
-          // Sau khi thoả thuận xong mới chắc có lớp mã hoá để đặt giới hạn.
-          unawaited(_limitVideoSender());
-          setState(() {
-            _status = CallStatus.accepted;
-            _startedAt ??= DateTime.now().toUtc();
-            _reconnecting = false;
-            _iceRestartAttempted = false;
-          });
+          _onMediaConnected();
         } else if (state ==
                 RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
             state ==
@@ -327,9 +449,9 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
           _scheduleConnectionRecovery();
         }
       };
-      await Helper.setSpeakerphoneOn(_speakerEnabled);
-      if (!mounted) {
-        await peer.close();
+      await _applySpeakerRoute(_speakerEnabled);
+      if (_setupAbandoned) {
+        await _releaseAbandonedSetup(peer: peer, stream: stream);
         return;
       }
       setState(() {
@@ -337,7 +459,24 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
         _localStream = stream;
         _localRenderer.srcObject = stream;
         _ready = true;
+        if (_cameraFallback) {
+          _hasLocalVideo = false;
+          _cameraEnabled = false;
+        }
       });
+      if (_cameraFallback) {
+        _showNotice(
+          tr(
+            'Không mở được camera, cuộc gọi tiếp tục bằng giọng nói.',
+            'Couldn\'t open the camera; continuing with audio only.',
+          ),
+        );
+      }
+      if (!_microphoneEnabled) {
+        unawaited(
+          NativeIncomingCallService.setNativeMuted(widget.callId, muted: true),
+        );
+      }
       _maybeSendOffer();
       _maybeReceivePendingOffer();
       if (!widget.incoming && _status == CallStatus.ringing) {
@@ -352,13 +491,21 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
           title: widget.title,
           isVideo: widget.mode == CallMode.video,
         );
+        if (_setupAbandoned) return;
         await widget.onConnected?.call();
         await realtimeReady;
-        if (!mounted || _leaving) return;
-        await _sendSignal(CallSignalType.ready, const {});
+        if (_setupAbandoned) return;
+        await _sendReady();
       }
       await _syncCall();
     } on Object catch (error) {
+      if (_setupAbandoned) {
+        // Đã rời màn: chỉ dọn những gì vừa lấy, không báo lỗi.
+        if (!identical(_peer, peer)) {
+          await _releaseAbandonedSetup(peer: peer, stream: stream);
+        }
+        return;
+      }
       if (widget.incoming && !_acceptedHere) {
         // Lỗi trước khi nhận được cuộc gọi (mạng, máy chủ): báo rõ rồi đóng,
         // không gửi từ chối thay người được gọi.
@@ -369,24 +516,86 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     }
   }
 
+  /// Mở micro (và camera nếu là cuộc gọi video). Camera bị từ chối / đang bận
+  /// thì lùi về chỉ thoại thay vì huỷ cả cuộc gọi ([_cameraFallback]).
+  Future<MediaStream> _openLocalMedia() async {
+    const audio = {
+      'echoCancellation': true,
+      'noiseSuppression': true,
+      'autoGainControl': true,
+    };
+    if (widget.mode != CallMode.video) {
+      return navigator.mediaDevices.getUserMedia({
+        'audio': audio,
+        'video': false,
+      });
+    }
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        'audio': audio,
+        'video': CallVideoProfile.cameraConstraints(),
+      });
+    } on Object catch (error) {
+      debugPrint('Không mở được camera, thử chỉ micro: $error');
+      final stream = await navigator.mediaDevices.getUserMedia({
+        'audio': audio,
+        'video': false,
+      });
+      _cameraFallback = true;
+      return stream;
+    }
+  }
+
+  /// Bật loa ngoài (ưu tiên tai nghe Bluetooth / có dây nếu đang cắm) hoặc
+  /// trả về loa trong.
+  Future<void> _applySpeakerRoute(bool speaker) async {
+    try {
+      if (speaker) {
+        await Helper.setSpeakerphoneOnButPreferBluetooth();
+      } else {
+        await Helper.setSpeakerphoneOn(false);
+      }
+    } on Object catch (error) {
+      debugPrint('Không đổi được đường ra âm thanh: $error');
+    }
+  }
+
+  /// WebRTC báo "connected" (lần đầu hoặc sau khi khôi phục).
+  void _onMediaConnected() {
+    unawaited(_ringback.stop());
+    _disconnectTimer?.cancel();
+    _disconnectTimer = null;
+    _recoveryDeadline?.cancel();
+    _recoveryDeadline = null;
+    _recoveryActions = 0;
+    _connectTimer?.cancel();
+    // Sau khi thoả thuận xong mới chắc có lớp mã hoá để đặt giới hạn.
+    unawaited(_limitVideoSender());
+    setState(() {
+      _connected = true;
+      _status = CallStatus.accepted;
+      _startedAt ??= DateTime.now().toUtc();
+      _reconnecting = false;
+    });
+  }
+
   /// `true`: máy này đã nhận cuộc gọi. `false`: cuộc gọi đã được nhận ở máy
   /// khác (máy chủ trả 409 `CALL_INVALID_TRANSITION` hoặc mã máy đã nhận khác
   /// máy này).
   Future<bool> _acceptIncomingCall() async {
-    final current =
-        (await ref
-                .read(getCallUseCaseProvider)
-                .execute(
-                  workspaceId: widget.workspaceId,
-                  callId: widget.callId,
-                ))
-            .valueOrNull;
-    if (current == null || current.isTerminal) {
+    final lookup = await ref
+        .read(getCallUseCaseProvider)
+        .execute(workspaceId: widget.workspaceId, callId: widget.callId);
+    final outcome = classifyCallLookup(lookup);
+    if (outcome == CallLookupOutcome.gone) {
       throw StateError(
         tr('Cuộc gọi không còn khả dụng.', 'This call is no longer available.'),
       );
     }
-    if (current.status == CallStatus.ringing) {
+    final current = lookup.valueOrNull;
+    // Lỗi mạng tạm thời khi đọc trạng thái: không kết luận "đã kết thúc", thử
+    // nhận luôn (máy chủ trả 409 / 404 nếu cuộc gọi không còn).
+    if (current == null || current.status == CallStatus.ringing) {
       final accepted = await ref
           .read(acceptCallUseCaseProvider)
           .execute(workspaceId: widget.workspaceId, callId: widget.callId);
@@ -422,6 +631,16 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   }
 
   Future<List<Map<String, Object?>>> _loadIceServers() async {
+    final servers = await _fetchIceServers();
+    if (servers != null) return servers;
+    return [
+      {'urls': 'stun:${ref.read(activeServerUriProvider).host}:3478'},
+    ];
+  }
+
+  /// ICE servers từ máy chủ (kèm mật khẩu TURN có hạn ~10 phút); `null` khi
+  /// lỗi / rỗng.
+  Future<List<Map<String, Object?>>?> _fetchIceServers() async {
     try {
       final response = await ref
           .read(apiTransportProvider)
@@ -438,11 +657,9 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     } on Object catch (error) {
       // Use the instance STUN endpoint as a conservative fallback; ghi log vì
       // thiếu TURN thường làm cuộc gọi kết nối nhưng không có tiếng qua NAT / 4G.
-      debugPrint('Không lấy được ICE servers, chỉ dùng STUN: $error');
+      debugPrint('Không lấy được ICE servers: $error');
     }
-    return [
-      {'urls': 'stun:${ref.read(activeServerUriProvider).host}:3478'},
-    ];
+    return null;
   }
 
   void _handleSignal(ConversationRealtimeEvent event) {
@@ -465,6 +682,9 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
         }
       case ConversationRealtimeEventType.callOffer:
         if (widget.incoming && event.callSdp.isNotEmpty) {
+          // Có offer: thôi gửi lại `ready`.
+          _offerReceived = true;
+          _readyResendTimer?.cancel();
           // Có offer mới: máy kia hỗ trợ thương lượng lại, bỏ hẹn giờ 8 giây.
           _lastOfferAt = DateTime.now();
           _videoOfferTimer?.cancel();
@@ -474,18 +694,34 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
             _pendingOffer = Map<String, dynamic>.from(event.callSdp);
             return;
           }
-          _runSignaling(_receiveOffer(event.callSdp));
+          final offer = Map<String, dynamic>.from(event.callSdp);
+          _runSignaling(
+            () => _receiveOffer(offer),
+            fatalBeforeNegotiated: true,
+          );
         }
       case ConversationRealtimeEventType.callRenegotiate:
-        // Chỉ người khởi tạo gửi offer: bên nhận xin offer mới (vừa bật camera).
-        if (!widget.incoming) _requestRenegotiation();
+        // Chỉ người khởi tạo gửi offer. Đang mất kết nối: bên nhận xin khởi
+        // động lại ICE; ngược lại bên nhận vừa bật camera, xin offer mới.
+        if (!widget.incoming) {
+          if (_reconnecting) {
+            _recoverNow();
+          } else {
+            _requestRenegotiation();
+          }
+        }
       case ConversationRealtimeEventType.callAnswer:
         if (!widget.incoming && event.callSdp.isNotEmpty) {
-          _runSignaling(_receiveAnswer(event.callSdp));
+          final answer = Map<String, dynamic>.from(event.callSdp);
+          _runSignaling(
+            () => _receiveAnswer(answer),
+            fatalBeforeNegotiated: true,
+          );
         }
       case ConversationRealtimeEventType.callIceCandidate:
         if (event.callCandidate.isNotEmpty) {
-          _runSignaling(_receiveCandidate(event.callCandidate));
+          final candidate = Map<String, dynamic>.from(event.callCandidate);
+          _runSignaling(() => _receiveCandidate(candidate));
         }
       case ConversationRealtimeEventType.callRejected:
         if (!widget.incoming && event.reason == callBusyRejectReason) {
@@ -506,10 +742,22 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     }
   }
 
-  void _runSignaling(Future<void> operation) {
+  /// Xếp [operation] vào hàng SDP / ICE (chạy lần lượt). Lỗi của lượt offer /
+  /// answer đầu tiên ([fatalBeforeNegotiated]) vẫn huỷ cuộc gọi như cũ; lỗi
+  /// sau đó (candidate, thương lượng lại, ICE restart) chỉ ghi log.
+  void _runSignaling(
+    Future<void> Function() operation, {
+    bool fatalBeforeNegotiated = false,
+  }) {
+    final fatal = fatalBeforeNegotiated && !_initialNegotiationDone;
     unawaited(
-      operation.catchError((Object error) async {
-        await _abortCall(error, reason: 'signaling_failed');
+      _signalQueue.run(operation).catchError((Object error) async {
+        if (fatal && !_initialNegotiationDone) {
+          await _abortCall(error, reason: 'signaling_failed');
+          return null;
+        }
+        debugPrint('Bỏ qua lỗi tín hiệu cuộc gọi: $error');
+        return null;
       }),
     );
   }
@@ -524,7 +772,8 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
         _fatalErrorHandled) {
       return;
     }
-    _runSignaling(_sendOffer());
+    _offerSent = true;
+    _runSignaling(_sendOffer, fatalBeforeNegotiated: true);
   }
 
   void _maybeReceivePendingOffer() {
@@ -539,23 +788,82 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       return;
     }
     _pendingOffer = null;
-    _runSignaling(_receiveOffer(pendingOffer));
+    _runSignaling(
+      () => _receiveOffer(pendingOffer),
+      fatalBeforeNegotiated: true,
+    );
   }
 
   Future<void> _sendOffer() async {
     final peer = _peer;
-    if (peer == null || _offerSent) return;
-    _offerSent = true;
+    if (peer == null) return;
     try {
       final offer = await peer.createOffer();
       await peer.setLocalDescription(offer);
-      await _sendSignal(CallSignalType.offer, {
-        'sdp': {'type': offer.type, 'sdp': offer.sdp},
-      });
+      await _sendOfferAwaitingAnswer(
+        offer,
+        timeout: CallSignalTiming.offerAnswerTimeout,
+        maxResends: CallSignalTiming.offerMaxResends,
+      );
     } on Object {
       _offerSent = false;
       rethrow;
     }
+  }
+
+  /// Bên gọi gửi [offer] rồi chờ answer: quá [timeout] chưa có thì gửi lại
+  /// đúng offer đó (tối đa [maxResends] lần). Máy chủ chỉ chuyển tiếp một lần,
+  /// offer mất trên đường (đổi mạng, realtime bên kia vừa nối lại) thì cuộc
+  /// gọi kẹt "Đang kết nối" nếu không gửi lại.
+  Future<void> _sendOfferAwaitingAnswer(
+    RTCSessionDescription offer, {
+    required Duration timeout,
+    required int maxResends,
+  }) async {
+    final payload = <String, Object?>{
+      'sdp': {'type': offer.type, 'sdp': offer.sdp},
+    };
+    _answerTimer?.cancel();
+    _pendingOfferPayload = payload;
+    final budget = SignalResendBudget(maxResends: maxResends);
+    _offerBudget = budget;
+    await _sendSignal(CallSignalType.offer, payload);
+    _armAnswerTimer(payload, budget, timeout);
+  }
+
+  void _armAnswerTimer(
+    Map<String, Object?> payload,
+    SignalResendBudget budget,
+    Duration timeout,
+  ) {
+    _answerTimer?.cancel();
+    _answerTimer = Timer(timeout, () {
+      if (_leaving ||
+          _fatalErrorHandled ||
+          !identical(_pendingOfferPayload, payload) ||
+          !identical(_offerBudget, budget)) {
+        return;
+      }
+      if (!budget.tryConsume()) {
+        // Hết lượt gửi lại: thôi chờ, để lượt khôi phục sau (nếu có) tạo
+        // offer mới.
+        _clearAwaitingAnswer();
+        return;
+      }
+      unawaited(
+        _sendSignal(CallSignalType.offer, payload).catchError((Object error) {
+          debugPrint('Gửi lại offer lỗi: $error');
+        }),
+      );
+      _armAnswerTimer(payload, budget, timeout);
+    });
+  }
+
+  void _clearAwaitingAnswer() {
+    _answerTimer?.cancel();
+    _answerTimer = null;
+    _pendingOfferPayload = null;
+    _offerBudget = null;
   }
 
   Future<void> _receiveOffer(Map<String, dynamic> value) async {
@@ -564,38 +872,73 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       _pendingOffer = Map<String, dynamic>.from(value);
       return;
     }
+    final sdp = value['sdp']?.toString();
+    final previousAnswer = _lastAnswerPayload;
+    if (sdp != null &&
+        sdp == _lastAnsweredOfferSdp &&
+        previousAnswer != null &&
+        await _signalingStable(peer)) {
+      // Bên gọi gửi lại đúng offer đã trả lời (answer trước bị mất): gửi lại
+      // answer cũ, không thương lượng lại.
+      await _sendSignal(CallSignalType.answer, previousAnswer);
+      return;
+    }
     await peer.setRemoteDescription(
-      RTCSessionDescription(
-        value['sdp']?.toString(),
-        value['type']?.toString(),
-      ),
+      RTCSessionDescription(sdp, value['type']?.toString()),
     );
     _hasRemoteDescription = true;
     await _flushCandidates();
     final answer = await peer.createAnswer();
     await peer.setLocalDescription(answer);
-    await _sendSignal(CallSignalType.answer, {
+    final payload = <String, Object?>{
       'sdp': {'type': answer.type, 'sdp': answer.sdp},
-    });
+    };
+    _lastAnsweredOfferSdp = sdp;
+    _lastAnswerPayload = payload;
+    _initialNegotiationDone = true;
+    await _sendSignal(CallSignalType.answer, payload);
     // Thương lượng xong mới có lớp mã hoá cho camera vừa bật: đặt giới hạn.
     unawaited(_limitVideoSender());
     // Lượt thương lượng xong: chạy yêu cầu đã ghi nhớ (bật camera giữa chừng).
-    unawaited(_drainRenegotiation());
+    _scheduleDrainRenegotiation();
   }
 
   Future<void> _receiveAnswer(Map<String, dynamic> value) async {
     final peer = _peer;
     if (peer == null) return;
+    final sdp = value['sdp']?.toString();
+    if (sdp != null && sdp == _lastAppliedAnswerSdp) {
+      debugPrint('Bỏ qua answer trùng.');
+      return;
+    }
+    final signaling = await peer.getSignalingState();
+    if (signaling != null &&
+        signaling != RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
+      // Answer trùng (bên kia trả lời lại offer đã gửi lại) hoặc đến muộn:
+      // kết nối đã ổn định, bỏ qua.
+      debugPrint('Bỏ qua answer khi signaling = $signaling');
+      return;
+    }
     await peer.setRemoteDescription(
-      RTCSessionDescription(
-        value['sdp']?.toString(),
-        value['type']?.toString(),
-      ),
+      RTCSessionDescription(sdp, value['type']?.toString()),
     );
+    _lastAppliedAnswerSdp = sdp;
+    _clearAwaitingAnswer();
+    _initialNegotiationDone = true;
     _hasRemoteDescription = true;
     await _flushCandidates();
     unawaited(_limitVideoSender());
-    unawaited(_drainRenegotiation());
+    _scheduleDrainRenegotiation();
+  }
+
+  Future<bool> _signalingStable(RTCPeerConnection peer) async {
+    try {
+      final signaling = await peer.getSignalingState();
+      return signaling == null ||
+          signaling == RTCSignalingState.RTCSignalingStateStable;
+    } on Object {
+      return false;
+    }
   }
 
   /// Cần thương lượng lại SDP (thêm / nhận video giữa cuộc gọi). Signaling
@@ -603,7 +946,12 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   void _requestRenegotiation() {
     if (_leaving || _fatalErrorHandled) return;
     _renegotiationQueued = true;
-    unawaited(_drainRenegotiation());
+    _scheduleDrainRenegotiation();
+  }
+
+  void _scheduleDrainRenegotiation() {
+    if (!_renegotiationQueued || _leaving || _fatalErrorHandled) return;
+    _runSignaling(_drainRenegotiation);
   }
 
   Future<void> _drainRenegotiation() async {
@@ -700,7 +1048,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       final sender = await peer.addTrack(tracks.first, stream);
       _upgradeVideoStream = camera;
       _upgradeVideoSender = sender;
-      await Helper.setSpeakerphoneOn(true);
+      await _applySpeakerRoute(true);
       if (!mounted) return;
       setState(() {
         _hasLocalVideo = true;
@@ -784,7 +1132,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     final switchesLayout = !_videoActive;
     setState(() => _hasRemoteVideo = true);
     if (switchesLayout && !_speakerEnabled) {
-      await Helper.setSpeakerphoneOn(true);
+      await _applySpeakerRoute(true);
       if (mounted) setState(() => _speakerEnabled = true);
     }
   }
@@ -804,11 +1152,24 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       value['sdpMid']?.toString(),
       _asInt(value['sdpMLineIndex']),
     );
-    if (!_hasRemoteDescription || _peer == null) {
+    final peer = _peer;
+    if (!_hasRemoteDescription || peer == null) {
       _pendingCandidates.add(candidate);
       return;
     }
-    await _peer!.addCandidate(candidate);
+    await _addCandidateSafely(peer, candidate);
+  }
+
+  /// Candidate hỏng / cũ (sau ICE restart) không được cắt cuộc gọi.
+  Future<void> _addCandidateSafely(
+    RTCPeerConnection peer,
+    RTCIceCandidate candidate,
+  ) async {
+    try {
+      await peer.addCandidate(candidate);
+    } on Object catch (error) {
+      debugPrint('Bỏ qua ICE candidate lỗi: $error');
+    }
   }
 
   Future<void> _flushCandidates() async {
@@ -817,8 +1178,57 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     final candidates = List<RTCIceCandidate>.from(_pendingCandidates);
     _pendingCandidates.clear();
     for (final candidate in candidates) {
-      await peer.addCandidate(candidate);
+      await _addCandidateSafely(peer, candidate);
     }
+  }
+
+  /// Gửi ICE candidate; lỗi thì thử lại một lần, vẫn lỗi thì chỉ ghi log
+  /// (thiếu một candidate thường vẫn nối được qua candidate khác).
+  Future<void> _sendCandidate(Map<String, Object?> payload) async {
+    for (var attempt = 1; ; attempt++) {
+      if (_leaving || _fatalErrorHandled) return;
+      try {
+        await _sendSignal(CallSignalType.iceCandidate, payload);
+        return;
+      } on Object catch (error) {
+        if (attempt >= CallSignalTiming.candidateMaxAttempts) {
+          debugPrint('Không gửi được ICE candidate: $error');
+          return;
+        }
+      }
+      await Future<void>.delayed(CallSignalTiming.candidateRetryDelay);
+    }
+  }
+
+  /// Bên nhận báo "sẵn sàng" (bên gọi gửi offer khi nhận được), rồi gửi lại
+  /// mỗi ~3 giây tới khi có offer: tín hiệu mất trên đường thì cuộc gọi không
+  /// kẹt. Lỗi gửi chỉ ghi log, không cắt cuộc gọi (lần gửi lại sẽ thử tiếp).
+  Future<void> _sendReady() async {
+    Future<void> send() async {
+      try {
+        await _sendSignal(CallSignalType.ready, const {});
+      } on Object catch (error) {
+        debugPrint('Gửi tín hiệu ready lỗi: $error');
+      }
+    }
+
+    _readyResendTimer?.cancel();
+    _readyBudget.reset();
+    await send();
+    if (_offerReceived || _leaving || _fatalErrorHandled || !mounted) return;
+    _readyResendTimer = Timer.periodic(CallSignalTiming.readyResendInterval, (
+      timer,
+    ) {
+      if (_offerReceived ||
+          _leaving ||
+          _fatalErrorHandled ||
+          !mounted ||
+          !_readyBudget.tryConsume()) {
+        timer.cancel();
+        return;
+      }
+      unawaited(send());
+    });
   }
 
   Future<void> _sendSignal(
@@ -1031,7 +1441,13 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       setState(() => _error = _friendlyError(error));
     }
     _connectTimer?.cancel();
-    await _terminateServerCall(reason: reason);
+    try {
+      await _terminateServerCall(
+        reason: reason,
+      ).timeout(const Duration(seconds: 4));
+    } on Object {
+      // Mạng / máy chủ chậm: vẫn đóng màn gọi, lịch sử tự khớp lại sau.
+    }
     await Future<void>.delayed(callErrorDisplayDuration);
     await _leaveFromRemote();
   }
@@ -1052,15 +1468,27 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     }
   }
 
-  void _toggleMicrophone() {
+  void _toggleMicrophone() => _setMicrophoneEnabled(!_microphoneEnabled);
+
+  /// Bật / tắt micro. [syncNative]: báo giao diện gốc (CallKit) tắt / bật
+  /// tiếng theo; `false` khi chính CallKit vừa báo (tránh vòng lặp).
+  void _setMicrophoneEnabled(bool enabled, {bool syncNative = true}) {
+    if (!mounted) return;
     final tracks = _localStream?.getAudioTracks() ?? <MediaStreamTrack>[];
-    if (tracks.isEmpty) return;
     setState(() {
-      _microphoneEnabled = !_microphoneEnabled;
+      _microphoneEnabled = enabled;
       for (final track in tracks) {
-        track.enabled = _microphoneEnabled;
+        track.enabled = enabled;
       }
     });
+    if (syncNative) {
+      unawaited(
+        NativeIncomingCallService.setNativeMuted(
+          widget.callId,
+          muted: !enabled,
+        ),
+      );
+    }
   }
 
   void _toggleCamera() {
@@ -1076,6 +1504,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
 
   Future<void> _toggleSpeaker() async {
     final enabled = !_speakerEnabled;
+    // Nút loa thủ công: bật / tắt loa ngoài như cũ.
     await Helper.setSpeakerphoneOn(enabled);
     if (mounted) {
       setState(() => _speakerEnabled = enabled);
@@ -1091,60 +1520,110 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     }
   }
 
+  /// WebRTC báo `disconnected` / `failed`. Đặt hẹn kết thúc MỘT lần cho lần
+  /// mất kết nối này (chỉ huỷ khi nối lại), rồi sau ~3 giây thử khôi phục:
+  /// bên gọi khởi động lại ICE, bên nhận xin bên gọi khởi động lại.
   void _scheduleConnectionRecovery() {
     if (_leaving || _fatalErrorHandled) return;
-    _disconnectTimer?.cancel();
-    if (mounted) {
+    if (mounted && !_reconnecting) {
       setState(() => _reconnecting = true);
     }
-    _disconnectTimer = Timer(Duration(seconds: widget.incoming ? 15 : 3), () {
-      if (_leaving || _fatalErrorHandled) return;
-      if (widget.incoming) {
-        unawaited(
-          _abortCall(
-            StateError(
-              tr(
-                'Kết nối cuộc gọi đã bị gián đoạn.',
-                'The call connection was interrupted.',
-              ),
-            ),
-            reason: 'webrtc_disconnected',
-          ),
-        );
-        return;
-      }
-      unawaited(_restartIce());
-    });
+    _recoveryDeadline ??= Timer(
+      CallRecoveryPolicy.giveUpAfter(incoming: widget.incoming),
+      _giveUpRecovery,
+    );
+    if (_disconnectTimer?.isActive == true) return;
+    _disconnectTimer = Timer(CallRecoveryPolicy.actionDelay, _runRecoveryStep);
   }
 
-  Future<void> _restartIce() async {
-    final peer = _peer;
-    if (peer == null || _iceRestartAttempted || _leaving) return;
-    _iceRestartAttempted = true;
-    try {
-      final offer = await peer.createOffer({'iceRestart': true});
-      await peer.setLocalDescription(offer);
-      await _sendSignal(CallSignalType.offer, {
-        'sdp': {'type': offer.type, 'sdp': offer.sdp},
-      });
-      _disconnectTimer?.cancel();
-      _disconnectTimer = Timer(const Duration(seconds: 12), () {
-        if (_reconnecting && !_leaving) {
-          unawaited(
-            _abortCall(
-              StateError(
-                tr(
+  void _runRecoveryStep() {
+    if (_leaving || _fatalErrorHandled || !_reconnecting) return;
+    _recoverNow();
+    // Vẫn chưa nối lại thì thử tiếp sau một lúc (tới khi hết lượt / hết hạn).
+    _disconnectTimer = Timer(
+      CallRecoveryPolicy.retryInterval,
+      _runRecoveryStep,
+    );
+  }
+
+  /// Một lượt khôi phục (giới hạn [CallRecoveryPolicy.maxRecoveryActions]).
+  void _recoverNow() {
+    if (_leaving || _fatalErrorHandled) return;
+    if (_recoveryActions >= CallRecoveryPolicy.maxRecoveryActions) return;
+    if (widget.incoming) {
+      _recoveryActions++;
+      // Chỉ bên gọi được gửi offer: xin bên gọi khởi động lại ICE. Máy bản cũ
+      // nhận `renegotiate` thì gửi offer thường, vô hại.
+      unawaited(
+        _sendSignal(CallSignalType.renegotiate, const {
+          'reason': callRenegotiateIceRestartReason,
+        }).catchError((Object error) {
+          debugPrint('Không xin được khởi động lại ICE: $error');
+        }),
+      );
+      return;
+    }
+    // Offer khởi động lại trước còn đang chờ answer (tự gửi lại): không chồng
+    // thêm lượt mới.
+    if (_iceRestartRunning || _pendingOfferPayload != null) return;
+    _recoveryActions++;
+    // Đánh dấu ngay lúc xếp hàng để lượt sau không xếp thêm một lần nữa.
+    _iceRestartRunning = true;
+    _runSignaling(_restartIce);
+  }
+
+  void _giveUpRecovery() {
+    _recoveryDeadline = null;
+    if (!_reconnecting || _leaving || _fatalErrorHandled) return;
+    unawaited(
+      _abortCall(
+        StateError(
+          widget.incoming
+              ? tr(
+                  'Kết nối cuộc gọi đã bị gián đoạn.',
+                  'The call connection was interrupted.',
+                )
+              : tr(
                   'Không thể khôi phục đường truyền WebRTC. Hãy kiểm tra TURN và firewall của server.',
                   'Couldn\'t restore the WebRTC connection. Check the server\'s TURN and firewall settings.',
                 ),
-              ),
-              reason: 'webrtc_disconnected',
-            ),
-          );
+        ),
+        reason: 'webrtc_disconnected',
+      ),
+    );
+  }
+
+  /// Bên gọi khởi động lại ICE (đổi Wi-Fi ↔ 4G): tải lại ICE servers (mật
+  /// khẩu TURN có hạn ~10 phút, mạng mới có thể cần TURN), đặt lại cấu hình
+  /// rồi gửi offer `iceRestart` (gửi lại nếu chưa có answer). Lỗi chỉ ghi log:
+  /// hẹn kết thúc của [_scheduleConnectionRecovery] vẫn còn.
+  Future<void> _restartIce() async {
+    final peer = _peer;
+    try {
+      if (peer == null || _leaving || _fatalErrorHandled) return;
+      final servers = await _fetchIceServers();
+      if (_leaving || _fatalErrorHandled) return;
+      if (servers != null) {
+        try {
+          await peer.setConfiguration({
+            'iceServers': servers,
+            'sdpSemantics': 'unified-plan',
+          });
+        } on Object catch (error) {
+          debugPrint('Không cập nhật được ICE servers: $error');
         }
-      });
+      }
+      final offer = await peer.createOffer({'iceRestart': true});
+      await peer.setLocalDescription(offer);
+      await _sendOfferAwaitingAnswer(
+        offer,
+        timeout: CallSignalTiming.iceRestartAnswerTimeout,
+        maxResends: CallSignalTiming.iceRestartMaxResends,
+      );
     } on Object catch (error) {
-      await _abortCall(error, reason: 'webrtc_recovery_failed');
+      debugPrint('Khởi động lại ICE lỗi: $error');
+    } finally {
+      _iceRestartRunning = false;
     }
   }
 
@@ -1195,13 +1674,19 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _reconnecting
-                            ? tr('Đang khôi phục kết nối…', 'Reconnecting…')
-                            : _status == CallStatus.accepted
-                            ? _duration(_elapsed)
-                            : tr('Đang kết nối', 'Connecting'),
+                        switch (_headerPhase) {
+                          CallHeaderPhase.reconnecting => tr(
+                            'Đang khôi phục kết nối…',
+                            'Reconnecting…',
+                          ),
+                          CallHeaderPhase.active => _duration(_elapsed),
+                          CallHeaderPhase.connecting => tr(
+                            'Đang kết nối…',
+                            'Connecting…',
+                          ),
+                        },
                         style: TextStyle(
-                          color: _reconnecting
+                          color: _headerPhase == CallHeaderPhase.reconnecting
                               ? const Color(0xFFFBBF24)
                               : Colors.white70,
                           fontWeight: FontWeight.w600,
@@ -1211,7 +1696,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
                   ),
                 ),
               ),
-              if (_status == CallStatus.accepted &&
+              if (_headerPhase == CallHeaderPhase.active &&
                   _elapsed >= const Duration(hours: 1))
                 Positioned(
                   left: 28,
@@ -1391,9 +1876,11 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       return _state(
         Icons.person,
         widget.title,
-        _status == CallStatus.accepted
+        _status != CallStatus.accepted
+            ? tr('Đang đổ chuông...', 'Ringing...')
+            : _connected
             ? tr('Đã kết nối', 'Connected')
-            : tr('Đang đổ chuông...', 'Ringing...'),
+            : tr('Đang kết nối…', 'Connecting…'),
       );
     }
     return LayoutBuilder(

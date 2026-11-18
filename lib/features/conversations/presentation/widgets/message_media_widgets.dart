@@ -12,6 +12,7 @@ import 'package:video_player/video_player.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/audio/playable_audio.dart';
+import '../../../../core/media/exclusive_media_playback.dart';
 import '../../../../core/media/media_playback.dart';
 import '../../../../core/network/recent_download_failures.dart';
 import '../../../../core/network/redirect_safe_file_downloader.dart';
@@ -305,7 +306,8 @@ class MessageImageAttachmentView extends ConsumerStatefulWidget {
   final String? timeLabel;
 
   /// Dùng ảnh thu nhỏ (nếu máy chủ có) cho danh sách / bong bóng; màn xem ảnh
-  /// đặt `false` để mở bản gốc.
+  /// đặt `false` để mở bản gốc (tới [maxImageFullscreenBytes], lớn hơn nữa
+  /// thì dùng ảnh thu nhỏ).
   final bool preferThumbnail;
   final BoxFit fit;
   final double? height;
@@ -329,6 +331,11 @@ class _MessageImageAttachmentViewState
   double? _reportedRatio;
   ImageStream? _sizeStream;
   ImageStreamListener? _sizeListener;
+
+  /// Cỡ tối đa của ảnh gốc: bong bóng [maxImagePreviewBytes], màn xem toàn
+  /// màn hình [maxImageFullscreenBytes] (giải mã vẫn giới hạn 2048 px).
+  int get _originalLimit =>
+      widget.preferThumbnail ? maxImagePreviewBytes : maxImageFullscreenBytes;
 
   String get _ratioKey {
     final attachment = widget.attachment;
@@ -414,17 +421,18 @@ class _MessageImageAttachmentViewState
     }
     _localImageFile = null;
     _stopSizeListener();
-    _thumbnailUri = widget.preferThumbnail
-        ? attachmentThumbnailUri(widget.attachment, widget.apiBaseUri)
-        : null;
     final uri = attachmentDownloadUri(widget.attachment, widget.apiBaseUri);
     _imageUri =
         uri != null &&
             attachmentPreviewWithinLimit(
               widget.attachment.file.byteSize,
-              maxBytes: maxImagePreviewBytes,
+              maxBytes: _originalLimit,
             )
         ? uri
+        : null;
+    // Màn toàn màn hình: ảnh gốc quá lớn thì vẫn còn ảnh thu nhỏ để xem.
+    _thumbnailUri = widget.preferThumbnail || _imageUri == null
+        ? attachmentThumbnailUri(widget.attachment, widget.apiBaseUri)
         : null;
   }
 
@@ -449,6 +457,9 @@ class _MessageImageAttachmentViewState
         mounted &&
         generation == _loadGeneration &&
         await binding.isStillCurrent();
+    final maxBytes = uri == _thumbnailUri
+        ? maxImagePreviewBytes
+        : _originalLimit;
     // Kho đệm 7 ngày trên máy; ảnh vừa bị từ chối (403 / 404) thì không hỏi
     // lại máy chủ mỗi lần vẽ lại.
     final bytes = await loadCachedImageBytes(
@@ -460,11 +471,11 @@ class _MessageImageAttachmentViewState
         uri: uri,
         variant: '${widget.attachment.file.byteSize}',
       ),
-      maxBytes: maxImagePreviewBytes,
+      maxBytes: maxBytes,
       download: () => _imageDownloadGate.run(
         () => _downloader.downloadBytes(
           uri: uri,
-          maxBytes: maxImagePreviewBytes,
+          maxBytes: maxBytes,
           accept: uri == _thumbnailUri
               ? 'image/jpeg'
               : widget.attachment.file.mimeType,
@@ -472,6 +483,8 @@ class _MessageImageAttachmentViewState
           isStillCurrent: isCurrent,
         ),
       ),
+      // Đăng xuất / đổi phiên giữa chừng thì không ghi vào kho.
+      isStillCurrent: binding.isStillCurrent,
     );
     return bytes != null && await isCurrent() ? bytes : null;
   }
@@ -515,7 +528,7 @@ class _MessageImageAttachmentViewState
                 '$uri|${widget.attachment.file.byteSize}|'
                 '${widget.attachment.file.mimeType}|$generation',
             loadBytes: () => _load(uri, generation),
-            maxEncodedBytes: maxImagePreviewBytes,
+            maxEncodedBytes: _originalLimit,
             decodeTargetWidth: (boxWidth * 3).ceil().clamp(1, 2048),
             decodeTargetHeight: widget.maxHeight.isFinite
                 ? (widget.maxHeight * 3).ceil().clamp(1, 2048)
@@ -660,6 +673,7 @@ class _MessageVoiceAttachmentViewState
       )
       ..add(
         _player.onPlayerComplete.listen((_) {
+          ExclusiveMediaPlayback.release(this);
           if (mounted) {
             setState(() {
               _position = Duration.zero;
@@ -673,6 +687,7 @@ class _MessageVoiceAttachmentViewState
 
   @override
   void dispose() {
+    ExclusiveMediaPlayback.release(this);
     widget.playbackLink?.detach(_seekAndPlay);
     _loadGeneration += 1;
     for (final subscription in _subscriptions) {
@@ -703,6 +718,11 @@ class _MessageVoiceAttachmentViewState
     }
   }
 
+  /// Nguồn phát khác (tin thoại / video khác) bắt đầu phát: tạm dừng tin này.
+  Future<void> _pauseForOther() async {
+    if (_playing) await _player.pause();
+  }
+
   Future<void> _togglePlayback() async {
     if (_playing) {
       await _player.pause();
@@ -718,6 +738,8 @@ class _MessageVoiceAttachmentViewState
       if (mounted) setState(() => _failed = true);
       return;
     }
+    // Chỉ một nguồn có tiếng tại một thời điểm.
+    ExclusiveMediaPlayback.claim(this, _pauseForOther);
     if (_playerState == PlayerState.completed) {
       await _player.play(
         DeviceFileSource(
@@ -760,23 +782,27 @@ class _MessageVoiceAttachmentViewState
             await binding.isStillCurrent();
       }
 
-      // Kho đệm 7 ngày của tài khoản: nghe lại không tải lại.
+      // Kho đệm 7 ngày của tài khoản: nghe lại không tải lại. Lượt tải chỉ
+      // dừng khi đổi phiên (không dừng khi cuộn khỏi bong bóng): bong bóng
+      // dựng lại tự nối vào lượt đang tải, không tải lại từ đầu. Lượt tải có
+      // thể chạy sau khi bong bóng đã huỷ: không đọc `widget` trong đó.
+      final file = widget.attachment.file;
       final readyFile = await attachmentMediaCache.ensureFile(
         await binding.cacheFile(
           purpose: 'voice',
           uri: uri,
-          originalName: widget.attachment.file.name,
+          originalName: file.name,
         ),
-        expectedBytes: widget.attachment.file.byteSize,
+        expectedBytes: file.byteSize,
         download: (target) => _voiceDownloadGate.run(
           () => _downloader.download(
             uri: uri,
             target: target,
             maxBytes: maxVoicePlaybackBytes,
-            expectedBytes: widget.attachment.file.byteSize,
-            accept: widget.attachment.file.mimeType,
+            expectedBytes: file.byteSize,
+            accept: file.mimeType,
             bearerToken: binding.bearerToken,
-            isStillCurrent: operationIsCurrent,
+            isStillCurrent: binding.isStillCurrent,
           ),
         ),
       );
@@ -809,6 +835,7 @@ class _MessageVoiceAttachmentViewState
       _playablePath = playablePath;
       _binding = binding;
       setState(() => _loading = false);
+      ExclusiveMediaPlayback.claim(this, _pauseForOther);
       await _player.play(
         DeviceFileSource(
           playablePath ?? readyFile.path,
@@ -1054,6 +1081,29 @@ class _MessageVideoAttachmentViewState
   bool _loading = false;
   bool _failed = false;
 
+  /// [_controller] phát dần từ đường `/stream` (mã sống 15 phút): lỗi giữa
+  /// chừng (tạm dừng lâu, video dài) thì xin đường mới rồi phát tiếp.
+  bool _controllerStreamed = false;
+
+  /// Trạng thái trình phát đã vẽ lên màn: listener chỉ vẽ lại khi đổi.
+  bool _shownPlaying = false;
+  bool _shownCompleted = false;
+  bool _shownError = false;
+
+  /// Vị trí gần nhất trước khi lỗi (giá trị lỗi của trình phát xoá hết vị
+  /// trí): khôi phục thì tua về đây.
+  Duration _lastPosition = Duration.zero;
+
+  /// Người dùng muốn video đang chạy (bấm phát, chưa tạm dừng / chưa hết):
+  /// khôi phục xong thì phát tiếp.
+  bool _wantsPlaying = false;
+
+  final MessageVideoRecoveryBudget _recoveryBudget =
+      MessageVideoRecoveryBudget();
+
+  /// Tiến độ tải chung (theo tệp kho) mà bong bóng này đang theo dõi.
+  ValueNotifier<double>? _progressSource;
+
   /// Phần đã tải (0..1) khi phải tải cả video về máy rồi mới phát (iPhone).
   double? _downloadProgress;
 
@@ -1105,12 +1155,15 @@ class _MessageVideoAttachmentViewState
             widget.attachment.file.downloadPath ||
         oldWidget.apiBaseUri != widget.apiBaseUri) {
       _initializationGeneration += 1;
-      final previous = _controller;
-      _controller = null;
+      final previous = _swapController(null);
+      ExclusiveMediaPlayback.release(this);
+      _stopWatchingProgress();
       _binding = null;
       _loading = false;
       _failed = false;
       _playWhenReady = false;
+      _wantsPlaying = false;
+      _downloadProgress = null;
       _previewTried = false;
       _releasePreviewSlot();
       unawaited(previous?.dispose());
@@ -1129,11 +1182,127 @@ class _MessageVideoAttachmentViewState
     _requestDownload();
   }
 
-  void _onDownloadProgress(int generation, int received, int total) {
-    if (!mounted || generation != _initializationGeneration || total <= 0) {
+  /// Chạm vòng chờ (vd. đang mở khung xem trước, tới 24 giây): sẵn sàng thì
+  /// phát luôn, không bắt chạm lại.
+  void _onLoadingTapped() {
+    _playWhenReady = true;
+  }
+
+  /// Thay trình phát: gỡ listener của trình phát cũ, gắn vào trình phát mới.
+  /// Trả trình phát cũ để nơi gọi huỷ.
+  VideoPlayerController? _swapController(
+    VideoPlayerController? next, {
+    bool streamed = false,
+  }) {
+    final previous = _controller;
+    previous?.removeListener(_onControllerChanged);
+    _controller = next;
+    _controllerStreamed = next != null && streamed;
+    if (next != null) {
+      final value = next.value;
+      _shownPlaying = value.isPlaying;
+      _shownCompleted = _videoCompleted(value);
+      _shownError = value.hasError;
+      if (!value.hasError) _lastPosition = value.position;
+      next.addListener(_onControllerChanged);
+    }
+    return previous;
+  }
+
+  static bool _videoCompleted(VideoPlayerValue value) {
+    return value.isInitialized &&
+        !value.isPlaying &&
+        value.duration > Duration.zero &&
+        value.position >= value.duration;
+  }
+
+  /// Trình phát đổi trạng thái: vẽ lại nút Phát / Tạm dừng và nhãn thời lượng
+  /// khi đang phát / đã hết / lỗi đổi; lỗi thì thử khôi phục.
+  void _onControllerChanged() {
+    final controller = _controller;
+    if (!mounted || controller == null) return;
+    final value = controller.value;
+    if (!value.hasError) _lastPosition = value.position;
+    final playing = value.isPlaying;
+    final completed = _videoCompleted(value);
+    final error = value.hasError;
+    if (playing == _shownPlaying &&
+        completed == _shownCompleted &&
+        error == _shownError) {
       return;
     }
-    final next = (received / total).clamp(0.0, 1.0);
+    final becameCompleted = completed && !_shownCompleted;
+    final becameError = error && !_shownError;
+    setState(() {
+      _shownPlaying = playing;
+      _shownCompleted = completed;
+      _shownError = error;
+    });
+    if (becameCompleted) {
+      _wantsPlaying = false;
+      ExclusiveMediaPlayback.release(this);
+    }
+    if (becameError) unawaited(_onPlaybackError(controller));
+  }
+
+  /// Trình phát báo lỗi. Phát dần (đường có mã sống 15 phút): xin đường mới,
+  /// tua về chỗ cũ, phát tiếp nếu đang phát (tối đa
+  /// [MessageVideoRecoveryBudget.maxAttempts] lần mỗi phút); không phát dần
+  /// lại được thì [_initialize] tự lùi về tải tệp. Quá số lần / tệp trên máy
+  /// lỗi: hiện trạng thái lỗi có nút thử lại.
+  Future<void> _onPlaybackError(VideoPlayerController failed) async {
+    if (!mounted || !identical(_controller, failed)) return;
+    final action = messageVideoErrorAction(
+      streamed: _controllerStreamed,
+      budget: _recoveryBudget,
+      now: DateTime.now(),
+    );
+    final resumeAt = _lastPosition;
+    final resumePlaying = _wantsPlaying;
+    _initializationGeneration += 1;
+    _swapController(null);
+    ExclusiveMediaPlayback.release(this);
+    _releasePreviewSlot();
+    _binding = null;
+    _wantsPlaying = false;
+    if (action == MessageVideoErrorAction.fail) {
+      _playWhenReady = false;
+      setState(() {
+        _loading = false;
+        _failed = true;
+      });
+      await failed.dispose();
+      return;
+    }
+    setState(() => _loading = true);
+    await failed.dispose();
+    if (!mounted) return;
+    _playWhenReady = resumePlaying;
+    await _initialize(freshStream: true, resumeAt: resumeAt);
+  }
+
+  /// Theo dõi tiến độ chung của lượt tải vào [path] (tạo mới nếu chưa có ai
+  /// tải): bong bóng dựng lại vẫn thấy phần trăm của lượt đang chạy.
+  ValueNotifier<double> _watchDownloadProgress(String path) {
+    final notifier = _mediaDownloadProgress.putIfAbsent(
+      path,
+      () => ValueNotifier<double>(0),
+    );
+    _stopWatchingProgress();
+    _progressSource = notifier..addListener(_onSharedProgress);
+    if (notifier.value > 0) _onSharedProgress();
+    return notifier;
+  }
+
+  void _stopWatchingProgress() {
+    _progressSource?.removeListener(_onSharedProgress);
+    _progressSource = null;
+  }
+
+  void _onSharedProgress() {
+    final source = _progressSource;
+    if (!mounted || source == null) return;
+    final next = source.value.clamp(0.0, 1.0);
     final previous = _downloadProgress;
     // Chỉ vẽ lại khi đổi ít nhất 1%: tệp lớn có hàng nghìn khúc.
     if (previous != null && (next * 100).floor() == (previous * 100).floor()) {
@@ -1150,45 +1319,54 @@ class _MessageVideoAttachmentViewState
       label: percent == null
           ? tr('Đang mở video', 'Opening video')
           : tr('Đang tải video $percent%', 'Downloading video $percent%'),
+      onTap: _onLoadingTapped,
       excludeSemantics: true,
-      child: Container(
-        key: const ValueKey('video-loading'),
-        width: 56,
-        height: 56,
-        padding: const EdgeInsets.all(6),
-        decoration: const BoxDecoration(
-          color: Colors.black54,
-          shape: BoxShape.circle,
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            CircularProgressIndicator(
-              value: progress,
-              strokeWidth: 2.5,
-              color: Colors.white,
-              backgroundColor: progress == null ? null : Colors.white24,
-            ),
-            if (percent != null)
-              Center(
-                child: Text(
-                  '$percent%',
-                  style: WebTuiTypography.labelSmall.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 11,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _onLoadingTapped,
+        child: Container(
+          key: const ValueKey('video-loading'),
+          width: 56,
+          height: 56,
+          padding: const EdgeInsets.all(6),
+          decoration: const BoxDecoration(
+            color: Colors.black54,
+            shape: BoxShape.circle,
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              CircularProgressIndicator(
+                value: progress,
+                strokeWidth: 2.5,
+                color: Colors.white,
+                backgroundColor: progress == null ? null : Colors.white24,
+              ),
+              if (percent != null)
+                Center(
+                  child: Text(
+                    '$percent%',
+                    style: WebTuiTypography.labelSmall.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  /// Mở đường phát dần của video (xin link mới một lần nếu link cũ bị từ chối).
+  /// Mở đường phát dần của video (xin link mới một lần nếu link cũ bị từ chối;
+  /// [fresh]: bỏ qua link đã nhớ ngay từ đầu, dùng khi khôi phục sau lỗi).
   /// Trả null khi không phát dần được, lúc đó caller chuyển sang tải về.
-  Future<VideoPlayerController?> _openStream(int generation) async {
+  Future<VideoPlayerController?> _openStream(
+    int generation, {
+    bool fresh = false,
+  }) async {
     // iPhone: phát dần hay đứng ở ảnh bìa; luôn tải về rồi phát tệp.
     if (preferLocalMediaPlayback()) return null;
     final workspaceId = workspaceIdFromFilePath(
@@ -1196,12 +1374,12 @@ class _MessageVideoAttachmentViewState
     );
     final fileId = widget.attachment.fileId;
     if (workspaceId == null || fileId.isEmpty) return null;
-    for (final fresh in const [false, true]) {
+    for (final freshLink in fresh ? const [true] : const [false, true]) {
       final stream = await resolveMessageVideoStream(
         ref,
         workspaceId: workspaceId,
         fileId: fileId,
-        fresh: fresh,
+        fresh: freshLink,
       );
       if (stream == null ||
           !mounted ||
@@ -1216,7 +1394,14 @@ class _MessageVideoAttachmentViewState
     return null;
   }
 
-  Future<void> _initialize({bool previewOnly = false}) async {
+  /// Mở video: phát dần nếu được, không thì tải cả tệp vào kho rồi phát.
+  /// [freshStream]: xin đường phát dần mới (khôi phục sau lỗi); [resumeAt]:
+  /// tua tới vị trí này khi trình phát sẵn sàng.
+  Future<void> _initialize({
+    bool previewOnly = false,
+    bool freshStream = false,
+    Duration? resumeAt,
+  }) async {
     final generation = ++_initializationGeneration;
     if (mounted) {
       setState(() {
@@ -1243,6 +1428,9 @@ class _MessageVideoAttachmentViewState
       return;
     }
 
+    final byteSize = widget.attachment.file.byteSize;
+    // Không rõ cỡ (máy chủ cũ): vẫn cho tải, không so cỡ.
+    final expectedBytes = byteSize > 0 ? byteSize : null;
     VideoPlayerController? next;
     try {
       Future<bool> operationIsCurrent() async {
@@ -1252,18 +1440,19 @@ class _MessageVideoAttachmentViewState
       }
 
       // Đã tải về trong 7 ngày qua: phát thẳng tệp trên máy, không hỏi mạng.
+      // Cùng tệp kho với "Lưu vào thư viện ảnh": xem rồi lưu không tải lại.
       final cacheTarget = await binding.cacheFile(
         purpose: 'video',
         uri: uri,
-        originalName: widget.attachment.file.name,
+        originalName: galleryFileName(widget.attachment),
       );
       final cached = await attachmentMediaCache.lookup(
         cacheTarget,
-        expectedBytes: widget.attachment.file.byteSize,
+        expectedBytes: expectedBytes,
       );
       if (cached == null) {
         // Ưu tiên phát dần: không phải tải hết tệp mới xem được.
-        final streamed = await _openStream(generation);
+        final streamed = await _openStream(generation, fresh: freshStream);
         if (streamed != null) {
           if (!await operationIsCurrent()) {
             await streamed.dispose();
@@ -1272,54 +1461,68 @@ class _MessageVideoAttachmentViewState
             );
           }
           await streamed.setLooping(false);
-          final previous = _controller;
-          setState(() {
-            _controller = streamed;
-            _binding = binding;
-            _loading = false;
-            _failed = false;
-          });
-          if (previous != null) await previous.dispose();
-          if (_playWhenReady &&
-              mounted &&
-              generation == _initializationGeneration) {
-            _playWhenReady = false;
-            await _togglePlayback();
+          if (resumeAt != null && resumeAt > Duration.zero) {
+            await streamed.seekTo(resumeAt);
           }
+          if (!mounted || generation != _initializationGeneration) {
+            await streamed.dispose();
+            return;
+          }
+          await _activateController(
+            streamed,
+            binding: binding,
+            generation: generation,
+            streamed: true,
+          );
           return;
         }
         if (previewOnly) {
           // Chỉ xem trước: không tải cả tệp về chỉ để lấy khung hình.
           throw const RedirectSafeDownloadException('preview unavailable');
         }
-        if (!attachmentPreviewWithinLimit(
-          widget.attachment.file.byteSize,
-          maxBytes: maxVideoPlaybackBytes,
-        )) {
+        if (byteSize > maxVideoPlaybackBytes) {
           throw const RedirectSafeDownloadException('video too large');
         }
       }
 
       // Tải vào kho đệm của tài khoản (giữ 7 ngày): xem lại không tải lại.
-      final readyFile =
-          cached ??
-          await attachmentMediaCache.ensureFile(
+      // Lượt tải chỉ dừng khi đổi phiên, không dừng khi cuộn khỏi bong bóng:
+      // bong bóng dựng lại nối vào lượt đang tải (kho gộp lượt trùng) và
+      // thấy phần trăm qua tiến độ chung.
+      final File readyFile;
+      if (cached != null) {
+        readyFile = cached;
+      } else {
+        final progressPath = cacheTarget.path;
+        final progress = _watchDownloadProgress(progressPath);
+        // Lượt tải có thể chạy sau khi bong bóng đã huỷ: không đọc `widget`.
+        final mimeType = widget.attachment.file.mimeType;
+        try {
+          readyFile = await attachmentMediaCache.ensureFile(
             cacheTarget,
-            expectedBytes: widget.attachment.file.byteSize,
+            expectedBytes: expectedBytes,
             download: (target) => _videoDownloadGate.run(
               () => _downloader.download(
                 uri: uri,
                 target: target,
                 maxBytes: maxVideoPlaybackBytes,
-                expectedBytes: widget.attachment.file.byteSize,
-                accept: widget.attachment.file.mimeType,
+                expectedBytes: expectedBytes,
+                accept: mimeType,
                 bearerToken: binding.bearerToken,
-                isStillCurrent: operationIsCurrent,
-                onProgress: (received, total) =>
-                    _onDownloadProgress(generation, received, total),
+                isStillCurrent: binding.isStillCurrent,
+                onProgress: (received, total) {
+                  if (total > 0) progress.value = received / total;
+                },
               ),
             ),
           );
+        } finally {
+          if (identical(_progressSource, progress)) _stopWatchingProgress();
+          if (identical(_mediaDownloadProgress[progressPath], progress)) {
+            _mediaDownloadProgress.remove(progressPath);
+          }
+        }
+      }
       if (!await operationIsCurrent() ||
           generation != _initializationGeneration ||
           !mounted) {
@@ -1332,27 +1535,22 @@ class _MessageVideoAttachmentViewState
       );
       await next.initialize();
       await next.setLooping(false);
+      if (resumeAt != null && resumeAt > Duration.zero) {
+        await next.seekTo(resumeAt);
+      }
       if (!await operationIsCurrent() ||
           generation != _initializationGeneration ||
           !mounted) {
         throw const RedirectSafeDownloadException('instance binding changed');
       }
-      final previous = _controller;
-      setState(() {
-        _controller = next;
-        _binding = binding;
-        _loading = false;
-        _failed = false;
-      });
-      if (previous != null) {
-        await previous.dispose();
-      }
-      if (_playWhenReady &&
-          mounted &&
-          generation == _initializationGeneration) {
-        _playWhenReady = false;
-        await _togglePlayback();
-      }
+      final ready = next;
+      next = null;
+      await _activateController(
+        ready,
+        binding: binding,
+        generation: generation,
+        streamed: false,
+      );
     } on Object {
       // Tệp trong kho đệm dùng chung: không xoá ở đây, kho tự dọn sau 7 ngày.
       await next?.dispose();
@@ -1360,10 +1558,38 @@ class _MessageVideoAttachmentViewState
     }
   }
 
+  /// Đưa trình phát đã sẵn sàng lên màn (huỷ trình phát cũ); đã bấm phát thì
+  /// phát luôn.
+  Future<void> _activateController(
+    VideoPlayerController controller, {
+    required _AttachmentDownloadBinding binding,
+    required int generation,
+    required bool streamed,
+  }) async {
+    final previous = _swapController(controller, streamed: streamed);
+    setState(() {
+      _binding = binding;
+      _loading = false;
+      _failed = false;
+      _downloadProgress = null;
+    });
+    if (previous != null) await previous.dispose();
+    if (_playWhenReady && mounted && generation == _initializationGeneration) {
+      _playWhenReady = false;
+      await _togglePlayback();
+    }
+  }
+
   void _markVideoFailure(int generation, {bool previewOnly = false}) {
     if (!mounted || generation != _initializationGeneration) return;
-    _playWhenReady = false;
     if (previewOnly) _releasePreviewSlot();
+    if (previewOnly && _playWhenReady) {
+      // Đã chạm chờ phát trong lúc mở xem trước: xem trước hỏng thì mở hẳn
+      // video (phát dần lần nữa hoặc tải về).
+      unawaited(_initialize());
+      return;
+    }
+    _playWhenReady = false;
     setState(() {
       _loading = false;
       // Xem trước hỏng thì giữ ô tối có nút phát, chưa báo lỗi.
@@ -1375,8 +1601,19 @@ class _MessageVideoAttachmentViewState
   void dispose() {
     _releasePreviewSlot();
     _initializationGeneration += 1;
-    unawaited(_controller?.dispose());
+    ExclusiveMediaPlayback.release(this);
+    _stopWatchingProgress();
+    unawaited(_swapController(null)?.dispose());
     super.dispose();
+  }
+
+  /// Nguồn phát khác (tin thoại / video khác) bắt đầu phát: tạm dừng video này.
+  Future<void> _pauseForOther() async {
+    _wantsPlaying = false;
+    final controller = _controller;
+    if (controller != null && controller.value.isPlaying) {
+      await controller.pause();
+    }
   }
 
   Future<void> _togglePlayback() async {
@@ -1388,15 +1625,20 @@ class _MessageVideoAttachmentViewState
       if (controller?.value.isPlaying == true) {
         await controller?.pause();
       }
+      _wantsPlaying = false;
       if (mounted) setState(() => _failed = true);
       return;
     }
     if (controller.value.isPlaying) {
+      _wantsPlaying = false;
       await controller.pause();
     } else {
       if (controller.value.position >= controller.value.duration) {
         await controller.seekTo(Duration.zero);
       }
+      _wantsPlaying = true;
+      // Chỉ một nguồn có tiếng: tin thoại / video khác đang phát thì dừng.
+      ExclusiveMediaPlayback.claim(this, _pauseForOther);
       await controller.play();
     }
     if (mounted) setState(() {});
@@ -1412,6 +1654,7 @@ class _MessageVideoAttachmentViewState
       return;
     }
     if (controller.value.isPlaying) {
+      _wantsPlaying = false;
       await controller.pause();
     }
     if (!await binding.isStillCurrent() || !mounted) return;
@@ -1651,8 +1894,12 @@ class _MessageVideoAttachmentViewState
         ? knownWidth / knownHeight
         : MessageMediaAspectCache.get(ratioKey) ?? _thumbnailRatio ?? 16 / 9;
     final durationMs = file.durationMs ?? 0;
+    // Máy chủ chưa ghi thời lượng thì lấy thời lượng thật của trình phát.
+    final playerDuration = activeController?.value.duration ?? Duration.zero;
     final durationText = durationMs > 0
         ? _formatDuration(Duration(milliseconds: durationMs))
+        : playerDuration > Duration.zero
+        ? _formatDuration(playerDuration)
         : null;
     final Size box;
     if (widget.allowFullscreen) {
@@ -1833,6 +2080,7 @@ class _VideoThumbnailImageState extends ConsumerState<_VideoThumbnailImage> {
           isStillCurrent: isCurrent,
         ),
       ),
+      isStillCurrent: binding.isStillCurrent,
     );
     return bytes != null && await isCurrent() ? bytes : null;
   }
@@ -2093,7 +2341,12 @@ class _MessageFileAttachmentViewState
         apiBaseUri: widget.apiBaseUri,
         originalName: widget.attachment.file.name,
       );
-      final opened = await OpenFilex.open(target.path);
+      // Đã rời màn trong lúc tải thì không bật app khác lên.
+      if (!mounted) return;
+      final opened = await OpenFilex.open(
+        target.path,
+        type: widget.attachment.file.mimeType,
+      );
       if (opened.type != ResultType.done) {
         throw StateError(opened.message);
       }
@@ -2265,6 +2518,7 @@ Future<File> _downloadAttachmentFile(
   required Uri uri,
   required Uri? apiBaseUri,
   required String originalName,
+  String purpose = 'file',
 }) async {
   final binding = await _captureAttachmentDownloadBinding(
     read: read,
@@ -2277,7 +2531,7 @@ Future<File> _downloadAttachmentFile(
   // Kho đệm 7 ngày của tài khoản: mở / lưu lại không tải lại.
   final target = await attachmentMediaCache.ensureFile(
     await binding.cacheFile(
-      purpose: 'file',
+      purpose: purpose,
       uri: uri,
       originalName: originalName,
     ),
@@ -2379,17 +2633,17 @@ Future<void> _saveAttachmentsToGallery(
     final uri = attachmentDownloadUri(attachment, apiBaseUri);
     if (uri == null) continue;
     try {
+      final isVideo = _normalizedMime(attachment).startsWith('video/');
       final file = await _downloadAttachmentFile(
         container.read,
         attachment: attachment,
         uri: uri,
         apiBaseUri: apiBaseUri,
         originalName: galleryFileName(attachment),
+        // Video dùng chung tệp kho với lúc phát: đã xem thì lưu không tải lại.
+        purpose: isVideo ? 'video' : 'file',
       );
-      final result = await saver.save(
-        file.path,
-        isVideo: _normalizedMime(attachment).startsWith('video/'),
-      );
+      final result = await saver.save(file.path, isVideo: isVideo);
       if (result == MediaGallerySaveResult.saved) saved += 1;
       if (result == MediaGallerySaveResult.permissionDenied) {
         denied = true;
@@ -2534,8 +2788,64 @@ final class _AttachmentDownloadBinding {
 }
 
 const int maxImagePreviewBytes = 5 * 1024 * 1024;
+
+/// Ảnh gốc tối đa ở màn xem ảnh toàn màn hình (bong bóng vẫn
+/// [maxImagePreviewBytes]); lớn hơn thì dùng ảnh thu nhỏ.
+const int maxImageFullscreenBytes = 30 * 1024 * 1024;
 const int maxVoicePlaybackBytes = 100 * 1024 * 1024;
-const int maxVideoPlaybackBytes = 250 * 1024 * 1024;
+
+/// Video tải cả tệp về rồi phát (iPhone luôn vậy): bằng mức gửi tối đa, để
+/// video nào gửi được cũng xem được.
+const int maxVideoPlaybackBytes = UploadMessageAttachmentUseCase.maxBytes;
+
+/// Tiến độ (0..1) của các lượt tải video vào kho đang chạy, theo đường dẫn
+/// tệp kho: bong bóng dựng lại (cuộn đi rồi quay lại) vẫn thấy phần trăm của
+/// lượt đang tải. Lượt tải xong / lỗi thì gỡ khỏi bảng.
+final Map<String, ValueNotifier<double>> _mediaDownloadProgress = {};
+
+/// Giới hạn số lần tự khôi phục video phát dần: tối đa [maxAttempts] lần trong
+/// [window], quá thì báo lỗi để người dùng tự thử lại (tránh vòng lặp xin
+/// đường mới khi máy chủ / mạng hỏng hẳn).
+final class MessageVideoRecoveryBudget {
+  MessageVideoRecoveryBudget({
+    this.maxAttempts = 2,
+    this.window = const Duration(minutes: 1),
+  });
+
+  final int maxAttempts;
+  final Duration window;
+  final List<DateTime> _attempts = [];
+
+  /// Còn lượt khôi phục lúc [now] thì ghi nhận một lượt và trả true.
+  bool tryAcquire(DateTime now) {
+    _attempts.removeWhere((attempt) => now.difference(attempt) >= window);
+    if (_attempts.length >= maxAttempts) return false;
+    _attempts.add(now);
+    return true;
+  }
+}
+
+enum MessageVideoErrorAction {
+  /// Xin đường phát dần mới, tua về chỗ cũ, phát tiếp.
+  recover,
+
+  /// Hiện trạng thái lỗi có nút thử lại.
+  fail,
+}
+
+/// Trình phát video báo lỗi thì làm gì: chỉ trình phát dần (đường có mã sống
+/// 15 phút, hết hạn khi tạm dừng lâu / video dài) mới tự khôi phục, trong giới
+/// hạn [budget]; tệp trên máy lỗi thì khôi phục cũng vô ích.
+MessageVideoErrorAction messageVideoErrorAction({
+  required bool streamed,
+  required MessageVideoRecoveryBudget budget,
+  required DateTime now,
+}) {
+  if (!streamed) return MessageVideoErrorAction.fail;
+  return budget.tryAcquire(now)
+      ? MessageVideoErrorAction.recover
+      : MessageVideoErrorAction.fail;
+}
 
 final _imageDownloadGate = _BoundedAsyncGate(3);
 final _voiceDownloadGate = _BoundedAsyncGate(2);

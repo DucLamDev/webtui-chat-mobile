@@ -29,6 +29,7 @@ import '../../../auth/application/session_termination.dart';
 import '../../../auth/presentation/controllers/device_approval_controllers.dart';
 import '../../../auth/presentation/controllers/legal_acceptance_controller.dart';
 import '../../../auth/presentation/screens/device_approval_review_screen.dart';
+import '../../../conversations/application/call_connection_policy.dart';
 import '../../../conversations/domain/entities/business_channel_catalog.dart';
 import '../../../conversations/domain/entities/call_busy_policy.dart';
 import '../../../conversations/domain/entities/call_device_routing.dart';
@@ -1147,13 +1148,34 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     // chết): nối lại ngay trong lúc hộp "Cuộc gọi đến" đổ chuông.
     _prepareRealtime(target.workspaceId);
     try {
-      final initialResult = await ref
+      // Lỗi mạng tạm thời KHÔNG phải "cuộc gọi đã kết thúc": giữ chuông gốc
+      // và thử lại vài lần; vẫn lỗi thì để nguyên (thông báo / hỏi định kỳ
+      // sau sẽ mở lại hộp), không tắt CallKit.
+      var initialResult = await ref
           .read(getCallUseCaseProvider)
           .execute(workspaceId: target.workspaceId, callId: callId);
+      for (
+        var attempt = 0;
+        attempt < 2 &&
+            mounted &&
+            classifyCallLookup(initialResult) ==
+                CallLookupOutcome.transientError;
+        attempt++
+      ) {
+        await Future<void>.delayed(const Duration(seconds: 2));
+        if (!mounted) break;
+        initialResult = await ref
+            .read(getCallUseCaseProvider)
+            .execute(workspaceId: target.workspaceId, callId: callId);
+      }
+      if (!mounted) {
+        await NativeIncomingCallService.endCall(callId, remoteEnded: true);
+        return;
+      }
+      final lookup = classifyCallLookup(initialResult);
+      if (lookup == CallLookupOutcome.transientError) return;
       final initialCall = initialResult.valueOrNull;
-      if (!mounted ||
-          initialCall == null ||
-          initialCall.status != CallStatus.ringing) {
+      if (lookup != CallLookupOutcome.ringing || initialCall == null) {
         await NativeIncomingCallService.endCall(callId, remoteEnded: true);
         return;
       }
@@ -1223,7 +1245,14 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
                           workspaceId: target.workspaceId,
                           callId: callId,
                         );
-                    return result.valueOrNull?.status;
+                    // Lỗi mạng: chưa biết (giữ chuông); không còn cuộc gọi
+                    // (404): coi như đã huỷ để đóng hộp.
+                    return switch (classifyCallLookup(result)) {
+                      CallLookupOutcome.transientError => null,
+                      CallLookupOutcome.gone =>
+                        result.valueOrNull?.status ?? CallStatus.cancelled,
+                      _ => result.valueOrNull?.status,
+                    };
                   },
                 ),
               );
