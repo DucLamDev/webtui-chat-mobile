@@ -6,11 +6,88 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
 import '../../../../core/security/instance_scope.dart';
+import '../../../../core/storage/media_disk_cache.dart';
+import '../../../auth/application/use_cases/current_user_id_use_case.dart';
 
 const _cacheRootName = 'webtui-attachments-v2';
 
+/// Tên thư mục kho đệm lâu dài trong thư mục của máy chủ. Không trùng được
+/// thư mục theo phiên (tên băm sha256 64 ký tự).
+const _mediaCacheDirectoryName = 'cache';
+
+/// Kho đệm dùng chung của app cho mọi tệp dưới `webtui-attachments-v2` (kể cả
+/// thư mục theo phiên của các lần mở app trước): giữ tối đa 7 ngày kể từ lần
+/// dùng cuối, tổng tối đa 1 GB, xoá tệp lâu không dùng nhất trước.
+final MediaDiskCache attachmentMediaCache = MediaDiskCache(
+  root: () async => Directory(
+    path.join((await getTemporaryDirectory()).path, _cacheRootName),
+  ),
+);
+
+/// Khoá tài khoản cho kho đệm lâu dài: mã người dùng (`sub`) trong access
+/// token. Không đọc được thì dùng thế hệ phiên: kho khi đó chỉ dùng lại được
+/// trong lần mở app này (thế hệ phiên đổi mỗi lần khởi động).
+String mediaCacheAccountKey({
+  required String? accessToken,
+  required String sessionGeneration,
+}) {
+  final userId = accessTokenUserId(accessToken);
+  if (userId != null) return 'user:$userId';
+  return 'session:${sessionGeneration.trim()}';
+}
+
 final class ScopedAttachmentFileStore {
   const ScopedAttachmentFileStore();
+
+  /// Thư mục kho đệm lâu dài (xem [attachmentMediaCache]) của một tài khoản
+  /// trên một máy chủ: `webtui-attachments-v2/<máy chủ>/cache/<tài khoản>/<purpose>`.
+  /// Khác [directoryFor] (đổi mỗi lần mở app): tệp đã tải dùng lại được tới 7
+  /// ngày. Vẫn nằm dưới thư mục của máy chủ nên [clearScope] (đăng xuất / đổi
+  /// máy chủ / thu hồi phiên) xoá luôn; mỗi tài khoản một thư mục riêng.
+  Future<Directory> cacheDirectoryFor({
+    required InstanceScope instanceScope,
+    required String accountKey,
+    required String purpose,
+  }) async {
+    final root = await getTemporaryDirectory();
+    return Directory(
+      path.join(
+        root.path,
+        scopedMediaCacheDirectoryRelativePath(
+          instanceScope: instanceScope,
+          accountKey: accountKey,
+          purpose: purpose,
+        ),
+      ),
+    );
+  }
+
+  /// Tệp trong kho đệm lâu dài cho một [key] (thường là địa chỉ tải): tên là
+  /// mã băm, không lộ khoá; giữ đuôi an toàn của [originalName] để app khác
+  /// mở được.
+  Future<File> cacheFileFor({
+    required InstanceScope instanceScope,
+    required String accountKey,
+    required String purpose,
+    required String key,
+    String originalName = '',
+  }) async {
+    final directory = await cacheDirectoryFor(
+      instanceScope: instanceScope,
+      accountKey: accountKey,
+      purpose: purpose,
+    );
+    return File(
+      path.join(
+        directory.path,
+        scopedMediaCacheFileName(
+          instanceScope: instanceScope,
+          key: key,
+          originalName: originalName,
+        ),
+      ),
+    );
+  }
 
   Future<File> fileFor({
     required InstanceScope instanceScope,
@@ -96,16 +173,54 @@ String scopedAttachmentRelativePath({
   return path.join(directory, '$digest$extension');
 }
 
+/// `webtui-attachments-v2/<máy chủ>/cache/<tài khoản>/<purpose>` (tên băm,
+/// không lộ mã máy chủ / người dùng).
+String scopedMediaCacheDirectoryRelativePath({
+  required InstanceScope instanceScope,
+  required String accountKey,
+  required String purpose,
+}) {
+  final normalizedPurpose = _normalizedPurpose(purpose);
+  final normalizedAccount = accountKey.trim();
+  if (normalizedAccount.isEmpty || normalizedAccount.length > 256) {
+    throw ArgumentError.value(
+      accountKey,
+      'accountKey',
+      'must be a bounded account key',
+    );
+  }
+  return path.join(
+    _cacheRootName,
+    _scopeDirectory(instanceScope),
+    _mediaCacheDirectoryName,
+    sha256
+        .convert(
+          utf8.encode('${instanceScope.storageId}\u0000$normalizedAccount'),
+        )
+        .toString(),
+    normalizedPurpose,
+  );
+}
+
+/// Tên tệp trong kho đệm lâu dài: băm (máy chủ + [key]) + đuôi an toàn.
+String scopedMediaCacheFileName({
+  required InstanceScope instanceScope,
+  required String key,
+  String originalName = '',
+}) {
+  final digest = sha256
+      .convert(utf8.encode('${instanceScope.storageId}\u0000$key'))
+      .toString();
+  return '$digest${_safeExtension(originalName)}';
+}
+
 /// `webtui-attachments-v2/<máy chủ>/<phiên>/<purpose>` (tên băm, không lộ mã).
 String scopedAttachmentDirectoryRelativePath({
   required InstanceScope instanceScope,
   required String sessionGeneration,
   required String purpose,
 }) {
-  final normalizedPurpose = purpose.trim().toLowerCase();
-  if (!RegExp(r'^[a-z][a-z0-9_-]{0,31}$').hasMatch(normalizedPurpose)) {
-    throw ArgumentError.value(purpose, 'purpose', 'must be a safe cache kind');
-  }
+  final normalizedPurpose = _normalizedPurpose(purpose);
   final normalizedGeneration = sessionGeneration.trim();
   if (normalizedGeneration.isEmpty || normalizedGeneration.length > 256) {
     throw ArgumentError.value(
@@ -120,6 +235,14 @@ String scopedAttachmentDirectoryRelativePath({
     sha256.convert(utf8.encode(normalizedGeneration)).toString(),
     normalizedPurpose,
   );
+}
+
+String _normalizedPurpose(String purpose) {
+  final normalized = purpose.trim().toLowerCase();
+  if (!RegExp(r'^[a-z][a-z0-9_-]{0,31}$').hasMatch(normalized)) {
+    throw ArgumentError.value(purpose, 'purpose', 'must be a safe cache kind');
+  }
+  return normalized;
 }
 
 String _scopeDirectory(InstanceScope instanceScope) {

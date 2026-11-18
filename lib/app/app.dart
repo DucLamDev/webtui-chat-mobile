@@ -9,22 +9,26 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/network/bounded_image_request_pool.dart';
+import '../core/network/recent_download_failures.dart';
 import '../core/network/redirect_safe_file_downloader.dart';
 import '../core/notifications/call_tone_player.dart';
 import '../core/platform/app_deep_link_coordinator.dart';
 import '../core/privacy/background_privacy.dart';
 import '../core/security/instance_scope.dart';
+import '../core/storage/cached_image_bytes.dart';
 import '../design_system/components/webtui_avatar.dart';
 import '../design_system/theme/webtui_theme.dart';
 import '../design_system/tokens/webtui_colors.dart';
 import '../design_system/tokens/webtui_text_scale.dart';
 import '../features/auth/application/session_termination.dart';
+import '../features/auth/domain/repositories/auth_token_repository.dart';
 import '../features/auth/presentation/controllers/auth_flow_providers.dart';
 import '../features/auth/presentation/controllers/legal_acceptance_controller.dart';
 import '../features/auth/presentation/controllers/login_controller.dart';
 import '../features/auth/presentation/screens/device_approval_pending_screen.dart';
 import '../features/auth/presentation/widgets/app_lock_gate.dart';
 import '../features/auth/presentation/widgets/legal_acceptance_gate.dart';
+import '../features/conversations/data/files/scoped_attachment_file_store.dart';
 import '../features/settings/domain/entities/app_settings.dart';
 import '../features/settings/presentation/controllers/app_settings_controller.dart';
 import '../features/settings/presentation/widgets/mobile_update_gate.dart';
@@ -44,6 +48,11 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
     with WidgetsBindingObserver {
   static const _avatarDownloader = RedirectSafeFileDownloader();
   final BoundedImageRequestPool _imageRequestPool = BoundedImageRequestPool();
+
+  /// Tài khoản của kho đệm ảnh đại diện, nhớ theo phiên (đổi người đăng nhập
+  /// thì thế hệ phiên đổi nên tính lại).
+  AuthTokenMutationGuard? _mediaCacheAccountGuard;
+  String? _mediaCacheAccountKey;
   String? _imageCacheNamespace;
   int _imageCacheEpoch = 0;
   StreamSubscription<Uri>? _deepLinkSubscription;
@@ -81,6 +90,10 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
     _routerChanges = ref.read(appRouterProvider).routerDelegate;
     _routerChanges.addListener(_resumePendingLink);
     Future<void>.microtask(_startDeepLinkHandling);
+    // Dọn kho tệp đã tải (quá 7 ngày không dùng / vượt 1 GB) sau khi app lên.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => attachmentMediaCache.scheduleTrim(),
+    );
   }
 
   @override
@@ -351,11 +364,11 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
         guard.instanceScopeId != expectedInstanceScope.storageId) {
       return null;
     }
-    String? bearerToken;
     final isSameOrigin = serverOriginsMatch(uri, apiBaseUri);
     if (!isSameOrigin && !allowPublicRequest) {
       return null;
     }
+    String? bearerToken;
     if (isSameOrigin && !allowPublicRequest) {
       bearerToken = (await tokenRepository.readAccessTokenIfCurrent(
         guard,
@@ -364,6 +377,24 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
         return null;
       }
     }
+    // Thư mục kho đệm theo máy chủ + tài khoản (đăng xuất xoá cùng tệp chat).
+    // Mỗi phiên chỉ đọc token một lần để biết tài khoản, không đọc mỗi ảnh.
+    final String accountKey;
+    final rememberedAccountKey = _mediaCacheAccountGuard == guard
+        ? _mediaCacheAccountKey
+        : null;
+    if (rememberedAccountKey != null) {
+      accountKey = rememberedAccountKey;
+    } else {
+      accountKey = mediaCacheAccountKey(
+        accessToken:
+            bearerToken ??
+            (await tokenRepository.readAccessTokenIfCurrent(guard))?.trim(),
+        sessionGeneration: guard.generation,
+      );
+      _mediaCacheAccountGuard = guard;
+      _mediaCacheAccountKey = accountKey;
+    }
     try {
       final cacheKey =
           '$cacheNamespace|$uri|$maxBytes|$allowPublicRequest|'
@@ -371,12 +402,28 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
       return await _imageRequestPool.load(
         key: cacheKey,
         maxBytes: maxBytes,
-        loader: () => _avatarDownloader.downloadBytes(
-          uri: uri,
+        // Bộ nhớ trong chỉ giữ ít ảnh và bị xoá mỗi lần đổi token: lớp dưới là
+        // kho đệm trên máy (7 ngày) nên không tải lại từ máy chủ. Ảnh vừa bị
+        // từ chối (vd. ảnh đại diện kiểu cũ người khác không có quyền tải) thì
+        // không hỏi lại máy chủ mỗi lần vẽ lại.
+        loader: () async => loadCachedImageBytes(
+          cache: attachmentMediaCache,
+          failures: mediaDownloadFailures,
+          failureKey: '${expectedInstanceScope.storageId}|$accountKey|$uri',
+          file: await const ScopedAttachmentFileStore().cacheFileFor(
+            instanceScope: expectedInstanceScope,
+            accountKey: accountKey,
+            purpose: 'avatar',
+            key: '$uri|$allowPublicRequest',
+          ),
           maxBytes: maxBytes,
-          accept: 'image/*',
-          bearerToken: bearerToken,
-          isStillCurrent: () => tokenRepository.isMutationGuardCurrent(guard),
+          download: () => _avatarDownloader.downloadBytes(
+            uri: uri,
+            maxBytes: maxBytes,
+            accept: 'image/*',
+            bearerToken: bearerToken,
+            isStillCurrent: () => tokenRepository.isMutationGuardCurrent(guard),
+          ),
         ),
       );
     } on Object {

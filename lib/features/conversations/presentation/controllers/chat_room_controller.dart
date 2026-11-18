@@ -6,6 +6,7 @@ import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../profile/application/use_cases/profile_use_cases.dart';
+import '../../application/message_attachment_memo.dart';
 import '../../application/use_cases/call_use_cases.dart';
 import '../../application/use_cases/conversation_realtime_reducer.dart';
 import '../../application/use_cases/message_attachment_use_cases.dart';
@@ -53,6 +54,7 @@ final chatRoomControllerProvider = StateNotifierProvider.autoDispose
         listMessageAttachmentsUseCase: ref.watch(
           listMessageAttachmentsUseCaseProvider,
         ),
+        attachmentMemo: ref.watch(messageAttachmentMemoProvider),
         loadMessageOutboxUseCase: ref.watch(loadMessageOutboxUseCaseProvider),
         enqueueMessageOutboxUseCase: ref.watch(
           enqueueMessageOutboxUseCaseProvider,
@@ -310,6 +312,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     cancelVoiceMessageRecordingUseCase,
     required MessageMediaUploader messageMediaUploader,
     required ListMessageAttachmentsUseCase listMessageAttachmentsUseCase,
+    MessageAttachmentMemo? attachmentMemo,
     required LoadMessageOutboxUseCase loadMessageOutboxUseCase,
     required EnqueueMessageOutboxUseCase enqueueMessageOutboxUseCase,
     required MessageOutboxDispatcher outboxDispatcher,
@@ -349,6 +352,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
        _cancelVoiceMessageRecordingUseCase = cancelVoiceMessageRecordingUseCase,
        _messageMediaUploader = messageMediaUploader,
        _listMessageAttachmentsUseCase = listMessageAttachmentsUseCase,
+       _attachmentMemo = attachmentMemo,
        _loadMessageOutboxUseCase = loadMessageOutboxUseCase,
        _enqueueMessageOutboxUseCase = enqueueMessageOutboxUseCase,
        _outboxDispatcher = outboxDispatcher,
@@ -388,6 +392,9 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   final CancelVoiceMessageRecordingUseCase _cancelVoiceMessageRecordingUseCase;
   final MessageMediaUploader _messageMediaUploader;
   final ListMessageAttachmentsUseCase _listMessageAttachmentsUseCase;
+
+  /// Tệp đính kèm đã hỏi của từng tin, dùng chung mọi phòng (null = không nhớ).
+  final MessageAttachmentMemo? _attachmentMemo;
   final LoadMessageOutboxUseCase _loadMessageOutboxUseCase;
   final EnqueueMessageOutboxUseCase _enqueueMessageOutboxUseCase;
   final MessageOutboxDispatcher _outboxDispatcher;
@@ -1169,33 +1176,45 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
       return;
     }
 
-    for (final message in targets) {
-      final result = await _listMessageAttachmentsUseCase.execute(
-        workspaceId: message.workspaceId,
-        channelId: message.channelId,
-        messageId: message.id,
-      );
+    // Tin đã hỏi trước đó (kể cả ở lần mở phòng trước): gắn lại ngay, không
+    // hỏi lại máy chủ; chỉ hỏi các tin chưa biết.
+    final hydrator = MessageAttachmentHydrator(
+      memo: _attachmentMemo,
+      fetch: (message) async {
+        final result = await _listMessageAttachmentsUseCase.execute(
+          workspaceId: message.workspaceId,
+          channelId: message.channelId,
+          messageId: message.id,
+        );
+        return result.valueOrNull;
+      },
+    );
+    await for (final batch in hydrator.hydrate(
+      targets,
+      userId: state.currentUserId,
+      isActive: () => mounted,
+    )) {
       if (!mounted) {
         return;
       }
-      switch (result) {
-        case Success<List<MessageAttachment>>(value: final attachments):
-          if (attachments.isEmpty) {
-            continue;
-          }
-          state = state.copyWith(
-            messages: state.messages
-                .map(
-                  (item) => item.id == message.id && item.attachments.isEmpty
-                      ? item.copyWith(attachments: attachments)
-                      : item,
-                )
-                .toList(growable: false),
-          );
-        case FailureResult<List<MessageAttachment>>():
-          continue;
-      }
+      _applyHydratedAttachments(batch);
     }
+  }
+
+  /// Gắn tệp đã biết vào các tin còn thiếu tệp (không đè tệp đang có).
+  void _applyHydratedAttachments(
+    Map<String, List<MessageAttachment>> attachmentsByMessageId,
+  ) {
+    state = state.copyWith(
+      messages: state.messages
+          .map((item) {
+            final attachments = attachmentsByMessageId[item.id];
+            return attachments != null && item.attachments.isEmpty
+                ? item.copyWith(attachments: attachments)
+                : item;
+          })
+          .toList(growable: false),
+    );
   }
 
   Future<void> search(String query) async {
@@ -1643,6 +1662,16 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
       if (attachments.isEmpty) {
         return;
       }
+      // Máy chủ báo vừa gắn thêm tệp: ghi đè bản đã nhớ của tin này.
+      _attachmentMemo?.write(
+        MessageAttachmentMemo.keyFor(
+          userId: state.currentUserId,
+          workspaceId: state.scope.workspaceId,
+          channelId: state.scope.channelId,
+          messageId: messageId,
+        ),
+        attachments,
+      );
       state = state.copyWith(
         messages: state.messages
             .map(
