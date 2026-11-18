@@ -24,7 +24,13 @@ final class WebSocketConversationRealtimeRepository
     Future<WebSocket> Function(String url, {Map<String, dynamic>? headers})?
     connectWebSocket,
     Duration idleDisconnectGrace = realtimeIdleDisconnectGrace,
+    Duration staleAfter = realtimeStaleAfter,
+    Duration probeAfter = realtimeProbeAfter,
+    Duration probeTimeout = realtimeProbeTimeout,
   }) : _idleDisconnectGrace = idleDisconnectGrace,
+       _staleAfter = staleAfter,
+       _probeAfter = probeAfter,
+       _probeTimeout = probeTimeout,
        _apiBaseUri = apiBaseUri,
        _wsBaseUri = _validatedRealtimeWsBaseUri(
          wsBaseUri ?? defaultConversationRealtimeWsUri(apiBaseUri),
@@ -37,6 +43,15 @@ final class WebSocketConversationRealtimeRepository
   final Uri _apiBaseUri;
   final Uri _wsBaseUri;
   final Duration _idleDisconnectGrace;
+
+  /// Kết nối "đang mở" mà không nhận gì quá chừng này thì coi là đã chết
+  /// (máy chủ trả `pong` cho mỗi `ping` 25 giây; iOS treo app khi khoá máy nên
+  /// kết nối có thể chết mà socket vẫn báo `open`).
+  final Duration _staleAfter;
+
+  /// [ensureConnected]: im quá chừng này thì gửi `ping` hỏi thử trước khi tin.
+  final Duration _probeAfter;
+  final Duration _probeTimeout;
   final InstanceScope _instanceScope;
   final AuthTokenRepository _tokenRepository;
   final Future<WebSocket> Function(String url, {Map<String, dynamic>? headers})
@@ -72,6 +87,9 @@ final class WebSocketConversationRealtimeRepository
   Timer? _reconnectTimer;
   Timer? _heartbeatTimer;
   DateTime? _lastPongAt;
+
+  /// Lần cuối nhận bất cứ gì trên socket hiện tại (sự kiện, `pong`).
+  DateTime? _lastInboundAt;
   final RecentRealtimeEventIds _seenEventIds = RecentRealtimeEventIds();
 
   /// Kết nối phụ cho workspace KHÁC workspace đang có người nghe (vd mở phòng
@@ -97,6 +115,9 @@ final class WebSocketConversationRealtimeRepository
       tokenRepository: _tokenRepository,
       connectWebSocket: _connectWebSocket,
       idleDisconnectGrace: _idleDisconnectGrace,
+      staleAfter: _staleAfter,
+      probeAfter: _probeAfter,
+      probeTimeout: _probeTimeout,
     );
   }
 
@@ -302,6 +323,86 @@ final class WebSocketConversationRealtimeRepository
   }
 
   @override
+  Future<bool> ensureConnected({
+    required String workspaceId,
+    Duration timeout = const Duration(seconds: 5),
+  }) async {
+    final target = _serving(workspaceId);
+    if (!identical(target, this)) {
+      return target.ensureConnected(workspaceId: workspaceId, timeout: timeout);
+    }
+    if (_disposed ||
+        _activeWorkspaceId != workspaceId ||
+        (_controller?.isClosed ?? true)) {
+      return false;
+    }
+    final deadline = DateTime.now().add(timeout);
+    final socket = _socket;
+    final lastInbound = _lastInboundAt;
+    if (socket != null &&
+        socket.readyState == WebSocket.open &&
+        !_socketLooksStale &&
+        lastInbound != null &&
+        DateTime.now().toUtc().difference(lastInbound) > _probeAfter) {
+      // Im một lúc: hỏi thử bằng `ping`, không có hồi âm thì bỏ kết nối này.
+      final probedAt = DateTime.now().toUtc();
+      _sendCommand({'type': 'ping', 'room': _heartbeatRoom(workspaceId)});
+      final probeDeadline = probedAt.add(_probeTimeout);
+      while (identical(_socket, socket) &&
+          !(_lastInboundAt?.isAfter(probedAt) ?? false) &&
+          DateTime.now().toUtc().isBefore(probeDeadline) &&
+          DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 40));
+      }
+      if (identical(_socket, socket) &&
+          !(_lastInboundAt?.isAfter(probedAt) ?? false)) {
+        _dropCurrentSocket();
+      }
+    }
+    DateTime? lastKick;
+    while (true) {
+      if (_disposed || _activeWorkspaceId != workspaceId) return false;
+      if (_isLive) return true;
+      final now = DateTime.now();
+      if (!_connecting &&
+          (lastKick == null ||
+              now.difference(lastKick) >= _ensureConnectedRetryEvery)) {
+        // Nối ngay, bỏ qua thời gian chờ nối lại (đang cần kết nối); thử lại
+        // tối đa mỗi giây một lần để mất mạng hẳn không bị nối dồn dập.
+        lastKick = now;
+        unawaited(_ensureConnected(workspaceId: workspaceId));
+      }
+      if (!now.isBefore(deadline)) return false;
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+    }
+  }
+
+  bool get _isLive {
+    final socket = _socket;
+    return socket != null &&
+        socket.readyState == WebSocket.open &&
+        !_socketLooksStale;
+  }
+
+  bool get _socketLooksStale {
+    final lastInbound = _lastInboundAt;
+    return lastInbound != null &&
+        DateTime.now().toUtc().difference(lastInbound) > _staleAfter;
+  }
+
+  /// Bỏ socket hiện tại (đã chết) nhưng giữ người nghe và các phòng: lần nối
+  /// sau vào lại đủ phòng và phát `reconnected` để các màn tải bù.
+  void _dropCurrentSocket() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+    final socket = _socket;
+    _socket = null;
+    _lastPongAt = null;
+    _lastInboundAt = null;
+    unawaited(socket?.close());
+  }
+
+  @override
   Future<void> disconnect() async {
     _disposed = true;
     _closeCurrentConnection(leaveRooms: true, closeController: true);
@@ -340,8 +441,13 @@ final class WebSocketConversationRealtimeRepository
     }
     final socket = _socket;
     if (socket != null && socket.readyState == WebSocket.open) {
-      _joinAllRooms();
-      return;
+      if (!_socketLooksStale) {
+        _joinAllRooms();
+        return;
+      }
+      // Im quá lâu (app vừa bị treo ở nền): kết nối gần như chắc đã chết, vào
+      // phòng trên nó thì mất hết sự kiện. Bỏ và nối lại ngay.
+      _dropCurrentSocket();
     }
     if (_connecting) {
       return;
@@ -380,16 +486,25 @@ final class WebSocketConversationRealtimeRepository
         return;
       }
       _socket = socket;
+      _lastInboundAt = DateTime.now().toUtc();
       _reconnectAttempt = 0;
       _connecting = false;
       final reconnected = _hasConnected;
       _hasConnected = true;
       _joinAllRooms();
       _startHeartbeat(workspaceId);
+      // Socket cũ bị bỏ (kết nối chết, đã nối socket mới) có thể báo đóng /
+      // dữ liệu muộn: chỉ socket hiện tại được xử lý / được nối lại.
       socket.listen(
-        (data) => _handleSocketData(data, workspaceId),
-        onError: (_) => _scheduleReconnect(),
-        onDone: () => _scheduleReconnect(),
+        (data) {
+          if (identical(_socket, socket)) _handleSocketData(data, workspaceId);
+        },
+        onError: (_) {
+          if (identical(_socket, socket)) _scheduleReconnect();
+        },
+        onDone: () {
+          if (identical(_socket, socket)) _scheduleReconnect();
+        },
         cancelOnError: true,
       );
       if (reconnected) {
@@ -435,6 +550,7 @@ final class WebSocketConversationRealtimeRepository
   }
 
   void _handleSocketData(Object? data, String workspaceId) {
+    _lastInboundAt = DateTime.now().toUtc();
     final (socketEventType, socketRoom) = _socketEnvelope(data);
     if (socketEventType == 'pong') {
       _lastPongAt = DateTime.now().toUtc();
@@ -533,6 +649,7 @@ final class WebSocketConversationRealtimeRepository
     _socket = null;
     _connecting = false;
     _lastPongAt = null;
+    _lastInboundAt = null;
     if (closeController) {
       unawaited(_controller?.close());
       _controller = null;
@@ -604,6 +721,14 @@ const _realtimeHeartbeatInterval = Duration(seconds: 25);
 
 /// Hết người nghe bao lâu thì đóng kết nối realtime (xem `_idleDisconnectTimer`).
 const realtimeIdleDisconnectGrace = Duration(seconds: 30);
+
+/// Xem `_staleAfter`: lớn hơn nhịp `ping` 25 giây một chút.
+const realtimeStaleAfter = Duration(seconds: 35);
+
+/// Xem `_probeAfter` / `_probeTimeout`.
+const realtimeProbeAfter = Duration(seconds: 8);
+const realtimeProbeTimeout = Duration(milliseconds: 2500);
+const _ensureConnectedRetryEvery = Duration(seconds: 1);
 const _realtimeHeartbeatTimeout = Duration(seconds: 70);
 
 Uri defaultConversationRealtimeWsUri(Uri apiBaseUri) {

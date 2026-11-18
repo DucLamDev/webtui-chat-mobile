@@ -132,6 +132,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   StreamSubscription<NotificationTarget>? _notificationOpenSubscription;
   StreamSubscription<NotificationTarget>? _foregroundNotificationSubscription;
   StreamSubscription<NativeIncomingCallAction>? _nativeCallSubscription;
+  StreamSubscription<NotificationTarget>? _nativeRingingSubscription;
   StreamSubscription<String>? _outgoingCallSubscription;
   StreamSubscription<ChatSharePayload>? _shareIntentSubscription;
   StreamSubscription<ScopedNotificationQuickReply>? _quickReplySubscription;
@@ -174,6 +175,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     _notificationOpenSubscription?.cancel();
     _foregroundNotificationSubscription?.cancel();
     _nativeCallSubscription?.cancel();
+    _nativeRingingSubscription?.cancel();
     _outgoingCallSubscription?.cancel();
     _shareIntentSubscription?.cancel();
     _quickReplySubscription?.cancel();
@@ -193,6 +195,9 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       return;
     }
     if (state == AppLifecycleState.resumed) {
+      // iOS treo app ở nền nên kết nối realtime có thể đã chết mà vẫn báo mở:
+      // kiểm và nối lại ngay (cuộc gọi đến, tin mới, tín hiệu cuộc gọi).
+      _prepareRealtime(workspaceId);
       _activatePresence(workspaceId);
       refreshPresenceNow(ref.read);
       _startIncomingCallPolling(workspaceId);
@@ -1046,6 +1051,15 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       }
       unawaited(_handleNativeIncomingCallAction(action));
     });
+    // Như Signal / WhatsApp: chuẩn bị trong lúc chuông reo. Giao diện gốc vừa
+    // đổ chuông (máy khoá / app nền) thì kiểm và nối lại realtime ngay, để
+    // lúc người dùng bấm Nghe kết nối đã sẵn, không phải chờ.
+    _nativeRingingSubscription ??= NativeIncomingCallService.ringing.listen((
+      target,
+    ) {
+      if (!mounted) return;
+      _prepareRealtime(target.workspaceId);
+    });
     _notificationOpenSubscription ??= service.openedTargets.listen((target) {
       if (!mounted) {
         return;
@@ -1129,6 +1143,9 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       return;
     }
     _activeIncomingCallId = callId;
+    // Cuộc gọi tìm thấy qua thông báo / hỏi định kỳ (realtime có thể đang
+    // chết): nối lại ngay trong lúc hộp "Cuộc gọi đến" đổ chuông.
+    _prepareRealtime(target.workspaceId);
     try {
       final initialResult = await ref
           .read(getCallUseCaseProvider)
@@ -1908,6 +1925,19 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       callId,
       remoteEnded: true,
       incomingOnly: true,
+    );
+  }
+
+  /// Kiểm kết nối realtime còn sống không, chết thì nối lại ngay (không chờ).
+  /// Workspace không phải workspace đang nối thì kho tự bỏ qua.
+  void _prepareRealtime(String workspaceId) {
+    final normalized = workspaceId.trim();
+    if (normalized.isEmpty) return;
+    unawaited(
+      ref
+          .read(incomingCallRealtimeRepositoryProvider)
+          .ensureConnected(workspaceId: normalized)
+          .catchError((Object _) => false),
     );
   }
 

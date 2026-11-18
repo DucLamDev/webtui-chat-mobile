@@ -232,6 +232,16 @@ abstract interface class ConversationRealtimeRepository {
     required bool isTyping,
   });
 
+  /// Đảm bảo kết nối realtime của [workspaceId] đang SỐNG trước việc cần nhận
+  /// sự kiện ngay (bắt máy cuộc gọi: offer / answer chỉ đi qua realtime; app
+  /// vừa về từ nền). Kết nối "đang mở" nhưng im lâu (iOS treo app khi khoá
+  /// máy, kết nối chết mà app không biết) thì hỏi thử / nối lại. Chờ tối đa
+  /// [timeout]; `false` nếu chưa kịp (kho vẫn tự nối lại sau).
+  Future<bool> ensureConnected({
+    required String workspaceId,
+    Duration timeout = const Duration(seconds: 5),
+  });
+
   Future<void> disconnect();
 }
 

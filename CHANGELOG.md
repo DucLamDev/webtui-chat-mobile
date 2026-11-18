@@ -3,6 +3,26 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.48.1 · 18/11/2026
+### Sửa lỗi
+- Gọi tới lúc máy đang khoá / app đang chạy nền thì bắt máy được nhưng không nghe thấy gì, cuộc gọi treo ở "Đang kết
+  nối" (lỗi có từ bản 1.47.1, TestFlight mobile-v1.0.19). Nguyên nhân: từ 1.47.1 màn gọi dùng chung kết nối thời gian
+  thực của app thay vì mở kết nối mới; khi máy khoá, iPhone tạm dừng app nên kết nối này chết mà app vẫn tưởng còn
+  mở, nên tín hiệu bắt đầu cuộc gọi không tới được (log máy chủ 18/11 có cả hai kiểu: bên nghe không nhận được, bên
+  gọi không nhận được). Nay làm như Signal / WhatsApp, chuẩn bị ngay trong lúc chuông reo:
+  - chuông vừa reo (màn hình khoá, thông báo, hộp "Cuộc gọi đến") là app kiểm kết nối và nối lại ngay, nên bấm Nghe
+    thì kết nối thường đã sẵn;
+  - kết nối im quá 35 giây (bình thường máy chủ trả lời mỗi 25 giây) bị coi là đã chết và được nối lại ngay; im vài
+    giây thì hỏi thử máy chủ, không thấy trả lời thì nối lại;
+  - bấm Nghe là nhận cuộc gọi ngay, mở micro / camera song song; chỉ bước cuối (báo "sẵn sàng" cho người gọi) mới chờ
+    kết nối sống, tối đa 5 giây, không chờ trước khi nhận máy như bản sửa đầu;
+  - mở lại app từ nền cũng kiểm và nối lại ngay.
+- iPhone: bấm Nghe / Từ chối / Kết thúc trên giao diện cuộc gọi của iPhone (màn hình khoá), app chưa bao giờ báo lại
+  "đã xử lý" cho hệ thống (lỗi có từ 27/10). iPhone chỉ mở âm thanh cho cuộc gọi sau khi app báo đã xử lý lệnh Nghe,
+  nên khi máy khoá có thể không nghe được dù đã kết nối. Nay app báo ngay khi bấm, như mẫu chuẩn của Apple. Phần này
+  chỉ kiểm được trên iPhone thật.
+  Không đổi giao diện, không cần cập nhật máy chủ; cần đẩy bản TestFlight mới để có bản sửa.
+
 ## 1.48.0 · 17/11/2026
 ### Tính năng
 - Chuyển sang video ngay trong cuộc gọi thoại: màn gọi có nút "Video" khi đã kết nối. Bấm là bật camera của mình,

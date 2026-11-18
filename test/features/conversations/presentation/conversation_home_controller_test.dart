@@ -702,6 +702,12 @@ final class _FakeRealtimeRepository implements ConversationRealtimeRepository {
   }) async {}
 
   @override
+  Future<bool> ensureConnected({
+    required String workspaceId,
+    Duration timeout = const Duration(seconds: 5),
+  }) async => true;
+
+  @override
   Future<void> disconnect() async {}
 }
 

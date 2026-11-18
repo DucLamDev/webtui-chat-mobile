@@ -559,7 +559,10 @@ import flutter_callkit_incoming
 
   // MARK: - CallKit ↔ WebRTC audio
   // CallKit tự kích hoạt audio session của cuộc gọi; WebRTC phải được báo để khởi động lại micro / loa, nếu không
-  // cuộc gọi kết nối nhưng câm cả hai chiều. Plugin flutter_callkit_incoming đã tự fulfill các CXAction.
+  // cuộc gọi kết nối nhưng câm cả hai chiều. CallKit chỉ kích hoạt audio session SAU KHI lệnh Nghe được fulfill.
+  // Vì AppDelegate này là CallkitIncomingAppDelegate, plugin flutter_callkit_incoming KHÔNG tự fulfill lệnh
+  // Nghe / Từ chối / Kết thúc mà giao cho onAccept / onDecline / onEnd: phải fulfill ở đây (trước đây để trống
+  // nên bấm Nghe ở màn hình khoá thì CallKit không bao giờ mở âm thanh cho cuộc gọi).
 
   func didActivateAudioSession(_ audioSession: AVAudioSession) {
     let rtcSession = RTCAudioSession.sharedInstance()
@@ -573,11 +576,20 @@ import flutter_callkit_incoming
     rtcSession.isAudioEnabled = false
   }
 
-  func onAccept(_ call: Call, _ action: CXAnswerCallAction) {}
+  // Fulfill ngay (như mẫu Speakerbox của Apple): CallKit mở audio session → didActivateAudioSession báo WebRTC.
+  // Phần nghe máy với máy chủ (accept, offer / answer) do Dart làm song song qua sự kiện ACTION_CALL_ACCEPT;
+  // không chờ WebRTC kết nối mới fulfill (chờ thì CallKit không mở âm thanh kịp).
+  func onAccept(_ call: Call, _ action: CXAnswerCallAction) {
+    action.fulfill()
+  }
 
-  func onDecline(_ call: Call, _ action: CXEndCallAction) {}
+  func onDecline(_ call: Call, _ action: CXEndCallAction) {
+    action.fulfill()
+  }
 
-  func onEnd(_ call: Call, _ action: CXEndCallAction) {}
+  func onEnd(_ call: Call, _ action: CXEndCallAction) {
+    action.fulfill()
+  }
 
   func onTimeOut(_ call: Call) {}
 

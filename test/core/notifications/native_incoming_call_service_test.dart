@@ -249,6 +249,56 @@ void main() {
     expect(action.serverBaseUrl, 'https://chat.example.com');
   });
 
+  test('ringing event yields the call target to prepare realtime early', () {
+    final target = NativeIncomingCallService.ringingTargetFromCallkitEvent(
+      const CallEventActionCallIncoming(
+        CallKitParams(
+          id: 'call-123',
+          extra: {
+            'call_id': 'call-123',
+            'workspace_id': 'workspace-1',
+            'channel_id': 'channel-1',
+            'instance_id': _instanceAId,
+            'server_base_url': 'https://chat.example.com',
+          },
+        ),
+      ),
+    );
+
+    expect(target, isNotNull);
+    expect(target!.callId, 'call-123');
+    expect(target.workspaceId, 'workspace-1');
+  });
+
+  test('ringing target ignores other events and calls without ids', () {
+    const params = CallKitParams(
+      id: 'call-123',
+      extra: {
+        'call_id': 'call-123',
+        'workspace_id': 'workspace-1',
+        'instance_id': _instanceAId,
+      },
+    );
+    expect(
+      NativeIncomingCallService.ringingTargetFromCallkitEvent(
+        const CallEventActionCallAccept(params),
+      ),
+      isNull,
+    );
+    expect(
+      NativeIncomingCallService.ringingTargetFromCallkitEvent(
+        const CallEventActionCallIncoming(
+          CallKitParams(id: 'call-123', extra: {'call_id': 'call-123'}),
+        ),
+      ),
+      isNull,
+    );
+    expect(
+      NativeIncomingCallService.ringingTargetFromCallkitEvent(null),
+      isNull,
+    );
+  });
+
   test('background origin validation rejects SSRF and bearer redirects', () {
     expect(
       validatedBackgroundCallHttpsOrigin('https://chat.example.com'),

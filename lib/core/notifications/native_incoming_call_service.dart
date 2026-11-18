@@ -119,6 +119,7 @@ final class NativeIncomingCallService {
   static final _actions =
       StreamController<NativeIncomingCallAction>.broadcast();
   static final _voipTokens = StreamController<String>.broadcast();
+  static final _ringing = StreamController<NotificationTarget>.broadcast();
   static final _pendingActions = <String, NativeIncomingCallAction>{};
   static final _retryAttempts = <String, int>{};
   static final _retryTimers = <String, Timer>{};
@@ -153,6 +154,28 @@ final class NativeIncomingCallService {
   static Stream<String> get voipTokens {
     ensureStarted();
     return _voipTokens.stream;
+  }
+
+  /// Giao diện gốc (CallKit / màn cuộc gọi đến của Android) vừa bắt đầu đổ
+  /// chuông. Dùng để chuẩn bị TRONG LÚC đổ chuông (nối lại realtime) để bấm
+  /// Nghe là vào cuộc gọi ngay. Chỉ là gợi ý, không phải hành động của người
+  /// dùng: không gửi gì lên máy chủ thay họ.
+  static Stream<NotificationTarget> get ringing {
+    ensureStarted();
+    return _ringing.stream;
+  }
+
+  /// Cuộc gọi đang đổ chuông trong sự kiện `ACTION_CALL_INCOMING`; `null` với
+  /// sự kiện khác hoặc thiếu mã cuộc gọi / workspace.
+  static NotificationTarget? ringingTargetFromCallkitEvent(CallEvent? event) {
+    if (event is! CallEventActionCallIncoming) return null;
+    final target = _targetFromCallkitBody(event.callKitParams.toJson());
+    if (target == null ||
+        target.callId?.trim().isNotEmpty != true ||
+        target.workspaceId.trim().isEmpty) {
+      return null;
+    }
+    return target;
   }
 
   static Future<String?> readVoipPushToken() async {
@@ -686,6 +709,11 @@ final class NativeIncomingCallService {
   }
 
   static void _handleCallkitEvent(CallEvent? event) {
+    final ringingTarget = ringingTargetFromCallkitEvent(event);
+    if (ringingTarget != null) {
+      _ringing.add(ringingTarget);
+      return;
+    }
     final action = actionFromCallkitEvent(event);
     if (action == null) return;
     final callId = action.target.callId?.trim();

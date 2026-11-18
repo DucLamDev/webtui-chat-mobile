@@ -212,13 +212,22 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       _localDeviceId = await ref
           .read(resolveCallDeviceIdUseCaseProvider)
           .execute();
-      _signals = ref
-          .read(conversationRealtimeRepositoryProvider)
+      final realtime = ref.read(conversationRealtimeRepositoryProvider);
+      _signals = realtime
           .subscribeToChannel(
             workspaceId: widget.workspaceId,
             channelId: widget.channelId,
           )
           .listen(_handleSignal);
+      // Offer / answer / ICE chỉ đi qua realtime. Bắt máy từ CallKit lúc app
+      // vừa được đánh thức (máy khoá, app nền): kết nối nền có thể đã chết mà
+      // vẫn báo mở, bắt máy trên đó thì không bao giờ nhận được offer, cuộc gọi
+      // treo không nghe được. Kiểm / nối lại SONG SONG với bắt máy, mở micro,
+      // camera (thường đã xong từ lúc đổ chuông); chỉ chờ nó ngay trước khi
+      // báo "sẵn sàng" (người gọi gửi offer khi nhận được tín hiệu này).
+      final realtimeReady = realtime
+          .ensureConnected(workspaceId: widget.workspaceId)
+          .catchError((Object _) => false);
       if (widget.incoming) {
         if (!await _acceptIncomingCall()) {
           // Đã nhận ở máy khác (hoặc vừa kết thúc): báo rõ rồi đóng màn gọi
@@ -344,6 +353,8 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
           isVideo: widget.mode == CallMode.video,
         );
         await widget.onConnected?.call();
+        await realtimeReady;
+        if (!mounted || _leaving) return;
         await _sendSignal(CallSignalType.ready, const {});
       }
       await _syncCall();
