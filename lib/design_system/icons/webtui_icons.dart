@@ -82,6 +82,10 @@ abstract final class WebTuiIcons {
   static const IconData copy = PhosphorRegular.copy;
   static const IconData like = PhosphorRegular.thumbsUp;
   static const IconData reply = PhosphorRegular.arrowBendUpLeft;
+  static const IconData forwardMessage = PhosphorRegular.arrowBendUpRight;
+  static const IconData thread = PhosphorRegular.chatsCircle;
+  static const IconData reminder = PhosphorRegular.alarm;
+  static const IconData reportUser = PhosphorRegular.userMinus;
   static const IconData tapAction = PhosphorRegular.cursorClick;
 
   // Công việc.

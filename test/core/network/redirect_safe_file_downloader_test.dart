@@ -85,16 +85,24 @@ void main() {
     });
 
     final target = File('${temporaryDirectory.path}/video.bin');
+    final progress = <(int, int)>[];
     final downloaded = await const RedirectSafeFileDownloader().download(
       uri: Uri.parse('http://127.0.0.1:${origin.port}/video'),
       target: target,
       maxBytes: 1024,
       expectedBytes: bytes.length,
       isStillCurrent: () async => true,
+      onProgress: (received, total) => progress.add((received, total)),
     );
 
     expect(downloaded.path, target.path);
     expect(await downloaded.readAsBytes(), bytes);
+    // Tiến độ tăng dần và kết thúc ở đủ tệp (video iPhone hiện phần trăm).
+    expect(progress, isNotEmpty);
+    expect(progress.last, (bytes.length, bytes.length));
+    for (var i = 1; i < progress.length; i++) {
+      expect(progress[i].$1, greaterThanOrEqualTo(progress[i - 1].$1));
+    }
     expect(
       temporaryDirectory.listSync().whereType<File>().where(
         (file) => file.path.contains('.part-'),

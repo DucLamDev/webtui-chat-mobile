@@ -18,6 +18,7 @@ final class RedirectSafeFileDownloader {
     String accept = 'application/octet-stream',
     String? bearerToken,
     int? expectedBytes,
+    void Function(int receivedBytes, int totalBytes)? onProgress,
   }) async {
     _validateRequest(
       uri: uri,
@@ -93,6 +94,10 @@ final class RedirectSafeFileDownloader {
           throw const RedirectSafeDownloadException('response is too large');
         }
         sink.add(chunk);
+        if (onProgress != null) {
+          final total = expectedBytes ?? contentLength;
+          if (total > 0) onProgress(written, total);
+        }
       }
       await sink.flush();
       await sink.close();

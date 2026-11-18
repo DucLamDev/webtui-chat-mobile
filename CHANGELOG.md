@@ -3,6 +3,20 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.50.0 · 18/11/2026
+### Tính năng
+- Ấn giữ tin nhắn nay mở bảng thao tác mới kiểu Zalo thay cho bảng nút cũ: nền phía sau mờ đi, trên cùng là hàng
+  cảm xúc nhanh (❤️ 👍 😆 😮 😭 😡, nút "+" mở thêm), giữa là tin nhắn đang chọn, dưới là thẻ trắng xếp 4 cột, mỗi
+  thao tác một biểu tượng màu và chữ bên dưới (Trả lời, Chuyển tiếp, Sao chép, Lưu ảnh, Ghim, Nhắc, Tạo task,
+  Thread…). Bảng hiện ngay chỗ ngón tay nhấn; báo cáo / chặn để cuối, màu đỏ.
+- Lưu ảnh / video về máy: nút tải về ở góc trên khi xem ảnh toàn màn hình, và ô "Lưu ảnh" / "Lưu video" khi ấn giữ
+  tin nhắn có ảnh / video. Lưu thẳng vào thư viện Ảnh (iPhone) / Thư viện (Android); lần đầu máy hỏi quyền thêm ảnh.
+
+### Sửa lỗi
+- Video trên iPhone: khi đang tải video về để phát, nay hiện vòng tiến độ có số phần trăm thay vì vòng quay mãi; tải
+  hỏng thì hiện "Không phát được video, chạm để thử lại" và chạm lại được (trước đây nút bị khoá, phải thoát phòng chat
+  vào lại).
+
 ## 1.49.0 · 18/11/2026
 ### Tính năng
 - Lưu tệp đã tải trên điện thoại 7 ngày: ảnh, ảnh thu nhỏ, ảnh bìa video, video, tin nhắn thoại, tệp đính kèm, ảnh
