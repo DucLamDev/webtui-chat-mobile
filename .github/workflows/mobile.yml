@@ -33,6 +33,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+          # Lưu đệm thư viện Gradle (~/.gradle/caches): không tải lại toàn bộ từ
+          # Maven Central mỗi lần dựng (18/11 bị trả 429 Too Many Requests).
+          # Bộ đệm lưu ở nhánh chính (job verify) dùng lại được cho lần dựng tag.
+          cache: gradle
       - uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
@@ -86,6 +90,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+          # Lưu đệm thư viện Gradle (~/.gradle/caches): không tải lại toàn bộ từ
+          # Maven Central mỗi lần dựng (18/11 bị trả 429 Too Many Requests).
+          # Bộ đệm lưu ở nhánh chính (job verify) dùng lại được cho lần dựng tag.
+          cache: gradle
       - uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
@@ -135,8 +143,20 @@ jobs:
           )
           APKANALYZER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name apkanalyzer | sort -V | tail -1)"
           test -x "$APKANALYZER"
-          flutter build appbundle --release --flavor prod -t lib/main_prod.dart --build-name "$VERSION" --build-number "$BUILD_NUMBER" "${DEFINES[@]}"
-          flutter build apk --release --flavor prod -t lib/main_prod.dart --build-name "$VERSION" --build-number "$BUILD_NUMBER" "${DEFINES[@]}"
+          # Maven Central có lúc trả 429 Too Many Requests cho IP máy dựng dùng
+          # chung (Flutter chỉ thử lại sau 100 ms): thử lại tối đa 3 lần, chờ
+          # 60 rồi 120 giây. Lỗi thật (mã, ký) vẫn hỏng sau lần thứ 3.
+          retry_build() {
+            local attempt
+            for attempt in 1 2 3; do
+              "$@" && return 0
+              [ "$attempt" -lt 3 ] || return 1
+              echo "::warning::Dựng Android lỗi lần $attempt, thử lại sau $((attempt * 60)) giây"
+              sleep $((attempt * 60))
+            done
+          }
+          retry_build flutter build appbundle --release --flavor prod -t lib/main_prod.dart --build-name "$VERSION" --build-number "$BUILD_NUMBER" "${DEFINES[@]}"
+          retry_build flutter build apk --release --flavor prod -t lib/main_prod.dart --build-name "$VERSION" --build-number "$BUILD_NUMBER" "${DEFINES[@]}"
           cp build/app/outputs/flutter-apk/app-prod-release.apk release/app-prod-release.apk
           cp build/app/outputs/bundle/prodRelease/app-prod-release.aab release/app-prod-release.aab
           if [ -f build/app/outputs/native-debug-symbols/prodRelease/native-debug-symbols.zip ]; then
@@ -299,6 +319,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+          # Lưu đệm thư viện Gradle (~/.gradle/caches): không tải lại toàn bộ từ
+          # Maven Central mỗi lần dựng (18/11 bị trả 429 Too Many Requests).
+          # Bộ đệm lưu ở nhánh chính (job verify) dùng lại được cho lần dựng tag.
+          cache: gradle
       - uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
