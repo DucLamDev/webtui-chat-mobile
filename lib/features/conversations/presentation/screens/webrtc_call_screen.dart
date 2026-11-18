@@ -212,13 +212,20 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       _localDeviceId = await ref
           .read(resolveCallDeviceIdUseCaseProvider)
           .execute();
-      _signals = ref
-          .read(conversationRealtimeRepositoryProvider)
+      final realtime = ref.read(conversationRealtimeRepositoryProvider);
+      _signals = realtime
           .subscribeToChannel(
             workspaceId: widget.workspaceId,
             channelId: widget.channelId,
           )
           .listen(_handleSignal);
+      // Offer / answer / ICE chỉ đi qua realtime. Bắt máy từ CallKit lúc app
+      // vừa được đánh thức (máy khoá, app nền): kết nối nền có thể đã chết mà
+      // vẫn báo mở, bắt máy trên đó thì không bao giờ nhận được offer, cuộc gọi
+      // treo không nghe được. Chờ kết nối sống (tối đa 5 giây) rồi mới bắt
+      // máy / báo sẵn sàng; chưa kịp vẫn tiếp tục như trước.
+      await realtime.ensureConnected(workspaceId: widget.workspaceId);
+      if (!mounted || _leaving) return;
       if (widget.incoming) {
         if (!await _acceptIncomingCall()) {
           // Đã nhận ở máy khác (hoặc vừa kết thúc): báo rõ rồi đóng màn gọi

@@ -193,6 +193,13 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       return;
     }
     if (state == AppLifecycleState.resumed) {
+      // iOS treo app ở nền nên kết nối realtime có thể đã chết mà vẫn báo mở:
+      // kiểm và nối lại ngay (cuộc gọi đến, tin mới, tín hiệu cuộc gọi).
+      unawaited(
+        ref
+            .read(incomingCallRealtimeRepositoryProvider)
+            .ensureConnected(workspaceId: workspaceId),
+      );
       _activatePresence(workspaceId);
       refreshPresenceNow(ref.read);
       _startIncomingCallPolling(workspaceId);
