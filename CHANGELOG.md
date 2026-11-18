@@ -11,6 +11,10 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   Thread…). Bảng hiện ngay chỗ ngón tay nhấn; báo cáo / chặn để cuối, màu đỏ.
 - Lưu ảnh / video về máy: nút tải về ở góc trên khi xem ảnh toàn màn hình, và ô "Lưu ảnh" / "Lưu video" khi ấn giữ
   tin nhắn có ảnh / video. Lưu thẳng vào thư viện Ảnh (iPhone) / Thư viện (Android); lần đầu máy hỏi quyền thêm ảnh.
+- Ảnh, ảnh thu nhỏ và video đã xem được giữ lại trên máy (như Zalo): mở lại, cuộn lên xuống hay vào lại phòng chat là
+  hiện / phát ngay, không tải lại. Bong bóng và màn toàn màn hình mở cùng một video thì chỉ tải một lần. Tối đa 500 MB,
+  đầy thì tự xoá tệp lâu không xem nhất; đăng xuất / đổi máy chủ xoá sạch. App không tải trước tệp chưa mở. Riêng
+  video trên Android vẫn phát dần từ máy chủ như cũ nên chưa được giữ lại (trừ khi phải tải cả tệp mới phát được).
 
 ### Sửa lỗi
 - Video trên iPhone: khi đang tải video về để phát, nay hiện vòng tiến độ có số phần trăm thay vì vòng quay mãi; tải
