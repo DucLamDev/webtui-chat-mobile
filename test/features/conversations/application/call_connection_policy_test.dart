@@ -245,4 +245,156 @@ void main() {
       );
     });
   });
+
+  group('callerRecoveryShouldWait', () {
+    test('offer khởi động lại đã gửi được, đang chờ answer: nhường', () {
+      expect(
+        callerRecoveryShouldWait(
+          iceRestartRunning: false,
+          awaitingAnswer: true,
+          lastOfferSendFailed: false,
+        ),
+        isTrue,
+      );
+    });
+
+    test('gửi offer lỗi (vừa đổi mạng): không nhường, tạo offer mới', () {
+      expect(
+        callerRecoveryShouldWait(
+          iceRestartRunning: false,
+          awaitingAnswer: true,
+          lastOfferSendFailed: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test('đang xếp / chạy khởi động lại ICE: luôn nhường', () {
+      expect(
+        callerRecoveryShouldWait(
+          iceRestartRunning: true,
+          awaitingAnswer: false,
+          lastOfferSendFailed: true,
+        ),
+        isTrue,
+      );
+      expect(
+        callerRecoveryShouldWait(
+          iceRestartRunning: false,
+          awaitingAnswer: false,
+          lastOfferSendFailed: false,
+        ),
+        isFalse,
+      );
+    });
+  });
+
+  group('callerRenegotiateAction', () {
+    test('ice_restart: khởi động lại ICE dù máy này chưa thấy mất kết nối', () {
+      for (final reconnecting in [false, true]) {
+        expect(
+          callerRenegotiateAction(
+            reason: callRenegotiateIceRestartReason,
+            reconnecting: reconnecting,
+          ),
+          CallRenegotiateAction.iceRestart,
+        );
+      }
+    });
+
+    test('video: thương lượng lại, kể cả khi đang khôi phục (không nuốt)', () {
+      for (final reconnecting in [false, true]) {
+        expect(
+          callerRenegotiateAction(reason: 'video', reconnecting: reconnecting),
+          CallRenegotiateAction.renegotiate,
+        );
+      }
+    });
+
+    test('bản cũ không có lý do: như cũ, đang khôi phục thì làm cả hai', () {
+      expect(
+        callerRenegotiateAction(reason: null, reconnecting: false),
+        CallRenegotiateAction.renegotiate,
+      );
+      expect(
+        callerRenegotiateAction(reason: ' ', reconnecting: true),
+        CallRenegotiateAction.renegotiateAndIceRestart,
+      );
+    });
+  });
+
+  group('callAbortTerminatesServerCall', () {
+    test('cuộc gọi đến chưa nhận trên máy này: không từ chối hộ', () {
+      expect(
+        callAbortTerminatesServerCall(incoming: true, acceptedHere: false),
+        isFalse,
+      );
+    });
+
+    test('đã nhận / cuộc gọi đi: kết thúc trên máy chủ', () {
+      expect(
+        callAbortTerminatesServerCall(incoming: true, acceptedHere: true),
+        isTrue,
+      );
+      expect(
+        callAbortTerminatesServerCall(incoming: false, acceptedHere: false),
+        isTrue,
+      );
+    });
+  });
+
+  group('incomingLookupFailureAction', () {
+    test('chưa bấm nghe native: giữ chuông', () {
+      expect(
+        incomingLookupFailureAction(
+          nativeAccepted: false,
+          hasCallContext: true,
+          retriesUsed: 0,
+        ),
+        IncomingLookupFailureAction.keepRinging,
+      );
+    });
+
+    test('đã bấm nghe native, đủ thông tin: mở màn gọi luôn', () {
+      expect(
+        incomingLookupFailureAction(
+          nativeAccepted: true,
+          hasCallContext: true,
+          retriesUsed: incomingNativeAcceptMaxRetries,
+        ),
+        IncomingLookupFailureAction.openCallScreen,
+      );
+    });
+
+    test('đã bấm nghe native, thiếu thông tin: thử lại có giới hạn', () {
+      expect(
+        incomingLookupFailureAction(
+          nativeAccepted: true,
+          hasCallContext: false,
+          retriesUsed: 0,
+        ),
+        IncomingLookupFailureAction.retryLater,
+      );
+      expect(
+        incomingLookupFailureAction(
+          nativeAccepted: true,
+          hasCallContext: false,
+          retriesUsed: incomingNativeAcceptMaxRetries,
+        ),
+        IncomingLookupFailureAction.giveUp,
+      );
+    });
+  });
+
+  test('tải ICE servers khi khôi phục có hạn ngắn, trong hạn kết thúc', () {
+    expect(
+      CallRecoveryPolicy.iceServersFetchTimeout,
+      lessThan(CallRecoveryPolicy.retryInterval),
+    );
+    expect(
+      CallRecoveryPolicy.actionDelay +
+          CallRecoveryPolicy.iceServersFetchTimeout,
+      lessThan(CallRecoveryPolicy.giveUpAfter(incoming: false)),
+    );
+  });
 }

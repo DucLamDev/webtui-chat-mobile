@@ -756,6 +756,8 @@ class _MessageVoiceAttachmentViewState
 
   Future<void> _loadAndPlay() async {
     final generation = ++_loadGeneration;
+    // Tải xong chỉ tự phát khi người dùng chưa bấm phát cái khác / chưa gọi.
+    final playToken = ExclusiveMediaPlayback.beginRequest();
     final uri = attachmentDownloadUri(widget.attachment, widget.apiBaseUri);
     if (uri == null ||
         !attachmentPreviewWithinLimit(
@@ -835,6 +837,11 @@ class _MessageVoiceAttachmentViewState
       _playablePath = playablePath;
       _binding = binding;
       setState(() => _loading = false);
+      if (!ExclusiveMediaPlayback.isLatestRequest(playToken)) {
+        // Trong lúc tải, người dùng đã phát tin khác hoặc bắt đầu cuộc gọi:
+        // để sẵn sàng, bấm lần nữa mới phát.
+        return;
+      }
       ExclusiveMediaPlayback.claim(this, _pauseForOther);
       await _player.play(
         DeviceFileSource(
@@ -1179,6 +1186,7 @@ class _MessageVideoAttachmentViewState
   /// Bấm vào video: phát; video vừa lỗi thì thử tải lại (mạng chập chờn).
   void _onPlayTapped() {
     _playWhenReady = true;
+    _playRequestToken = ExclusiveMediaPlayback.beginRequest();
     _requestDownload();
   }
 
@@ -1186,7 +1194,12 @@ class _MessageVideoAttachmentViewState
   /// phát luôn, không bắt chạm lại.
   void _onLoadingTapped() {
     _playWhenReady = true;
+    _playRequestToken = ExclusiveMediaPlayback.beginRequest();
   }
+
+  /// Mã lượt bấm phát (xem [ExclusiveMediaPlayback.beginRequest]): sẵn sàng
+  /// thì chỉ tự phát khi vẫn là lượt mới nhất.
+  int _playRequestToken = -1;
 
   /// Thay trình phát: gỡ listener của trình phát cũ, gắn vào trình phát mới.
   /// Trả trình phát cũ để nơi gọi huỷ.
@@ -1278,6 +1291,8 @@ class _MessageVideoAttachmentViewState
     await failed.dispose();
     if (!mounted) return;
     _playWhenReady = resumePlaying;
+    // Phát tiếp sau khi khôi phục chỉ khi chưa có ai phát cái khác / gọi.
+    _playRequestToken = ExclusiveMediaPlayback.currentRequest;
     await _initialize(freshStream: true, resumeAt: resumeAt);
   }
 
@@ -1480,6 +1495,11 @@ class _MessageVideoAttachmentViewState
           // Chỉ xem trước: không tải cả tệp về chỉ để lấy khung hình.
           throw const RedirectSafeDownloadException('preview unavailable');
         }
+        if (freshStream) {
+          // Tự khôi phục (người dùng không bấm gì): xin đường phát mới không
+          // được thì báo lỗi có nút thử lại, không tự tải cả tệp (tốn 4G).
+          throw const RedirectSafeDownloadException('stream recovery failed');
+        }
         if (byteSize > maxVideoPlaybackBytes) {
           throw const RedirectSafeDownloadException('video too large');
         }
@@ -1576,7 +1596,11 @@ class _MessageVideoAttachmentViewState
     if (previous != null) await previous.dispose();
     if (_playWhenReady && mounted && generation == _initializationGeneration) {
       _playWhenReady = false;
-      await _togglePlayback();
+      // Trong lúc tải / khôi phục, người dùng đã phát cái khác hoặc bắt đầu
+      // cuộc gọi: để sẵn sàng, không tự phát chen ngang.
+      if (ExclusiveMediaPlayback.isLatestRequest(_playRequestToken)) {
+        await _togglePlayback();
+      }
     }
   }
 

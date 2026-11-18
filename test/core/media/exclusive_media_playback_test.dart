@@ -58,4 +58,30 @@ void main() {
       expect(ExclusiveMediaPlayback.currentOwner, same(b));
     },
   );
+
+  test(
+    'tin đang tải dở không tự phát chen ngang khi người dùng đã bấm phát cái khác',
+    () {
+      final tokenA = ExclusiveMediaPlayback.beginRequest();
+      // Tin B đã có sẵn trên máy: bấm là phát ngay.
+      ExclusiveMediaPlayback.claim(Object(), () async {});
+      expect(ExclusiveMediaPlayback.isLatestRequest(tokenA), isFalse);
+
+      final tokenC = ExclusiveMediaPlayback.beginRequest();
+      expect(ExclusiveMediaPlayback.isLatestRequest(tokenC), isTrue);
+    },
+  );
+
+  test('bắt đầu cuộc gọi thì tin / video đang tải dở không tự phát', () async {
+    final pending = ExclusiveMediaPlayback.beginRequest();
+    final resume = ExclusiveMediaPlayback.currentRequest;
+    await ExclusiveMediaPlayback.pauseAll();
+    expect(ExclusiveMediaPlayback.isLatestRequest(pending), isFalse);
+    expect(ExclusiveMediaPlayback.isLatestRequest(resume), isFalse);
+  });
+
+  test('chỉ một lượt bấm thì tải xong vẫn được phát', () {
+    final token = ExclusiveMediaPlayback.beginRequest();
+    expect(ExclusiveMediaPlayback.isLatestRequest(token), isTrue);
+  });
 }

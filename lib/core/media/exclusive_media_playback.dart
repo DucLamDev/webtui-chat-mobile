@@ -11,9 +11,25 @@ final class ExclusiveMediaPlayback {
   static Object? _owner;
   static Future<void> Function()? _pauseOwner;
 
+  /// Mã lượt yêu cầu phát mới nhất: tăng khi người dùng bấm phát, khi một nguồn
+  /// bắt đầu phát và khi bắt đầu cuộc gọi.
+  static int _requestEpoch = 0;
+
+  /// Người dùng vừa bấm phát một nguồn còn phải tải: lấy mã lượt. Tải xong chỉ
+  /// tự phát khi vẫn là lượt mới nhất ([isLatestRequest]): chưa bấm phát cái
+  /// khác, chưa có cuộc gọi — không để tin tải xong chen ngang.
+  static int beginRequest() => ++_requestEpoch;
+
+  /// Mã lượt hiện tại (không tạo lượt mới), cho việc tự phát tiếp (vd. khôi
+  /// phục video đang xem): có ai bấm phát cái khác / bắt đầu gọi thì thôi.
+  static int get currentRequest => _requestEpoch;
+
+  static bool isLatestRequest(int token) => token == _requestEpoch;
+
   /// [owner] sắp phát: tạm dừng nguồn khác đang phát (nếu có) rồi ghi nhớ cách
   /// dừng [owner] ([pause]).
   static void claim(Object owner, Future<void> Function() pause) {
+    _requestEpoch += 1;
     final previousOwner = _owner;
     final previousPause = _pauseOwner;
     _owner = owner;
@@ -33,8 +49,10 @@ final class ExclusiveMediaPlayback {
     }
   }
 
-  /// Dừng nguồn đang phát (vd. khi bắt đầu hay nhận cuộc gọi).
+  /// Dừng nguồn đang phát (vd. khi bắt đầu hay nhận cuộc gọi); nguồn đang tải
+  /// dở cũng không tự phát khi tải xong.
   static Future<void> pauseAll() async {
+    _requestEpoch += 1;
     final pause = _pauseOwner;
     _owner = null;
     _pauseOwner = null;
@@ -48,6 +66,7 @@ final class ExclusiveMediaPlayback {
   static void resetForTest() {
     _owner = null;
     _pauseOwner = null;
+    _requestEpoch = 0;
   }
 
   static Future<void> _pauseSafely(Future<void> Function() pause) async {

@@ -1147,6 +1147,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     // Cuộc gọi tìm thấy qua thông báo / hỏi định kỳ (realtime có thể đang
     // chết): nối lại ngay trong lúc hộp "Cuộc gọi đến" đổ chuông.
     _prepareRealtime(target.workspaceId);
+    var keepNativeAccepted = false;
     try {
       // Lỗi mạng tạm thời KHÔNG phải "cuộc gọi đã kết thúc": giữ chuông gốc
       // và thử lại vài lần; vẫn lỗi thì để nguyên (thông báo / hỏi định kỳ
@@ -1173,7 +1174,47 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
         return;
       }
       final lookup = classifyCallLookup(initialResult);
-      if (lookup == CallLookupOutcome.transientError) return;
+      if (lookup == CallLookupOutcome.transientError) {
+        // Người dùng đã bấm Nghe trên CallKit trong lúc đang thử lại: không
+        // được bỏ rơi cuộc gọi (CallKit treo không tiếng).
+        final channelId = target.channelId?.trim() ?? '';
+        final retriesUsed = _nativeAcceptLookupRetries[callId] ?? 0;
+        switch (incomingLookupFailureAction(
+          nativeAccepted: _nativeAcceptedCallIds.contains(callId),
+          hasCallContext: channelId.isNotEmpty,
+          retriesUsed: retriesUsed,
+        )) {
+          case IncomingLookupFailureAction.keepRinging:
+            return;
+          case IncomingLookupFailureAction.openCallScreen:
+            // Màn gọi tự nhận máy và chịu được lỗi tạm thời (máy chủ trả
+            // 409 / 404 nếu cuộc gọi không còn thì màn tự báo rồi đóng).
+            _nativeAcceptedCallIds.remove(callId);
+            _nativeAcceptLookupRetries.remove(callId);
+            await _pushIncomingCallScreen(
+              workspaceId: target.workspaceId,
+              channelId: channelId,
+              callId: callId,
+              title: target.callerName ?? tr('Cuộc gọi đến', 'Incoming call'),
+              mode: target.callMode?.trim().toLowerCase() == CallMode.video.name
+                  ? CallMode.video
+                  : CallMode.audio,
+            );
+            return;
+          case IncomingLookupFailureAction.retryLater:
+            _nativeAcceptLookupRetries[callId] = retriesUsed + 1;
+            keepNativeAccepted = true;
+            Timer(const Duration(seconds: 2), () {
+              if (mounted) unawaited(_showIncomingCall(target));
+            });
+            return;
+          case IncomingLookupFailureAction.giveUp:
+            _nativeAcceptLookupRetries.remove(callId);
+            await NativeIncomingCallService.endCall(callId, remoteEnded: true);
+            return;
+        }
+      }
+      _nativeAcceptLookupRetries.remove(callId);
       final initialCall = initialResult.valueOrNull;
       if (lookup != CallLookupOutcome.ringing || initialCall == null) {
         await NativeIncomingCallService.endCall(callId, remoteEnded: true);
@@ -1316,43 +1357,58 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
           await NativeIncomingCallService.endCall(callId, remoteEnded: true);
           return;
       }
-      if (!mounted) {
-        return;
-      }
-      await Navigator.of(context, rootNavigator: true).push<void>(
-        MaterialPageRoute<void>(
-          fullscreenDialog: true,
-          builder: (_) => WebRtcCallScreen(
-            workspaceId: initialCall.workspaceId,
-            channelId: initialCall.channelId,
-            callId: initialCall.id,
-            title:
-                caller.value?.name ??
-                target.callerName ??
-                tr('Cuộc gọi đến', 'Incoming call'),
-            mode: initialCall.mode,
-            incoming: true,
-            onConnected: () =>
-                NativeIncomingCallService.markConnected(initialCall.id),
-            onLeave: () async {
-              await NativeIncomingCallService.endCall(initialCall.id);
-              ref.invalidate(chatRoomControllerProvider);
-              ref.invalidate(
-                conversationHomeControllerProvider(initialCall.workspaceId),
-              );
-              ref.invalidate(
-                notificationCenterControllerProvider(initialCall.workspaceId),
-              );
-            },
-          ),
-        ),
+      await _pushIncomingCallScreen(
+        workspaceId: initialCall.workspaceId,
+        channelId: initialCall.channelId,
+        callId: initialCall.id,
+        title:
+            caller.value?.name ??
+            target.callerName ??
+            tr('Cuộc gọi đến', 'Incoming call'),
+        mode: initialCall.mode,
       );
     } finally {
-      _nativeAcceptedCallIds.remove(callId);
+      // Đang hẹn thử lại sau khi đã bấm nghe native: giữ dấu "đã nghe" để
+      // lượt sau mở thẳng màn gọi.
+      if (!keepNativeAccepted) _nativeAcceptedCallIds.remove(callId);
       if (_activeIncomingCallId == callId) {
         _activeIncomingCallId = null;
       }
     }
+  }
+
+  /// Số lượt đã thử lại đọc cuộc gọi sau khi bấm nghe native mà lỗi tạm thời.
+  final Map<String, int> _nativeAcceptLookupRetries = <String, int>{};
+
+  /// Mở màn gọi cho cuộc gọi đến (màn gọi tự nhận máy trên máy chủ).
+  Future<void> _pushIncomingCallScreen({
+    required String workspaceId,
+    required String channelId,
+    required String callId,
+    required String title,
+    required CallMode mode,
+  }) async {
+    if (!mounted) return;
+    await Navigator.of(context, rootNavigator: true).push<void>(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (_) => WebRtcCallScreen(
+          workspaceId: workspaceId,
+          channelId: channelId,
+          callId: callId,
+          title: title,
+          mode: mode,
+          incoming: true,
+          onConnected: () => NativeIncomingCallService.markConnected(callId),
+          onLeave: () async {
+            await NativeIncomingCallService.endCall(callId);
+            ref.invalidate(chatRoomControllerProvider);
+            ref.invalidate(conversationHomeControllerProvider(workspaceId));
+            ref.invalidate(notificationCenterControllerProvider(workspaceId));
+          },
+        ),
+      ),
+    );
   }
 
   IncomingCallDecision _incomingCallDecision(String callId) {

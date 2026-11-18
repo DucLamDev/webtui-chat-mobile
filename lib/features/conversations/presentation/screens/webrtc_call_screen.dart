@@ -107,6 +107,10 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
 
   /// Bên gọi: offer gần nhất đang chờ answer, gửi lại nếu quá hạn.
   Map<String, Object?>? _pendingOfferPayload;
+
+  /// Lần POST offer gần nhất (đang chờ answer) bị lỗi: lượt khôi phục sau
+  /// không phải nhường cho offer đó ([callerRecoveryShouldWait]).
+  bool _pendingOfferSendFailed = false;
   Timer? _answerTimer;
   SignalResendBudget? _offerBudget;
 
@@ -323,13 +327,15 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
           .catchError((Object _) => false);
 
       // Mở micro (và camera) TRƯỚC khi nhận cuộc gọi đến: thiếu quyền micro
-      // thì từ chối có thông báo, không "nhận rồi cắt".
+      // thì báo lỗi rồi đóng màn, không "nhận rồi cắt". Không gửi từ chối
+      // thay người được gọi: máy khác (web) vẫn đổ chuông, không ai nghe thì
+      // máy chủ tự ghi cuộc gọi nhỡ; chỉ tắt CallKit của máy này.
       try {
         stream = await _openLocalMedia();
       } on Object catch (error) {
         if (_setupAbandoned) return;
         if (widget.incoming && !_acceptedHere) {
-          await _abortCall(error, reason: 'media_setup_failed');
+          await _leaveWithMessage(_friendlyError(error));
           return;
         }
         rethrow;
@@ -639,12 +645,17 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   }
 
   /// ICE servers từ máy chủ (kèm mật khẩu TURN có hạn ~10 phút); `null` khi
-  /// lỗi / rỗng.
-  Future<List<Map<String, Object?>>?> _fetchIceServers() async {
+  /// lỗi / rỗng / quá [timeout] (nếu có).
+  Future<List<Map<String, Object?>>?> _fetchIceServers({
+    Duration? timeout,
+  }) async {
     try {
-      final response = await ref
+      final request = ref
           .read(apiTransportProvider)
           .get<Object>('/api/v1/calls/ice-servers');
+      final response = timeout == null
+          ? await request
+          : await request.timeout(timeout);
       final data = jsonMap(envelopeData(response.data));
       final servers = jsonMapList(
         field(data, const ['ice_servers', 'iceServers']),
@@ -704,10 +715,21 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
         // Chỉ người khởi tạo gửi offer. Đang mất kết nối: bên nhận xin khởi
         // động lại ICE; ngược lại bên nhận vừa bật camera, xin offer mới.
         if (!widget.incoming) {
-          if (_reconnecting) {
-            _recoverNow();
-          } else {
-            _requestRenegotiation();
+          switch (callerRenegotiateAction(
+            reason: event.reason,
+            reconnecting: _reconnecting,
+          )) {
+            case CallRenegotiateAction.iceRestart:
+              // Bên nhận thấy mất kết nối: khởi động lại ICE dù máy này còn
+              // thấy "connected" (không thêm m-line video vào cuộc thoại).
+              _recoverNow(remoteRequested: true);
+            case CallRenegotiateAction.renegotiate:
+              // Bên nhận bật camera: ghi nhớ; đang khởi động lại ICE thì gộp
+              // vào offer đó hoặc chạy ngay sau khi có answer.
+              _requestRenegotiation();
+            case CallRenegotiateAction.renegotiateAndIceRestart:
+              _requestRenegotiation();
+              _recoverNow(remoteRequested: true);
           }
         }
       case ConversationRealtimeEventType.callAnswer:
@@ -800,7 +822,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     try {
       final offer = await peer.createOffer();
       await peer.setLocalDescription(offer);
-      await _sendOfferAwaitingAnswer(
+      _sendOfferAwaitingAnswer(
         offer,
         timeout: CallSignalTiming.offerAnswerTimeout,
         maxResends: CallSignalTiming.offerMaxResends,
@@ -815,20 +837,58 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   /// đúng offer đó (tối đa [maxResends] lần). Máy chủ chỉ chuyển tiếp một lần,
   /// offer mất trên đường (đổi mạng, realtime bên kia vừa nối lại) thì cuộc
   /// gọi kẹt "Đang kết nối" nếu không gửi lại.
-  Future<void> _sendOfferAwaitingAnswer(
+  ///
+  /// Hẹn gửi lại / hết hạn ĐẶT TRƯỚC khi gửi, nên gửi lỗi (vừa đổi Wi-Fi ↔
+  /// 4G) vẫn có lượt gửi lại và trạng thái chờ luôn được xoá khi hết lượt.
+  /// Lệnh POST chạy ngoài hàng SDP / ICE (không chặn answer / candidate tới).
+  void _sendOfferAwaitingAnswer(
     RTCSessionDescription offer, {
     required Duration timeout,
     required int maxResends,
-  }) async {
+  }) {
     final payload = <String, Object?>{
       'sdp': {'type': offer.type, 'sdp': offer.sdp},
     };
     _answerTimer?.cancel();
     _pendingOfferPayload = payload;
+    _pendingOfferSendFailed = false;
     final budget = SignalResendBudget(maxResends: maxResends);
     _offerBudget = budget;
-    await _sendSignal(CallSignalType.offer, payload);
     _armAnswerTimer(payload, budget, timeout);
+    _postPendingOffer(payload);
+  }
+
+  /// POST offer đang chờ answer ở nền; ghi nhận lỗi để lượt khôi phục sau
+  /// không phải chờ offer không tới được bên kia.
+  void _postPendingOffer(Map<String, Object?> payload) {
+    unawaited(
+      _sendSignal(CallSignalType.offer, payload).then(
+        (_) {
+          if (identical(_pendingOfferPayload, payload)) {
+            _pendingOfferSendFailed = false;
+          }
+        },
+        onError: (Object error) {
+          debugPrint('Gửi offer lỗi: $error');
+          if (identical(_pendingOfferPayload, payload)) {
+            _pendingOfferSendFailed = true;
+          }
+        },
+      ),
+    );
+  }
+
+  /// POST tín hiệu ở nền (ngoài hàng SDP / ICE); lỗi chỉ ghi log, các lượt
+  /// gửi lại (offer, ready, xin khôi phục) lo phần còn lại.
+  void _postSignalInBackground(
+    CallSignalType type,
+    Map<String, Object?> payload,
+  ) {
+    unawaited(
+      _sendSignal(type, payload).catchError((Object error) {
+        debugPrint('Gửi tín hiệu ${type.name} lỗi: $error');
+      }),
+    );
   }
 
   void _armAnswerTimer(
@@ -850,12 +910,8 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
         _clearAwaitingAnswer();
         return;
       }
-      unawaited(
-        _sendSignal(CallSignalType.offer, payload).catchError((Object error) {
-          debugPrint('Gửi lại offer lỗi: $error');
-        }),
-      );
       _armAnswerTimer(payload, budget, timeout);
+      _postPendingOffer(payload);
     });
   }
 
@@ -863,6 +919,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     _answerTimer?.cancel();
     _answerTimer = null;
     _pendingOfferPayload = null;
+    _pendingOfferSendFailed = false;
     _offerBudget = null;
   }
 
@@ -880,7 +937,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
         await _signalingStable(peer)) {
       // Bên gọi gửi lại đúng offer đã trả lời (answer trước bị mất): gửi lại
       // answer cũ, không thương lượng lại.
-      await _sendSignal(CallSignalType.answer, previousAnswer);
+      _postSignalInBackground(CallSignalType.answer, previousAnswer);
       return;
     }
     await peer.setRemoteDescription(
@@ -896,7 +953,9 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     _lastAnsweredOfferSdp = sdp;
     _lastAnswerPayload = payload;
     _initialNegotiationDone = true;
-    await _sendSignal(CallSignalType.answer, payload);
+    // POST ngoài hàng SDP / ICE. Answer mất thì bên gọi gửi lại offer và
+    // nhận lại đúng answer này (nhánh trên).
+    _postSignalInBackground(CallSignalType.answer, payload);
     // Thương lượng xong mới có lớp mã hoá cho camera vừa bật: đặt giới hạn.
     unawaited(_limitVideoSender());
     // Lượt thương lượng xong: chạy yêu cầu đã ghi nhớ (bật camera giữa chừng).
@@ -964,6 +1023,11 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
         _fatalErrorHandled) {
       return;
     }
+    if (!widget.incoming && _iceRestartRunning) {
+      // Bên gọi đã xếp lượt khởi động lại ICE: giữ yêu cầu, lượt đó gộp vào
+      // offer iceRestart (xem [_restartIce]); sau answer sẽ thử lại ở đây.
+      return;
+    }
     _renegotiating = true;
     try {
       final signaling = await peer.getSignalingState();
@@ -981,7 +1045,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
           await _sendRenegotiationOffer(peer);
         case CallRenegotiationStep.requestOffer:
           _renegotiationQueued = false;
-          await _sendSignal(CallSignalType.renegotiate, const {
+          _postSignalInBackground(CallSignalType.renegotiate, const {
             'reason': callRenegotiateVideoReason,
           });
       }
@@ -996,6 +1060,16 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   /// Người khởi tạo: bảo đảm có m-line video (chưa có thì thêm transceiver
   /// chỉ nhận) để bên kia gắn camera vừa bật, rồi gửi offer mới.
   Future<void> _sendRenegotiationOffer(RTCPeerConnection peer) async {
+    await _ensureVideoTransceiver(peer);
+    final offer = await peer.createOffer();
+    await peer.setLocalDescription(offer);
+    _postSignalInBackground(CallSignalType.offer, {
+      'sdp': {'type': offer.type, 'sdp': offer.sdp},
+    });
+  }
+
+  /// Chưa có m-line video thì thêm transceiver chỉ nhận (bên kia gắn camera).
+  Future<void> _ensureVideoTransceiver(RTCPeerConnection peer) async {
     final transceivers = await peer.getTransceivers();
     final hasVideo = transceivers.any(
       (item) =>
@@ -1008,11 +1082,6 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
         init: RTCRtpTransceiverInit(direction: TransceiverDirection.RecvOnly),
       );
     }
-    final offer = await peer.createOffer();
-    await peer.setLocalDescription(offer);
-    await _sendSignal(CallSignalType.offer, {
-      'sdp': {'type': offer.type, 'sdp': offer.sdp},
-    });
   }
 
   /// Nút "Video" / "Bật camera": xin camera, thêm track vào kết nối đang có,
@@ -1433,6 +1502,15 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
 
   Future<void> _abortCall(Object error, {required String reason}) async {
     if (_fatalErrorHandled || _leaving) return;
+    if (!callAbortTerminatesServerCall(
+      incoming: widget.incoming,
+      acceptedHere: _acceptedHere,
+    )) {
+      // Cuộc gọi đến chưa nhận trên máy này: chỉ báo lỗi, đóng màn và tắt
+      // CallKit cục bộ; không gửi từ chối lên máy chủ.
+      await _leaveWithMessage(_friendlyError(error));
+      return;
+    }
     _fatalErrorHandled = true;
     unawaited(_ringback.stop());
     _stateTimer?.cancel();
@@ -1547,9 +1625,18 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   }
 
   /// Một lượt khôi phục (giới hạn [CallRecoveryPolicy.maxRecoveryActions]).
-  void _recoverNow() {
+  ///
+  /// [remoteRequested]: bên nhận gửi `renegotiate` `ice_restart` (bên nhận
+  /// thấy mất kết nối dù máy này chưa thấy). Khi máy này không tự thấy mất
+  /// kết nối thì lượt đó không tính vào giới hạn (bên nhận đã tự giới hạn số
+  /// lần xin), kẻo bộ đếm không bao giờ được đặt lại vì kết nối ở đây chưa
+  /// từng rời trạng thái "connected".
+  void _recoverNow({bool remoteRequested = false}) {
     if (_leaving || _fatalErrorHandled) return;
-    if (_recoveryActions >= CallRecoveryPolicy.maxRecoveryActions) return;
+    final counted = !remoteRequested || _reconnecting;
+    if (counted && _recoveryActions >= CallRecoveryPolicy.maxRecoveryActions) {
+      return;
+    }
     if (widget.incoming) {
       _recoveryActions++;
       // Chỉ bên gọi được gửi offer: xin bên gọi khởi động lại ICE. Máy bản cũ
@@ -1564,9 +1651,15 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       return;
     }
     // Offer khởi động lại trước còn đang chờ answer (tự gửi lại): không chồng
-    // thêm lượt mới.
-    if (_iceRestartRunning || _pendingOfferPayload != null) return;
-    _recoveryActions++;
+    // thêm lượt mới. Lần gửi offer đó lỗi thì tạo offer mới thay thế.
+    if (callerRecoveryShouldWait(
+      iceRestartRunning: _iceRestartRunning,
+      awaitingAnswer: _pendingOfferPayload != null,
+      lastOfferSendFailed: _pendingOfferSendFailed,
+    )) {
+      return;
+    }
+    if (counted) _recoveryActions++;
     // Đánh dấu ngay lúc xếp hàng để lượt sau không xếp thêm một lần nữa.
     _iceRestartRunning = true;
     _runSignaling(_restartIce);
@@ -1599,9 +1692,14 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   /// hẹn kết thúc của [_scheduleConnectionRecovery] vẫn còn.
   Future<void> _restartIce() async {
     final peer = _peer;
+    var mergedRenegotiation = false;
     try {
       if (peer == null || _leaving || _fatalErrorHandled) return;
-      final servers = await _fetchIceServers();
+      // Có hạn ngắn: lượt này chạy trong hàng SDP / ICE, treo lâu thì answer /
+      // candidate tới phải chờ. Quá hạn thì dùng cấu hình cũ.
+      final servers = await _fetchIceServers(
+        timeout: CallRecoveryPolicy.iceServersFetchTimeout,
+      );
       if (_leaving || _fatalErrorHandled) return;
       if (servers != null) {
         try {
@@ -1613,9 +1711,18 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
           debugPrint('Không cập nhật được ICE servers: $error');
         }
       }
+      if (_renegotiationQueued) {
+        // Bên nhận vừa xin thương lượng lại (bật camera) trong lúc khôi phục:
+        // gộp vào offer này (offer iceRestart mang đủ transceiver hiện có),
+        // không nuốt yêu cầu.
+        _renegotiationQueued = false;
+        mergedRenegotiation = true;
+        await _ensureVideoTransceiver(peer);
+      }
       final offer = await peer.createOffer({'iceRestart': true});
       await peer.setLocalDescription(offer);
-      await _sendOfferAwaitingAnswer(
+      mergedRenegotiation = false;
+      _sendOfferAwaitingAnswer(
         offer,
         timeout: CallSignalTiming.iceRestartAnswerTimeout,
         maxResends: CallSignalTiming.iceRestartMaxResends,
@@ -1624,6 +1731,10 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       debugPrint('Khởi động lại ICE lỗi: $error');
     } finally {
       _iceRestartRunning = false;
+      // Chưa kịp gộp (lỗi / rời giữa chừng): trả lại yêu cầu thương lượng lại
+      // để chạy riêng, không nuốt.
+      if (mergedRenegotiation) _renegotiationQueued = true;
+      _scheduleDrainRenegotiation();
     }
   }
 

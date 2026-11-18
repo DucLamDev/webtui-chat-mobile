@@ -15,24 +15,30 @@ Rà soát cuộc gọi, xem video / ảnh / tin thoại và kho tệp trên máy
   - Đổi Wi-Fi ↔ 4G giữa cuộc gọi: lấy lại thông tin máy chủ chuyển tiếp trước khi khôi phục, gửi lại yêu cầu khôi phục
     nếu chưa có trả lời, bên nhận cũng xin khôi phục được; bên nhận chờ 30 giây thay vì 15 giây.
   - Tín hiệu kết nối chỉ gửi một lần nên mất một gói là treo "Đang kết nối": nay gửi lại "sẵn sàng" / offer / ICE khi
-    chưa có trả lời (có giới hạn); các bước thương lượng chạy lần lượt, lỗi phụ không còn cắt cả cuộc gọi.
+    chưa có trả lời (có giới hạn, kể cả khi lượt gửi đầu lỗi mạng); các bước thương lượng chạy lần lượt và không bị
+    lệnh mạng chậm chặn; lỗi phụ không còn cắt cả cuộc gọi. App đọc đúng lý do của yêu cầu thương lượng lại (bật
+    camera / xin khôi phục kết nối) mà trước đây luôn bị bỏ trống.
   - Mạng chập chờn đúng lúc có cuộc gọi đến bị coi là "cuộc gọi đã kết thúc" (tắt chuông, rồi 8 giây sau hộp cuộc gọi
-    hiện lại): nay thử lại, chỉ tắt khi máy chủ báo thật sự đã kết thúc.
+    hiện lại): nay thử lại, chỉ tắt khi máy chủ báo thật sự đã kết thúc; đã bấm Nghe trên màn hình khoá thì vẫn mở
+    màn gọi, không bỏ treo cuộc gọi im lặng.
   - Cuộc gọi video mà camera bị từ chối / đang bận thì hỏng cả cuộc: nay chuyển sang chỉ thoại. Nhận cuộc gọi: lấy
-    micro trước rồi mới nhận (thiếu quyền thì từ chối có thông báo, không "nhận rồi cắt").
+    micro trước rồi mới nhận; thiếu quyền micro thì báo trên máy này và không nhận, nhưng không từ chối thay người
+    dùng (máy khác của họ vẫn đổ chuông), không còn "nhận rồi cắt".
   - Gọi video khi đang đeo tai nghe Bluetooth / có dây không còn bị ép ra loa ngoài.
   - Đồng hồ cuộc gọi chạy khi chưa có tiếng: nay hiện "Đang kết nối…" tới khi thông thật sự.
   - Bắt đầu / nhận cuộc gọi thì tin thoại, video đang phát tự dừng.
 - Xem video:
   - Android: video phát dần bị đứng hình khi đường phát hết hạn (xem lâu hơn 15 phút / tạm dừng lâu), bấm phát không
-    phản hồi: nay tự xin đường mới và phát tiếp đúng chỗ (lỗi lặp lại thì báo lỗi có nút thử lại).
+    phản hồi: nay tự xin đường mới và phát tiếp đúng chỗ; không được thì báo lỗi có nút thử lại (không tự tải cả
+    tệp khi người dùng không bấm, tránh tốn 4G).
   - Nút Phát / Tạm dừng nay đổi theo trạng thái thật (phát hết, bị hệ thống dừng).
   - iPhone không xem được video trên 250 MB: nay xem được tới mức gửi tối đa (vẫn chỉ tải khi bấm, có phần trăm).
   - Cuộn khỏi video / tin thoại đang tải không còn huỷ lượt tải (quay lại vẫn thấy phần trăm).
   - Video cũ chưa có ảnh bìa: chạm khi đang mở khung xem trước thì sẵn sàng là phát luôn.
   - Xem rồi lưu video vào thư viện ảnh không còn tải lại lần nữa (dùng chung một tệp đã lưu).
 - Ảnh trên 5 MB nay xem được toàn màn hình (tới 30 MB; lớn hơn thì hiện ảnh thu nhỏ).
-- Tin thoại / video không còn phát chồng lên nhau: phát cái mới thì cái đang phát tự dừng.
+- Tin thoại / video không còn phát chồng lên nhau: phát cái mới thì cái đang phát tự dừng; tin đang tải dở không tự
+  phát chen ngang khi người dùng đã bấm phát cái khác hoặc đang trong cuộc gọi.
 - Mở tệp: đã rời phòng chat thì không tự bật app khác lên khi tải xong; truyền đúng loại tệp cho app mở.
 - Kho tệp trên máy: tệp vừa dùng (đang phát / đang mở bằng app khác) không bị xoá khi kho đầy; mở một tệp rất lớn
   không còn xoá sạch kho; ghi nhiều thì dọn ngay để giữ mức 1 GB; không ghi tệp vào kho sau khi đã đăng xuất. Mục Tệp

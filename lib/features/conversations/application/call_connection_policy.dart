@@ -102,6 +102,95 @@ abstract final class CallRecoveryPolicy {
   /// Bên nhận chờ lâu hơn bên gọi để bên gọi kịp khởi động lại ICE.
   static Duration giveUpAfter({required bool incoming}) =>
       incoming ? const Duration(seconds: 30) : const Duration(seconds: 25);
+
+  /// Tải lại ICE servers khi khôi phục: quá hạn này thì dùng cấu hình cũ (lúc
+  /// đổi mạng, lệnh HTTP có thể treo 15–30 giây, quá cả hạn kết thúc).
+  static const Duration iceServersFetchTimeout = Duration(seconds: 3);
+}
+
+/// Bên gọi có phải nhường lượt khôi phục mới cho offer đang chờ answer không.
+///
+/// - Đang có lượt khởi động lại ICE xếp hàng / chạy: nhường (không chồng).
+/// - Đang chờ answer cho offer đã gửi được: nhường, hẹn gửi lại tự lo.
+/// - Lần gửi offer gần nhất LỖI (vừa đổi Wi-Fi ↔ 4G): không nhường, tạo
+///   offer khởi động lại mới (thay offer cũ), kẻo cuộc gọi bị cắt vì hết hạn.
+bool callerRecoveryShouldWait({
+  required bool iceRestartRunning,
+  required bool awaitingAnswer,
+  required bool lastOfferSendFailed,
+}) {
+  if (iceRestartRunning) return true;
+  return awaitingAnswer && !lastOfferSendFailed;
+}
+
+/// Bên gọi xử lý tín hiệu `renegotiate` của bên nhận.
+enum CallRenegotiateAction {
+  /// Khởi động lại ICE (offer `iceRestart`), dù máy này chưa thấy mất kết nối.
+  iceRestart,
+
+  /// Thương lượng lại thường (bên nhận bật camera). Đang khôi phục thì gộp
+  /// vào offer khởi động lại ICE hoặc chạy ngay sau khi lượt đó xong.
+  renegotiate,
+
+  /// Không rõ lý do (bản cũ) lúc đang khôi phục: vừa ghi nhớ thương lượng lại
+  /// vừa thúc khôi phục; offer khởi động lại ICE mang luôn m-line video.
+  renegotiateAndIceRestart,
+}
+
+CallRenegotiateAction callerRenegotiateAction({
+  required String? reason,
+  required bool reconnecting,
+}) {
+  final normalized = reason?.trim() ?? '';
+  if (normalized == callRenegotiateIceRestartReason) {
+    return CallRenegotiateAction.iceRestart;
+  }
+  if (normalized.isEmpty && reconnecting) {
+    return CallRenegotiateAction.renegotiateAndIceRestart;
+  }
+  return CallRenegotiateAction.renegotiate;
+}
+
+/// Hỏng giữa chừng (thiếu quyền micro, mở media lỗi, tín hiệu lỗi): có báo
+/// kết thúc lên máy chủ không. Cuộc gọi đến CHƯA nhận trên máy này thì không
+/// gửi từ chối thay người được gọi: máy khác (web) vẫn đổ chuông, không ai
+/// nghe thì máy chủ tự ghi cuộc gọi nhỡ.
+bool callAbortTerminatesServerCall({
+  required bool incoming,
+  required bool acceptedHere,
+}) {
+  return !incoming || acceptedHere;
+}
+
+/// Hộp "Cuộc gọi đến" hỏi máy chủ vẫn lỗi tạm thời sau mấy lần thử.
+enum IncomingLookupFailureAction {
+  /// Chưa ai bấm nghe: giữ chuông gốc, thông báo / hỏi định kỳ mở lại sau.
+  keepRinging,
+
+  /// Đã bấm nghe trên CallKit và đủ thông tin cuộc gọi: mở màn gọi luôn (màn
+  /// gọi tự nhận máy, chịu được lỗi tạm thời).
+  openCallScreen,
+
+  /// Đã bấm nghe nhưng thiếu thông tin (chưa biết cuộc trò chuyện): thử lại.
+  retryLater,
+
+  /// Đã bấm nghe, thử lại quá số lần: tắt giao diện gốc, không treo im lặng.
+  giveUp,
+}
+
+/// Số lượt thử lại tối đa khi đã bấm nghe native mà chưa đọc được cuộc gọi.
+const int incomingNativeAcceptMaxRetries = 3;
+
+IncomingLookupFailureAction incomingLookupFailureAction({
+  required bool nativeAccepted,
+  required bool hasCallContext,
+  required int retriesUsed,
+}) {
+  if (!nativeAccepted) return IncomingLookupFailureAction.keepRinging;
+  if (hasCallContext) return IncomingLookupFailureAction.openCallScreen;
+  return retriesUsed < incomingNativeAcceptMaxRetries
+      ? IncomingLookupFailureAction.retryLater
+      : IncomingLookupFailureAction.giveUp;
 }
 
 /// Dòng trạng thái dưới tên người gọi trên màn gọi.
