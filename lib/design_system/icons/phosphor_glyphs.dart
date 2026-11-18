@@ -24,6 +24,18 @@ abstract final class PhosphorRegular {
     0xe024,
     fontFamily: 'PhosphorRegular',
   );
+  static const IconData arrowBendUpRight = IconData(
+    0xe026,
+    fontFamily: 'PhosphorRegular',
+  );
+  static const IconData chatsCircle = IconData(
+    0xe17e,
+    fontFamily: 'PhosphorRegular',
+  );
+  static const IconData userMinus = IconData(
+    0xe4ce,
+    fontFamily: 'PhosphorRegular',
+  );
   static const IconData arrowClockwise = IconData(
     0xe036,
     fontFamily: 'PhosphorRegular',

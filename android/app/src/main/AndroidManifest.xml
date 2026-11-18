@@ -5,6 +5,10 @@
     <uses-permission
         android:name="android.permission.USE_FINGERPRINT"
         android:maxSdkVersion="28" />
+    <!-- Lưu ảnh / video vào thư viện máy: Android 10 trở lên không cần quyền này. -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CAMERA" />

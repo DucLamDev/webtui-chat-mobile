@@ -24,6 +24,7 @@ import '../../../customer_tickets/presentation/controllers/customer_ticket_acces
 import '../../../moderation/presentation/controllers/moderation_controller.dart';
 import '../../../moderation/presentation/widgets/moderation_actions.dart';
 import '../../../my_notes/presentation/widgets/save_message_to_my_note.dart';
+import '../../../work_hub/presentation/widgets/work_apps_grid.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
 import '../../application/use_cases/collaboration_task_use_cases.dart';
 import '../../domain/entities/call_busy_policy.dart';
@@ -48,6 +49,7 @@ import '../widgets/chat_greeting_empty_state.dart';
 import '../widgets/chat_room_app_bar.dart';
 import '../widgets/collaboration_room_sheet.dart';
 import '../widgets/colleague_profile_sheet.dart';
+import '../widgets/message_action_overlay.dart';
 import '../widgets/message_cards/message_card_view.dart';
 import '../widgets/message_cards/streaming_message_bubble.dart';
 import '../widgets/message_media_widgets.dart';
@@ -1829,6 +1831,15 @@ class _ChatRoomBodyState extends State<ChatRoomBody> {
   /// Tin đang hiện dòng giờ vì người dùng vừa chạm vào.
   String? _timeShownMessageId;
 
+  /// Chỗ ngón tay vừa nhấn giữ tin nhắn: lớp thao tác hiện ngay gần đó.
+  Offset? _longPressPosition;
+
+  Offset? _takeLongPressPosition() {
+    final position = _longPressPosition;
+    _longPressPosition = null;
+    return position;
+  }
+
   final _scrollController = ScrollController();
   final _messageKeys = <String, GlobalKey>{};
 
@@ -2055,8 +2066,12 @@ class _ChatRoomBodyState extends State<ChatRoomBody> {
                                           ? null
                                           : message.id,
                                     ),
+                                    onLongPressStart: (details) =>
+                                        _longPressPosition =
+                                            details.globalPosition,
                                     onLongPress: () => _showMessageActions(
                                       context,
+                                      anchor: _takeLongPressPosition(),
                                       workspaceId: widget.workspaceId,
                                       currentChannelId:
                                           widget.state.scope.channelId,
@@ -3705,6 +3720,7 @@ Future<void> _createMessageReminder(
 
 Future<void> _showMessageActions(
   BuildContext context, {
+  required Offset? anchor,
   required String workspaceId,
   required String currentChannelId,
   required ChatMessage message,
@@ -3726,37 +3742,44 @@ Future<void> _showMessageActions(
   if (message.isDeleted || message.isSecret) {
     return Future.value();
   }
-  final hostContext = context;
-  return showModalBottomSheet<void>(
-    context: context,
-    showDragHandle: true,
-    backgroundColor: WebTuiColors.surface,
-    builder: (sheetContext) {
-      return _MessageQuickActions(
-        hostContext: hostContext,
-        workspaceId: workspaceId,
-        currentChannelId: currentChannelId,
-        message: message,
-        onReply: onReply,
-        onReplyPrivately: onReplyPrivately,
-        isSenderBlocked: isSenderBlocked,
-        sharedContentBlocked: sharedContentBlocked,
-        onReportMessage: onReportMessage,
-        onReportUser: onReportUser,
-        onToggleBlockUser: onToggleBlockUser,
-        onConvertToTask: onConvertToTask,
-        onEdit: onEdit,
-        onDelete: onDelete,
-        onReact: onReact,
-        onPin: onPin,
-        onThread: onThread,
-        onForward: onForward,
-      );
-    },
+  final actions = _MessageQuickActions(
+    hostContext: context,
+    workspaceId: workspaceId,
+    currentChannelId: currentChannelId,
+    message: message,
+    onReply: onReply,
+    onReplyPrivately: onReplyPrivately,
+    isSenderBlocked: isSenderBlocked,
+    sharedContentBlocked: sharedContentBlocked,
+    onReportMessage: onReportMessage,
+    onReportUser: onReportUser,
+    onToggleBlockUser: onToggleBlockUser,
+    onConvertToTask: onConvertToTask,
+    onEdit: onEdit,
+    onDelete: onDelete,
+    onReact: onReact,
+    onPin: onPin,
+    onThread: onThread,
+    onForward: onForward,
+  );
+  final body = _displayMessageBody(message).trim();
+  return showMessageActionOverlay(
+    context,
+    anchor: anchor,
+    isMine: message.isMine,
+    previewText: body.isNotEmpty ? body : _messageCopyText(message),
+    actions: actions.items(),
+    selectedReactions: actions.selectedReactions,
+    onReact: sharedContentBlocked ? null : (emoji) => onReact(message, emoji),
+    onMoreReactions: sharedContentBlocked
+        ? null
+        : () => unawaited(actions.showReactionPicker()),
   );
 }
 
-class _MessageQuickActions extends StatelessWidget {
+/// Các thao tác khi nhấn giữ tin nhắn (lưới kiểu Zalo, xem `showMessageActionOverlay`).
+/// Mọi thao tác chạy sau khi lớp thao tác đóng, trên [hostContext] của phòng chat.
+class _MessageQuickActions {
   const _MessageQuickActions({
     required this.hostContext,
     required this.workspaceId,
@@ -3797,197 +3820,169 @@ class _MessageQuickActions extends StatelessWidget {
   final ValueChanged<ChatMessage> onThread;
   final void Function(ChatMessage message, String targetChannelId) onForward;
 
-  @override
-  Widget build(BuildContext context) {
-    if (message.isDeleted) {
-      return const SizedBox.shrink();
-    }
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          WebTuiSpacing.lg,
-          WebTuiSpacing.xs,
-          WebTuiSpacing.lg,
-          WebTuiSpacing.lg,
+  Set<String> get selectedReactions => message.reactions
+      .where((reaction) => reaction.reactedByMe)
+      .map((reaction) => reaction.emoji)
+      .toSet();
+
+  /// Thứ tự như Zalo: thao tác hay dùng trước, chặn / báo cáo / thu hồi ở cuối.
+  List<MessageActionItem> items() {
+    final hasSender = !message.isMine && message.senderId?.isNotEmpty == true;
+    final media = message.attachments
+        .where(isGallerySaveable)
+        .toList(growable: false);
+    final hasVideo = media.any((attachment) => attachment.isVideo);
+    return [
+      MessageActionItem(
+        id: 'reply',
+        label: tr('Trả lời', 'Reply'),
+        icon: WebTuiIcons.reply,
+        color: workAppViolet,
+        onSelected: () => onReply(message),
+      ),
+      if (!sharedContentBlocked)
+        MessageActionItem(
+          id: 'forward',
+          label: tr('Chuyển tiếp', 'Forward'),
+          icon: WebTuiIcons.forwardMessage,
+          color: workAppBlue,
+          onSelected: () => unawaited(_showForwardDialog()),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              tr('Thao tác tin nhắn', 'Message actions'),
-              style: WebTuiTypography.titleMedium.copyWith(
-                color: WebTuiColors.textPrimary,
-                fontWeight: FontWeight.w800,
-              ),
+      MessageActionItem(
+        id: 'copy',
+        label: tr('Sao chép', 'Copy'),
+        icon: WebTuiIcons.copy,
+        color: workAppBlue,
+        onSelected: () =>
+            unawaited(_copyMessageToClipboard(hostContext, message)),
+      ),
+      if (!sharedContentBlocked && media.isNotEmpty)
+        MessageActionItem(
+          id: 'save-media',
+          label: hasVideo && media.length == 1
+              ? tr('Lưu video', 'Save video')
+              : tr('Lưu ảnh', 'Save photo'),
+          icon: WebTuiIcons.download,
+          color: workAppGreen,
+          onSelected: () => unawaited(
+            saveMessageAttachmentsToGallery(
+              hostContext,
+              attachments: media,
+              apiBaseUri: WebTuiAvatarNetworkScope.maybeOf(
+                hostContext,
+              )?.apiBaseUri,
             ),
-            const SizedBox(height: WebTuiSpacing.xs),
-            Text(
-              _displayMessageBody(message),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: WebTuiTypography.bodySmall.copyWith(
-                color: WebTuiColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: WebTuiSpacing.lg),
-            Wrap(
-              spacing: WebTuiSpacing.sm,
-              runSpacing: WebTuiSpacing.sm,
-              children: [
-                _SheetActionButton(
-                  label: tr('Copy tin nhắn', 'Copy message'),
-                  icon: Icons.copy_rounded,
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    unawaited(_copyMessageToClipboard(hostContext, message));
-                  },
-                ),
-                _SheetActionButton(
-                  label: tr('Trả lời', 'Reply'),
-                  icon: Icons.reply_rounded,
-                  onPressed: () => _closeThen(context, () => onReply(message)),
-                ),
-                if (!sharedContentBlocked &&
-                    !message.isMine &&
-                    message.senderId?.isNotEmpty == true)
-                  _SheetActionButton(
-                    label: tr('Trả lời riêng', 'Reply privately'),
-                    icon: Icons.lock_person_outlined,
-                    onPressed: () =>
-                        _closeThen(context, () => onReplyPrivately(message)),
-                  ),
-                if (shouldOfferMessageReport(message))
-                  _SheetActionButton(
-                    label: tr('Báo cáo tin nhắn', 'Report message'),
-                    icon: Icons.flag_outlined,
-                    danger: true,
-                    onPressed: () =>
-                        _closeThen(context, () => onReportMessage(message)),
-                  ),
-                if (!message.isMine &&
-                    message.senderId?.isNotEmpty == true) ...[
-                  _SheetActionButton(
-                    label: tr('Báo cáo người gửi', 'Report sender'),
-                    icon: Icons.person_off_outlined,
-                    danger: true,
-                    onPressed: () =>
-                        _closeThen(context, () => onReportUser(message)),
-                  ),
-                  _SheetActionButton(
-                    label: isSenderBlocked
-                        ? tr('Bỏ chặn', 'Unblock')
-                        : tr('Chặn người dùng', 'Block user'),
-                    icon: isSenderBlocked
-                        ? Icons.person_add_alt_1
-                        : Icons.block_rounded,
-                    danger: !isSenderBlocked,
-                    onPressed: () =>
-                        _closeThen(context, () => onToggleBlockUser(message)),
-                  ),
-                ],
-                if (!sharedContentBlocked)
-                  _SheetActionButton(
-                    label: tr('Tạo task', 'Create task'),
-                    icon: Icons.task_alt_rounded,
-                    onPressed: () =>
-                        _closeThen(context, () => onConvertToTask(message)),
-                  ),
-                _SheetActionButton(
-                  label: tr('Nhắc sau 1 giờ', 'Remind in 1 hour'),
-                  icon: Icons.alarm_add_outlined,
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    unawaited(
-                      _createMessageReminder(
-                        hostContext,
-                        workspaceId: workspaceId,
-                        channelId: currentChannelId,
-                        message: message,
-                      ),
-                    );
-                  },
-                ),
-                // My Note: ẩn khi cờ tắt, tin bí mật / đã xoá / chưa gửi xong.
-                if (canSaveMessageToMyNoteIn(context, message))
-                  _SheetActionButton(
-                    label: tr('Lưu vào My Note', 'Save to My Note'),
-                    icon: Icons.bookmark_add_outlined,
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      unawaited(
-                        saveMessageToMyNote(
-                          hostContext,
-                          workspaceId: workspaceId,
-                          channelId: currentChannelId,
-                          message: message,
-                        ),
-                      );
-                    },
-                  ),
-                if (!sharedContentBlocked) ...[
-                  _SheetActionButton(
-                    label: 'Reaction',
-                    icon: Icons.thumb_up_alt_outlined,
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      _showReactionPicker(hostContext);
-                    },
-                  ),
-                  _SheetActionButton(
-                    label: message.isPinned
-                        ? tr('Bỏ ghim', 'Unpin')
-                        : tr('Ghim', 'Pin'),
-                    icon: message.isPinned
-                        ? Icons.push_pin_rounded
-                        : Icons.push_pin_outlined,
-                    onPressed: () => _closeThen(context, () => onPin(message)),
-                  ),
-                ],
-                _SheetActionButton(
-                  label: 'Thread',
-                  icon: Icons.forum_outlined,
-                  onPressed: () => _closeThen(context, () => onThread(message)),
-                ),
-                if (!sharedContentBlocked)
-                  _SheetActionButton(
-                    label: tr('Chuyển tiếp', 'Forward'),
-                    icon: Icons.shortcut_rounded,
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      _showForwardDialog(hostContext);
-                    },
-                  ),
-                if (message.isMine) ...[
-                  if (!sharedContentBlocked)
-                    _SheetActionButton(
-                      label: tr('Sửa', 'Edit'),
-                      icon: Icons.edit_rounded,
-                      onPressed: () =>
-                          _closeThen(context, () => onEdit(message)),
-                    ),
-                  _SheetActionButton(
-                    label: tr('Thu hồi', 'Unsend'),
-                    icon: Icons.delete_outline_rounded,
-                    danger: true,
-                    onPressed: () =>
-                        _closeThen(context, () => onDelete(message)),
-                  ),
-                ],
-              ],
-            ),
-          ],
+          ),
+        ),
+      if (!sharedContentBlocked)
+        MessageActionItem(
+          id: 'pin',
+          label: message.isPinned ? tr('Bỏ ghim', 'Unpin') : tr('Ghim', 'Pin'),
+          icon: message.isPinned ? WebTuiIcons.pinFilled : WebTuiIcons.pin,
+          color: workAppOrange,
+          onSelected: () => onPin(message),
+        ),
+      MessageActionItem(
+        id: 'remind',
+        label: tr('Nhắc sau 1 giờ', 'Remind in 1 hour'),
+        icon: WebTuiIcons.reminder,
+        color: workAppRed,
+        onSelected: () => unawaited(
+          _createMessageReminder(
+            hostContext,
+            workspaceId: workspaceId,
+            channelId: currentChannelId,
+            message: message,
+          ),
         ),
       ),
-    );
+      if (!sharedContentBlocked)
+        MessageActionItem(
+          id: 'task',
+          label: tr('Tạo task', 'Create task'),
+          icon: WebTuiIcons.tasks,
+          color: workAppGreen,
+          onSelected: () => onConvertToTask(message),
+        ),
+      // My Note: ẩn khi cờ tắt, tin bí mật / đã xoá / chưa gửi xong.
+      if (canSaveMessageToMyNoteIn(hostContext, message))
+        MessageActionItem(
+          id: 'my-note',
+          label: tr('Lưu My Note', 'Save to My Note'),
+          icon: WebTuiIcons.note,
+          color: workAppViolet,
+          onSelected: () => unawaited(
+            saveMessageToMyNote(
+              hostContext,
+              workspaceId: workspaceId,
+              channelId: currentChannelId,
+              message: message,
+            ),
+          ),
+        ),
+      MessageActionItem(
+        id: 'thread',
+        label: 'Thread',
+        icon: WebTuiIcons.thread,
+        color: workAppTeal,
+        onSelected: () => onThread(message),
+      ),
+      if (!sharedContentBlocked && hasSender)
+        MessageActionItem(
+          id: 'reply-private',
+          label: tr('Trả lời riêng', 'Reply privately'),
+          icon: WebTuiIcons.lock,
+          color: workAppGray,
+          onSelected: () => onReplyPrivately(message),
+        ),
+      if (message.isMine && !sharedContentBlocked)
+        MessageActionItem(
+          id: 'edit',
+          label: tr('Sửa', 'Edit'),
+          icon: WebTuiIcons.edit,
+          color: workAppBlue,
+          onSelected: () => onEdit(message),
+        ),
+      if (message.isMine)
+        MessageActionItem(
+          id: 'unsend',
+          label: tr('Thu hồi', 'Unsend'),
+          icon: WebTuiIcons.delete,
+          color: WebTuiColors.danger,
+          onSelected: () => onDelete(message),
+        ),
+      if (shouldOfferMessageReport(message))
+        MessageActionItem(
+          id: 'report-message',
+          label: tr('Báo cáo tin nhắn', 'Report message'),
+          icon: WebTuiIcons.report,
+          color: WebTuiColors.danger,
+          onSelected: () => onReportMessage(message),
+        ),
+      if (hasSender) ...[
+        MessageActionItem(
+          id: 'report-user',
+          label: tr('Báo cáo người gửi', 'Report sender'),
+          icon: WebTuiIcons.reportUser,
+          color: WebTuiColors.danger,
+          onSelected: () => onReportUser(message),
+        ),
+        MessageActionItem(
+          id: 'block',
+          label: isSenderBlocked
+              ? tr('Bỏ chặn', 'Unblock')
+              : tr('Chặn người dùng', 'Block user'),
+          icon: isSenderBlocked ? WebTuiIcons.addFriend : WebTuiIcons.block,
+          color: isSenderBlocked ? workAppGray : WebTuiColors.danger,
+          onSelected: () => onToggleBlockUser(message),
+        ),
+      ],
+    ];
   }
 
-  void _closeThen(BuildContext context, VoidCallback action) {
-    Navigator.of(context).pop();
-    action();
-  }
-
-  Future<void> _showReactionPicker(BuildContext context) async {
+  Future<void> showReactionPicker() async {
+    final context = hostContext;
+    if (!context.mounted) return;
     final emoji = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -4002,10 +3997,7 @@ class _MessageQuickActions extends StatelessWidget {
               WebTuiSpacing.lg,
             ),
             child: _ReactionPicker(
-              selectedEmojis: message.reactions
-                  .where((reaction) => reaction.reactedByMe)
-                  .map((reaction) => reaction.emoji)
-                  .toSet(),
+              selectedEmojis: selectedReactions,
               onSelected: (emoji) => Navigator.of(context).pop(emoji),
             ),
           ),
@@ -4017,7 +4009,9 @@ class _MessageQuickActions extends StatelessWidget {
     }
   }
 
-  Future<void> _showForwardDialog(BuildContext context) async {
+  Future<void> _showForwardDialog() async {
+    final context = hostContext;
+    if (!context.mounted) return;
     final targetChannelId = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -4268,55 +4262,6 @@ class _ForwardChannelPicker extends ConsumerWidget {
               ],
             );
           },
-        ),
-      ),
-    );
-  }
-}
-
-class _SheetActionButton extends StatelessWidget {
-  const _SheetActionButton({
-    required this.label,
-    required this.icon,
-    required this.onPressed,
-    this.danger = false,
-  });
-
-  final String label;
-  final IconData icon;
-  final VoidCallback onPressed;
-  final bool danger;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = danger ? WebTuiColors.danger : WebTuiColors.textPrimary;
-    return Material(
-      color: danger
-          ? WebTuiColors.danger.withValues(alpha: 0.08)
-          : WebTuiColors.backgroundMuted,
-      borderRadius: BorderRadius.circular(WebTuiRadii.lg),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(WebTuiRadii.lg),
-        onTap: onPressed,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: WebTuiSpacing.md,
-            vertical: WebTuiSpacing.sm,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 18, color: color),
-              const SizedBox(width: WebTuiSpacing.xs),
-              Text(
-                label,
-                style: WebTuiTypography.labelSmall.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

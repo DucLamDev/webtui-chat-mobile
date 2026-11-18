@@ -87,6 +87,7 @@ void main() {
   testWidgets(
     'bấm nút phát trên ảnh bìa bắt đầu tải (máy chủ không hợp lệ thì báo lỗi)',
     (tester) async {
+      final handle = tester.ensureSemantics();
       await _pump(
         tester,
         _video(thumbnailUrl: '/api/v1/workspaces/w1/files/f1/thumbnail'),
@@ -96,8 +97,39 @@ void main() {
       await tester.pumpAndSettle();
 
       // Không có phiên máy chủ nên không tải được: hiện trạng thái lỗi.
-      expect(find.text('Không phát được video'), findsWidgets);
+      expect(
+        find.bySemanticsLabel(RegExp('Không phát được video, chạm để thử lại')),
+        findsOneWidget,
+      );
       expect(find.byType(VideoPlayer), findsNothing);
+      handle.dispose();
     },
   );
+
+  testWidgets('video lỗi vẫn bấm được để thử tải lại', (tester) async {
+    final handle = tester.ensureSemantics();
+    final failed = find.bySemanticsLabel(
+      RegExp('Không phát được video, chạm để thử lại'),
+    );
+    await _pump(tester, _video());
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('video-placeholder-play')));
+    await tester.pumpAndSettle();
+    expect(failed, findsOneWidget);
+
+    // Nút vẫn nhận chạm (trước đây bị khoá khi lỗi); bấm lại chạy lượt tải mới.
+    final retry = tester.widget<GestureDetector>(
+      find
+          .ancestor(
+            of: find.byKey(const ValueKey('video-placeholder-play')),
+            matching: find.byType(GestureDetector),
+          )
+          .first,
+    );
+    expect(retry.onTap, isNotNull);
+    await tester.tap(find.byKey(const ValueKey('video-placeholder-play')));
+    await tester.pumpAndSettle();
+    expect(failed, findsOneWidget);
+    handle.dispose();
+  });
 }

@@ -27,6 +27,7 @@ import '../../application/use_cases/message_attachment_use_cases.dart';
 import '../../data/files/scoped_attachment_file_store.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/message_voice.dart';
+import '../controllers/media_gallery_saver.dart';
 import '../controllers/message_video_stream.dart';
 import '../controllers/voice_playback_link.dart';
 
@@ -73,6 +74,21 @@ class _MessageImageGalleryScreenState
     extends State<_MessageImageGalleryScreen> {
   late final PageController _controller;
   late int _index;
+  bool _saving = false;
+
+  Future<void> _saveCurrent() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      await saveMessageAttachmentsToGallery(
+        context,
+        attachments: [widget.attachments[_index]],
+        apiBaseUri: widget.apiBaseUri,
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 
   @override
   void initState() {
@@ -109,6 +125,24 @@ class _MessageImageGalleryScreenState
             ),
           ],
         ),
+        actions: [
+          if (isGallerySaveable(widget.attachments[_index]))
+            IconButton(
+              key: const ValueKey('gallery-save'),
+              tooltip: tr('Lưu ảnh về máy', 'Save photo to device'),
+              onPressed: _saving ? null : _saveCurrent,
+              icon: _saving
+                  ? const SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(WebTuiIcons.download),
+            ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: PageView.builder(
         controller: _controller,
@@ -404,7 +438,7 @@ class _MessageImageAttachmentViewState
 
   Future<Uint8List?> _loadOnce(Uri uri, int generation) async {
     final binding = await _captureAttachmentDownloadBinding(
-      ref: ref,
+      read: ref.read,
       attachmentUri: uri,
       apiBaseUri: widget.apiBaseUri,
     );
@@ -706,7 +740,7 @@ class _MessageVoiceAttachmentViewState
     File? downloaded;
     try {
       final binding = await _captureAttachmentDownloadBinding(
-        ref: ref,
+        read: ref.read,
         attachmentUri: uri,
         apiBaseUri: widget.apiBaseUri,
       );
@@ -1028,6 +1062,9 @@ class _MessageVideoAttachmentViewState
   bool _loading = false;
   bool _failed = false;
 
+  /// Phần đã tải (0..1) khi phải tải cả video về máy rồi mới phát (iPhone).
+  double? _downloadProgress;
+
   /// Bấm nút phát trên ảnh bìa: sẵn sàng thì phát luôn.
   bool _playWhenReady = false;
 
@@ -1096,6 +1133,69 @@ class _MessageVideoAttachmentViewState
     unawaited(_initialize());
   }
 
+  /// Bấm vào video: phát; video vừa lỗi thì thử tải lại (mạng chập chờn).
+  void _onPlayTapped() {
+    _playWhenReady = true;
+    _requestDownload();
+  }
+
+  void _onDownloadProgress(int generation, int received, int total) {
+    if (!mounted || generation != _initializationGeneration || total <= 0) {
+      return;
+    }
+    final next = (received / total).clamp(0.0, 1.0);
+    final previous = _downloadProgress;
+    // Chỉ vẽ lại khi đổi ít nhất 1%: tệp lớn có hàng nghìn khúc.
+    if (previous != null && (next * 100).floor() == (previous * 100).floor()) {
+      return;
+    }
+    setState(() => _downloadProgress = next);
+  }
+
+  /// Vòng chờ khi mở video; đang tải cả tệp về máy thì hiện phần trăm.
+  Widget _buildLoadingIndicator() {
+    final progress = _downloadProgress;
+    final percent = progress == null ? null : (progress * 100).floor();
+    return Semantics(
+      label: percent == null
+          ? tr('Đang mở video', 'Opening video')
+          : tr('Đang tải video $percent%', 'Downloading video $percent%'),
+      excludeSemantics: true,
+      child: Container(
+        key: const ValueKey('video-loading'),
+        width: 56,
+        height: 56,
+        padding: const EdgeInsets.all(6),
+        decoration: const BoxDecoration(
+          color: Colors.black54,
+          shape: BoxShape.circle,
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            CircularProgressIndicator(
+              value: progress,
+              strokeWidth: 2.5,
+              color: Colors.white,
+              backgroundColor: progress == null ? null : Colors.white24,
+            ),
+            if (percent != null)
+              Center(
+                child: Text(
+                  '$percent%',
+                  style: WebTuiTypography.labelSmall.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Mở đường phát dần của video (xin link mới một lần nếu link cũ bị từ chối).
   /// Trả null khi không phát dần được, lúc đó caller chuyển sang tải về.
   Future<VideoPlayerController?> _openStream(int generation) async {
@@ -1132,6 +1232,7 @@ class _MessageVideoAttachmentViewState
       setState(() {
         _loading = true;
         _failed = false;
+        _downloadProgress = null;
       });
     }
     final uri = attachmentDownloadUri(widget.attachment, widget.apiBaseUri);
@@ -1141,7 +1242,7 @@ class _MessageVideoAttachmentViewState
     }
 
     final binding = await _captureAttachmentDownloadBinding(
-      ref: ref,
+      read: ref.read,
       attachmentUri: uri,
       apiBaseUri: widget.apiBaseUri,
     );
@@ -1217,6 +1318,8 @@ class _MessageVideoAttachmentViewState
             accept: widget.attachment.file.mimeType,
             bearerToken: binding.bearerToken,
             isStillCurrent: operationIsCurrent,
+            onProgress: (received, total) =>
+                _onDownloadProgress(generation, received, total),
           ),
         );
       } else {
@@ -1371,25 +1474,19 @@ class _MessageVideoAttachmentViewState
         ),
         Center(
           child: _loading
-              ? const CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                )
+              ? _buildLoadingIndicator()
               : Semantics(
                   button: true,
-                  enabled: !_failed,
                   label: _failed
-                      ? tr('Không phát được video', 'Can\'t play video')
+                      ? tr(
+                          'Không phát được video, chạm để thử lại',
+                          'Can\'t play video, tap to retry',
+                        )
                       : label,
                   excludeSemantics: true,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTap: _failed
-                        ? null
-                        : () {
-                            _playWhenReady = true;
-                            _requestDownload();
-                          },
+                    onTap: _onPlayTapped,
                     child: Container(
                       key: const ValueKey('video-thumbnail-play'),
                       width: 56,
@@ -1477,25 +1574,19 @@ class _MessageVideoAttachmentViewState
         ),
         Center(
           child: _loading
-              ? const CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                )
+              ? _buildLoadingIndicator()
               : Semantics(
                   button: true,
-                  enabled: !_failed,
                   label: _failed
-                      ? tr('Không phát được video', 'Can\'t play video')
+                      ? tr(
+                          'Không phát được video, chạm để thử lại',
+                          'Can\'t play video, tap to retry',
+                        )
                       : tr('Phát video', 'Play video'),
                   excludeSemantics: true,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTap: _failed
-                        ? null
-                        : () {
-                            _playWhenReady = true;
-                            _requestDownload();
-                          },
+                    onTap: _onPlayTapped,
                     child: Container(
                       key: const ValueKey('video-placeholder-play'),
                       width: 56,
@@ -1522,7 +1613,12 @@ class _MessageVideoAttachmentViewState
             right: durationText == null ? 10 : 64,
             bottom: 8,
             child: Text(
-              _failed ? tr('Không phát được video', 'Can\'t play video') : name,
+              _failed
+                  ? tr(
+                      'Không phát được, chạm để thử lại',
+                      'Can\'t play, tap to retry',
+                    )
+                  : name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: WebTuiTypography.labelSmall.copyWith(
@@ -1730,7 +1826,7 @@ class _VideoThumbnailImageState extends ConsumerState<_VideoThumbnailImage> {
 
   Future<Uint8List?> _load(int generation) async {
     final binding = await _captureAttachmentDownloadBinding(
-      ref: ref,
+      read: ref.read,
       attachmentUri: widget.uri,
       apiBaseUri: widget.apiBaseUri,
     );
@@ -2002,36 +2098,13 @@ class _MessageFileAttachmentViewState
     }
     setState(() => _opening = true);
     try {
-      final binding = await _captureAttachmentDownloadBinding(
-        ref: ref,
-        attachmentUri: uri,
+      final target = await _downloadAttachmentFile(
+        ref.read,
+        attachment: widget.attachment,
+        uri: uri,
         apiBaseUri: widget.apiBaseUri,
-      );
-      if (binding == null) {
-        throw StateError('instance binding unavailable');
-      }
-      final target = await const ScopedAttachmentFileStore().fileFor(
-        instanceScope: binding.instanceScope,
-        sessionGeneration: binding.guard.generation,
-        fileId: widget.attachment.fileId,
         originalName: widget.attachment.file.name,
-        purpose: 'file',
       );
-      if (!await target.exists() ||
-          await target.length() != widget.attachment.file.byteSize) {
-        await const RedirectSafeFileDownloader().download(
-          uri: uri,
-          target: target,
-          maxBytes: UploadMessageAttachmentUseCase.maxBytes,
-          expectedBytes: widget.attachment.file.byteSize,
-          accept: widget.attachment.file.mimeType,
-          bearerToken: binding.bearerToken,
-          isStillCurrent: binding.isStillCurrent,
-        );
-      }
-      if (!await binding.isStillCurrent()) {
-        throw StateError('instance binding changed');
-      }
       final opened = await OpenFilex.open(target.path);
       if (opened.type != ResultType.done) {
         throw StateError(opened.message);
@@ -2197,18 +2270,197 @@ bool attachmentUriCanUseInstanceCredentials({
       serverOriginsMatch(apiBaseUri, activeInstanceOrigin);
 }
 
+/// Tải tệp đính kèm về bộ nhớ riêng của app (dùng lại nếu đã tải đủ), đúng máy chủ và phiên đăng nhập hiện tại.
+Future<File> _downloadAttachmentFile(
+  _ProviderReader read, {
+  required MessageAttachment attachment,
+  required Uri uri,
+  required Uri? apiBaseUri,
+  required String originalName,
+}) async {
+  final binding = await _captureAttachmentDownloadBinding(
+    read: read,
+    attachmentUri: uri,
+    apiBaseUri: apiBaseUri,
+  );
+  if (binding == null) {
+    throw StateError('instance binding unavailable');
+  }
+  final target = await const ScopedAttachmentFileStore().fileFor(
+    instanceScope: binding.instanceScope,
+    sessionGeneration: binding.guard.generation,
+    fileId: attachment.fileId,
+    originalName: originalName,
+    purpose: 'file',
+  );
+  if (!await target.exists() ||
+      await target.length() != attachment.file.byteSize) {
+    await const RedirectSafeFileDownloader().download(
+      uri: uri,
+      target: target,
+      maxBytes: UploadMessageAttachmentUseCase.maxBytes,
+      expectedBytes: attachment.file.byteSize,
+      accept: attachment.file.mimeType,
+      bearerToken: binding.bearerToken,
+      isStillCurrent: binding.isStillCurrent,
+    );
+  }
+  if (!await binding.isStillCurrent()) {
+    throw StateError('instance binding changed');
+  }
+  return target;
+}
+
+String _normalizedMime(MessageAttachment attachment) =>
+    attachment.file.mimeType.trim().toLowerCase();
+
+/// Ảnh / video lưu được vào thư viện ảnh của máy (ảnh vẽ SVG thì không).
+bool isGallerySaveable(MessageAttachment attachment) {
+  final mime = _normalizedMime(attachment);
+  if (mime.startsWith('video/')) return true;
+  return mime.startsWith('image/') && !mime.contains('svg');
+}
+
+/// Thư viện ảnh nhận tệp theo đuôi tên: tên gốc thiếu đuôi thì thêm theo loại tệp.
+String galleryFileName(MessageAttachment attachment) {
+  final name = attachment.file.name.trim();
+  if (RegExp(r'\.[A-Za-z0-9]{2,5}$').hasMatch(name)) return name;
+  final extension = switch (_normalizedMime(attachment)) {
+    'image/jpeg' || 'image/jpg' => '.jpg',
+    'image/png' => '.png',
+    'image/gif' => '.gif',
+    'image/webp' => '.webp',
+    'image/heic' => '.heic',
+    'image/heif' => '.heif',
+    'video/quicktime' => '.mov',
+    'video/webm' => '.webm',
+    final mime when mime.startsWith('video/') => '.mp4',
+    _ => '.jpg',
+  };
+  return '${name.isEmpty ? 'media' : name}$extension';
+}
+
+/// Mã tệp đang được tải để lưu; bấm "Lưu" lần nữa khi chưa xong thì bỏ qua tệp đó.
+final Set<String> _gallerySavesInFlight = <String>{};
+
+/// Tải ảnh / video của tin nhắn rồi lưu vào thư viện ảnh của máy; báo kết quả bằng SnackBar.
+/// Đọc provider qua container nên vẫn chạy tiếp khi bảng thao tác / màn xem ảnh đã đóng.
+Future<void> saveMessageAttachmentsToGallery(
+  BuildContext context, {
+  required List<MessageAttachment> attachments,
+  Uri? apiBaseUri,
+}) async {
+  final media = attachments
+      .where(isGallerySaveable)
+      .where((item) => !_gallerySavesInFlight.contains(item.fileId))
+      .toList(growable: false);
+  if (media.isEmpty) return;
+  _gallerySavesInFlight.addAll(media.map((item) => item.fileId));
+  try {
+    await _saveAttachmentsToGallery(context, media, apiBaseUri);
+  } finally {
+    _gallerySavesInFlight.removeAll(media.map((item) => item.fileId));
+  }
+}
+
+Future<void> _saveAttachmentsToGallery(
+  BuildContext context,
+  List<MessageAttachment> media,
+  Uri? apiBaseUri,
+) async {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final container = ProviderScope.containerOf(context, listen: false);
+  final saver = container.read(mediaGallerySaverProvider);
+  final hasVideo = media.any(
+    (item) => _normalizedMime(item).startsWith('video/'),
+  );
+  messenger
+    ?..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: Text(
+          hasVideo
+              ? tr('Đang tải video về để lưu…', 'Downloading video to save…')
+              : tr('Đang lưu ảnh…', 'Saving photo…'),
+        ),
+        duration: const Duration(seconds: 30),
+      ),
+    );
+  var saved = 0;
+  var denied = false;
+  for (final attachment in media) {
+    final uri = attachmentDownloadUri(attachment, apiBaseUri);
+    if (uri == null) continue;
+    try {
+      final file = await _downloadAttachmentFile(
+        container.read,
+        attachment: attachment,
+        uri: uri,
+        apiBaseUri: apiBaseUri,
+        originalName: galleryFileName(attachment),
+      );
+      final result = await saver.save(
+        file.path,
+        isVideo: _normalizedMime(attachment).startsWith('video/'),
+      );
+      if (result == MediaGallerySaveResult.saved) saved += 1;
+      if (result == MediaGallerySaveResult.permissionDenied) {
+        denied = true;
+        break;
+      }
+    } on Object {
+      // Một tệp lỗi không chặn các tệp còn lại; báo chung ở cuối.
+    }
+  }
+  final String message;
+  if (denied) {
+    message = tr(
+      'Chưa cho phép lưu vào thư viện ảnh. Hãy bật quyền Ảnh cho WebTUI Chat trong Cài đặt của máy.',
+      'Photo library access is off. Allow Photos for WebTUI Chat in your device Settings.',
+    );
+  } else if (saved == media.length) {
+    message = media.length == 1
+        ? (hasVideo
+              ? tr(
+                  'Đã lưu video vào thư viện ảnh',
+                  'Video saved to your photos',
+                )
+              : tr('Đã lưu ảnh vào thư viện ảnh', 'Photo saved to your photos'))
+        : tr(
+            'Đã lưu $saved ảnh / video vào thư viện ảnh',
+            'Saved $saved items to your photos',
+          );
+  } else if (saved > 0) {
+    message = tr(
+      'Đã lưu $saved / ${media.length} tệp, phần còn lại bị lỗi',
+      'Saved $saved of ${media.length}, the rest failed',
+    );
+  } else {
+    message = tr(
+      'Không lưu được. Kiểm tra mạng rồi thử lại.',
+      'Couldn\'t save. Check your connection and try again.',
+    );
+  }
+  messenger
+    ?..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(message)));
+}
+
+/// Đọc provider từ `WidgetRef` hoặc `ProviderContainer` (việc chạy tiếp sau khi màn / bảng đã đóng).
+typedef _ProviderReader = T Function<T>(ProviderListenable<T> provider);
+
 Future<_AttachmentDownloadBinding?> _captureAttachmentDownloadBinding({
-  required WidgetRef ref,
+  required _ProviderReader read,
   required Uri attachmentUri,
   required Uri? apiBaseUri,
 }) async {
-  final instanceScope = ref.read(activeServerDiscoveryProvider)?.instanceScope;
+  final instanceScope = read(activeServerDiscoveryProvider)?.instanceScope;
   if (instanceScope == null ||
       (apiBaseUri != null &&
           !serverOriginsMatch(apiBaseUri, instanceScope.origin))) {
     return null;
   }
-  final tokenRepository = ref.read(authTokenRepositoryProvider);
+  final tokenRepository = read(authTokenRepositoryProvider);
   final guard = await tokenRepository.captureMutationGuard();
   if (guard == null || guard.instanceScopeId != instanceScope.storageId) {
     return null;

@@ -78,6 +78,7 @@ dependencies:
   pdfx: ^2.11.0
   opus_dart: ^3.0.1
   opus_flutter: ^3.0.3
+  gal: ^3.0.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

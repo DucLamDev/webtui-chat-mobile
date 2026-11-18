@@ -45,6 +45,8 @@
 	<string>WebTUI Chat dùng camera cho cuộc gọi video và để chụp ảnh bạn chọn gửi vào cuộc trò chuyện hoặc đính kèm vào ghi chú My Note.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>WebTUI Chat truy cập các ảnh và video bạn chọn để gửi vào cuộc trò chuyện, đính kèm vào ghi chú My Note hoặc dùng làm ảnh đại diện.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>WebTUI Chat lưu ảnh và video bạn chọn từ cuộc trò chuyện vào thư viện ảnh của máy.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>WebTUI Chat dùng Face ID để mở khóa ứng dụng khi bạn bật khóa ứng dụng.</string>
 	<key>NSLocalNetworkUsageDescription</key>
