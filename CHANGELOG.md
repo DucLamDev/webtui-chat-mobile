@@ -3,6 +3,25 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.50.3 · 19/11/2026
+### Sửa lỗi
+Giao diện app đợt 1 (theo bản rà soát giao diện 19/11):
+- Hồ sơ cá nhân: mở màn Hồ sơ khi hồ sơ đã tải sẵn thì các ô trống trơn (bấm Lưu dễ ghi đè thành rỗng): nay luôn điền
+  sẵn; nút Lưu khoá tới khi hồ sơ tải xong.
+- Thanh tin ghim: chỉ thấy tin nằm trong trang đang tải, tin người khác ghim / tin cũ không hiện: nay lấy đúng danh sách
+  ghim của máy chủ, cập nhật ngay khi có người ghim / bỏ ghim.
+- Danh sách Tin nhắn: dòng phụ của nhóm là mô tả nhóm thay vì tin mới nhất: nay hiện "Tên: nội dung" như Zalo (tin của
+  mình "Bạn: …", tin chỉ có tệp "Tên: đã gửi một tệp", tin bí mật "Tin nhắn bí mật"), đổi ngay khi có tin mới. Cần máy
+  chủ bản mới (trả tin mới nhất + tên người gửi cho mọi nhóm); máy chủ cũ vẫn hiện mô tả nhóm như trước.
+- Giờ tin nhắn chỉ hiện khi chạm vào tin: nay giờ hiện dưới tin cuối của mỗi cụm tin; chat 1-1 có "Đã gửi" dưới tin
+  cuối của mình và "Đã xem" dưới tin người kia đã xem tới; nhóm chỉ có giờ.
+- Đăng xuất: hỏi lại trước khi đăng xuất; tự đăng xuất không còn hiện băng "Phiên đăng nhập đã kết thúc" ở màn đăng nhập.
+- Phê duyệt: bấm Duyệt thì hỏi lại; Từ chối bắt buộc nhập lý do; nút đang gửi hiện vòng quay, không bấm hai lần được.
+- Tạo / sửa cuộc họp: thoát khi còn thay đổi chưa lưu thì hỏi "Bỏ thay đổi?"; chưa sửa gì thì thoát thẳng (vẫn vuốt lùi
+  được).
+- Đăng nhập: chữ "Ghi nhớ đăng nhập" không còn xuống 3 dòng, bấm cả dòng để tích; gợi ý ô tài khoản đổi sang ví dụ chung
+  `ban@congty.vn`.
+
 ## 1.50.2 · 18/11/2026
 ### Sửa lỗi
 Rà soát cuộc gọi, xem video / ảnh / tin thoại và kho tệp trên máy (18/11):

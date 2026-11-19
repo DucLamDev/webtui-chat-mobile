@@ -982,7 +982,11 @@ final checkMobileReleasePolicyUseCaseProvider =
 
 final conversationRemoteDataSourceProvider =
     Provider<ConversationRemoteDataSource>((ref) {
-      return ConversationRemoteDataSource(ref.watch(apiTransportProvider));
+      return ConversationRemoteDataSource(
+        ref.watch(apiTransportProvider),
+        resolveCurrentUserId: () =>
+            ref.read(resolveCurrentUserIdUseCaseProvider).execute(),
+      );
     });
 
 final conversationCacheDataSourceProvider =
@@ -1572,6 +1576,10 @@ final deleteMessageUseCaseProvider = Provider<DeleteMessageUseCase>((ref) {
 
 final toggleReactionUseCaseProvider = Provider<ToggleReactionUseCase>((ref) {
   return ToggleReactionUseCase(ref.watch(conversationRepositoryProvider));
+});
+
+final listPinsUseCaseProvider = Provider<ListPinsUseCase>((ref) {
+  return ListPinsUseCase(ref.watch(conversationRepositoryProvider));
 });
 
 final togglePinMessageUseCaseProvider = Provider<TogglePinMessageUseCase>((

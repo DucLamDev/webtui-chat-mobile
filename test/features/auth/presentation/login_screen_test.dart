@@ -259,6 +259,34 @@ void main() {
     expect(find.byKey(const Key('login_identifier_field')), findsOneWidget);
   });
 
+  testWidgets('nhãn Ghi nhớ đăng nhập không quá 2 dòng ở bề rộng 393', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(393, 852);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await _pumpLogin(
+      tester,
+      authRepository: const _WidgetAuthRepository(),
+      initialDiscovery: _discovery(),
+    );
+    await tester.pumpAndSettle();
+
+    final label = find.text('Ghi nhớ đăng nhập');
+    final lineHeight = tester.getSize(label).height;
+    final style = tester.widget<Text>(label);
+    expect(style.maxLines, 2);
+    final fontSize = style.style?.fontSize ?? 14;
+    expect(lineHeight, lessThanOrEqualTo(2 * fontSize * 1.6));
+    expect(
+      tester.getSize(find.byKey(const Key('login_remember_row'))).height,
+      greaterThanOrEqualTo(44),
+    );
+    // Gợi ý trung tính, không phải tên đăng nhập của người thật.
+    expect(find.text('ban@congty.vn'), findsOneWidget);
+    expect(find.text('duclamdev'), findsNothing);
+  });
+
   testWidgets('password recovery explains the self-hosted admin flow', (
     tester,
   ) async {

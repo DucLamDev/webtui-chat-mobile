@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../../../core/network/api_response.dart';
 import '../../../../core/network/api_transport.dart';
 import '../../../../l10n/app_strings.dart';
+import '../../application/channel_last_message_preview.dart';
 import '../../domain/entities/channel_exit.dart';
 import '../../domain/entities/channel_file.dart';
 import '../../domain/entities/chat_message.dart';
@@ -10,9 +11,23 @@ import '../../domain/entities/collaboration_room.dart';
 import '../../domain/entities/conversation_summary.dart';
 
 final class ConversationRemoteDataSource {
-  const ConversationRemoteDataSource(this._api);
+  ConversationRemoteDataSource(this._api, {this.resolveCurrentUserId});
 
   final ApiTransport _api;
+
+  /// Mã người dùng hiện tại, để ghép "Bạn: ..." ở dòng xem trước của nhóm
+  /// (`null` = không biết, tin của mình hiện như tin người khác).
+  final Future<String?> Function()? resolveCurrentUserId;
+
+  Future<String?> _currentUserId() async {
+    final resolve = resolveCurrentUserId;
+    if (resolve == null) return null;
+    try {
+      return await resolve();
+    } on Object {
+      return null;
+    }
+  }
 
   String _collaborationPath(String workspaceId, String channelId) =>
       '/api/v1/workspaces/${_e(workspaceId)}/channels/${_e(channelId)}/collaboration';
@@ -663,10 +678,10 @@ final class ConversationRemoteDataSource {
     final response = await _api.get<Object>(
       '/api/v1/workspaces/${_e(workspaceId)}/channels',
     );
-    return envelopeList(
-      response.data,
-      'channels',
-    ).map(_channelFromMap).toList(growable: false);
+    final currentUserId = await _currentUserId();
+    return envelopeList(response.data, 'channels')
+        .map((map) => _channelFromMap(map, currentUserId: currentUserId))
+        .toList(growable: false);
   }
 
   Future<List<ContactSummary>> listContacts() async {
@@ -1322,7 +1337,7 @@ JsonMap _metaMap(Object? response) {
   return jsonMap(field(map, const ['meta']));
 }
 
-ConversationSummary _channelFromMap(JsonMap map) {
+ConversationSummary _channelFromMap(JsonMap map, {String? currentUserId}) {
   final channelId = stringField(map, const ['id', 'channel_id', 'channelId']);
   final workspaceId = stringField(map, const ['workspace_id', 'workspaceId']);
   final visibility = _visibilityFromApi(
@@ -1335,6 +1350,26 @@ ConversationSummary _channelFromMap(JsonMap map) {
     field(map, const ['last_message', 'lastMessage']),
   );
   final lastMessageBody = stringField(lastMessage, const ['body']).trim();
+  final noticeBot = boolField(map, const ['notice_bot', 'noticeBot']);
+  // Nhóm (không phải chat 1-1 / bot thông báo): "Tên: nội dung" như Zalo.
+  // Máy chủ cũ không trả tin cuối cho nhóm thì rơi về mô tả nhóm.
+  final groupPreview =
+      lastMessage.isEmpty || noticeBot || visibility == ChannelVisibility.direct
+      ? null
+      : groupLastMessagePreview(
+          kind: stringField(lastMessage, const ['kind']),
+          body: stringField(lastMessage, const ['body']),
+          senderId: nullableStringField(lastMessage, const [
+            'sender_id',
+            'senderId',
+          ]),
+          senderName: nullableStringField(lastMessage, const [
+            'sender_name',
+            'senderName',
+          ]),
+          currentUserId: currentUserId,
+          secret: boolField(lastMessage, const ['secret', 'is_secret']),
+        );
   // Thời điểm tin mới nhất của kênh; máy chủ cũ không trả / kênh chưa có tin
   // thì `null`.
   final lastMessageAt =
@@ -1348,9 +1383,11 @@ ConversationSummary _channelFromMap(JsonMap map) {
         ? ConversationKind.direct
         : ConversationKind.channel,
     title: stringField(map, const ['name', 'title'], fallback: channelId),
-    preview: lastMessageBody.isNotEmpty
-        ? lastMessageBody
-        : stringField(map, const ['description', 'preview']),
+    preview:
+        groupPreview ??
+        (lastMessageBody.isNotEmpty
+            ? lastMessageBody
+            : stringField(map, const ['description', 'preview'])),
     avatarLabel: _avatarLabel(stringField(map, const ['name', 'title'])),
     avatarUrl: nullableStringField(map, const ['avatar_url', 'avatarUrl']),
     gender: visibility == ChannelVisibility.direct
@@ -1377,7 +1414,7 @@ ConversationSummary _channelFromMap(JsonMap map) {
       'privateSessionMode',
     ]),
     isAutomation: boolField(map, const ['is_automation', 'isAutomation']),
-    noticeBot: boolField(map, const ['notice_bot', 'noticeBot']),
+    noticeBot: noticeBot,
     slug: nullableStringField(map, const ['slug']),
     lastMessageAt: lastMessageAt,
   );
