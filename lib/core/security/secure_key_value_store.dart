@@ -25,7 +25,9 @@ enum SecureStoreKey {
   appLockEnabled('app_lock_enabled'),
   appLockPinHash('app_lock_pin_hash'),
   appLockIdleMinutes('app_lock_idle_minutes'),
-  serverAccounts('server_accounts_v1');
+  serverAccounts('server_accounts_v1'),
+  // Khoá thiết bị gắn IDE; đăng xuất gỡ gắn (xoá cùng phiên).
+  ideDevice('ide_device_v1');
 
   const SecureStoreKey(this.value);
 
@@ -44,19 +46,32 @@ final class FlutterSecureKeyValueStore implements SecureKeyValueStore {
 
   final FlutterSecureStorage _storage;
 
+  /// Khoá gắn IDE chỉ ở máy này: không theo bản sao lưu / iCloud sang iPhone
+  /// khác. Đọc, ghi, xoá đều phải cùng chế độ (keychain lọc theo chế độ).
+  static const _ideDeviceIos = IOSOptions(
+    accessibility: KeychainAccessibility.unlocked_this_device,
+  );
+
+  static IOSOptions? _iosOptions(SecureStoreKey key) =>
+      key == SecureStoreKey.ideDevice ? _ideDeviceIos : null;
+
   @override
   Future<String?> read(SecureStoreKey key) {
-    return _storage.read(key: key.value);
+    return _storage.read(key: key.value, iOptions: _iosOptions(key));
   }
 
   @override
   Future<void> write(SecureStoreKey key, String value) {
-    return _storage.write(key: key.value, value: value);
+    return _storage.write(
+      key: key.value,
+      value: value,
+      iOptions: _iosOptions(key),
+    );
   }
 
   @override
   Future<void> delete(SecureStoreKey key) {
-    return _storage.delete(key: key.value);
+    return _storage.delete(key: key.value, iOptions: _iosOptions(key));
   }
 
   @override
@@ -68,6 +83,7 @@ final class FlutterSecureKeyValueStore implements SecureKeyValueStore {
       delete(SecureStoreKey.sessionPersistence),
       delete(SecureStoreKey.activeWorkspaceId),
       delete(SecureStoreKey.activeWorkspaceInstanceScopeId),
+      delete(SecureStoreKey.ideDevice),
     ]);
   }
 }

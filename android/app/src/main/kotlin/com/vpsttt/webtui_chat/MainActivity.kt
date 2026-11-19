@@ -19,6 +19,7 @@ class MainActivity : FlutterActivity() {
     private lateinit var deepLinkChannel: MethodChannel
     private var pendingDeepLink: String? = null
     private var videoCompressChannel: VideoCompressChannel? = null
+    private val ideDeviceSecurity by lazy { IdeDeviceSecurity(this) }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -40,6 +41,10 @@ class MainActivity : FlutterActivity() {
             flutterEngine.dartExecutor.binaryMessenger,
             "webtui/biometric"
         ).setMethodCallHandler { call, result ->
+            if (ideDeviceSecurity.handles(call.method)) {
+                ideDeviceSecurity.handle(call, result)
+                return@setMethodCallHandler
+            }
             when (call.method) {
                 "isAvailable" -> result.success(isBiometricAvailable())
                 "authenticate" -> authenticateBiometric(
@@ -106,6 +111,12 @@ class MainActivity : FlutterActivity() {
         videoCompressChannel?.dispose()
         videoCompressChannel = null
         super.cleanUpFlutterEngine(flutterEngine)
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (ideDeviceSecurity.onActivityResult(requestCode, resultCode, data)) return
+        super.onActivityResult(requestCode, resultCode, data)
     }
 
     override fun onNewIntent(intent: Intent) {

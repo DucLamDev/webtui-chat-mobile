@@ -550,6 +550,7 @@ class _RequiresLoginState extends ConsumerWidget {
                   FilledButton.icon(
                     onPressed: () async {
                       await ref.read(logoutUseCaseProvider).execute();
+                      ref.invalidate(authAccessTokenProvider);
                       if (context.mounted) {
                         context.go('/login');
                       }
@@ -908,6 +909,7 @@ class _SessionActions extends ConsumerWidget {
               switch (result) {
                 case Success<void>():
                   await ref.read(logoutUseCaseProvider).execute();
+                  ref.invalidate(authAccessTokenProvider);
                   if (context.mounted) {
                     context.go('/login');
                   }
