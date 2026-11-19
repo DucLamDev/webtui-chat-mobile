@@ -15,6 +15,7 @@ import '../../data/ide_connection.dart';
 import '../../domain/ide_ready.dart';
 import '../controllers/ide_controllers.dart';
 import '../widgets/ide_step_sheet.dart';
+import 'files/ide_files_tab.dart';
 import 'ide_ai_sessions_tab.dart';
 
 enum IdeTab { ai, files, terminal, projects, more }
@@ -197,6 +198,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen>
       ),
       IdeLinkPhase.ready => switch (_tab) {
         IdeTab.ai => const IdeAiSessionsTab(),
+        IdeTab.files => const IdeFilesTab(),
         _ => _Message(
           icon: Icons.hourglass_empty_rounded,
           title: tr('Sắp có', 'Coming soon'),

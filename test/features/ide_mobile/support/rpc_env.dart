@@ -69,7 +69,7 @@ final class AutoIdeSocket implements IdeSocket {
 
 /// Máy IDE giả: kết nối thật + rpc thật, nhưng op do [handler] trả lời.
 final class IdeRpcEnv {
-  IdeRpcEnv(this.handler, {List<String>? ops}) {
+  IdeRpcEnv(this.handler, {List<String>? ops, IdeStepHandler? step}) {
     connection = IdeConnection(
       openChannel: () async {
         final socket = AutoIdeSocket(
@@ -82,7 +82,11 @@ final class IdeRpcEnv {
       },
       backoff: const [Duration(milliseconds: 5)],
     );
-    rpc = IdeRpcClient(connection, defaultTimeout: const Duration(seconds: 5));
+    rpc = IdeRpcClient(
+      connection,
+      stepHandler: step,
+      defaultTimeout: const Duration(seconds: 5),
+    );
   }
 
   final IdeFakeHandler handler;
