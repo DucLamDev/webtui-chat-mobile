@@ -8,13 +8,17 @@ final ideProjectsProvider = FutureProvider.autoDispose<List<IdeProject>>((
   ref,
 ) async {
   final data = await ref
-      .read(ideRpcClientProvider)
+      .watch(ideRpcClientProvider)
       .call('projects.list', const {});
   return parseIdeProjectList(data);
 });
 
 /// Tên dự án người dùng đã chọn ở đầu tab Dự án / Thêm (`null` = chưa chọn).
-final ideSelectedProjectNameProvider = StateProvider<String?>((_) => null);
+final ideSelectedProjectNameProvider = StateProvider<String?>((ref) {
+  // Đổi máy / phiên thì chọn lại từ đầu.
+  ref.watch(ideRpcClientProvider); // client mới theo mỗi kết nối
+  return null;
+});
 
 /// Dự án đang chọn; chưa chọn hoặc dự án không còn thì lấy dự án đầu tiên.
 final ideCurrentProjectProvider = Provider.autoDispose<AsyncValue<IdeProject?>>(

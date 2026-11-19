@@ -8,6 +8,7 @@ import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_deploy.dart';
+import 'ide_project_ui.dart';
 
 /// Kết quả (`result`) của việc nền đã xong: số PR + nút mở, trạng thái gộp,
 /// hay thông điệp của triển khai. Không có gì đáng hiện thì không vẽ gì.
@@ -51,18 +52,11 @@ class IdeJobResultView extends ConsumerWidget {
       if (url != null) {
         action = TextButton.icon(
           key: const Key('ide_job_pr_open'),
-          onPressed: () async {
-            final ok = await ref.read(externalUrlLauncherProvider).open(url);
-            if (!ok && context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    tr('Không mở được liên kết.', 'Could not open the link.'),
-                  ),
-                ),
-              );
-            }
-          },
+          onPressed: () => ideOpenHttpsLink(
+            context,
+            url,
+            (u) => ref.read(externalUrlLauncherProvider).open(u),
+          ),
           icon: const Icon(Icons.open_in_new_rounded, size: 18),
           label: Text(tr('Mở PR', 'Open PR')),
           style: TextButton.styleFrom(minimumSize: const Size(44, 44)),

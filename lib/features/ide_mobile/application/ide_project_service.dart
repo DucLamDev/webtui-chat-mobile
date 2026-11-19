@@ -5,6 +5,7 @@ import '../domain/ide_deploy.dart';
 import '../domain/ide_errors.dart';
 import '../domain/ide_mergeq.dart';
 import '../domain/ide_project_info.dart';
+import '../domain/ide_session_state.dart';
 
 /// Log chờ việc chỉ giữ phần cuối (khớp `ideJobLogLimit` của màn Việc).
 const ideWaitJobLogLimit = 200000;
@@ -86,7 +87,8 @@ final class IdeProjectService {
           onLog?.call(log);
         }
         final next = data['next'];
-        if (next is num) from = next.toInt();
+        final n = ideJsonInt(next);
+        if (n != null) from = n;
         final status = data['status'] is String ? data['status'] as String : '';
         if (data['done'] == true) {
           return IdeJobOutcome(

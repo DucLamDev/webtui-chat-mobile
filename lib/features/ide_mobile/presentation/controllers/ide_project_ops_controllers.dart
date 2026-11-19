@@ -26,7 +26,7 @@ final class IdeProjectOverview {
 
 final ideProjectOverviewProvider = FutureProvider.autoDispose
     .family<IdeProjectOverview, IdeProject>((ref, project) async {
-      final svc = ref.read(ideProjectServiceProvider);
+      final svc = ref.watch(ideProjectServiceProvider);
       final ready = ref.read(ideLinkStatusProvider).valueOrNull?.ready;
       bool has(String op) => ready == null || ready.hasOp(op);
       final info = await svc.info(project.name);

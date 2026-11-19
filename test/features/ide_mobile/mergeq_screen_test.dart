@@ -186,7 +186,29 @@ void main() {
     expect(find.text('Chưa có test'), findsOneWidget);
     await tester.tap(find.byKey(const Key('ide_job_pr_open')));
     await pumpFor(tester);
+    expect(find.textContaining('git.example'), findsWidgets);
+    expect(h.launched, isEmpty);
+    await tester.tap(find.byKey(const Key('ide_link_open')));
+    await pumpFor(tester);
     expect(h.launched, ['https://git.example/pr/12']);
+  });
+
+  testWidgets('nút Mở PR không mở liên kết http', (tester) async {
+    final h = await pumpProject(
+      tester,
+      (op, a) => <String, Object?>{},
+      const Scaffold(
+        body: IdeJobResultView(
+          op: 'pr.create',
+          result: {'number': 12, 'url': 'http://git.example/pr/12'},
+        ),
+      ),
+    );
+    await tester.tap(find.byKey(const Key('ide_job_pr_open')));
+    await pumpFor(tester);
+    expect(find.byKey(const Key('ide_link_open')), findsNothing);
+    expect(find.text('Chỉ mở được liên kết https.'), findsOneWidget);
+    expect(h.launched, isEmpty);
   });
 
   testWidgets('kết quả lạ thì không hiện gì', (tester) async {
@@ -295,5 +317,91 @@ void main() {
     await tester.tap(find.text('Xoá hết').last);
     await pumpFor(tester);
     expect(sim.sent['mergeq.light_clear']!.single['all'], isTrue);
+  });
+
+  testWidgets('hàng chờ: tên dự án ở tiêu đề và trong hộp hỏi rút PR / đổi mức', (
+    tester,
+  ) async {
+    final sim = _Sim();
+    await _pump(tester, sim);
+    expect(find.text('Hàng chờ gộp · web'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('ide_mergeq_withdraw_5')));
+    await pumpFor(tester);
+    expect(find.textContaining('PR #5 của dự án web'), findsOneWidget);
+    // Đang hỏi: nút rút đã khoá chống bấm trùng.
+    expect(
+      tester
+          .widget<TextButton>(find.byKey(const Key('ide_mergeq_withdraw_5')))
+          .onPressed,
+      isNull,
+    );
+    await tester.tap(find.text('Giữ lại').last);
+    await pumpFor(tester);
+    await tester.tap(find.byKey(const Key('ide_mergeq_mode_tat')));
+    await pumpFor(tester);
+    expect(find.textContaining('Dự án web sẽ chuyển'), findsOneWidget);
+  });
+
+  testWidgets('tiêu đề PR giả dạng hiện ký tự đảo chiều dạng <U+202E>', (
+    tester,
+  ) async {
+    await _pump(tester, (op, a) {
+      if (op == 'mergeq.view') {
+        return {
+          ..._view(),
+          'hang': [
+            {'so': 5, 'tieu_de': 'Sửa\u202Egpj.php', 'trang_thai': 'cho'},
+          ],
+        };
+      }
+      return <String, Object?>{};
+    });
+    expect(find.textContaining('<U+202E>'), findsOneWidget);
+  });
+
+  testWidgets('việc nhẹ: hộp xoá hết không nhắc vân tay; xoá từng việc có hỏi', (
+    tester,
+  ) async {
+    final sim = _Sim();
+    await _pump(tester, (op, a) {
+      final r = sim.call(op, a);
+      if (op == 'mergeq.view') {
+        return {
+          ...(r! as Map<String, Object?>),
+          'viec_nhe': [
+            {'ma': 'c1', 'tieu_de': 'Việc A'},
+          ],
+          'quyen': {'viec_nhe': true},
+        };
+      }
+      if (op == 'mergeq.light_list') {
+        return {
+          'items': [
+            {'ma': 'c1', 'tieu_de': 'Việc A'},
+          ],
+        };
+      }
+      return r;
+    });
+    await tester.ensureVisible(find.byKey(const Key('ide_mergeq_light')));
+    await tester.tap(find.byKey(const Key('ide_mergeq_light')));
+    await pumpFor(tester);
+    await tester.tap(find.byKey(const Key('ide_light_clear_all')));
+    await pumpFor(tester);
+    expect(find.textContaining('vân tay'), findsNothing);
+    await tester.tap(find.text('Giữ lại').last);
+    await pumpFor(tester);
+    await tester.tap(find.byKey(const Key('ide_light_clear_c1')));
+    await pumpFor(tester);
+    expect(sim.sent['mergeq.light_clear'], isNull);
+    expect(find.textContaining('Việc "Việc A"'), findsOneWidget);
+    await tester.tap(find.text('Giữ lại').last);
+    await pumpFor(tester);
+    expect(sim.sent['mergeq.light_clear'], isNull);
+    await tester.tap(find.byKey(const Key('ide_light_clear_c1')));
+    await pumpFor(tester);
+    await tester.tap(find.text('Xong việc').last);
+    await pumpFor(tester);
+    expect(sim.sent['mergeq.light_clear']!.single['ma'], 'c1');
   });
 }

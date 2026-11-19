@@ -38,11 +38,43 @@ void main() {
       const IdePathText(
         'backend/internal/modules/ide_relay/application/rat_dai/notify.go',
       ),
-      width: 160,
+      width: 320,
     );
-    expect(find.text('notify.go'), findsOneWidget);
+    // Cắt ở giữa: còn phần đầu thư mục, dấu "…" và nguyên tên tệp.
+    final shown = find.byWidgetPredicate(
+      (w) =>
+          w is Text &&
+          (w.data ?? '').startsWith('backend') &&
+          (w.data ?? '').endsWith('…/notify.go'),
+    );
+    expect(shown, findsOneWidget);
     expect(t.takeException(), isNull);
   });
+
+  testWidgets('IdePathText: tên tệp giả dạng hiện ký tự đảo chiều', (t) async {
+    await _show(t, const IdePathText('a/anh\u202Egpj.php'), width: 700);
+    expect(find.text('a/anh<U+202E>gpj.php'), findsOneWidget);
+  });
+
+  test(
+    'ideMiddleCutPath: vừa thì giữ nguyên, dài thì cắt giữa giữ tên tệp',
+    () {
+      double w(String s) => s.length.toDouble(); // 1 đơn vị mỗi ký tự
+      expect(ideMiddleCutPath('a/b/', 'x.go', w, 20), 'a/b/x.go');
+      expect(
+        ideMiddleCutPath('backend/internal/modules/', 'notify.go', w, 20),
+        'backend/i…/notify.go',
+      );
+      // Tên tệp quá dài: chỉ còn "…/tên", để Text tự cắt đuôi.
+      expect(
+        ideMiddleCutPath('a/', 'rat-dai-qua.go', w, 5),
+        '…/rat-dai-qua.go',
+      );
+      // Không cắt đôi emoji (2 đơn vị UTF-16) trong tên thư mục.
+      expect(ideMiddleCutPath('ab😀cd/', 'x', w, 7), 'ab😀…/x');
+      expect(ideMiddleCutPath('ab😀cd/', 'x', w, 6), 'ab…/x');
+    },
+  );
 
   testWidgets('xoá / ghi đè hiện trước và có giới hạn riêng', (t) async {
     final files = [
@@ -55,8 +87,8 @@ void main() {
       'total': 302,
     });
     await _show(t, IdePreviewView(preview: p!));
-    expect(find.text('xoa-duy-nhat.php'), findsOneWidget);
-    expect(find.text('ghi-de.php'), findsOneWidget);
+    expect(find.text('x/xoa-duy-nhat.php'), findsOneWidget);
+    expect(find.text('x/ghi-de.php'), findsOneWidget);
     final d = t.getTopLeft(find.byKey(const Key('ide_preview_group_D'))).dy;
     final a = t.getTopLeft(find.byKey(const Key('ide_preview_group_A'))).dy;
     expect(d, lessThan(a));

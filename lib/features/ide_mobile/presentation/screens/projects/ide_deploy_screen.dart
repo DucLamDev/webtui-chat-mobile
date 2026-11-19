@@ -44,6 +44,7 @@ class _DeployState extends ConsumerState<IdeDeployScreen> {
   String _failedJob = '';
   IdePreviewRecord? _record;
   bool _running = false;
+  bool _pulling = false;
   IdeRunResult? _runResult;
   String _runJob = '';
   String _runFailure = '';
@@ -259,6 +260,16 @@ class _DeployState extends ConsumerState<IdeDeployScreen> {
   }
 
   Future<void> _pull(IdeProject p) async {
+    if (_pulling) return;
+    setState(() => _pulling = true);
+    try {
+      await _pullInner(p);
+    } finally {
+      if (mounted) setState(() => _pulling = false);
+    }
+  }
+
+  Future<void> _pullInner(IdeProject p) async {
     final ops = IdeDeployOps.of(p);
     final choice = await showWebTuiSheet<bool>(
       context: context,
@@ -296,6 +307,35 @@ class _DeployState extends ConsumerState<IdeDeployScreen> {
       ),
     );
     if (choice == null || !mounted) return;
+    // Số tệp đang sửa dở trên Dev VPS (nếu hỏi được) để người dùng cân nhắc.
+    var dirty = 0;
+    try {
+      dirty = (await ref.read(ideProjectServiceProvider).info(p.name)).dirty;
+    } on Object {
+      dirty = 0;
+    }
+    if (!mounted) return;
+    final dirtyVi = dirty > 0
+        ? ' Hiện có $dirty tệp đang thay đổi trên Dev VPS.'
+        : '';
+    final dirtyEn = dirty > 0
+        ? ' $dirty files are currently changed on the Dev VPS.'
+        : '';
+    final ok = await showWebTuiConfirmDialog(
+      context,
+      title: tr('Kéo về từ máy chủ?', 'Pull from the server?'),
+      message: tr(
+        'Các tệp trên Dev VPS sẽ bị thay bằng bản trên máy chủ, có thể làm mất phần người khác đang sửa dở.$dirtyVi',
+        'Files on the Dev VPS will be replaced by the server copies; work in progress by others may be lost.$dirtyEn',
+      ),
+      confirmLabel: choice
+          ? tr('Kéo tệp mới hơn', 'Pull newer files')
+          : tr('Kéo tất cả', 'Pull everything'),
+      cancelLabel: tr('Huỷ', 'Cancel'),
+      destructive: true,
+      icon: Icons.download_rounded,
+    );
+    if (!ok || !mounted) return;
     final target = _effectiveTarget(p);
     final job = await ideProjectGuard(
       context,
@@ -448,7 +488,9 @@ class _DeployState extends ConsumerState<IdeDeployScreen> {
                       key: const Key('ide_deploy_pull'),
                       icon: Icons.download_rounded,
                       label: tr('Kéo về', 'Pull'),
-                      onPressed: running || _running ? null : () => _pull(p),
+                      onPressed: running || _running || _pulling
+                          ? null
+                          : () => _pull(p),
                     ),
                 ],
               ),
