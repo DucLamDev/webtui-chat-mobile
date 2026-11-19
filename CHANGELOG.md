@@ -3,7 +3,7 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
-## 1.50.3 · 19/11/2026
+## 1.50.4 · 19/11/2026
 ### Sửa lỗi
 Giao diện app đợt 1 (theo bản rà soát giao diện 19/11):
 - Hồ sơ cá nhân: mở màn Hồ sơ khi hồ sơ đã tải sẵn thì các ô trống trơn (bấm Lưu dễ ghi đè thành rỗng): nay luôn điền
@@ -21,6 +21,13 @@ Giao diện app đợt 1 (theo bản rà soát giao diện 19/11):
   được).
 - Đăng nhập: chữ "Ghi nhớ đăng nhập" không còn xuống 3 dòng, bấm cả dòng để tích; gợi ý ô tài khoản đổi sang ví dụ chung
   `ban@congty.vn`.
+
+## 1.50.3 · 19/11/2026
+### Sửa lỗi
+- Không ra được bản Android trên CH Play / tệp APK từ bản 1.50.0: bước kiểm quyền của bản phát hành chặn hẳn quyền ghi
+  bộ nhớ, trong khi app cần quyền này (chỉ trên Android 9–10) để "Lưu ảnh / video về máy". Nay quyền này được chấp nhận
+  khi giới hạn tới Android 10 như hướng dẫn của Google; khai không giới hạn, khai cho Android mới hơn, quyền đọc bộ nhớ
+  / thư viện ảnh vẫn bị chặn như cũ. Bản iPhone không bị ảnh hưởng.
 
 ## 1.50.2 · 18/11/2026
 ### Sửa lỗi
