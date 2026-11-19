@@ -208,9 +208,10 @@ class IdeDownloadService {
   final Future<Directory> Function() _tempDir;
 
   /// Tải [path] trên máy IDE về tệp tạm của app. Huỷ → xoá tệp dở.
-  IdeDownload start(String path, {String? name}) {
+  IdeDownload start(String path, {String? name, int? maxBytes}) {
     final d = IdeDownload._();
-    d.done = _run(d, path, name);
+    final cap = (maxBytes ?? ideDownloadMaxBytes).clamp(0, ideDownloadMaxBytes);
+    d.done = _run(d, path, name, cap);
     return d;
   }
 
@@ -218,11 +219,12 @@ class IdeDownloadService {
     IdeDownload d,
     String path,
     String? name,
+    int cap,
   ) async {
     final dir = await (await _tempDir()).createTemp('ide-dl-');
     final fileName = ideSafeFileName(name ?? path);
     final file = File('${dir.path}/$fileName');
-    final sink = _FileSink(file, d);
+    final sink = _FileSink(file, d, cap);
     try {
       final result = await Future.any<IdeDownloadResult?>([
         _rpc.download('files.get', {'path': path}, sink: sink),
@@ -275,7 +277,9 @@ class IdeDownloadService {
 }
 
 class _FileSink implements IdeFileSink {
-  _FileSink(this.file, this.d);
+  _FileSink(this.file, this.d, this.cap);
+
+  final int cap;
 
   final File file;
   final IdeDownload d;
@@ -288,6 +292,7 @@ class _FileSink implements IdeFileSink {
   void onMeta(Map<String, Object?> meta) {
     final s = meta['size'];
     _total = s is num ? s.toInt() : 0;
+    if (_total > cap) d.abort(const IdeDownloadTooLarge());
     d.progress.set(_total > 0 ? 0 : null);
   }
 
@@ -296,8 +301,9 @@ class _FileSink implements IdeFileSink {
     if (d.cancelled) {
       throw const IdeDownloadCancelled();
     }
-    // Vượt dung lượng đã khai hoặc trần cứng: dừng, xoá tệp dở.
-    if (_got + bytes.length > ideDownloadMaxBytes ||
+    // Vượt dung lượng đã khai hoặc trần: dừng, xoá tệp dở.
+    if (_total > cap) throw const IdeDownloadTooLarge();
+    if (_got + bytes.length > cap ||
         (_total > 0 && _got + bytes.length > _total)) {
       d.abort(const IdeDownloadTooLarge());
       await close(ok: false);
