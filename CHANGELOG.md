@@ -24,7 +24,8 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
 - Thao tác nguy hiểm (ghi đè, bật công khai, xem mật khẩu database, gỡ máy chủ / điện thoại...) cần xác nhận vân tay.
 - An toàn: ảnh đại diện quá lớn bị từ chối trước khi giải mã; mật khẩu chép ra tự xoá khỏi bộ nhớ tạm sau 60 giây; tệp
   tải lên chỉ vào thư mục riêng của người dùng; chữ do IDE gửi được lọc ký tự ẩn / đảo chiều.
-- Hộp xác nhận vân tay ghi rõ đối tượng thao tác (tên máy chủ, điện thoại, dự án) do app tự ghi; lời IDE gửi dài
+- Hộp xác nhận vân tay ghi rõ đối tượng thao tác (tên máy chủ, điện thoại, dự án, tệp kèm đích khi đổi tên /
+  chuyển / chép) do app tự ghi; lời IDE gửi dài
   thì cuộn trong khung, không che nút. Khi đang xem mật khẩu database thì chặn chụp màn hình. Gỡ máy này rồi rời màn
   ngay vẫn xoá ghép trên điện thoại.
 
