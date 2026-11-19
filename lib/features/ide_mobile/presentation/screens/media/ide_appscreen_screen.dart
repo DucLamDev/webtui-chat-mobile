@@ -237,6 +237,7 @@ class _AppBodyState extends ConsumerState<_AppBody>
                     initialDark: false,
                     submitLabel: tr('Mở', 'Open'),
                     busy: _c.running,
+                    padding: EdgeInsets.zero,
                     onSubmit: (v) => _c.run(device: v.device, dark: v.dark),
                   ),
                 ],
@@ -297,25 +298,35 @@ class _AppBodyState extends ConsumerState<_AppBody>
                   tr('Mất kết nối, đang thử lại', 'Offline, retrying'),
                   color: WebTuiColors.danger,
                 ),
-              if (canRun)
-                TextButton(
-                  key: const Key('ide_app_change'),
-                  style: TextButton.styleFrom(minimumSize: const Size(44, 44)),
-                  onPressed: _c.running || _c.stopping ? null : _openSetup,
-                  child: Text(tr('Đổi thiết lập', 'Change setup')),
-                ),
-              if (canStop)
-                TextButton(
-                  key: const Key('ide_app_stop'),
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(44, 44),
-                    foregroundColor: WebTuiColors.danger,
-                  ),
-                  onPressed: _c.running || _c.stopping ? null : _confirmStop,
-                  child: Text(tr('Dừng', 'Stop')),
-                ),
             ],
           ),
+          if (canRun || canStop)
+            // Nút thao tác một hàng riêng, sát phải: không rớt dòng lệch lề.
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: WebTuiSpacing.sm,
+              children: [
+                if (canRun)
+                  TextButton(
+                    key: const Key('ide_app_change'),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(44, 44),
+                    ),
+                    onPressed: _c.running || _c.stopping ? null : _openSetup,
+                    child: Text(tr('Đổi thiết lập', 'Change setup')),
+                  ),
+                if (canStop)
+                  TextButton(
+                    key: const Key('ide_app_stop'),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(44, 44),
+                      foregroundColor: WebTuiColors.danger,
+                    ),
+                    onPressed: _c.running || _c.stopping ? null : _confirmStop,
+                    child: Text(tr('Dừng', 'Stop')),
+                  ),
+              ],
+            ),
           ?progress,
           ?problem,
           const SizedBox(height: WebTuiSpacing.sm),
@@ -342,9 +353,12 @@ class _SetupForm extends StatefulWidget {
     required this.submitLabel,
     required this.onSubmit,
     this.busy = false,
+    this.padding = const EdgeInsets.all(WebTuiSpacing.lg),
     super.key,
   });
 
+  /// Trong bảng dưới cần lề riêng; nằm trong thẻ thì thẻ đã có lề.
+  final EdgeInsetsGeometry padding;
   final IdeAppStatus status;
   final String? initialDevice;
   final bool initialDark;
@@ -373,7 +387,7 @@ class _SetupFormState extends State<_SetupForm> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(WebTuiSpacing.lg),
+      padding: widget.padding,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
