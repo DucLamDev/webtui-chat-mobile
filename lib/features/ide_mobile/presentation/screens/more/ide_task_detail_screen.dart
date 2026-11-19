@@ -335,15 +335,13 @@ class _IdeTaskDetailScreenState extends ConsumerState<IdeTaskDetailScreen> {
           ),
         ),
         const SizedBox(height: WebTuiSpacing.md),
-        SegmentedButton<String>(
+        WebTuiSegmentedTabs(
           key: const Key('ide_task_status'),
-          showSelectedIcon: false,
-          segments: [
-            for (final s in ideTaskStatuses)
-              ButtonSegment(value: s, label: Text(ideTaskStatusLabel(s))),
-          ],
-          selected: {t.status},
-          onSelectionChanged: _busy ? null : (s) => _changeStatus(t, s.first),
+          tabs: [for (final s in ideTaskStatuses) ideTaskStatusLabel(s)],
+          selectedIndex: ideTaskStatuses.indexOf(t.status).clamp(0, 99),
+          onChanged: (i) {
+            if (!_busy) _changeStatus(t, ideTaskStatuses[i]);
+          },
         ),
         if (t.note.isNotEmpty) ...[
           const SizedBox(height: WebTuiSpacing.sm),

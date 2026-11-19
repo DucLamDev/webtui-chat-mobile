@@ -57,7 +57,10 @@ String ideDueDisplay(String due) {
 /// Giây Unix (số nguyên hoặc thực) → giờ địa phương; không hợp lệ → `null`.
 DateTime? ideTimeFromSeconds(Object? seconds) {
   if (seconds is! num || !seconds.isFinite || seconds <= 0) return null;
-  return DateTime.fromMillisecondsSinceEpoch((seconds * 1000).round());
+  final ms = seconds * 1000;
+  // Ngoài khoảng DateTime chấp nhận (±8.64e15 ms): coi là không có.
+  if (ms.abs() > 8.64e15) return null;
+  return DateTime.fromMillisecondsSinceEpoch(ms.round());
 }
 
 /// `dd/mm HH:mm`, khác năm hiện tại thì thêm năm.
@@ -67,4 +70,11 @@ String ideFormatDateTime(DateTime t, {DateTime? now}) {
       ? '${_two(t.day)}/${_two(t.month)}'
       : '${_two(t.day)}/${_two(t.month)}/${t.year}';
   return '$date ${_two(t.hour)}:${_two(t.minute)}';
+}
+
+/// Số nguyên an toàn từ JSON: vô cực / NaN / không phải số → [fallback].
+int ideSafeInt(Object? v, [int fallback = 0]) {
+  if (v is int) return v;
+  if (v is num && v.isFinite && v.abs() < 9e15) return v.toInt();
+  return fallback;
 }

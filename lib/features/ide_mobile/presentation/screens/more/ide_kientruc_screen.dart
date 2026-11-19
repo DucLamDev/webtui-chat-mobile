@@ -170,7 +170,19 @@ class _ArchView extends StatelessWidget {
                       ),
                       const SizedBox(width: WebTuiSpacing.sm),
                       Expanded(child: Text(r.text)),
-                      if (r.level.isNotEmpty) IdeTag(r.level),
+                      if (r.levelKey case final k?)
+                        IdeTag(
+                          switch (k) {
+                            'high' => tr('Cao', 'High'),
+                            'mid' => tr('Vừa', 'Medium'),
+                            _ => tr('Thấp', 'Low'),
+                          },
+                          color: switch (k) {
+                            'high' => WebTuiColors.danger,
+                            'mid' => WebTuiColors.accentAmber,
+                            _ => WebTuiColors.textMuted,
+                          },
+                        ),
                     ],
                   ),
                 ),

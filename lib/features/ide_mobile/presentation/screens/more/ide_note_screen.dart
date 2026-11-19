@@ -200,6 +200,11 @@ class _IdeNoteScreenState extends ConsumerState<IdeNoteScreen> {
           .read(ideMoreServiceProvider)
           .note(widget.project, widget.noteId!);
       if (!mounted) return;
+      if (keepMine && !await _confirmOverwrite(n)) {
+        if (mounted) setState(() => _busy = false);
+        return;
+      }
+      if (!mounted) return;
       setState(() {
         _note = n;
         _conflict = null;
@@ -214,6 +219,57 @@ class _IdeNoteScreenState extends ConsumerState<IdeNoteScreen> {
       setState(() => _busy = false);
       _toast(ideMoreErrorText(e));
     }
+  }
+
+  /// Cho xem bản mới nhất của người kia và nói rõ lần lưu sau sẽ ghi đè nó.
+  Future<bool> _confirmOverwrite(IdeNote latest) async {
+    final who = latest.updatedBy.isEmpty ? '' : ' (${latest.updatedBy})';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => WebTuiDialog(
+        title: tr(
+          'Lưu sẽ ghi đè bản mới nhất',
+          'Saving will overwrite the latest version',
+        ),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 360),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tr(
+                    'Bản mới nhất$who sẽ bị thay bằng chữ của bạn, thay đổi của người kia mất khỏi ghi chú (vẫn xem được ở phiên bản cũ).',
+                    'The latest version$who will be replaced by your text; the other change leaves the note (still in older versions).',
+                  ),
+                ),
+                const SizedBox(height: WebTuiSpacing.sm),
+                Text(
+                  latest.title,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: WebTuiSpacing.xs),
+                Text(key: const Key('ide_note_overwrite_latest'), latest.body),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          WebTuiDialogAction(
+            key: const Key('ide_note_overwrite_back'),
+            label: tr('Quay lại', 'Go back'),
+            onPressed: () => Navigator.of(ctx).pop(false),
+          ),
+          WebTuiDialogAction(
+            key: const Key('ide_note_overwrite_ok'),
+            label: tr('Giữ chữ của tôi', 'Keep my text'),
+            primary: true,
+            onPressed: () => Navigator.of(ctx).pop(true),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
   }
 
   Future<bool> _confirmDiscard() => showWebTuiConfirmDialog(

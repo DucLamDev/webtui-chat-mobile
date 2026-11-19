@@ -331,6 +331,13 @@ void main() {
         expect(find.byKey(const Key('ide_note_conflict')), findsOneWidget);
         expect(find.text('chữ của tôi'), findsOneWidget);
         await _tap(tester, find.byKey(const Key('ide_note_conflict_keep')));
+        // Cho xem bản mới nhất và phải đồng ý ghi đè trước.
+        expect(
+          find.byKey(const Key('ide_note_overwrite_latest')),
+          findsOneWidget,
+        );
+        expect(find.text('nội dung cũ'), findsOneWidget);
+        await _tap(tester, find.byKey(const Key('ide_note_overwrite_ok')));
         expect(find.byKey(const Key('ide_note_conflict')), findsNothing);
         expect(find.text('chữ của tôi'), findsOneWidget);
         await _tap(tester, find.byKey(const Key('ide_note_save')));

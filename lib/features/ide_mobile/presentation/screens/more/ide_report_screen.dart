@@ -8,6 +8,7 @@ import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
+import '../../../domain/ide_errors.dart';
 import '../../../domain/ide_insight_models.dart';
 import '../../../domain/ide_more_time.dart';
 import '../../../domain/ide_project.dart';
@@ -69,6 +70,8 @@ class _ReportBodyState extends ConsumerState<_ReportBody> {
       _error = null;
       _report = null;
       _log = '';
+      _startedAt = null;
+      _netFails = 0;
     });
     try {
       final job = await ref
@@ -86,12 +89,39 @@ class _ReportBodyState extends ConsumerState<_ReportBody> {
     }
   }
 
+  static const _maxWait = Duration(minutes: 5);
+  static const _maxNetFails = 4;
+  DateTime? _startedAt;
+  int _netFails = 0;
+
+  /// Lỗi thoáng qua của mạng / IDE ngoại tuyến: được thử lại vài lần.
+  bool _transient(Object e) =>
+      e is IdeOffline ||
+      (e is IdeException && e.code == 'ide_offline') ||
+      (e is! IdeException && e is! Error);
+
   void _poll(String job, int from) {
     _timer?.cancel();
+    _startedAt ??= DateTime.now();
     _timer = Timer(widget.pollInterval, () async {
+      if (DateTime.now().difference(_startedAt!) > _maxWait) {
+        if (mounted) {
+          setState(() {
+            _running = false;
+            _error = StateError(
+              tr(
+                'Báo cáo chạy quá lâu, đã ngừng chờ. Hãy thử lại sau.',
+                'The report took too long; stopped waiting. Try again later.',
+              ),
+            );
+          });
+        }
+        return;
+      }
       try {
         final tail = await ref.read(ideMoreServiceProvider).jobTail(job, from);
         if (!mounted) return;
+        _netFails = 0;
         setState(() => _log += tail.text);
         if (!tail.done) {
           _poll(job, tail.next);
@@ -110,12 +140,15 @@ class _ReportBodyState extends ConsumerState<_ReportBody> {
           }
         });
       } on Object catch (e) {
-        if (mounted) {
-          setState(() {
-            _running = false;
-            _error = e;
-          });
+        if (!mounted) return;
+        if (_transient(e) && ++_netFails < _maxNetFails) {
+          _poll(job, from);
+          return;
         }
+        setState(() {
+          _running = false;
+          _error = e;
+        });
       }
     });
   }

@@ -59,18 +59,11 @@ class _IdeTasksScreenState extends ConsumerState<IdeTasksScreen> {
               WebTuiSpacing.lg,
               0,
             ),
-            child: SegmentedButton<bool>(
+            child: WebTuiSegmentedTabs(
               key: const Key('ide_tasks_scope'),
-              showSelectedIcon: false,
-              segments: [
-                ButtonSegment(value: true, label: Text(tr('Của tôi', 'Mine'))),
-                ButtonSegment(
-                  value: false,
-                  label: Text(tr('Theo dự án', 'By project')),
-                ),
-              ],
-              selected: {_mine},
-              onSelectionChanged: (s) => setState(() => _mine = s.first),
+              tabs: [tr('Của tôi', 'Mine'), tr('Theo dự án', 'By project')],
+              selectedIndex: _mine ? 0 : 1,
+              onChanged: (i) => setState(() => _mine = i == 0),
             ),
           ),
           WebTuiFilterChipBar(
@@ -270,18 +263,15 @@ class IdeTaskCard extends StatelessWidget {
                       : '${tr('Hạn', 'Due')} ${ideDueDisplay(due)}',
                   color: dueColor,
                 ),
-              if (task.assignee.isNotEmpty)
+              if (task.assignee.isNotEmpty ||
+                  (showProject && task.project.isNotEmpty))
                 Text(
-                  task.assignee,
+                  [
+                    if (task.assignee.isNotEmpty) task.assignee,
+                    if (showProject && task.project.isNotEmpty) task.project,
+                  ].join(' · '),
                   style: WebTuiTypography.bodySmall.copyWith(
                     color: WebTuiColors.textSecondary,
-                  ),
-                ),
-              if (showProject && task.project.isNotEmpty)
-                Text(
-                  task.project,
-                  style: WebTuiTypography.bodySmall.copyWith(
-                    color: WebTuiColors.textMuted,
                   ),
                 ),
             ],

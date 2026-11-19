@@ -15,11 +15,15 @@ typedef IdeDatePicker =
 
 Future<DateTime?> _defaultDatePicker(BuildContext context, DateTime? initial) {
   final now = DateTime.now();
+  final start = initial ?? now;
+  // Hạn có sẵn có thể ngoài khoảng mặc định: mở rộng để chứa nó (không lỗi).
+  final first = DateTime(now.year - 1);
+  final last = DateTime(now.year + 5, 12, 31);
   return showDatePicker(
     context: context,
-    initialDate: initial ?? now,
-    firstDate: DateTime(now.year - 1),
-    lastDate: DateTime(now.year + 5, 12, 31),
+    initialDate: start,
+    firstDate: start.isBefore(first) ? DateTime(start.year) : first,
+    lastDate: start.isAfter(last) ? DateTime(start.year, 12, 31) : last,
   );
 }
 

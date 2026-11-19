@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../../app/providers/foundation_providers.dart';
 import '../../../../../design_system/components/webtui_components.dart';
 import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
@@ -12,6 +13,7 @@ import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_errors.dart';
 import '../../../domain/ide_project.dart';
 import '../../controllers/ide_project_controllers.dart';
+import '../../widgets/ide_step_sheet.dart';
 
 /// Câu dễ hiểu cho lỗi; ưu tiên `message` tiếng Việt của IDE.
 String ideMoreErrorText(Object error) {
@@ -26,6 +28,10 @@ String ideMoreErrorText(Object error) {
       'You do not have access to this.',
     ),
     IdeNotFound() => tr('Không tìm thấy.', 'Not found.'),
+    IdeCancelled() => tr(
+      'Bạn đã huỷ xác nhận, thao tác chưa được thực hiện.',
+      'You cancelled the confirmation; nothing was done.',
+    ),
     IdeUnsupported() => tr(
       'Bản IDE này chưa hỗ trợ chức năng này.',
       'This IDE version does not support this yet.',
@@ -380,7 +386,7 @@ class _IdeProjectScopeState extends ConsumerState<IdeProjectScope> {
 }
 
 /// Khung màn con: thanh tiêu đề + nội dung.
-class IdeMorePage extends StatelessWidget {
+class IdeMorePage extends ConsumerStatefulWidget {
   const IdeMorePage({
     required this.title,
     required this.body,
@@ -395,16 +401,40 @@ class IdeMorePage extends StatelessWidget {
   final Widget? floating;
 
   @override
+  ConsumerState<IdeMorePage> createState() => _IdeMorePageState();
+}
+
+class _IdeMorePageState extends ConsumerState<IdeMorePage> {
+  late final IdeStepPresenterLease _lease;
+
+  @override
+  void initState() {
+    super.initState();
+    // Mở thẳng từ thông báo (không có màn IDE phía dưới) vẫn phải hiện được
+    // bảng vân tay khi thao tác cần xác nhận.
+    _lease = IdeStepPresenterLease(ref.read(ideStepPresenterProvider.notifier));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _lease.acquire(context, () => mounted);
+    });
+  }
+
+  @override
+  void dispose() {
+    _lease.release();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: WebTuiColors.page,
       appBar: AppBar(
-        title: Text(title),
-        actions: actions,
+        title: Text(widget.title),
+        actions: widget.actions,
         surfaceTintColor: Colors.transparent,
       ),
-      floatingActionButton: floating,
-      body: SafeArea(top: false, child: body),
+      floatingActionButton: widget.floating,
+      body: SafeArea(top: false, child: widget.body),
     );
   }
 }

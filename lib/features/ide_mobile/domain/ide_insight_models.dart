@@ -84,6 +84,7 @@ final class IdeReport {
   static String _scalar(Object? v) {
     if (v is bool) return v ? 'Có' : 'Không';
     if (v is double) {
+      if (!v.isFinite) return '-';
       return v == v.roundToDouble()
           ? v.toInt().toString()
           : v.toStringAsFixed(1);
@@ -167,6 +168,15 @@ final class IdeRisk {
   final String text;
   final String level;
   final String id;
+
+  /// Mức chuẩn hoá: `high` / `mid` / `low`; giá trị lạ → `null` (ẩn nhãn).
+  /// Khoá máy không dấu viết bằng `\u` (không phải chữ hiện lên màn hình).
+  String? get levelKey => switch (level.trim().toLowerCase()) {
+    'cao' || 'high' => 'high',
+    'vua' || 'v\u1eeba' || 'trung-binh' || 'medium' || 'mid' => 'mid',
+    'thap' || 'th\u1ea5p' || 'low' => 'low',
+    _ => null,
+  };
 }
 
 final class IdeArchStep {

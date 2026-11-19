@@ -79,17 +79,19 @@ final class IdeNoteList {
                 updatedBy: _s(e['updatedByName']).isNotEmpty
                     ? _s(e['updatedByName'])
                     : _s(e['updatedBy']),
-                size: e['size'] is num ? (e['size'] as num).toInt() : 0,
+                size: ideSafeInt(e['size']),
               ),
       ],
       deleted: [
         if (deleted is List)
           for (final e in deleted)
-            if (e is Map && isIdeNoteId(_s(e['id'])) && e['n'] is num)
+            if (e is Map &&
+                isIdeNoteId(_s(e['id'])) &&
+                ideSafeInt(e['n'], -1) >= 0)
               IdeDeletedNote(
                 id: e['id'] as String,
                 title: _s(e['title']),
-                n: (e['n'] as num).toInt(),
+                n: ideSafeInt(e['n']),
                 by: _s(e['by']),
                 at: ideTimeFromSeconds(e['at']),
               ),
@@ -170,9 +172,9 @@ final class IdeNoteVersion {
     return [
       if (items is List)
         for (final e in items)
-          if (e is Map && e['n'] is num)
+          if (e is Map && ideSafeInt(e['n'], -1) >= 0)
             IdeNoteVersion(
-              n: (e['n'] as num).toInt(),
+              n: ideSafeInt(e['n']),
               title: _s(e['title']),
               body: _s(e['body']),
               by: _s(e['byName']).isNotEmpty ? _s(e['byName']) : _s(e['by']),
