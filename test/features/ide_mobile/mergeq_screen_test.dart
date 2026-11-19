@@ -199,4 +199,101 @@ void main() {
     );
     expect(_has('ide_job_pr_number'), isFalse);
   });
+
+  testWidgets('chạm chip đang chọn: không gửi mergeq.mode, không hỏi', (
+    tester,
+  ) async {
+    final sim = _Sim();
+    await _pump(tester, sim);
+    await tester.tap(find.byKey(const Key('ide_mergeq_mode_hang-cho')));
+    await pumpFor(tester);
+    expect(sim.sent['mergeq.mode'], isNull);
+    expect(find.text('Đổi'), findsNothing);
+  });
+
+  testWidgets('forbidden khi tự làm mới: báo không quyền, thôi hỏi lại', (
+    tester,
+  ) async {
+    final sim = _Sim();
+    var views = 0;
+    await _pump(tester, (op, a) {
+      if (op == 'mergeq.view' && ++views > 1) {
+        return const IdeFakeError('forbidden');
+      }
+      return sim.call(op, a);
+    });
+    await tester.pump(const Duration(seconds: 11));
+    await pumpFor(tester);
+    expect(_has('ide_forbidden'), isTrue);
+    final n = views;
+    await tester.pump(const Duration(seconds: 35));
+    await pumpFor(tester);
+    expect(views, n);
+  });
+
+  testWidgets('app ở nền thì không hỏi máy, quay về thì tải lại', (
+    tester,
+  ) async {
+    final sim = _Sim();
+    await _pump(tester, sim);
+    for (final st in [
+      AppLifecycleState.inactive,
+      AppLifecycleState.hidden,
+      AppLifecycleState.paused,
+    ]) {
+      tester.binding.handleAppLifecycleStateChanged(st);
+    }
+    final n = sim.views;
+    await tester.pump(const Duration(seconds: 35));
+    await pumpFor(tester);
+    expect(sim.views, n);
+    for (final st in [
+      AppLifecycleState.hidden,
+      AppLifecycleState.inactive,
+      AppLifecycleState.resumed,
+    ]) {
+      tester.binding.handleAppLifecycleStateChanged(st);
+    }
+    await pumpFor(tester);
+    expect(sim.views, greaterThan(n));
+  });
+
+  testWidgets('Xoá hết việc nhẹ: hỏi xác nhận, huỷ thì không gửi', (
+    tester,
+  ) async {
+    final sim = _Sim();
+    await _pump(tester, (op, a) {
+      final r = sim.call(op, a);
+      if (op == 'mergeq.view') {
+        return {
+          ...(r! as Map<String, Object?>),
+          'viec_nhe': [
+            {'ma': 'c1', 'tieu_de': 'Việc A'},
+          ],
+          'quyen': {'viec_nhe': true},
+        };
+      }
+      if (op == 'mergeq.light_list') {
+        return {
+          'items': [
+            {'ma': 'c1', 'tieu_de': 'Việc A'},
+          ],
+        };
+      }
+      return r;
+    });
+    await tester.ensureVisible(find.byKey(const Key('ide_mergeq_light')));
+    await tester.tap(find.byKey(const Key('ide_mergeq_light')));
+    await pumpFor(tester);
+    await tester.tap(find.byKey(const Key('ide_light_clear_all')));
+    await pumpFor(tester);
+    await tester.tap(find.text('Giữ lại').last);
+    await pumpFor(tester);
+    expect(sim.sent['mergeq.light_clear'], isNull);
+    await tester.tap(find.byKey(const Key('ide_light_clear_all')));
+    await pumpFor(tester);
+    await tester.tap(find.text('Xoá hết').last);
+    await pumpFor(tester);
+    expect(sim.sent['mergeq.light_clear']!.single['all'], isTrue);
+  });
 }

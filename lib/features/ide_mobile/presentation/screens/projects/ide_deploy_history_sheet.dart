@@ -90,8 +90,8 @@ class _HistoryState extends ConsumerState<IdeDeployHistorySheet> {
       context,
       title: tr('Quay lại bản cũ?', 'Roll back?'),
       message: tr(
-        'Máy chủ sẽ chạy lại bản "${item.subject.isEmpty ? item.id : item.subject}". Cần xác nhận bằng vân tay.',
-        'The server will run "${item.subject.isEmpty ? item.id : item.subject}" again. Needs fingerprint.',
+        'Máy chủ${widget.target.isNotEmpty ? ' "${widget.target}"' : ''} sẽ chạy lại bản "${item.subject.isEmpty ? item.id : item.subject}". Cần xác nhận bằng vân tay.',
+        'The server${widget.target.isNotEmpty ? ' "${widget.target}"' : ''} will run "${item.subject.isEmpty ? item.id : item.subject}" again. Needs fingerprint.',
       ),
       confirmLabel: tr('Quay lại bản này', 'Roll back'),
       cancelLabel: tr('Huỷ', 'Cancel'),

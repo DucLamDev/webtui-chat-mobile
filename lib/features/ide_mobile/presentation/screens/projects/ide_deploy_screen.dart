@@ -150,7 +150,8 @@ class _DeployState extends ConsumerState<IdeDeployScreen> {
       final m = result['message'] as String;
       if (m.isNotEmpty) return m;
     }
-    final lines = log.trim().split('\n');
+    final cut = log.length > 4000 ? log.substring(log.length - 4000) : log;
+    final lines = cut.trim().split('\n');
     final tail = lines.length > 6 ? lines.sublist(lines.length - 6) : lines;
     final text = tail.join('\n').trim();
     return text.isEmpty
@@ -184,12 +185,17 @@ class _DeployState extends ConsumerState<IdeDeployScreen> {
     var allowMany = false;
     if (record.preview.deleteMany) {
       final n = record.preview.counts['D'] ?? 0;
+      final more = record.preview.truncated;
       final ok = await showWebTuiConfirmDialog(
         context,
         title: tr('Xoá nhiều tệp trên máy chủ?', 'Delete many files?'),
         message: tr(
-          'Lần triển khai này xoá $n tệp trên máy chủ. Bạn đã xem kỹ danh sách và chắc chắn muốn tiếp tục?',
-          'This deploy deletes $n files on the server. Have you reviewed the list and want to continue?',
+          more
+              ? 'Lần triển khai này xoá ít nhất $n tệp trên máy chủ (danh sách chưa hiện hết, hãy xem log đầy đủ). Bạn đã xem kỹ và chắc chắn muốn tiếp tục?'
+              : 'Lần triển khai này xoá $n tệp trên máy chủ. Bạn đã xem kỹ danh sách và chắc chắn muốn tiếp tục?',
+          more
+              ? 'This deploy deletes at least $n files on the server (list incomplete, check the full log). Have you reviewed it and want to continue?'
+              : 'This deploy deletes $n files on the server. Have you reviewed the list and want to continue?',
         ),
         confirmLabel: tr('Vẫn triển khai', 'Deploy anyway'),
         cancelLabel: tr('Dừng lại', 'Stop'),
@@ -205,6 +211,7 @@ class _DeployState extends ConsumerState<IdeDeployScreen> {
       _running = true;
       _runResult = null;
       _runFailure = '';
+      _runJob = '';
     });
     String? job;
     try {
@@ -513,7 +520,9 @@ class _DeployState extends ConsumerState<IdeDeployScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: WebTuiSpacing.sm),
                     child: Text(
-                      _liveLog
+                      (_liveLog.length > 2000
+                              ? _liveLog.substring(_liveLog.length - 2000)
+                              : _liveLog)
                           .trim()
                           .split('\n')
                           .reversed

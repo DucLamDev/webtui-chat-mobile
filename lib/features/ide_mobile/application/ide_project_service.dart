@@ -6,6 +6,9 @@ import '../domain/ide_errors.dart';
 import '../domain/ide_mergeq.dart';
 import '../domain/ide_project_info.dart';
 
+/// Log chờ việc chỉ giữ phần cuối (khớp `ideJobLogLimit` của màn Việc).
+const ideWaitJobLogLimit = 200000;
+
 /// Kết quả một việc nền đã dừng.
 final class IdeJobOutcome {
   const IdeJobOutcome({
@@ -50,7 +53,7 @@ final class IdeProjectService {
     return job;
   }
 
-  /// Hỏi `jobs.tail` tới khi xong. [onLog] nhận toàn bộ log tới giờ.
+  /// Hỏi `jobs.tail` tới khi xong (chỉ giữ phần cuối [ideWaitJobLogLimit]). [onLog] nhận toàn bộ log tới giờ.
   /// [isCancelled] trả `true` thì thôi chờ (ném [IdeCancelled]).
   Future<IdeJobOutcome> waitJob(
     String job, {
@@ -77,6 +80,9 @@ final class IdeProjectService {
         final text = data['text'];
         if (text is String && text.isNotEmpty) {
           log += text;
+          if (log.length > ideWaitJobLogLimit) {
+            log = log.substring(log.length - ideWaitJobLogLimit);
+          }
           onLog?.call(log);
         }
         final next = data['next'];
