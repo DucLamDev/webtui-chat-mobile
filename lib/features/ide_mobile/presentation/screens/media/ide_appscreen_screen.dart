@@ -9,6 +9,7 @@ import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../application/ide_appscreen_controller.dart';
 import '../../../application/ide_media_service.dart';
+import '../../../data/ide_connection.dart';
 import '../../../domain/ide_errors.dart';
 import '../../../domain/ide_media_models.dart';
 import '../../../domain/ide_project.dart';
@@ -49,8 +50,13 @@ class _AppBodyState extends ConsumerState<_AppBody>
     with IdeMediaActiveState<_AppBody> {
   late final IdeAppScreenController _c;
 
+  bool _confirming = false;
+
   bool _has(String op) =>
       ref.read(ideLinkStatusProvider).valueOrNull?.ready?.hasOp(op) ?? false;
+
+  bool _linkReady() =>
+      ref.read(ideLinkStatusProvider).valueOrNull?.phase == IdeLinkPhase.ready;
 
   @override
   void initState() {
@@ -61,6 +67,7 @@ class _AppBodyState extends ConsumerState<_AppBody>
       project: widget.project.name,
       canRun: () => _has('appscreen.run'),
       hasCheck: () => _has('appscreen.check'),
+      linkReady: _linkReady,
       isActive: () => mediaActive,
     )..addListener(_changed);
     // Chờ biết danh sách op của IDE rồi mới tải (để chọn đúng op được gọi).
@@ -112,25 +119,33 @@ class _AppBodyState extends ConsumerState<_AppBody>
   }
 
   Future<void> _confirmStop() async {
-    final ok = await showWebTuiConfirmDialog(
-      context,
-      title: tr('Dừng màn hình app?', 'Stop the app screen?'),
-      message: tr(
-        'Phiên xem trước sẽ đóng, mở lại sẽ dựng lại từ đầu.',
-        'The preview session closes; opening again rebuilds it.',
-      ),
-      confirmLabel: tr('Dừng', 'Stop'),
-      destructive: true,
-    );
+    if (_confirming) return;
+    _confirming = true;
+    final bool ok;
+    try {
+      ok = await showWebTuiConfirmDialog(
+        context,
+        title: tr('Dừng màn hình app?', 'Stop the app screen?'),
+        message: tr(
+          'Phiên xem trước sẽ đóng, mở lại sẽ dựng lại từ đầu.',
+          'The preview session closes; opening again rebuilds it.',
+        ),
+        confirmLabel: tr('Dừng', 'Stop'),
+        destructive: true,
+      );
+    } finally {
+      _confirming = false;
+    }
     if (ok && mounted) await _c.stop();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!ideMediaHasOp(ref, 'appscreen.status') ||
-        !ideMediaHasOp(ref, 'appscreen.frame')) {
-      return IdeMoreErrorView(error: const IdeUnsupported());
-    }
+    final gate = ideMediaGate(ref, const [
+      'appscreen.status',
+      'appscreen.frame',
+    ]);
+    if (gate != null) return gate;
     switch (_c.phase) {
       case IdeAppPhase.loading:
         return WebTuiLoadingState(message: tr('Đang tải...', 'Loading...'));
@@ -443,8 +458,13 @@ class _FrameView extends StatelessWidget {
                 child: Center(
                   child: AspectRatio(
                     aspectRatio: f.aspect,
-                    child: Image.memory(
-                      f.bytes,
+                    child: Image(
+                      image: ResizeImage(
+                        MemoryImage(f.bytes),
+                        width: ideFrameMaxSide,
+                        height: ideFrameMaxSide,
+                        policy: ResizeImagePolicy.fit,
+                      ),
                       gaplessPlayback: true,
                       fit: BoxFit.contain,
                       filterQuality: FilterQuality.medium,

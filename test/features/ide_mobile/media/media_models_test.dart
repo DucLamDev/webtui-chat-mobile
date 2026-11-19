@@ -3,15 +3,12 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/features/ide_mobile/domain/ide_media_models.dart';
 
-List<int> _png(int extra) => [
-  0x89,
-  0x50,
-  0x4E,
-  0x47,
-  0x0D,
-  0x0A,
-  0x1A,
-  0x0A,
+/// PNG tối thiểu: chữ ký + IHDR có rộng / cao [w] x [h] + [extra] byte thừa.
+List<int> _png(int extra, {int w = 100, int h = 200}) => [
+  0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, //
+  0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52,
+  ...[(w >> 24) & 255, (w >> 16) & 255, (w >> 8) & 255, w & 255],
+  ...[(h >> 24) & 255, (h >> 16) & 255, (h >> 8) & 255, h & 255],
   ...List<int>.filled(extra, 1),
 ];
 
@@ -45,6 +42,41 @@ void main() {
       );
       expect(IdeAppFrame.tryParse(_frame(mime: 'image/svg+xml')), isNull);
     });
+    test('bom giải nén: IHDR không khớp w / h hoặc quá 4096 thì bỏ', () {
+      // IHDR nói 100x200 nhưng JSON nói khác.
+      expect(IdeAppFrame.tryParse(_frame(w: 101)), isNull);
+      expect(IdeAppFrame.tryParse(_frame(h: 199)), isNull);
+      // Cả JSON lẫn IHDR cùng khai 30000x30000 (ảnh nhỏ, kích thước khổng lồ).
+      expect(
+        IdeAppFrame.tryParse(
+          _frame(
+            w: 30000,
+            h: 30000,
+            data: base64Encode(_png(10, w: 30000, h: 30000)),
+          ),
+        ),
+        isNull,
+      );
+      expect(
+        IdeAppFrame.tryParse(
+          _frame(w: 4097, h: 10, data: base64Encode(_png(10, w: 4097, h: 10))),
+        ),
+        isNull,
+      );
+      expect(
+        IdeAppFrame.tryParse(
+          _frame(
+            w: 4096,
+            h: 4096,
+            data: base64Encode(_png(10, w: 4096, h: 4096)),
+          ),
+        ),
+        isNotNull,
+      );
+      // Thiếu đoạn IHDR.
+      final noIhdr = _png(10)..[12] = 0x58;
+      expect(IdeAppFrame.tryParse(_frame(data: base64Encode(noIhdr))), isNull);
+    });
     test('w / h vô lý thì bỏ khung', () {
       for (final bad in [0, -1, double.nan, double.infinity, 1e12, 'x', null]) {
         expect(IdeAppFrame.tryParse(_frame(w: bad)), isNull, reason: '$bad');
@@ -71,12 +103,32 @@ void main() {
         'a\u202eb',
         'C:/x',
         '~/x',
+        'a%2e%2e/b',
+        'a//b',
+        'a/',
+        './a',
+        'a/./b',
+        'a\uFF0E\uFF0E/b',
+        'a\u2024b',
         '',
         null,
         5,
       ]) {
         expect(ideMediaJoin('/srv/web', bad), isNull, reason: '$bad');
       }
+    });
+    test('video.get: n âm / trùng / lạ thì dùng số thứ tự', () {
+      final d = IdeVideoDetail.tryParse({
+        'video': {'slug': 'a'},
+        'scenes': [
+          {'n': -5},
+          {'n': 2},
+          {'n': 2},
+          {'n': 'x'},
+          {'n': 1e12},
+        ],
+      })!;
+      expect(d.scenes.map((s) => s.n).toList(), [1, 2, 3, 4, 5]);
     });
     test('video.get: ảnh cảnh không an toàn bị bỏ, error thì scenes rỗng', () {
       final d = IdeVideoDetail.tryParse({
@@ -114,5 +166,26 @@ void main() {
     })!;
     expect(r.scenes, isNull);
     expect(r.seconds, isNull);
+  });
+
+  test('trạng thái video: mã gạch nối của IDE, mã lạ là null', () {
+    expect(IdeVideoState.parse('da-xuat'), IdeVideoState.daXuat);
+    expect(IdeVideoState.parse('kich-ban'), IdeVideoState.kichBan);
+    expect(
+      IdeVideoState.parse(
+        'nh'
+        'ap',
+      ),
+      IdeVideoState.nhap,
+    );
+    expect(
+      IdeVideoState.parse(
+        'l'
+        'oi',
+      ),
+      IdeVideoState.loi,
+    );
+    expect(IdeVideoState.parse('daXuat'), isNull);
+    expect(IdeVideoState.parse(''), isNull);
   });
 }

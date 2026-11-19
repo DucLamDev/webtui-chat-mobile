@@ -18,13 +18,18 @@ import '../../controllers/ide_project_ops_controllers.dart';
 import '../more/ide_more_common.dart';
 import 'ide_media_common.dart';
 
-/// Nhãn + màu trạng thái video (`da-xuat` / `nhap` / `kich-ban` / `loi`).
-(String, Color) ideVideoStateTag(String state) => switch (state) {
-  'da-xuat' => (tr('Đã xuất', 'Exported'), WebTuiColors.accentGreen),
-  'nhap' => (tr('Bản nháp', 'Draft'), WebTuiColors.accentAmber),
-  'kich-ban' => (tr('Kịch bản', 'Script'), WebTuiColors.textSecondary),
-  'loi' => (tr('Lỗi', 'Error'), WebTuiColors.danger),
-  _ => (state.isEmpty ? '—' : ideVisibleText(state), WebTuiColors.textMuted),
+/// Nhãn + màu trạng thái video.
+(String, Color) ideVideoStateTag(String state) => switch (IdeVideoState.parse(
+  state,
+)) {
+  IdeVideoState.daXuat => (tr('Đã xuất', 'Exported'), WebTuiColors.accentGreen),
+  IdeVideoState.nhap => (tr('Bản nháp', 'Draft'), WebTuiColors.accentAmber),
+  IdeVideoState.kichBan => (
+    tr('Kịch bản', 'Script'),
+    WebTuiColors.textSecondary,
+  ),
+  IdeVideoState.loi => (tr('Lỗi', 'Error'), WebTuiColors.danger),
+  null => (state.isEmpty ? '—' : ideVisibleText(state), WebTuiColors.textMuted),
 };
 
 /// Studio video: danh sách video của dự án (xem, tải; không dựng / lưu).
@@ -40,13 +45,19 @@ class IdeVideoListScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Chưa ready / thiếu op: hiện trạng thái, không gọi `video.list`.
+    final gate = ideMediaGate(ref, const ['video.list']);
     return IdeMorePage(
       title: tr('Studio video', 'Video studio'),
-      body: IdeProjectScope(
-        initial: project,
-        builder: (context, p) =>
-            _VideoListBody(project: p.name, refreshInterval: refreshInterval),
-      ),
+      body:
+          gate ??
+          IdeProjectScope(
+            initial: project,
+            builder: (context, p) => _VideoListBody(
+              project: p.name,
+              refreshInterval: refreshInterval,
+            ),
+          ),
     );
   }
 }
@@ -174,11 +185,12 @@ class _VideoListBodyState extends ConsumerState<_VideoListBody>
         );
       }
     } on IdeCancelled {
-      return;
+      // Huỷ do rời màn: không còn gì để cập nhật; ngoài ra nhả cờ ở finally.
     } on Object catch (e) {
       if (mounted) _snack(ideMoreErrorText(e));
+    } finally {
+      if (mounted) setState(() => _syncing = false);
     }
-    if (mounted) setState(() => _syncing = false);
   }
 
   @override
@@ -341,7 +353,8 @@ class _VideoCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: muted,
             ),
-          ] else if (row.state == 'loi' && row.error.isNotEmpty)
+          ] else if (IdeVideoState.parse(row.state) == IdeVideoState.loi &&
+              row.error.isNotEmpty)
             Text(
               ideVisibleText(row.error),
               maxLines: 2,

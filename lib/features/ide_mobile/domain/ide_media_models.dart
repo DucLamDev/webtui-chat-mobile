@@ -1,13 +1,14 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'ide_session_state.dart';
-
 /// Mô hình Màn hình app (`appscreen.*`) và Studio video (`video.*`), Phụ lục C3.
 /// Mọi giá trị từ IDE đều được kiểm: sai kiểu / vô lý thì bỏ hoặc đổi về mặc định.
 
 /// Trần ảnh khung Màn hình app sau khi giải mã (1 MB).
 const ideFrameMaxBytes = 1024 * 1024;
+
+/// Mỗi chiều của khung PNG tối đa (chống bom giải nén).
+const ideFrameMaxSide = 4096;
 
 /// Ảnh cảnh ≤ 8 MB, video ≤ 150 MB (lớn hơn: "Mở trên máy tính").
 const ideVideoImageMaxBytes = 8 * 1024 * 1024;
@@ -165,6 +166,7 @@ final class IdeAppFrame {
     final w = ideMediaInt(raw['w'], max: 20000);
     final h = ideMediaInt(raw['h'], max: 20000);
     if (w == null || h == null || w < 1 || h < 1) return null;
+    if (w > ideFrameMaxSide || h > ideFrameMaxSide) return null;
     if (raw['mime'] != 'image/png') return null;
     final data = raw['data'];
     // base64 của 1 MB dài tối đa ~1,4 triệu ký tự: chặn trước khi giải mã.
@@ -175,11 +177,20 @@ final class IdeAppFrame {
     } on FormatException {
       return null;
     }
-    if (bytes.length < 8 || bytes.length > ideFrameMaxBytes) return null;
-    const sig = [0x89, 0x50, 0x4E, 0x47];
+    // Chữ ký PNG (8 byte) + đoạn IHDR (rộng / cao big-endian ở byte 16-23).
+    if (bytes.length < 24 || bytes.length > ideFrameMaxBytes) return null;
+    const sig = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
     for (var i = 0; i < sig.length; i++) {
       if (bytes[i] != sig[i]) return null;
     }
+    const ihdr = [0x49, 0x48, 0x44, 0x52];
+    for (var i = 0; i < ihdr.length; i++) {
+      if (bytes[12 + i] != ihdr[i]) return null;
+    }
+    final bd = ByteData.sublistView(bytes);
+    final pw = bd.getUint32(16);
+    final ph = bd.getUint32(20);
+    if (pw != w || ph != h) return null;
     return IdeAppFrame(w: w, h: h, bytes: bytes);
   }
 }
@@ -238,7 +249,19 @@ String? ideMediaSafeRelPath(Object? raw) {
   if (raw.startsWith('/') || raw.startsWith('\\') || raw.startsWith('~')) {
     return null;
   }
-  if (raw.contains('..') || raw.contains('\\')) return null;
+  if (raw.contains('..') || raw.contains('\\') || raw.contains('%')) {
+    return null;
+  }
+  // Đoạn rỗng (`a//b`, kết thúc `/`) hoặc đoạn chỉ là `.`.
+  for (final seg in raw.split('/')) {
+    if (seg.isEmpty || seg == '.') return null;
+  }
+  // Mọi dạng dấu chấm Unicode (chấm toàn khổ, chấm một điểm, chấm nhỏ...).
+  if (RegExp(
+    '[\u2024\u2025\u2026\u3002\uFE52\uFF0E\uFF61\u0701\u0702\u06D4]',
+  ).hasMatch(raw)) {
+    return null;
+  }
   if (RegExp(r'^[A-Za-z]:').hasMatch(raw)) return null;
   if (RegExp(
     r'[\u0000-\u001f\u007f-\u009f  ]|\p{Cf}',
@@ -255,6 +278,26 @@ String? ideMediaJoin(String root, Object? rel) {
   if (r == null || root.isEmpty) return null;
   final base = root.endsWith('/') ? root.substring(0, root.length - 1) : root;
   return '$base/$r';
+}
+
+/// Trạng thái video do IDE gửi. Mã trên đường truyền là tên hằng viết kiểu
+/// gạch nối (daXuat → da-xuat, kichBan → kich-ban).
+enum IdeVideoState {
+  daXuat,
+  nhap,
+  kichBan,
+  loi;
+
+  String get wire =>
+      name.replaceAllMapped(RegExp('[A-Z]'), (m) => '-${m[0]!.toLowerCase()}');
+
+  /// Mã lạ → null (màn hiện nguyên mã đã lọc).
+  static IdeVideoState? parse(String raw) {
+    for (final s in values) {
+      if (s.wire == raw) return s;
+    }
+    return null;
+  }
 }
 
 final class IdeVideoRow {
@@ -361,12 +404,20 @@ final class IdeVideoDetail {
     final rs = raw['scenes'];
     if (rs is List) {
       var i = 0;
+      final seen = <int>{};
       for (final e in rs.take(1000)) {
         i++;
         if (e is! Map) continue;
+        // `n` chỉ để hiển thị: không hợp lệ (âm, quá lớn) hoặc trùng thì dùng
+        // số thứ tự trong danh sách.
+        var n = ideMediaInt(e['n']) ?? i;
+        if (!seen.add(n)) {
+          n = i;
+          seen.add(n);
+        }
         scenes.add(
           IdeVideoScene(
-            n: ideJsonInt(e['n']) ?? i,
+            n: n,
             text: _str(e['text'], 2000),
             caption: _str(e['caption'], 1000),
             image: ideMediaSafeRelPath(e['image']),

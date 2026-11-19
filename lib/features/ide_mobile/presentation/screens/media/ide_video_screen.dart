@@ -18,6 +18,7 @@ import '../../../domain/ide_visible_text.dart';
 import '../../controllers/ide_project_controllers.dart';
 import '../../widgets/files/ide_image_viewer.dart';
 import '../more/ide_more_common.dart';
+import 'ide_media_common.dart';
 import 'ide_video_list_screen.dart' show ideVideoStateTag;
 
 class _Loaded {
@@ -36,19 +37,23 @@ class IdeVideoScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final svc = ref.read(ideMediaServiceProvider);
+    final gate = ideMediaGate(ref, const ['video.get']);
     return IdeMorePage(
       title: tr('Studio video', 'Video studio'),
-      body: IdeLoader<_Loaded>(
-        load: () async {
-          final projects = await ref.read(ideProjectsProvider.future);
-          final p = projects.where((e) => e.name == project).firstOrNull;
-          if (p == null) {
-            throw const IdeNotFound('Không tìm thấy dự án này.');
-          }
-          return _Loaded(await svc.videoGet(project, slug), p.root);
-        },
-        builder: (context, d, reload) => _VideoBody(data: d, reload: reload),
-      ),
+      body:
+          gate ??
+          IdeLoader<_Loaded>(
+            load: () async {
+              final projects = await ref.read(ideProjectsProvider.future);
+              final p = projects.where((e) => e.name == project).firstOrNull;
+              if (p == null) {
+                throw const IdeNotFound('Không tìm thấy dự án này.');
+              }
+              return _Loaded(await svc.videoGet(project, slug), p.root);
+            },
+            builder: (context, d, reload) =>
+                _VideoBody(data: d, reload: reload),
+          ),
     );
   }
 }
@@ -67,7 +72,8 @@ class _VideoBodyState extends ConsumerState<_VideoBody> {
   final _busy = <String>{};
   final _thumbs = <int, IdeDownloadedFile>{};
   final _live = <IdeDownload>{};
-  final _spent = <IdeDownloadedFile>[];
+  // Tệp đã tải theo khoá: bấm lại dùng luôn, dọn khi rời màn.
+  final _files = <String, IdeDownloadedFile>{};
   final _tooBig = <String>{};
   late final IdeDownloadService _dl;
 
@@ -82,7 +88,7 @@ class _VideoBodyState extends ConsumerState<_VideoBody> {
     for (final d in _live) {
       d.cancel();
     }
-    for (final f in [..._thumbs.values, ..._spent]) {
+    for (final f in {..._thumbs.values, ..._files.values}) {
       unawaited(_dl.discard(f));
     }
     super.dispose();
@@ -99,6 +105,8 @@ class _VideoBodyState extends ConsumerState<_VideoBody> {
     String? rel,
     int maxBytes,
   ) async {
+    final have = _files[key];
+    if (have != null) return have;
     if (_busy.contains(key)) return null;
     final path = ideMediaJoin(widget.data.root, rel);
     if (path == null) {
@@ -114,6 +122,7 @@ class _VideoBodyState extends ConsumerState<_VideoBody> {
         await _dl.discard(f);
         return null;
       }
+      _files[key] = f;
       return f;
     } on IdeDownloadCancelled {
       return null;
@@ -146,29 +155,28 @@ class _VideoBodyState extends ConsumerState<_VideoBody> {
   Future<void> _openImage(String key, String? rel) async {
     final f = await _fetch(key, rel, ideVideoImageMaxBytes);
     if (f == null || !mounted) return;
-    _spent.add(f);
     await Navigator.of(
       context,
     ).push<void>(MaterialPageRoute(builder: (_) => IdeImageViewer(file: f)));
   }
 
-  Future<void> _thumb(IdeVideoScene s) async {
-    if (_thumbs.containsKey(s.n)) {
-      final f = _thumbs[s.n]!;
-      await Navigator.of(
-        context,
-      ).push<void>(MaterialPageRoute(builder: (_) => IdeImageViewer(file: f)));
+  /// [idx] là vị trí trong danh sách (khoá riêng): `n` từ IDE chỉ để hiển thị.
+  Future<void> _thumb(int idx, IdeVideoScene s) async {
+    final have = _thumbs[idx];
+    if (have != null) {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(builder: (_) => IdeImageViewer(file: have)),
+      );
       return;
     }
-    final f = await _fetch('scene${s.n}', s.image, ideVideoImageMaxBytes);
+    final f = await _fetch('scene$idx', s.image, ideVideoImageMaxBytes);
     if (f == null || !mounted) return;
-    setState(() => _thumbs[s.n] = f);
+    setState(() => _thumbs[idx] = f);
   }
 
   Future<void> _play(String key, String? rel) async {
     final f = await _fetch(key, rel, ideVideoFileMaxBytes);
     if (f == null || !mounted) return;
-    _spent.add(f);
     await Navigator.of(context).push<void>(
       MaterialPageRoute(builder: (_) => _VideoPlayerScreen(file: f)),
     );
@@ -297,15 +305,15 @@ class _VideoBodyState extends ConsumerState<_VideoBody> {
               ),
             )
           else
-            for (final s in d.scenes)
+            for (final (idx, s) in d.scenes.indexed)
               Padding(
                 padding: const EdgeInsets.only(bottom: WebTuiSpacing.sm),
                 child: _SceneCard(
                   scene: s,
-                  thumb: _thumbs[s.n],
-                  busy: _busy.contains('scene${s.n}'),
-                  tooBig: _tooBig.contains('scene${s.n}'),
-                  onThumb: () => _thumb(s),
+                  thumb: _thumbs[idx],
+                  busy: _busy.contains('scene$idx'),
+                  tooBig: _tooBig.contains('scene$idx'),
+                  onThumb: () => _thumb(idx, s),
                 ),
               ),
         ],

@@ -13,7 +13,11 @@ final _okFrame = {
   'w': 10,
   'h': 20,
   'mime': 'image/png',
-  'data': base64Encode([0x89, 0x50, 0x4E, 0x47, 1, 2, 3, 4, 5]),
+  'data': base64Encode([
+    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, //
+    0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52,
+    0, 0, 0, 10, 0, 0, 0, 20, 1,
+  ]),
 };
 Map<String, Object?> _status({String state = 'running'}) => {
   'sessions': [
@@ -218,6 +222,78 @@ void main() {
     expect(c.log.last, 'dòng 30');
     expect(c.runMessage, 'đã mở');
     expect(c.session, isNotNull);
+    expect(c.running, isFalse);
+  });
+
+  test('kết nối IDE không ready thì không hỏi khung', () async {
+    await setup(
+      (op, a) => switch (op) {
+        'appscreen.check' => {'ok': true, 'run': true},
+        'appscreen.status' => _status(),
+        'appscreen.frame' => _okFrame,
+        _ => null,
+      },
+    );
+    c.dispose();
+    var ready = false;
+    c = IdeAppScreenController(
+      media: IdeMediaService(env.rpc),
+      jobs: IdeProjectService(env.rpc),
+      project: 'web',
+      canRun: () => true,
+      isActive: () => true,
+      linkReady: () => ready,
+      frameInterval: _ms,
+    );
+    await c.load();
+    await _wait(5);
+    expect(frames(), 0);
+    ready = true;
+    c.resume();
+    await _wait(5);
+    expect(frames(), greaterThan(0));
+  });
+
+  test('huỷ vân tay khi mở phiên thì nhả nút, không kẹt "Đang mở…"', () async {
+    var steps = 0;
+    env = IdeRpcEnv(
+      (op, a) => switch (op) {
+        'appscreen.check' => {'ok': true, 'run': true},
+        'appscreen.status' => _status(state: 'stopped'),
+        'appscreen.run' => ideFakeSilent,
+        _ => null,
+      },
+      ops: const ['jobs.tail'],
+      step: (r) async {
+        steps++;
+        return null; // người dùng bấm Huỷ ở bảng vân tay
+      },
+    );
+    await env.up();
+    c = IdeAppScreenController(
+      media: IdeMediaService(env.rpc),
+      jobs: IdeProjectService(env.rpc),
+      project: 'web',
+      canRun: () => true,
+      isActive: () => true,
+      frameInterval: _ms,
+      jobPoll: const Duration(milliseconds: 5),
+    );
+    await c.load();
+    final done = c.run(device: 'iphone', dark: false);
+    await _wait(2);
+    expect(c.running, isTrue);
+    final req = env.lastSocket!
+        .sentOfType('op')
+        .lastWhere((f) => f['op'] == 'appscreen.run')['req'];
+    env.lastSocket!.emit({
+      'type': 'need_step',
+      'req': req,
+      'challenge': 'Y2g=',
+      'summary': 'Mở màn hình app',
+    });
+    await done;
+    expect(steps, 1);
     expect(c.running, isFalse);
   });
 }
