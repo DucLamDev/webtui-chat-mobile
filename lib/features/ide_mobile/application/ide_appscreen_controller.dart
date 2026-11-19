@@ -192,9 +192,12 @@ class IdeAppScreenController extends ChangeNotifier {
       if (out.ok && !(res is Map && res['ok'] == false)) {
         runMessage = msg;
       } else {
-        runError = msg.isNotEmpty
-            ? msg
-            : (log.isNotEmpty ? log.last : 'Không mở được màn hình app.');
+        // Lời do IDE gửi: cắt ngắn để không chiếm cả màn.
+        runError = _clip(
+          msg.isNotEmpty
+              ? msg
+              : (log.isNotEmpty ? log.last : 'Không mở được màn hình app.'),
+        );
       }
       try {
         _apply(await media.appStatus());
@@ -270,3 +273,9 @@ List<String> ideLastLines(String text, int n) {
       .toList();
   return lines.length <= n ? lines : lines.sublist(lines.length - n);
 }
+
+/// Trần độ dài lời lỗi chạy app hiện trên màn (ký tự).
+const ideAppRunErrorMax = 500;
+
+String _clip(String s) =>
+    s.length <= ideAppRunErrorMax ? s : '${s.substring(0, ideAppRunErrorMax)}…';

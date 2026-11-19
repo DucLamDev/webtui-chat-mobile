@@ -200,9 +200,28 @@ class _VideoListBodyState extends ConsumerState<_VideoListBody>
       if (_loading) {
         return WebTuiLoadingState(message: tr('Đang tải...', 'Loading...'));
       }
-      return IdeMoreErrorView(
-        error: _error ?? const IdeError(),
-        onRetry: _load,
+      final error = _error ?? const IdeError();
+      // Thẻ báo chỉ cao theo nội dung, không kéo hết màn.
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Dự án không làm video (`bad_request`): không phải lỗi mạng, thử lại
+          // cũng vậy, nên không có nút Thử lại.
+          if (error is IdeBadRequest)
+            WebTuiEmptyState(
+              key: const Key('ide_video_not_video'),
+              title: tr('Không có video', 'No videos'),
+              message: error.message.isEmpty
+                  ? tr(
+                      'Dự án này không phải dự án Video.',
+                      'This is not a video project.',
+                    )
+                  : ideVisibleText(error.message),
+              icon: Icons.movie_outlined,
+            )
+          else
+            IdeMoreErrorView(error: error, onRetry: _load),
+        ],
       );
     }
     return Column(

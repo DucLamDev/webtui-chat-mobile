@@ -225,6 +225,28 @@ void main() {
     expect(c.running, isFalse);
   });
 
+  test('lời lỗi chạy app quá dài bị cắt', () async {
+    await setup(
+      (op, a) => switch (op) {
+        'appscreen.check' => {'ok': true, 'run': true},
+        'appscreen.status' => {'sessions': []},
+        'appscreen.run' => {'job': 'j1'},
+        'jobs.tail' => {
+          'done': true,
+          'status': 'done',
+          'next': 1,
+          'text': 'x',
+          'result': {'ok': false, 'message': 'l' * 5000},
+        },
+        _ => null,
+      },
+    );
+    await c.load();
+    await c.run(device: 'iphone', dark: false);
+    expect(c.runError!.length, ideAppRunErrorMax + 1);
+    expect(c.runError!.endsWith('…'), isTrue);
+  });
+
   test('kết nối IDE không ready thì không hỏi khung', () async {
     await setup(
       (op, a) => switch (op) {

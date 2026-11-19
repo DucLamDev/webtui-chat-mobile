@@ -84,6 +84,28 @@ void main() {
       );
       expect(find.text('Không có quyền'), findsOneWidget);
     });
+
+    testWidgets('dự án không làm video: trạng thái rỗng, không nút thử lại', (
+      tester,
+    ) async {
+      await pumpMore(
+        tester,
+        const IdeVideoListScreen(project: 'web'),
+        (op, a) => const IdeFakeError(
+          'bad_request',
+          'Dự án này không phải dự án Video.',
+        ),
+        ops: {'video.list'},
+      );
+      expect(find.byKey(const Key('ide_video_not_video')), findsOneWidget);
+      expect(find.text('Dự án này không phải dự án Video.'), findsOneWidget);
+      expect(find.text('Thử lại'), findsNothing);
+      // Thẻ báo chỉ cao theo nội dung.
+      final h = tester
+          .getSize(find.byKey(const Key('ide_video_not_video')))
+          .height;
+      expect(h, lessThan(400));
+    });
   });
 
   group('Màn hình app (giao diện)', () {
