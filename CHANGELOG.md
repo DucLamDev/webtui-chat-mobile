@@ -3,6 +3,18 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.57.0 · 19/11/2026
+### Tính năng
+- Tab **Thêm** của IDE trên app có thêm các mục (mục nào IDE công ty chưa mở cho điện thoại thì không hiện):
+  - **Skill** và **AI Agent**: xem, cài, cập nhật, gỡ; tạo AI Agent mới và chạy nhiệm vụ cho agent;
+  - **Web & DB**: bật / tắt web demo, đổi công khai, xem / xoá database demo;
+  - **Giám sát** máy chủ (CPU trực tiếp, RAM, ổ đĩa, lịch sử, tiến trình nặng nhất) và **Máy chủ của tôi** (thêm, sửa, gỡ);
+  - **Chat thường** với AI: danh sách cuộc chat, trả lời chạy dần, gửi ảnh / tệp, xếp tin chờ, chia sẻ cuộc chat;
+  - **Hồ sơ và mức dùng AI** (đổi ảnh đại diện), **Điện thoại đã gắn** (gỡ máy khác, gỡ máy này).
+- Thao tác nguy hiểm (ghi đè, bật công khai, xem mật khẩu database, gỡ máy chủ / điện thoại...) cần xác nhận vân tay.
+- An toàn: ảnh đại diện quá lớn bị từ chối trước khi giải mã; mật khẩu chép ra tự xoá khỏi bộ nhớ tạm sau 60 giây; tệp
+  tải lên chỉ vào thư mục riêng của người dùng; chữ do IDE gửi được lọc ký tự ẩn / đảo chiều.
+
 ## 1.56.0 · 19/11/2026
 ### Tính năng
 - IDE trên app có tab **Thêm** (mục nào IDE công ty chưa mở cho điện thoại thì không hiện):
