@@ -12,6 +12,10 @@ const _mono = TextStyle(
   fontFamilyFallback: ['Menlo', 'Roboto Mono', 'Courier'],
   fontSize: ideCodeFontSize,
   height: ideCodeLineHeight,
+  // Ghi rõ: ô sửa gộp kiểu chữ của theme (có giãn chữ), làm chữ trong trình sửa
+  // rộng hơn chỗ đã đo và tự ngắt dòng.
+  letterSpacing: 0,
+  wordSpacing: 0,
 );
 
 /// Kiểu chữ mã (màu chữ theo giao diện hiện tại).
@@ -44,6 +48,12 @@ double ideCodeCharWidth(BuildContext context) {
   return w;
 }
 
+/// Bề rộng cột số dòng cho [lines] dòng (chừa 1 điểm ảnh cho làm tròn).
+double ideLineNumbersWidth(BuildContext context, int lines) =>
+    (ideCodeCharWidth(context) * '$lines'.length.clamp(2, 7)).ceilToDouble() +
+    1 +
+    WebTuiSpacing.md * 2;
+
 /// Cột số dòng.
 class IdeLineNumbers extends StatelessWidget {
   const IdeLineNumbers({required this.lines, this.activeLine, super.key});
@@ -53,8 +63,7 @@ class IdeLineNumbers extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final digits = '$lines'.length.clamp(2, 7);
-    final width = ideCodeCharWidth(context) * digits + WebTuiSpacing.md * 2;
+    final width = ideLineNumbersWidth(context, lines);
     final buf = StringBuffer();
     for (var i = 1; i <= lines; i++) {
       if (i > 1) buf.write('\n');
@@ -68,6 +77,10 @@ class IdeLineNumbers extends StatelessWidget {
         child: Text(
           buf.toString(),
           textAlign: TextAlign.right,
+          // Bề rộng đo vừa khít số chữ số: làm tròn lệch một chút cũng không
+          // được để số ngắt xuống dòng (lệch số dòng với mã).
+          softWrap: false,
+          overflow: TextOverflow.visible,
           strutStyle: ideCodeStrut,
           style: ideCodeStyle().copyWith(color: WebTuiColors.textMuted),
         ),

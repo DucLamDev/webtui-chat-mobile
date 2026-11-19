@@ -467,14 +467,49 @@ class _IdeFileEditorScreenState extends ConsumerState<IdeFileEditorScreen> {
     );
   }
 
+  String? _measuredText;
+  TextScaler? _measuredScale;
+  double _measuredWidth = 0;
+
+  /// Bề rộng thật của dòng dài nhất. Không lấy số ký tự × bề rộng một ký tự:
+  /// chữ có dấu / chữ lấy từ phông dự phòng rộng hơn, ô sửa sẽ tự ngắt dòng và
+  /// số dòng lệch với mã. Chỉ đo các dòng gần dài nhất để tệp lớn vẫn nhẹ.
+  double _widestLine(String t) {
+    final scaler = MediaQuery.textScalerOf(context);
+    if (identical(t, _measuredText) && scaler == _measuredScale) {
+      return _measuredWidth;
+    }
+    final lines = t.split('\n');
+    var longest = 0;
+    for (final l in lines) {
+      if (l.length > longest) longest = l.length;
+    }
+    final candidates = [
+      for (final l in lines)
+        if (l.length * 10 >= longest * 6) l,
+    ]..sort((a, b) => b.length.compareTo(a.length));
+    var width = 0.0;
+    for (final l in candidates.take(64)) {
+      final p = TextPainter(
+        text: TextSpan(text: l, style: ideCodeStyle()),
+        textDirection: TextDirection.ltr,
+        textScaler: scaler,
+        maxLines: 1,
+      )..layout();
+      width = math.max(width, p.width);
+      p.dispose();
+    }
+    _measuredText = t;
+    _measuredScale = scaler;
+    _measuredWidth = width.ceilToDouble();
+    return _measuredWidth;
+  }
+
   Widget _editor() {
     final t = _text.text;
     final lines = '\n'.allMatches(t).length + 1;
-    var longest = 0;
-    for (final l in t.split('\n')) {
-      if (l.length > longest) longest = l.length;
-    }
     final charW = ideCodeCharWidth(context);
+    final textW = _widestLine(t);
     final extent = ideCodeLineExtent(context);
     final line = _finding && _match >= 0 && _match < _matches.length
         ? '\n'.allMatches(t.substring(0, _matches[_match])).length
@@ -482,11 +517,10 @@ class _IdeFileEditorScreenState extends ConsumerState<IdeFileEditorScreen> {
     return LayoutBuilder(
       builder: (context, box) {
         const pad = WebTuiSpacing.md;
-        final gutterW =
-            charW * '$lines'.length.clamp(2, 7) + WebTuiSpacing.md * 2;
+        final gutterW = ideLineNumbersWidth(context, lines);
         final fieldW = math.max(
           box.maxWidth - gutterW,
-          charW * (longest + 3) + pad * 2,
+          textW + charW * 3 + pad * 2,
         );
         return Scrollbar(
           controller: _vScroll,
