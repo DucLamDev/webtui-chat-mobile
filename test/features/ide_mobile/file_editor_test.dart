@@ -106,10 +106,7 @@ void main() {
     final numbers = find.byType(IdeLineNumbers);
     final textH = tester.getSize(field).height - 2 * WebTuiSpacing.sm;
     expect(textH, lessThan(3.5 * extent));
-    expect(
-      tester.getSize(numbers).height,
-      moreOrLessEquals(textH, epsilon: 1),
-    );
+    expect(tester.getSize(numbers).height, moreOrLessEquals(textH, epsilon: 1));
   });
 
   testWidgets('cột số dòng: số 2 chữ số không ngắt dòng', (tester) async {

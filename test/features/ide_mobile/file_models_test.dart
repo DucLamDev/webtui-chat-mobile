@@ -87,7 +87,12 @@ void main() {
     await env.up();
     addTearDown(env.dispose);
     final files = IdeFilesService(env.rpc);
-    for (final bad in ['http://a.vn/x', 'file:///etc/passwd', 'https:///x', 'x']) {
+    for (final bad in [
+      'http://a.vn/x',
+      'file:///etc/passwd',
+      'https:///x',
+      'x',
+    ]) {
       await expectLater(files.fetch('/p', bad), throwsA(isA<IdeBadRequest>()));
     }
     expect(sent, isEmpty);

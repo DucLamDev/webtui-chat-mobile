@@ -518,15 +518,18 @@ class _IdeFilesTabState extends ConsumerState<IdeFilesTab> {
                 tr('Hỏi AI về tệp này', 'Ask AI about this'),
               ),
             ],
-            _tile(
-              ctx,
-              'rename',
-              Icons.drive_file_rename_outline_rounded,
-              tr('Đổi tên', 'Rename'),
-            ),
-            if (!e.secret)
+            // Tệp bí mật: không đổi tên / chuyển chỗ (đổi `.env` thành tên
+            // thường là thoát khỏi danh sách chặn), chỉ còn xoá.
+            if (!e.secret) ...[
+              _tile(
+                ctx,
+                'rename',
+                Icons.drive_file_rename_outline_rounded,
+                tr('Đổi tên', 'Rename'),
+              ),
               _tile(ctx, 'copy', Icons.copy_rounded, tr('Sao chép', 'Copy')),
-            _tile(ctx, 'cut', Icons.content_cut_rounded, tr('Cắt', 'Cut')),
+              _tile(ctx, 'cut', Icons.content_cut_rounded, tr('Cắt', 'Cut')),
+            ],
             if (!e.secret && !e.isDir)
               _tile(
                 ctx,

@@ -116,6 +116,27 @@ void main() {
     expect(env.calls.where((c) => c == 'files.read'), isEmpty);
   });
 
+  testWidgets('menu tệp bí mật: không đổi tên / chép / cắt / tải / nén', (
+    tester,
+  ) async {
+    await _pump(tester, _ok);
+    await tester.tap(find.byKey(const Key('ide_more_.env')));
+    await settle(tester);
+    for (final id in [
+      'open',
+      'edit',
+      'ai',
+      'rename',
+      'copy',
+      'cut',
+      'download',
+      'zip',
+    ]) {
+      expect(find.byKey(Key('ide_act_$id')), findsNothing, reason: id);
+    }
+    expect(find.byKey(const Key('ide_act_delete')), findsOneWidget);
+  });
+
   testWidgets('thư mục trống', (tester) async {
     await _pump(
       tester,
