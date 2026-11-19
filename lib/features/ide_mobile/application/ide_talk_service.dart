@@ -11,6 +11,9 @@ const ideTalkMaxImageBytes = 20 * 1024 * 1024;
 const ideTalkMaxFileBytes = 50 * 1024 * 1024;
 const ideTalkMaxText = 200000;
 
+/// Trần độ dài link chia sẻ IDE trả về (ký tự).
+const ideTalkMaxLinkChars = 2048;
+
 String _s(Object? v) => v is String ? v : '';
 
 /// Gọi các `op` `talk.*`. Thao tác ★ (`talk.share`) do [IdeRpcClient] tự xử lý
@@ -81,9 +84,13 @@ class IdeTalkService {
     final d = await _rpc.call('talk.share', {'id': id});
     final m = d is Map ? d : const <Object?, Object?>{};
     final url = m['url'];
+    final link = _s(m['link']);
+    // Link chia sẻ chỉ là một địa chỉ: quá dài là dữ liệu lạ, không hiện.
     return (
-      link: _s(m['link']),
-      url: url is String && url.isNotEmpty ? url : null,
+      link: link.length <= ideTalkMaxLinkChars ? link : '',
+      url: url is String && url.isNotEmpty && url.length <= ideTalkMaxLinkChars
+          ? url
+          : null,
     );
   }
 

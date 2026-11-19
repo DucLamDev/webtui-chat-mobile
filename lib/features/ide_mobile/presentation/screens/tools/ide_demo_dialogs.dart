@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/privacy/background_privacy.dart';
 import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
@@ -240,6 +241,22 @@ class _DbSecretDialog extends StatefulWidget {
 
 class _DbSecretDialogState extends State<_DbSecretDialog> {
   bool _show = false;
+
+  // Mật khẩu đang trên màn: chặn chụp / quay màn hình và ảnh trong trình
+  // chuyển ứng dụng (Android); đóng hộp thì trả lại như cũ.
+  static const _privacy = BackgroundPrivacyController();
+
+  @override
+  void initState() {
+    super.initState();
+    _privacy.setSecureScreen(true);
+  }
+
+  @override
+  void dispose() {
+    _privacy.setSecureScreen(false);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

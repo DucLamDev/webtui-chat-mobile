@@ -54,14 +54,18 @@ class _IdeDevicesScreenState extends ConsumerState<IdeDevicesScreen> {
     );
     if (ok != true || !mounted) return;
     setState(() => _busyId = d.id);
+    // Lấy sẵn trước khi chờ: rời màn lúc đang gỡ thì `ref` hết dùng được, mà
+    // máy này vẫn phải xoá ghép (IDE đã thu hồi khoá).
+    final devices = ref.read(ideDevicesServiceProvider);
+    final pairing = self ? ref.read(idePairingServiceProvider) : null;
+    final container = ProviderScope.containerOf(context, listen: false);
     try {
-      await ref.read(ideDevicesServiceProvider).revoke(d.id);
-      if (!mounted) return;
-      if (self) {
+      await devices.revoke(d.id);
+      if (pairing != null) {
         try {
-          await ref.read(idePairingServiceProvider).removeThisDevice();
+          await pairing.removeThisDevice();
         } finally {
-          ref
+          container
             ..invalidate(ideCredentialsProvider)
             ..invalidate(ideCapabilitiesProvider);
         }
@@ -70,6 +74,7 @@ class _IdeDevicesScreenState extends ConsumerState<IdeDevicesScreen> {
         }
         return;
       }
+      if (!mounted) return;
       await reload();
     } on Object catch (e) {
       if (mounted) ideToolsError(context, e);

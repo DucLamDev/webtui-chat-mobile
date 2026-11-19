@@ -7,6 +7,7 @@ import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../application/ide_step_up.dart';
+import '../../domain/ide_visible_text.dart';
 
 /// Màn đặt presenter hộp vân tay khi mở và trả lại cái trước đó khi đóng
 /// (chỉ khi presenter hiện tại vẫn là của màn này).
@@ -67,20 +68,41 @@ Future<bool> showIdeStepSheet(
             ),
           ),
           const SizedBox(height: WebTuiSpacing.md),
-          Text(
-            summary.summary.isEmpty ? summary.op : summary.summary,
-            style: WebTuiTypography.bodyMedium.copyWith(
-              color: WebTuiColors.textPrimary,
+          // Lời tóm tắt do IDE gửi: lọc ký tự ẩn / đảo chiều, cắt ngắn, cuộn
+          // trong khung thấp để không che dòng do app tự ghi bên dưới.
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.25,
+            ),
+            child: SingleChildScrollView(
+              child: Text(
+                ideStepSummaryText(summary),
+                style: WebTuiTypography.bodyMedium.copyWith(
+                  color: WebTuiColors.textPrimary,
+                ),
+              ),
             ),
           ),
-          // Tên thao tác lấy từ yêu cầu của chính app (phần được ký), không
-          // chỉ lời tóm tắt do IDE gửi.
+          // Tên thao tác và đối tượng lấy từ yêu cầu của chính app (phần được
+          // ký), không chỉ lời tóm tắt do IDE gửi.
           if (summary.summary.isNotEmpty) ...[
             const SizedBox(height: WebTuiSpacing.xs),
             Text(
               tr(
                 'Thao tác: ${ideStepOpLabel(summary.op)}',
                 'Action: ${ideStepOpLabelEn(summary.op)}',
+              ),
+              style: WebTuiTypography.bodySmall.copyWith(
+                color: WebTuiColors.textSecondary,
+              ),
+            ),
+          ],
+          if (summary.target.isNotEmpty) ...[
+            const SizedBox(height: WebTuiSpacing.xs),
+            Text(
+              tr(
+                'Đối tượng: ${ideStepClip(ideVisibleText(summary.target), 200)}',
+                'Target: ${ideStepClip(ideVisibleText(summary.target), 200)}',
               ),
               style: WebTuiTypography.bodySmall.copyWith(
                 color: WebTuiColors.textSecondary,
@@ -110,6 +132,25 @@ Future<bool> showIdeStepSheet(
     ),
   );
   return accepted ?? false;
+}
+
+/// Chữ chính của hộp: lời IDE (đã lọc, ≤ 500 ký tự) hoặc mã thao tác.
+/// Giữ xuống dòng thật (lời nhiều dòng), các ký tự ẩn khác hiện thành mã.
+String ideStepSummaryText(IdeStepSummary s) => s.summary.isEmpty
+    ? s.op
+    : ideStepClip(
+        s.summary
+            .replaceAll('\r\n', '\n')
+            .split('\n')
+            .map(ideVisibleText)
+            .join('\n'),
+        500,
+      );
+
+/// Cắt theo số ký tự (rune) để không cắt đôi ký tự ghép.
+String ideStepClip(String s, int max) {
+  final r = s.runes;
+  return r.length <= max ? s : '${String.fromCharCodes(r.take(max))}…';
 }
 
 /// Tên dễ hiểu của thao tác cần vân tay; thao tác lạ thì giữ nguyên mã để người

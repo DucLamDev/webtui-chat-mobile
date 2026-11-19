@@ -8,10 +8,31 @@ import '../domain/ide_errors.dart';
 
 /// Bảng tóm tắt hiện cho người dùng trước khi ký.
 final class IdeStepSummary {
-  const IdeStepSummary({required this.summary, required this.op});
+  const IdeStepSummary({
+    required this.summary,
+    required this.op,
+    this.target = '',
+  });
 
+  /// Lời tóm tắt do IDE gửi (không tin: phải lọc trước khi hiện).
   final String summary;
   final String op;
+
+  /// Đối tượng của thao tác, lấy từ tham số app gửi (phần được ký).
+  final String target;
+}
+
+/// Khoá tham số chỉ đối tượng thao tác, theo thứ tự ưu tiên.
+const _targetKeys = ['name', 'device_id', 'project', 'server', 'path', 'id'];
+
+/// Đối tượng thao tác từ tham số của chính app (vd tên máy chủ, mã điện thoại).
+String ideStepTarget(Object? args) {
+  if (args is! Map) return '';
+  for (final k in _targetKeys) {
+    final v = args[k];
+    if (v is String && v.trim().isNotEmpty) return v.trim();
+  }
+  return '';
 }
 
 /// Hiện bảng tóm tắt, trả `true` nếu người dùng bấm xác nhận.
@@ -48,7 +69,11 @@ final class IdeStepUp {
 
   Future<String?> _confirmNow(IdeStepRequest request) async {
     final accepted = await _present(
-      IdeStepSummary(summary: request.summary, op: request.op),
+      IdeStepSummary(
+        summary: request.summary,
+        op: request.op,
+        target: ideStepTarget(request.args),
+      ),
     );
     if (!accepted) return null;
     final String text;

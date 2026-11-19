@@ -4,6 +4,13 @@ import 'ide_more_time.dart';
 /// dạng bị bỏ, số NaN / vô cực / âm thành `null` (hiện "—").
 
 String _s(Object? v) => v is String ? v : '';
+
+/// Trần độ dài một tin chat nhận từ IDE (ký tự): IDE gửi quá thì cắt, tránh
+/// treo khung chat khi vẽ chữ khổng lồ.
+const ideTalkMaxMessageChars = 200000;
+
+String _clip(String s, int max) =>
+    s.length <= max ? s : '${s.substring(0, max)}…';
 bool _b(Object? v) => v == true;
 
 /// Số hữu hạn không âm; còn lại `null`.
@@ -326,7 +333,7 @@ final class IdeTalkMessage {
     return IdeTalkMessage(
       id: id,
       isUser: role == 'user',
-      text: _s(raw['text']),
+      text: _clip(_s(raw['text']), ideTalkMaxMessageChars),
       at: ideTimeFromSeconds(raw['at']),
       model: _s(raw['model']),
       effort: _s(raw['effort']),
