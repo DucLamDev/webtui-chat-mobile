@@ -34,13 +34,21 @@ class _Entry {
     'notes' => tr('Ghi chú dự án', 'Project notes'),
     'report' => tr('Báo cáo', 'Report'),
     'kientruc' => tr('Kiến trúc', 'Architecture'),
+    'talk' => tr('Chat thường', 'Chat'),
+    'skills' => tr('Skill', 'Skills'),
+    'agents' => tr('AI Agent', 'AI agents'),
+    'demo' => tr('Web & DB', 'Web & DB'),
+    'monitor' => tr('Giám sát', 'Monitoring'),
+    'appscreen' => tr('Màn hình app', 'App screen'),
+    'video' => tr('Studio video', 'Video studio'),
+    'servers' => tr('Máy chủ của tôi', 'My servers'),
+    'profile' => tr('Hồ sơ', 'Profile'),
+    'devices' => tr('Điện thoại đã gắn', 'Linked phones'),
     _ => tr('Changelog nền tảng', 'Platform changelog'),
   };
 }
 
-/// Các mục của giai đoạn này; mục giai đoạn sau (Skill, AI Agent, Web & DB,
-/// Giám sát, Máy chủ của tôi, Chat thường, Hồ sơ, Màn hình app, Studio video)
-/// thêm vào đây khi có `op` tương ứng.
+/// Các mục GĐ3 + GĐ4 (Phụ lục B, C); mục chỉ hiện khi IDE có `op` tương ứng.
 const _entries = [
   _Entry('tasks', 'tasks.list', Icons.task_alt_rounded, '/ide/tasks'),
   _Entry(
@@ -78,6 +86,57 @@ const _entries = [
     '/ide/kientruc',
     project: true,
   ),
+  _Entry('talk', 'talk.list', Icons.forum_outlined, '/ide/talk'),
+  _Entry(
+    'skills',
+    'skills.list',
+    Icons.extension_outlined,
+    '/ide/skills',
+    project: true,
+  ),
+  _Entry(
+    'agents',
+    'agents.session',
+    Icons.hub_outlined,
+    '/ide/agents',
+    project: true,
+  ),
+  _Entry(
+    'demo',
+    'demo.status',
+    Icons.language_rounded,
+    '/ide/demo',
+    project: true,
+  ),
+  _Entry(
+    'monitor',
+    'monitor.list',
+    Icons.monitor_heart_outlined,
+    '/ide/monitor',
+    project: true,
+  ),
+  _Entry(
+    'appscreen',
+    'appscreen.status',
+    Icons.phone_iphone_rounded,
+    '/ide/appscreen',
+    project: true,
+  ),
+  _Entry(
+    'video',
+    'video.list',
+    Icons.movie_outlined,
+    '/ide/video',
+    project: true,
+  ),
+  _Entry('servers', 'servers.list', Icons.dns_outlined, '/ide/servers'),
+  _Entry(
+    'profile',
+    'profile.show',
+    Icons.person_outline_rounded,
+    '/ide/profile',
+  ),
+  _Entry('devices', 'devices.list', Icons.devices_rounded, '/ide/devices'),
   _Entry(
     'changelog',
     'changelog.read',
