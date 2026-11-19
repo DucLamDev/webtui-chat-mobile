@@ -33,13 +33,38 @@ class IdePreviewView extends StatelessWidget {
 
   final IdeDeployPreview preview;
 
+  /// Mỗi nhóm có giới hạn riêng, nhóm xoá / ghi đè hiện trước.
   static const _maxFiles = 200;
+  static const _maxDiffLines = 400;
+  static const _maxDiffLine = 500;
+  static const _maxDiffChars = 100 * 1024;
+
+  /// Cắt diff: mỗi dòng ≤ 500 ký tự, tổng ≤ 400 dòng / 100 KB.
+  static (List<String>, bool) clipDiff(String diff) {
+    final out = <String>[];
+    var cut = false;
+    var chars = 0;
+    for (final raw in diff.split('\n')) {
+      if (out.length >= _maxDiffLines || chars >= _maxDiffChars) {
+        cut = true;
+        break;
+      }
+      var line = raw;
+      if (line.length > _maxDiffLine) {
+        line = line.substring(0, _maxDiffLine);
+        cut = true;
+      }
+      chars += line.length + 1;
+      out.add(line);
+    }
+    return (out, cut);
+  }
 
   @override
   Widget build(BuildContext context) {
     final p = preview;
     final counts = p.counts;
-    final order = ['A', 'M', 'D', 'N', 'P'];
+    final order = ['D', 'N', 'A', 'M', 'P'];
     final groups = [
       for (final s in [
         ...order,
@@ -47,7 +72,11 @@ class IdePreviewView extends StatelessWidget {
       ])
         if ((counts[s] ?? 0) > 0) s,
     ];
-    var shown = 0;
+    final (diffLines, diffCut) = clipDiff(p.diff);
+    var more = p.truncated;
+    for (final s in groups) {
+      if (p.files.where((f) => f.s == s).length > _maxFiles) more = true;
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -150,18 +179,15 @@ class IdePreviewView extends StatelessWidget {
                 ),
               ),
             ),
-            for (final f in p.files.where((f) => f.s == s))
-              if (shown++ < _maxFiles)
-                Text(
-                  f.path,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: WebTuiTypography.bodySmall.copyWith(
-                    color: WebTuiColors.textSecondary,
-                  ),
+            for (final f in p.files.where((f) => f.s == s).take(_maxFiles))
+              IdePathText(
+                f.path,
+                style: WebTuiTypography.bodySmall.copyWith(
+                  color: WebTuiColors.textSecondary,
                 ),
+              ),
           ],
-          if (p.truncated || p.files.length > _maxFiles)
+          if (more)
             Padding(
               padding: const EdgeInsets.only(top: WebTuiSpacing.xs),
               child: Text(
@@ -185,7 +211,7 @@ class IdePreviewView extends StatelessWidget {
                   child: Text.rich(
                     TextSpan(
                       children: [
-                        for (final line in p.diff.split('\n'))
+                        for (final line in diffLines)
                           TextSpan(
                             text: '$line\n',
                             style: TextStyle(
@@ -198,6 +224,11 @@ class IdePreviewView extends StatelessWidget {
                                   ? WebTuiColors.danger
                                   : WebTuiColors.textSecondary,
                             ),
+                          ),
+                        if (diffCut)
+                          TextSpan(
+                            text: tr('(đã cắt bớt)', '(truncated)'),
+                            style: TextStyle(color: WebTuiColors.textMuted),
                           ),
                       ],
                     ),
@@ -232,3 +263,56 @@ String? ideDeployBlockText(IdeDeployBlock b) => switch (b) {
     'The preview was already used, preview again.',
   ),
 };
+
+/// Đường dẫn tệp một dòng, dài quá thì cắt ở phần thư mục, luôn giữ tên tệp
+/// (`backend/…/ide_relay/application/notify.go` thay vì cắt mất đuôi).
+class IdePathText extends StatelessWidget {
+  const IdePathText(this.path, {super.key, this.style});
+
+  final String path;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final cut = path.lastIndexOf('/');
+    if (cut <= 0 || cut == path.length - 1) {
+      return Text(
+        path,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: style,
+      );
+    }
+    final dir = path.substring(0, cut + 1);
+    final name = path.substring(cut + 1);
+    return Semantics(
+      label: path,
+      excludeSemantics: true,
+      child: LayoutBuilder(
+        builder: (context, c) => Row(
+          children: [
+            Flexible(
+              child: Text(
+                dir,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: style,
+              ),
+            ),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: c.maxWidth.isFinite ? c.maxWidth * 0.7 : 600,
+              ),
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: style,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

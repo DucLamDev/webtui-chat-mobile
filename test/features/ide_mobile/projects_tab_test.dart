@@ -260,4 +260,19 @@ void main() {
     await _pump(tester, _Sim([proj('web')]), brightness: Brightness.dark);
     expect(_has('ide_act_deploy'), isTrue);
   });
+
+  testWidgets('dòng nhánh ghi rõ commit chưa đẩy lên', (tester) async {
+    await _pump(
+      tester,
+      _Sim([
+        proj(
+          'web',
+          targets: [
+            {'name': 'prod'},
+          ],
+        ),
+      ]),
+    );
+    expect(find.textContaining('1 commit chưa đẩy lên'), findsOneWidget);
+  });
 }

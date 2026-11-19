@@ -10,6 +10,7 @@ import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
+import '../../../domain/ide_errors.dart';
 import '../../../domain/ide_mergeq.dart';
 import '../../controllers/ide_controllers.dart';
 import '../../controllers/ide_project_ops_controllers.dart';
@@ -71,6 +72,7 @@ class IdeMergeqScreen extends ConsumerStatefulWidget {
 class _MergeqState extends ConsumerState<IdeMergeqScreen> {
   late final IdeStepPresenterLease _lease;
   Timer? _timer;
+  AppLifecycleListener? _life;
   bool _loading = true;
   Object? _error;
   IdeMergeView? _view;
@@ -101,14 +103,33 @@ class _MergeqState extends ConsumerState<IdeMergeqScreen> {
       if (mounted) _lease.acquire(context, () => mounted);
     });
     unawaited(_load());
-    _timer = Timer.periodic(widget.refreshInterval, (_) {
-      unawaited(_load(silent: true));
-    });
+    _life = AppLifecycleListener(
+      onStateChange: (st) {
+        if (st == AppLifecycleState.resumed && mounted && _timer != null) {
+          _tick();
+        }
+      },
+    );
+    _timer = Timer.periodic(widget.refreshInterval, (_) => _tick());
+  }
+
+  bool get _active {
+    final st = WidgetsBinding.instance.lifecycleState;
+    if (st != null && st != AppLifecycleState.resumed) return false;
+    return ModalRoute.of(context)?.isCurrent ?? true;
+  }
+
+  /// Không hỏi máy khi app ở nền hoặc màn bị che; quay về thì tải lại.
+  void _tick() {
+    if (!mounted) return;
+    if (!_active) return;
+    unawaited(_load(silent: true));
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _life?.dispose();
     _lease.release();
     super.dispose();
   }
@@ -143,6 +164,18 @@ class _MergeqState extends ConsumerState<IdeMergeqScreen> {
         _scrollToPr();
       }
     } on Object catch (e) {
+      // Bị tắt quyền thì thôi hỏi lại.
+      if (e is IdeForbidden) {
+        _timer?.cancel();
+        _timer = null;
+        if (mounted) {
+          setState(() {
+            _loading = false;
+            _error = e;
+          });
+        }
+        return;
+      }
       // Lần tự tải lại thất bại thì giữ dữ liệu cũ.
       if (mounted && !silent) {
         setState(() {
@@ -346,7 +379,10 @@ class _MergeqState extends ConsumerState<IdeMergeqScreen> {
                       key: Key('ide_mergeq_mode_$m'),
                       label: Text(ideMergeModeLabel(m)),
                       selected: m == v.mode,
-                      onSelected: m == v.mode ? null : (_) => _changeMode(m),
+                      // Không để null: chip đang chọn sẽ bị vẽ như nút bị khoá.
+                      onSelected: (_) {
+                        if (m != v.mode) _changeMode(m);
+                      },
                     ),
               ],
             ),
@@ -672,6 +708,7 @@ class _LightSheetState extends ConsumerState<_LightSheet> {
   bool _loading = true;
   Object? _error;
   List<IdeLightItem> _items = const [];
+  bool _busy = false;
 
   @override
   void initState() {
@@ -705,15 +742,36 @@ class _LightSheetState extends ConsumerState<_LightSheet> {
   }
 
   Future<void> _clear({String? code}) async {
-    final ok = await ideProjectGuard(context, () async {
-      await ref
-          .read(ideProjectServiceProvider)
-          .lightClear(widget.project, code: code);
-      return true;
-    });
-    if (ok == true && mounted) {
-      await _load();
-      unawaited(widget.onChanged());
+    if (_busy) return;
+    if (code == null) {
+      final yes = await showWebTuiConfirmDialog(
+        context,
+        title: tr('Xoá hết việc nhẹ?', 'Clear all light jobs?'),
+        message: tr(
+          'Tất cả việc nhẹ của dự án sẽ bị xoá. Cần xác nhận bằng vân tay.',
+          'All light jobs of the project will be cleared. Needs fingerprint.',
+        ),
+        confirmLabel: tr('Xoá hết', 'Clear all'),
+        cancelLabel: tr('Giữ lại', 'Keep'),
+        destructive: true,
+        icon: Icons.delete_sweep_rounded,
+      );
+      if (!yes || !mounted) return;
+    }
+    setState(() => _busy = true);
+    try {
+      final ok = await ideProjectGuard(context, () async {
+        await ref
+            .read(ideProjectServiceProvider)
+            .lightClear(widget.project, code: code);
+        return true;
+      });
+      if (ok == true && mounted) {
+        await _load();
+        unawaited(widget.onChanged());
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -760,7 +818,7 @@ class _LightSheetState extends ConsumerState<_LightSheet> {
                         minWidth: 44,
                         minHeight: 44,
                       ),
-                      onPressed: () => _clear(code: i.code),
+                      onPressed: _busy ? null : () => _clear(code: i.code),
                       icon: const Icon(Icons.done_rounded),
                       tooltip: tr('Xong việc này', 'Clear'),
                     )
@@ -778,7 +836,7 @@ class _LightSheetState extends ConsumerState<_LightSheet> {
             trailing: widget.canClear && _items.isNotEmpty
                 ? TextButton(
                     key: const Key('ide_light_clear_all'),
-                    onPressed: () => _clear(),
+                    onPressed: _busy ? null : () => _clear(),
                     style: TextButton.styleFrom(
                       minimumSize: const Size(44, 44),
                     ),

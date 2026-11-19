@@ -366,8 +366,8 @@ class _InfoCard extends StatelessWidget {
             line(
               Icons.call_split_rounded,
               '${tr('Nhánh', 'Branch')} $branch'
-              '${i.ahead > 0 ? ' · ${tr('trước', 'ahead')} ${i.ahead}' : ''}'
-              '${i.behind > 0 ? ' · ${tr('sau', 'behind')} ${i.behind}' : ''}',
+              '${i.ahead > 0 ? ' · ${i.ahead} ${tr('commit chưa đẩy lên', 'unpushed commits')}' : ''}'
+              '${i.behind > 0 ? ' · ${i.behind} ${tr('commit mới chưa kéo về', 'commits to pull')}' : ''}',
               const Key('ide_info_branch'),
             ),
           line(

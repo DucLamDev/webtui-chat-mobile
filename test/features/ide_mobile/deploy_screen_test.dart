@@ -271,4 +271,46 @@ void main() {
     );
     expect(find.byKey(const Key('ide_deploy_preview')), findsOneWidget);
   });
+
+  testWidgets('xoá nhiều mà danh sách bị cắt: hộp hỏi ghi ít nhất', (
+    tester,
+  ) async {
+    final sim = _Sim(
+      preview: {...previewResult(deleteMany: true), 'truncated': true},
+    );
+    await _pump(tester, sim);
+    await _tap(tester, 'ide_deploy_preview');
+    await _tap(tester, 'ide_deploy_run');
+    expect(find.textContaining('ít nhất'), findsOneWidget);
+    expect(find.textContaining('log đầy đủ'), findsOneWidget);
+  });
+
+  testWidgets('quay bản cũ: hộp xác nhận ghi tên máy đích', (tester) async {
+    final sim = _Sim();
+    await _pump(tester, sim);
+    await _tap(tester, 'ide_deploy_history');
+    await tester.tap(find.byKey(const Key('ide_history_rollback_h1')));
+    await pumpFor(tester);
+    expect(find.textContaining('"prod"'), findsOneWidget);
+  });
+
+  testWidgets('lượt triển khai mới: không còn nút Xem log của job cũ', (
+    tester,
+  ) async {
+    final sim = _Sim();
+    var runs = 0;
+    await _pump(tester, (op, a) {
+      if (op == 'deploy.run' && ++runs == 2) {
+        return const IdeFakeError('boom');
+      }
+      return sim.call(op, a);
+    });
+    await _tap(tester, 'ide_deploy_preview');
+    await _tap(tester, 'ide_deploy_run');
+    expect(find.text('Xem log'), findsOneWidget);
+    await _tap(tester, 'ide_deploy_preview');
+    await _tap(tester, 'ide_deploy_run');
+    expect(find.byKey(const Key('ide_deploy_failed')), findsOneWidget);
+    expect(find.text('Xem log'), findsNothing);
+  });
 }
