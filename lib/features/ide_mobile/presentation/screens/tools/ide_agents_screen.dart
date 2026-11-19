@@ -126,7 +126,7 @@ class _AgentsView extends StatelessWidget {
                   child: WebTuiEmptyState(
                     title: tr('Chưa có agent', 'No agents'),
                     message: tr(
-                      'Dự án này chưa có agent hay lần chạy nào.',
+                      'Dự án này chưa có AI Agent nào chạy.',
                       'This project has no agents or runs yet.',
                     ),
                     icon: Icons.smart_toy_outlined,
