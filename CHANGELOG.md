@@ -3,6 +3,34 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.54.0 · 19/11/2026
+### Tính năng
+- IDE trên app có tab **Terminal** (cần IDE công ty bật terminal cho điện thoại; trước đó dùng cổng IDE giả):
+  - Danh sách terminal đang chạy: tên, dự án, kiểu (Shell / Claude / Codex / SSH), nhãn "Máy khác đang gắn"; nhấn giữ
+    để kết thúc phiên (có hỏi lại). Nút **Terminal mới**: chọn dự án và kiểu, hoặc máy chủ SSH được cấp / máy của tôi.
+  - Mở hoặc gắn lại terminal luôn hỏi vân tay / khuôn mặt trước; huỷ thì không mở.
+  - Màn terminal đầy đủ màu, chụm 2 ngón đổi cỡ chữ, tự báo cỡ màn cho máy tính, giữ màn hình sáng khi đang mở.
+    Hàng phím phụ: Esc, Tab, Ctrl, Alt, mũi tên, `|` `~` `/` `-`, Home, End, PgUp, PgDn. Sao chép chữ đã chọn; dán
+    nhiều dòng thì hỏi lại.
+  - Đóng màn chỉ ngắt kết nối, phiên trên máy tính vẫn chạy. Báo rõ: mất kết nối (nút Nối lại), phiên đã kết thúc
+    (kèm mã), quá số terminal, quản trị đã tắt terminal, không tìm thấy dự án / máy đã chọn.
+- Gói mới: `xterm` (vẽ terminal, MIT) và `wakelock_plus` (giữ màn hình sáng, BSD).
+
+## 1.53.0 · 19/11/2026
+### Tính năng
+- IDE trên app có tab **Tệp** (cần IDE công ty bật phần Tệp cho điện thoại; trước đó dùng cổng IDE giả):
+  - Cây tệp của từng dự án: thư mục xếp trước, chấm màu trạng thái git, hiện / ẩn tệp ẩn, kéo để làm mới.
+  - Xem tệp chữ có tô màu cú pháp, xem ảnh; sửa tệp có số dòng, tìm và thay, hoàn tác / làm lại. Lưu khi máy tính vừa
+    sửa cùng tệp thì app hỏi: Tải lại / Ghi đè / Xem khác biệt. Thoát khi chưa lưu thì hỏi lại.
+  - Tạo tệp / thư mục, đổi tên, chép, chuyển, xoá vào thùng rác; thùng rác khôi phục được, xoá hẳn phải xác nhận rồi
+    IDE đòi vân tay.
+  - Tìm theo tên và theo chữ trong dự án (mở đúng dòng khớp), xem khác biệt git, tải tệp về máy, tải tệp lên, nhờ IDE
+    tải từ liên kết (chỉ `https://`), nén zip, đổi tài liệu văn phòng sang PDF.
+  - "Hỏi AI về tệp này" mở phiên AI có sẵn `@đường-dẫn`.
+  - Tệp bí mật (`.env`, khoá…) chỉ hiện tên, có khoá, không mở / chép / nén trên điện thoại.
+  - App kiểm đường dẫn và tên trước khi gửi (không `..`, không `/` trong tên); IDE vẫn là nơi kiểm cuối.
+- Gói mới: `re_highlight` (tô màu cú pháp, giấy phép MIT).
+
 ## 1.52.0 · 19/11/2026
 ### Tính năng
 - IDE trên app làm được việc AI như IDE web (cần IDE công ty bật phần cho điện thoại; trước đó dùng cổng IDE giả):
@@ -12,7 +40,9 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
     lại / làm lại từ một tin, xem các bước AI đang làm, đổi model / mức suy nghĩ / chế độ trong **Cài đặt phiên**.
   - **Bảng duyệt**: trả lời câu hỏi, duyệt lệnh, duyệt kế hoạch. Thao tác quan trọng IDE đòi xác nhận thì app hỏi vân
     tay / khuôn mặt và ký bằng khoá xác nhận; app tự viết tóm tắt từ chính lệnh sẽ gửi, chữ IDE gửi kèm chỉ nối sau
-    "IDE ghi:". Mỗi yêu cầu xác nhận chỉ ký một lần, chỉ ký khi khớp đúng một thao tác đang chờ.
+    "IDE ghi:". Mỗi yêu cầu xác nhận chỉ ký một lần, chỉ ký khi khớp đúng một thao tác đang chờ. Kế hoạch chờ duyệt
+    hiện dạng Markdown (tiêu đề, gạch đầu dòng); dòng thêm / bớt trong phần khác biệt tô màu cả dòng. Duyệt xong
+    chỉ đóng bảng duyệt, vẫn ở lại màn trò chuyện. Bảng vân tay ghi thao tác bằng lời dễ hiểu và chừa thanh vuốt.
   - Trả lời của AI hiện đủ Markdown (bảng, mã có nút chép, chữ màu), biểu đồ, biểu mẫu (gửi giống IDE web) và sơ đồ vẽ
     ngay trong app. Liên kết hỏi trước khi mở, chỉ mở http / https.
   - Tệp AI tạo ra (apk, zip, pdf, ảnh…): tải về có thanh tiến độ, nút Huỷ, kiểm mã băm; Android 10+ lưu vào **Tải về**,

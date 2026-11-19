@@ -30,6 +30,7 @@ class IdeAiChatScreen extends ConsumerStatefulWidget {
     required String sessionKey,
     this.picker,
     this.autoOpenApprovals = true,
+    this.initialText = '',
     super.key,
   }) : target = IdeAiOpenTarget.existing(sessionKey);
 
@@ -39,6 +40,7 @@ class IdeAiChatScreen extends ConsumerStatefulWidget {
     String? worktree,
     this.picker,
     this.autoOpenApprovals = true,
+    this.initialText = '',
     super.key,
   }) : target = IdeAiOpenTarget.create(
          kind: kind,
@@ -47,6 +49,9 @@ class IdeAiChatScreen extends ConsumerStatefulWidget {
        );
 
   final IdeAiOpenTarget target;
+
+  /// Chữ điền sẵn vào ô soạn (vd `@đường-dẫn ` từ màn Tệp).
+  final String initialText;
 
   /// Chỗ thay bộ chọn ảnh / tệp khi test.
   final IdeAttachmentPicker? picker;
@@ -158,6 +163,9 @@ class _IdeAiChatScreenState extends ConsumerState<IdeAiChatScreen> {
   Future<void> _openApprovals() async {
     if (!mounted || _approvalOpen) return;
     _approvalOpen = true;
+    // Hết việc chờ duyệt thì đóng bảng đúng một lần, và chỉ đóng chính bảng:
+    // dựng lại nhiều lần (chữ AI đang chạy) không được đóng luôn màn chat.
+    var closing = false;
     await showIdeApprovalSheet(
       context,
       (_) => Consumer(
@@ -166,10 +174,16 @@ class _IdeAiChatScreenState extends ConsumerState<IdeAiChatScreen> {
           final c = ref.read(ideAiSessionControllerProvider(_target).notifier);
           final approvals = snap.view.approvals;
           final pending = snap.view.planPending;
-          if (approvals.isEmpty && !pending) {
+          if (approvals.isEmpty && !pending && !closing) {
+            closing = true;
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (context.mounted && Navigator.of(context).canPop()) {
+              if (!context.mounted) return;
+              final route = ModalRoute.of(context);
+              if (route == null || !route.isActive) return;
+              if (route.isCurrent) {
                 Navigator.of(context).pop();
+              } else {
+                Navigator.of(context).removeRoute(route);
               }
             });
           }
@@ -443,6 +457,7 @@ class _IdeAiChatScreenState extends ConsumerState<IdeAiChatScreen> {
               ),
             ),
           IdeAiComposer(
+            initialText: widget.initialText,
             canControl: snap.canControl && snap.link != IdeAiLink.closed,
             busy: view.busy,
             commands: view.commands,
@@ -487,7 +502,6 @@ class _IdeAiChatScreenState extends ConsumerState<IdeAiChatScreen> {
       if (kind.isNotEmpty) (kind == 'codex' ? 'Codex' : 'Claude'),
     ].join(' · ');
     return AppBar(
-      backgroundColor: WebTuiColors.chatHeader,
       titleSpacing: 0,
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

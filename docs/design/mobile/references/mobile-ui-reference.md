@@ -72,3 +72,5 @@ Các màn hình chính trong reference:
 - Screenshot Flutter trên iPhone-like và Android-like viewport phải đặt cạnh ảnh reference để review.
 - Màn chat, danh bạ, kênh/bot và cài đặt phải thể hiện được cùng tinh thần với reference trước khi bước sang polish.
 
+- IDE, tab Tệp: hàng cao tối thiểu 60 px, nút ⋮ 48 px, nhấn giữ cũng mở bảng thao tác; tệp `secret` có khoá và dòng "Chỉ mở trên máy tính", không mở được; đủ trạng thái đang tải / trống / lỗi / ngoại tuyến / không quyền (test `files_tab_test.dart`, gồm cỡ chữ 1,6 sáng + tối).
+- IDE, trình sửa tệp: số dòng, tô màu nhẹ, tìm và thay, hoàn tác / làm lại; lưu gửi `baseMtime`, khi `conflict` hiện 3 lựa chọn Tải lại / Ghi đè / Xem khác biệt; thoát khi chưa lưu thì hỏi lại; xoá hẳn trong thùng rác luôn hỏi xác nhận rồi IDE đòi vân tay (test `file_editor_test.dart`, `trash_screen_test.dart`).

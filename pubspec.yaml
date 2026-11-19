@@ -84,6 +84,7 @@ dependencies:
   speech_to_text: ^7.5.0
   xterm: ^4.0.0
   wakelock_plus: ^1.5.2
+  re_highlight: ^0.0.3
 dev_dependencies:
   flutter_test:
     sdk: flutter

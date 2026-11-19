@@ -42,9 +42,12 @@ class IdeAiComposer extends StatefulWidget {
     this.findFiles,
     this.picker,
     this.voice = true,
+    this.initialText = '',
     super.key,
   });
 
+  /// Chữ điền sẵn vào ô soạn (vd `@đường-dẫn ` từ màn Tệp).
+  final String initialText;
   final bool canControl;
   final bool busy;
   final List<Map<String, Object?>> commands;
@@ -81,6 +84,12 @@ class _IdeAiComposerState extends State<IdeAiComposer> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialText.isNotEmpty) {
+      _text.value = TextEditingValue(
+        text: widget.initialText,
+        selection: TextSelection.collapsed(offset: widget.initialText.length),
+      );
+    }
     _text.addListener(_onChanged);
   }
 

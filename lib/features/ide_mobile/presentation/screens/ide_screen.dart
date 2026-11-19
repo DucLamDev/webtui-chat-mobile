@@ -16,6 +16,7 @@ import '../../domain/ide_ready.dart';
 import '../../domain/ide_term.dart';
 import '../controllers/ide_controllers.dart';
 import '../widgets/ide_step_sheet.dart';
+import 'files/ide_files_tab.dart';
 import 'ide_ai_sessions_tab.dart';
 import 'terminal/ide_terminal_tab.dart';
 
@@ -200,6 +201,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen>
       ),
       IdeLinkPhase.ready => switch (_tab) {
         IdeTab.ai => const IdeAiSessionsTab(),
+        IdeTab.files => const IdeFilesTab(),
         IdeTab.terminal => const IdeTerminalTab(),
         _ => _Message(
           icon: Icons.hourglass_empty_rounded,

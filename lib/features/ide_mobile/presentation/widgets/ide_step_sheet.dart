@@ -47,11 +47,13 @@ Future<bool> showIdeStepSheet(
   final accepted = await showWebTuiSheet<bool>(
     context: context,
     builder: (sheetContext) => Padding(
-      padding: const EdgeInsets.fromLTRB(
+      // Bảng dưới chỉ tránh tai thỏ phía trên: tự chừa thanh vuốt về màn hình
+      // chính để nút Xác nhận không dính mép dưới.
+      padding: EdgeInsets.fromLTRB(
         WebTuiSpacing.lg,
         0,
         WebTuiSpacing.lg,
-        WebTuiSpacing.lg,
+        WebTuiSpacing.lg + MediaQuery.viewPaddingOf(sheetContext).bottom,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -76,7 +78,10 @@ Future<bool> showIdeStepSheet(
           if (summary.summary.isNotEmpty) ...[
             const SizedBox(height: WebTuiSpacing.xs),
             Text(
-              tr('Thao tác: ${summary.op}', 'Action: ${summary.op}'),
+              tr(
+                'Thao tác: ${ideStepOpLabel(summary.op)}',
+                'Action: ${ideStepOpLabelEn(summary.op)}',
+              ),
               style: WebTuiTypography.bodySmall.copyWith(
                 color: WebTuiColors.textSecondary,
               ),
@@ -106,3 +111,19 @@ Future<bool> showIdeStepSheet(
   );
   return accepted ?? false;
 }
+
+/// Tên dễ hiểu của thao tác cần vân tay; thao tác lạ thì giữ nguyên mã để người
+/// dùng vẫn thấy đúng thứ app sắp ký.
+String ideStepOpLabel(String op) => switch (op) {
+  'ai.answer' => 'trả lời yêu cầu duyệt của AI',
+  'files.purge' => 'xoá hẳn tệp trong thùng rác',
+  'files.trash_purge' => 'dọn sạch thùng rác',
+  _ => op,
+};
+
+String ideStepOpLabelEn(String op) => switch (op) {
+  'ai.answer' => 'answer the AI approval request',
+  'files.purge' => 'permanently delete a trashed file',
+  'files.trash_purge' => 'empty the trash',
+  _ => op,
+};
