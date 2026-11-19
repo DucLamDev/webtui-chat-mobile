@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/session_termination.dart';
+import '../../domain/entities/login_mfa.dart';
 
 /// Lý do vừa bị đưa về màn đăng nhập (phiên bị thu hồi, phải đăng nhập lại,
 /// bị từ chối duyệt thiết bị). Màn đăng nhập đọc một lần rồi xoá.
@@ -17,3 +18,9 @@ final class LoginPrefill {
 }
 
 final loginPrefillProvider = StateProvider<LoginPrefill?>((_) => null);
+
+/// Lượt chờ bước xác thực hai lớp (sau `MFA_REQUIRED`). Chỉ giữ trong bộ nhớ;
+/// màn nhập mã đọc rồi xoá khi xong hoặc quay lại.
+final pendingLoginMfaChallengeProvider = StateProvider<LoginMfaChallenge?>(
+  (_) => null,
+);

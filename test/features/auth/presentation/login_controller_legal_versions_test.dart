@@ -4,9 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/core/error/failure.dart';
 import 'package:webtui_chat/core/network/self_hosted_server_discovery.dart';
 import 'package:webtui_chat/core/result/result.dart';
+import 'package:webtui_chat/features/auth/application/use_cases/login_use_case.dart';
 import 'package:webtui_chat/features/auth/application/use_cases/register_use_case.dart';
 import 'package:webtui_chat/features/auth/domain/entities/auth_session.dart';
 import 'package:webtui_chat/features/auth/domain/entities/legal_document_versions.dart';
+import 'package:webtui_chat/features/auth/domain/entities/login_mfa.dart';
 import 'package:webtui_chat/features/auth/domain/entities/oidc_provider.dart';
 import 'package:webtui_chat/features/auth/presentation/controllers/login_controller.dart';
 
@@ -170,11 +172,49 @@ void main() {
       expect(controller.state.canSubmit, isFalse);
     },
   );
+
+  test('MFA_REQUIRED from password login opens the two-factor step', () async {
+    final challenge = LoginMfaChallenge(
+      mfaToken: 'mfa-token-1',
+      methods: const [LoginMfaMethod.totp],
+      expiresAt: DateTime.utc(2030),
+      instanceScopeId: 'scope-a',
+    );
+    final controller = _controller(
+      loadLegal: () async => const Success(
+        LegalDocumentVersions(
+          termsVersion: '2026-08-07',
+          privacyVersion: '2026-08-07',
+        ),
+      ),
+      login: (_) async => FailureResult(
+        Failure(
+          kind: FailureKind.forbidden,
+          code: 'MFA_REQUIRED',
+          message: 'Tài khoản đã bật xác thực hai lớp.',
+          cause: challenge,
+        ),
+      ),
+    );
+    controller
+      ..updateIdentifier('lam')
+      ..updatePassword('secret');
+
+    await controller.submit();
+
+    expect(identical(controller.state.mfaChallenge, challenge), isTrue);
+    expect(controller.state.errorMessage, isNull);
+    expect(controller.state.isLoading, isFalse);
+    expect(controller.state.succeeded, isFalse);
+    controller.clearMfaChallenge();
+    expect(controller.state.mfaChallenge, isNull);
+  });
 }
 
 LoginController _controller({
   required Future<Result<LegalDocumentVersions>> Function() loadLegal,
   Future<Result<AuthSession>> Function(RegisterCommand command)? register,
+  Future<Result<AuthSession>> Function(LoginCommand command)? login,
   String expectedTermsVersion = '2026-08-07',
   String expectedPrivacyVersion = '2026-08-07',
 }) {
@@ -201,9 +241,11 @@ LoginController _controller({
       ),
     ),
     connectToServer: (_) => throw UnimplementedError(),
-    login: (_) async => const FailureResult(
-      Failure(kind: FailureKind.server, message: 'Not used.'),
-    ),
+    login:
+        login ??
+        (_) async => const FailureResult(
+          Failure(kind: FailureKind.server, message: 'Not used.'),
+        ),
     register:
         register ??
         (_) async => const FailureResult(

@@ -9,6 +9,7 @@ import 'package:webtui_chat/core/security/instance_scope.dart';
 import 'package:webtui_chat/core/security/secure_key_value_store.dart';
 import 'package:webtui_chat/core/security/server_account_registry.dart';
 import 'package:webtui_chat/features/auth/application/oidc_pkce.dart';
+import 'package:webtui_chat/features/auth/application/use_cases/login_mfa_use_cases.dart';
 import 'package:webtui_chat/features/auth/application/use_cases/login_use_case.dart';
 import 'package:webtui_chat/features/auth/application/use_cases/logout_use_case.dart';
 import 'package:webtui_chat/features/auth/application/use_cases/oidc_login_use_case.dart';
@@ -22,6 +23,7 @@ import 'package:webtui_chat/features/auth/domain/entities/auth_user.dart';
 import 'package:webtui_chat/features/auth/domain/entities/device_identity.dart';
 import 'package:webtui_chat/features/auth/domain/entities/legal_acceptance.dart';
 import 'package:webtui_chat/features/auth/domain/entities/legal_document_versions.dart';
+import 'package:webtui_chat/features/auth/domain/entities/login_mfa.dart';
 import 'package:webtui_chat/features/auth/domain/entities/oidc_provider.dart';
 import 'package:webtui_chat/features/auth/domain/entities/user_session.dart';
 import 'package:webtui_chat/features/auth/domain/repositories/auth_repository.dart';
@@ -88,6 +90,105 @@ void main() {
 
       expect(result.failureOrNull?.kind, FailureKind.validation);
       expect(auth.loginCalls, 0);
+    });
+  });
+
+  group('MFA_REQUIRED', () {
+    const mfaRequired = FailureResult<AuthSession>(
+      Failure(
+        kind: FailureKind.forbidden,
+        code: 'MFA_REQUIRED',
+        message: 'Tài khoản đã bật xác thực hai lớp.',
+        details: {
+          'mfa_token': 'mfa-token-1',
+          'methods': ['totp', 'recovery_code', 'passkey'],
+          'expires_in': 300,
+        },
+      ),
+    );
+
+    test('password login keeps no token and opens the MFA step', () async {
+      final tokens = _FakeTokenRepository();
+      final useCase = LoginUseCase(
+        authRepository: _FakeAuthRepository(loginResult: mfaRequired),
+        tokenRepository: tokens,
+        deviceIdentityRepository: _FakeDeviceIdentityRepository(),
+      );
+
+      final result = await useCase.execute(
+        const LoginCommand(
+          identifier: 'lam',
+          password: 'secret',
+          remember: false,
+        ),
+      );
+
+      final challenge = loginMfaChallengeOf(result.failureOrNull!)!;
+      expect(challenge.mfaToken, 'mfa-token-1');
+      expect(challenge.methods, [
+        LoginMfaMethod.totp,
+        LoginMfaMethod.recoveryCode,
+        LoginMfaMethod.passkey,
+      ]);
+      expect(challenge.usableMethods, [
+        LoginMfaMethod.totp,
+        LoginMfaMethod.recoveryCode,
+      ]);
+      expect(challenge.instanceScopeId, 'scope-a');
+      expect(challenge.remember, isFalse);
+      expect(challenge.toString(), isNot(contains('mfa-token-1')));
+      expect(tokens.accessToken, isNull);
+    });
+
+    test('malformed MFA_REQUIRED details never open the MFA step', () async {
+      final useCase = LoginUseCase(
+        authRepository: _FakeAuthRepository(
+          loginResult: const FailureResult(
+            Failure(
+              kind: FailureKind.forbidden,
+              code: 'MFA_REQUIRED',
+              message: 'x',
+              details: {
+                'methods': ['totp'],
+              },
+            ),
+          ),
+        ),
+        tokenRepository: _FakeTokenRepository(),
+        deviceIdentityRepository: _FakeDeviceIdentityRepository(),
+      );
+
+      final result = await useCase.execute(
+        const LoginCommand(identifier: 'lam', password: 'secret'),
+      );
+
+      expect(loginMfaChallengeOf(result.failureOrNull!), isNull);
+      expect(result.failureOrNull?.code, 'MFA_REQUIRED');
+    });
+
+    test('OIDC completion also opens the MFA step', () async {
+      final auth = _FakeAuthRepository(
+        completeOidcFuture: Future.value(mfaRequired),
+      );
+      final useCase = OidcLoginUseCase(
+        authRepository: auth,
+        tokenRepository: _FakeTokenRepository(),
+        deviceIdentityRepository: _FakeDeviceIdentityRepository(),
+        loadExpectedServerOrigin: () => Uri.parse('https://server-a.example'),
+      );
+      await useCase.start(domain: 'server-a.example', providerId: 'p');
+      final returnTo = Uri.parse(auth.lastOidcReturnTo!);
+
+      final result = await useCase.complete(
+        code: 'one-time-code',
+        domain: 'server-a.example',
+        instanceScopeId: returnTo.queryParameters['instance_scope']!,
+        attemptId: returnTo.queryParameters['attempt']!,
+      );
+
+      final challenge = loginMfaChallengeOf(result.failureOrNull!);
+      expect(challenge?.mfaToken, 'mfa-token-1');
+      expect(challenge?.instanceScopeId, 'scope-a');
     });
   });
 
@@ -395,6 +496,41 @@ void main() {
     expect(verifier, matches(RegExp(r'^[A-Za-z0-9_-]{43}$')));
     expect(oidcPkceChallengeS256(verifier), secondChallenge);
     expect(oidcPkceChallengeS256(verifier), isNot(firstChallenge));
+  });
+
+  test('an OIDC attempt older than the server state lifetime is dropped '
+      'without sending its verifier', () async {
+    final auth = _FakeAuthRepository();
+    var now = DateTime.utc(2026, 11, 19, 8);
+    final useCase = OidcLoginUseCase(
+      authRepository: auth,
+      tokenRepository: _FakeTokenRepository(),
+      deviceIdentityRepository: _FakeDeviceIdentityRepository(),
+      loadExpectedServerOrigin: () => Uri.parse('https://server-a.example'),
+      clock: () => now,
+    );
+    await useCase.start(domain: 'server-a.example', providerId: 'p');
+    final returnTo = Uri.parse(auth.lastOidcReturnTo!);
+    now = now.add(OidcLoginUseCase.pendingAttemptTtl);
+
+    final result = await useCase.complete(
+      code: 'one-time-code',
+      domain: 'server-a.example',
+      instanceScopeId: returnTo.queryParameters['instance_scope']!,
+      attemptId: returnTo.queryParameters['attempt']!,
+    );
+
+    expect(result.failureOrNull?.code, 'OIDC_ATTEMPT_EXPIRED');
+    expect(auth.completeOidcCalls, 0);
+    expect(auth.lastOidcCodeVerifier, isNull);
+    // Lượt đã bị xoá: gửi lại cùng callback cũng không dùng được.
+    final replay = await useCase.complete(
+      code: 'one-time-code',
+      domain: 'server-a.example',
+      instanceScopeId: returnTo.queryParameters['instance_scope']!,
+      attemptId: returnTo.queryParameters['attempt']!,
+    );
+    expect(replay.failureOrNull?.code, 'OIDC_ATTEMPT_MISMATCH');
   });
 
   test(

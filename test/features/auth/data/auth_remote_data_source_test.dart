@@ -128,6 +128,29 @@ void main() {
     });
   });
 
+  test(
+    'login MFA step posts token, method and code to /auth/login/mfa',
+    () async {
+      final api = _RecordingApiTransport();
+      final remote = AuthRemoteDataSource(api);
+
+      final session = await remote.completeLoginMfa(
+        mfaToken: 'mfa-token-1',
+        method: 'recovery_code',
+        code: 'ABCDE-12345',
+      );
+
+      expect(api.path, '/api/v1/auth/login/mfa');
+      expect(api.data, <String, Object?>{
+        'mfa_token': 'mfa-token-1',
+        'method': 'recovery_code',
+        'code': 'ABCDE-12345',
+      });
+      expect(session.tokens.accessToken, 'access');
+      expect(session.sessionId, 'session-1');
+    },
+  );
+
   test('does not trust complete flags without accepted_at evidence', () async {
     final api = _RecordingApiTransport(
       legalGetPayload: _legalAcceptancePayload(

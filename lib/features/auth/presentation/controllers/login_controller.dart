@@ -14,11 +14,13 @@ import '../../../../core/security/secure_key_value_store.dart';
 import '../../../../core/security/server_account_registry.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../application/use_cases/email_verification_use_cases.dart';
+import '../../application/use_cases/login_mfa_use_cases.dart';
 import '../../application/use_cases/login_use_case.dart';
 import '../../application/use_cases/register_use_case.dart';
 import '../../domain/entities/auth_session.dart';
 import '../../domain/entities/email_verification.dart';
 import '../../domain/entities/legal_document_versions.dart';
+import '../../domain/entities/login_mfa.dart';
 import '../../domain/entities/oidc_provider.dart';
 import 'auth_flow_providers.dart';
 
@@ -156,6 +158,7 @@ final class LoginState {
     this.prefillRevision = 0,
     this.requiresDeviceApproval = false,
     this.emailVerification,
+    this.mfaChallenge,
   });
 
   final AuthFormMode mode;
@@ -196,6 +199,9 @@ final class LoginState {
 
   /// Máy chủ yêu cầu nhập mã xác minh email (2.6); giao diện mở màn nhập mã.
   final EmailVerificationTicket? emailVerification;
+
+  /// Tài khoản bật xác thực hai lớp: giao diện mở màn nhập mã.
+  final LoginMfaChallenge? mfaChallenge;
 
   bool get isLogin => mode == AuthFormMode.login;
 
@@ -256,6 +262,8 @@ final class LoginState {
     bool? requiresDeviceApproval,
     EmailVerificationTicket? emailVerification,
     bool clearEmailVerification = false,
+    LoginMfaChallenge? mfaChallenge,
+    bool clearMfaChallenge = false,
   }) {
     return LoginState(
       noticeMessage: clearNotice ? null : noticeMessage ?? this.noticeMessage,
@@ -265,6 +273,9 @@ final class LoginState {
       emailVerification: clearEmailVerification
           ? null
           : emailVerification ?? this.emailVerification,
+      mfaChallenge: clearMfaChallenge
+          ? null
+          : mfaChallenge ?? this.mfaChallenge,
       mode: mode ?? this.mode,
       displayName: displayName ?? this.displayName,
       email: email ?? this.email,
@@ -411,6 +422,27 @@ final class LoginController extends StateNotifier<LoginState> {
     if (state.emailVerification != null) {
       state = state.copyWith(clearEmailVerification: true);
     }
+  }
+
+  void clearMfaChallenge() {
+    if (state.mfaChallenge != null) {
+      state = state.copyWith(clearMfaChallenge: true);
+    }
+  }
+
+  /// Lỗi `MFA_REQUIRED` có lượt chờ hợp lệ: mở bước nhập mã thay vì báo lỗi.
+  bool _openMfaStep(Failure failure, {String? identifier}) {
+    final challenge = loginMfaChallengeOf(failure);
+    if (challenge == null) return false;
+    if (identifier != null) unawaited(_rememberLoginIdentifier(identifier));
+    state = state.copyWith(
+      isLoading: false,
+      succeeded: false,
+      clearError: true,
+      clearOidcLoading: true,
+      mfaChallenge: challenge,
+    );
+    return true;
   }
 
   Future<void> _rememberLoginIdentifier(String identifier) async {
@@ -708,6 +740,7 @@ final class LoginController extends StateNotifier<LoginState> {
   /// Lỗi đăng nhập / đăng ký có mã riêng của Lõi 2: cần xác minh email thì mở
   /// màn nhập mã, email ngoài tên miền cho phép thì báo rõ.
   void _applyAuthFailure(Failure failure, {required String identifier}) {
+    if (_openMfaStep(failure, identifier: identifier)) return;
     if (failure.hasCode(EmailVerificationErrorCode.required)) {
       final ticket = EmailVerificationTicket.fromJson(failure.details);
       if (ticket != null) {
@@ -900,6 +933,7 @@ final class LoginController extends StateNotifier<LoginState> {
           requiresDeviceApproval: value.isPendingApproval,
         );
       case FailureResult<AuthSession>(failure: final failure):
+        if (_openMfaStep(failure)) return;
         state = state.copyWith(
           isLoading: false,
           errorMessage: failure.message,

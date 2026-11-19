@@ -39,6 +39,7 @@ import '../../features/auth/application/use_cases/device_approval_use_cases.dart
 import '../../features/auth/application/use_cases/email_verification_use_cases.dart';
 import '../../features/auth/application/use_cases/legal_acceptance_use_cases.dart';
 import '../../features/auth/application/use_cases/load_legal_document_versions_use_case.dart';
+import '../../features/auth/application/use_cases/login_mfa_use_cases.dart';
 import '../../features/auth/application/use_cases/login_use_case.dart';
 import '../../features/auth/application/use_cases/logout_use_case.dart';
 import '../../features/auth/application/use_cases/oidc_login_use_case.dart';
@@ -56,6 +57,7 @@ import '../../features/auth/data/repositories/account_repository_impl.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/data/repositories/core2_auth_repositories.dart';
 import '../../features/auth/data/repositories/local_session_state_repository.dart';
+import '../../features/auth/data/repositories/login_mfa_repository_impl.dart';
 import '../../features/auth/data/repositories/secure_app_lock_repository.dart';
 import '../../features/auth/data/repositories/secure_app_lock_timeout_repository.dart';
 import '../../features/auth/data/repositories/secure_auth_token_repository.dart';
@@ -69,6 +71,7 @@ import '../../features/auth/domain/repositories/auth_token_repository.dart';
 import '../../features/auth/domain/repositories/device_approval_repository.dart';
 import '../../features/auth/domain/repositories/device_identity_repository.dart';
 import '../../features/auth/domain/repositories/email_verification_repository.dart';
+import '../../features/auth/domain/repositories/login_mfa_repository.dart';
 import '../../features/auth/domain/repositories/qr_login_repository.dart';
 import '../../features/auth/domain/repositories/session_state_repository.dart';
 import '../../features/business/application/use_cases/business_dashboard_use_cases.dart';
@@ -512,6 +515,19 @@ final loginUseCaseProvider = Provider<LoginUseCase>((ref) {
   );
 });
 
+final loginMfaRepositoryProvider = Provider<LoginMfaRepository>((ref) {
+  return LoginMfaRepositoryImpl(ref.watch(authRemoteDataSourceProvider));
+});
+
+final completeLoginMfaUseCaseProvider = Provider<CompleteLoginMfaUseCase>((
+  ref,
+) {
+  return CompleteLoginMfaUseCase(
+    repository: ref.watch(loginMfaRepositoryProvider),
+    tokenRepository: ref.watch(authTokenRepositoryProvider),
+  );
+});
+
 final registerUseCaseProvider = Provider<RegisterUseCase>((ref) {
   return RegisterUseCase(
     authRepository: ref.watch(authRepositoryProvider),
@@ -694,7 +710,10 @@ final logoutUseCaseProvider = Provider<LogoutUseCase>((ref) {
 });
 
 final accountRepositoryProvider = Provider<AccountRepository>((ref) {
-  return AccountRepositoryImpl(ref.watch(apiTransportProvider));
+  return AccountRepositoryImpl(
+    ref.watch(apiTransportProvider),
+    ref.watch(deviceIdentityRepositoryProvider),
+  );
 });
 
 final deleteAccountUseCaseProvider = Provider<DeleteAccountUseCase>((ref) {

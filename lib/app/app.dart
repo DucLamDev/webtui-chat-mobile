@@ -26,6 +26,7 @@ import '../features/auth/presentation/controllers/auth_flow_providers.dart';
 import '../features/auth/presentation/controllers/legal_acceptance_controller.dart';
 import '../features/auth/presentation/controllers/login_controller.dart';
 import '../features/auth/presentation/screens/device_approval_pending_screen.dart';
+import '../features/auth/presentation/screens/login_mfa_screen.dart';
 import '../features/auth/presentation/widgets/app_lock_gate.dart';
 import '../features/auth/presentation/widgets/legal_acceptance_gate.dart';
 import '../features/conversations/data/files/scoped_attachment_file_store.dart';
@@ -126,6 +127,7 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
         .path;
     return path != '/login' &&
         path != '/verify-email' &&
+        path != loginMfaPath &&
         path != '/workspaces' &&
         path != deviceApprovalPendingPath;
   }

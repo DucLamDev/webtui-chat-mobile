@@ -8,6 +8,7 @@ import '../../features/auth/domain/entities/email_verification.dart';
 import '../../features/auth/presentation/screens/device_approval_pending_screen.dart';
 import '../../features/auth/presentation/screens/device_approval_review_screen.dart';
 import '../../features/auth/presentation/screens/email_verification_screen.dart';
+import '../../features/auth/presentation/screens/login_mfa_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/qr_login_screen.dart';
 import '../../features/business/presentation/screens/business_route_screen.dart';
@@ -53,8 +54,14 @@ final appRouterProvider = Provider<GoRouter>((_) {
                 context.go(deviceApprovalPendingPath),
             onEmailVerificationRequired: (ticket) =>
                 context.push(emailVerificationLocation(ticket)),
+            onMfaRequired: () => context.push(loginMfaPath),
           );
         },
+      ),
+      GoRoute(
+        path: loginMfaPath,
+        name: 'login-mfa',
+        builder: (context, state) => const LoginMfaScreen(),
       ),
       GoRoute(
         path: '/workspaces',

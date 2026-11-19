@@ -10,6 +10,7 @@ import '../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/email_verification.dart';
+import '../controllers/auth_flow_providers.dart';
 import '../controllers/login_controller.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -17,6 +18,7 @@ class LoginScreen extends ConsumerStatefulWidget {
     this.onLoginSuccess,
     this.onDeviceApprovalRequired,
     this.onEmailVerificationRequired,
+    this.onMfaRequired,
     super.key,
   });
 
@@ -27,6 +29,10 @@ class LoginScreen extends ConsumerStatefulWidget {
 
   /// Máy chủ yêu cầu nhập mã xác minh email (Lõi 2.6).
   final ValueChanged<EmailVerificationTicket>? onEmailVerificationRequired;
+
+  /// Tài khoản bật xác thực hai lớp; lượt chờ đã nằm trong
+  /// `pendingLoginMfaChallengeProvider`.
+  final VoidCallback? onMfaRequired;
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -49,6 +55,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (ticket != null && previous?.emailVerification != ticket) {
         ref.read(loginControllerProvider.notifier).clearEmailVerification();
         widget.onEmailVerificationRequired?.call(ticket);
+      }
+      final challenge = next.mfaChallenge;
+      if (challenge != null && previous?.mfaChallenge != challenge) {
+        ref.read(loginControllerProvider.notifier).clearMfaChallenge();
+        ref.read(pendingLoginMfaChallengeProvider.notifier).state = challenge;
+        widget.onMfaRequired?.call();
       }
     });
 

@@ -16,7 +16,8 @@ discovery, không theo cờ cứng.
 - Một bản build dùng cho mọi máy chủ tự host: người dùng nhập domain → `GET /api/v1/discovery?domain=` → đăng nhập
   (mật khẩu, mã mời, OIDC qua `webtui://oidc`). Khởi động: `lib/app/bootstrap.dart`; gốc widget `lib/app/app.dart` bọc
   `MobileUpdateGate` → `PrivacyGuard` → `AppLockGate` → `LegalAcceptanceGate` → router.
-- Route (`lib/app/router/app_router.dart`, go_router): `/login`, `/` (4 tab: **Tin nhắn**, **Bạn bè**, **Công việc**,
+- Route (`lib/app/router/app_router.dart`, go_router): `/login`, `/login-mfa` (bước xác thực hai lớp sau
+  `MFA_REQUIRED`), `/` (4 tab: **Tin nhắn**, **Bạn bè**, **Công việc**,
   **Cài đặt**; `?tab=contacts|tools|settings`), `/conversations/:channel_id`, `/channels/new`, `/channels/:id`,
   `/notifications`, `/profile`, `/settings`, `/privacy`, `/feedback`.
 - Hộp thư (`features/conversations/presentation/controllers/conversation_home_controller.dart`): DM + nhóm / kênh gộp

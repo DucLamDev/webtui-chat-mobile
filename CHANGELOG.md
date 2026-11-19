@@ -3,6 +3,15 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.51.0 · 19/11/2026
+### Tính năng
+- Đăng nhập trên điện thoại hỗ trợ xác thực hai lớp: sau mật khẩu, đăng nhập bằng tài khoản công ty (SSO) hoặc mã email,
+  nhập mã 6 số từ ứng dụng xác thực hoặc mã khôi phục; báo số lần thử còn lại, hết hạn thì quay lại đăng nhập. Tài khoản
+  chỉ bật passkey được hướng dẫn đăng nhập trên web (app chưa hỗ trợ passkey). Cần cho máy chủ chat bản mới (bắt buộc
+  bước hai khi đăng nhập).
+- Xoá tài khoản phải xác thực lại trước khi xoá; tắt xác thực hai lớp phải nhập mã xác thực.
+- Đăng nhập SSO bỏ dở quá 10 phút sẽ tự huỷ, cần bấm đăng nhập lại.
+
 ## 1.50.2 · 18/11/2026
 ### Sửa lỗi
 Rà soát cuộc gọi, xem video / ảnh / tin thoại và kho tệp trên máy (18/11):

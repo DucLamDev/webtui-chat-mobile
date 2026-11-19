@@ -29,6 +29,13 @@ Token policy:
 - Nhiều request 401 đồng thời đi qua `RefreshAccessTokenUseCase` single-flight, chỉ gọi `/auth/refresh` một lần.
 - Logout luôn clear access token, refresh token, active workspace id và các key-value scope `session`/`workspace:*`.
 - Device identity là UUID ngẫu nhiên do app tạo và lưu secure; không đọc hardware identifier nhạy cảm.
+- Xác thực hai lớp khi đăng nhập: mật khẩu, SSO hoặc xác minh email gặp `403 MFA_REQUIRED` thì mở màn
+  `/login-mfa` (mã 6 số từ ứng dụng xác thực hoặc mã khôi phục) và gửi `POST /api/v1/auth/login/mfa`. `mfa_token`
+  chỉ giữ trong bộ nhớ (`pendingLoginMfaChallengeProvider`), gắn với máy chủ đang hoạt động, không nằm trên đường
+  dẫn. Hết hạn / quá số lần thì quay lại bước mật khẩu. App chưa hỗ trợ passkey: tài khoản chỉ có passkey được
+  hướng dẫn đăng nhập trên web.
+- SSO dùng PKCE S256: verifier sinh ngẫu nhiên lúc bắt đầu, chỉ giữ trong bộ nhớ của lượt đang chờ (tối đa 10 phút,
+  bằng hạn `state` của máy chủ), gửi một lần khi hoàn tất rồi xoá.
 
 App lock/privacy:
 
@@ -47,8 +54,11 @@ App lock/privacy:
 ## Quyền riêng tư lõi 3
 
 - Cài đặt → Xác thực TOTP: xác thực lại, lấy khoá để nhập vào ứng dụng xác thực, xác nhận bằng mã 6 số,
-  nhận mã khôi phục một lần; tắt TOTP cũng phải xác thực lại. Vân tay chỉ hỗ trợ mở ô nhập, không thay cho
+  nhận mã khôi phục một lần; tắt TOTP phải xác thực lại bằng mã (OTP / mã khôi phục), máy chủ báo
+  `REAUTH_SECOND_FACTOR_REQUIRED` thì app hỏi lại bằng yếu tố thứ hai. Vân tay chỉ hỗ trợ mở ô nhập, không thay cho
   xác thực lại phía máy chủ. Token chỉ sống trong thao tác hiện tại, không ghi xuống ổ.
+- Xóa tài khoản (Quyền riêng tư) phải xác thực lại; token gửi ở `X-Reauth-Token` kèm `X-Device-ID`. Huỷ xác thực
+  thì không gọi API xóa.
 - Nút **Bí mật 24h** trong phòng mở ô soạn riêng (chỉ chữ); không đi qua draft/outbox. Nhấn **Xem** để
   xác thực lại, mở nội dung tối đa 60 giây hoặc tới hạn máy chủ. Chạy nền đóng nội dung; Android bật
   `FLAG_SECURE` trong lúc xem. Nội dung reveal không đưa vào `ChatMessage` hoặc Drift.
