@@ -206,6 +206,83 @@ void main() {
     await close(tester, rig);
   });
 
+  testWidgets('duyệt xong thì chỉ đóng bảng duyệt, không đóng màn chat', (
+    tester,
+  ) async {
+    final rig = Rig();
+    final nav = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ideConnectionProvider.overrideWithValue(rig.connection),
+          ideAiSessionControllerProvider.overrideWith(
+            (ref, target) => rig.controller..start(),
+          ),
+        ],
+        child: MaterialApp(
+          navigatorKey: nav,
+          theme: WebTuiTheme.light(),
+          home: const Scaffold(body: Text('Danh sách phiên')),
+        ),
+      ),
+    );
+    nav.currentState!.push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            IdeAiChatScreen(sessionKey: 'k1', autoOpenApprovals: false),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.runAsync(() => rig.settle());
+    final approval = {
+      'id': 'a9',
+      'method': 'claude/permission',
+      'params': {
+        'tool_name': 'Bash',
+        'input': {'command': 'ls'},
+      },
+    };
+    rig.socket.emit(
+      stateFrame(
+        extra: {
+          'messages': messages,
+          'approvals': [approval],
+        },
+      ),
+    );
+    await tester.runAsync(() => rig.settle());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cần duyệt (1)'));
+    await tester.pumpAndSettle();
+    expect(find.text('Chạy lệnh'), findsOneWidget);
+
+    // Hết thẻ duyệt, rồi chữ AI chạy tiếp: bảng dựng lại nhiều lần.
+    for (var i = 0; i < 4; i++) {
+      rig.socket.emit(
+        stateFrame(
+          rev: 2 + i,
+          extra: {
+            'messages': [
+              ...messages,
+              {'id': 'a2', 'role': 'assistant', 'text': 'Đang chạy ${'.' * i}'},
+            ],
+            'busy': true,
+          },
+        ),
+      );
+      await tester.runAsync(() => rig.settle());
+      // Để bảng kịp chạy hiệu ứng đóng: lúc đó nó vẫn dựng lại theo chữ mới.
+      await tester.pump(const Duration(milliseconds: 40));
+    }
+    await tester.pumpAndSettle();
+
+    expect(find.text('Chạy lệnh'), findsNothing);
+    expect(find.byType(IdeAiChatScreen), findsOneWidget);
+    expect(find.text('Danh sách phiên'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(() => rig.connection.dispose());
+  });
+
   testWidgets('đóng màn chat thì trả lại presenter vân tay trước đó', (
     tester,
   ) async {

@@ -6,6 +6,7 @@ import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
+import '../markdown/ide_markdown.dart';
 import 'ide_ai_json.dart';
 import 'ide_plan_decisions.dart';
 
@@ -438,7 +439,7 @@ class _IdeApprovalCardState extends State<IdeApprovalCard> {
 
   Widget _planText(String plan) => ConstrainedBox(
     constraints: const BoxConstraints(maxHeight: 260),
-    child: SingleChildScrollView(child: SelectableText(plan)),
+    child: SingleChildScrollView(child: IdeMarkdown(text: plan)),
   );
 
   Widget _other(Map<String, Object?> params) {
@@ -552,32 +553,41 @@ class IdeDiffView extends StatelessWidget {
         color: WebTuiColors.backgroundMuted,
         borderRadius: BorderRadius.circular(WebTuiRadii.sm),
       ),
-      child: SingleChildScrollView(
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (final l in lines)
-                Container(
-                  color: l.startsWith('+') && !l.startsWith('+++')
-                      ? WebTuiColors.accentGreen.withValues(alpha: 0.18)
-                      : l.startsWith('-') && !l.startsWith('---')
-                      ? WebTuiColors.danger.withValues(alpha: 0.18)
-                      : null,
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Text(
-                    l.isEmpty ? ' ' : l,
-                    style: WebTuiTypography.bodySmall.copyWith(
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                      color: l.startsWith('@@')
-                          ? WebTuiColors.textMuted
-                          : WebTuiColors.textPrimary,
-                    ),
-                  ),
+      // Nền xanh / đỏ phủ cả dòng: cột rộng ít nhất bằng khung, dòng dài thì
+      // cuộn ngang.
+      child: LayoutBuilder(
+        builder: (context, box) => SingleChildScrollView(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: box.maxWidth),
+              child: IntrinsicWidth(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final l in lines)
+                      Container(
+                        color: l.startsWith('+') && !l.startsWith('+++')
+                            ? WebTuiColors.accentGreen.withValues(alpha: 0.18)
+                            : l.startsWith('-') && !l.startsWith('---')
+                            ? WebTuiColors.danger.withValues(alpha: 0.18)
+                            : null,
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: Text(
+                          l.isEmpty ? ' ' : l,
+                          style: WebTuiTypography.bodySmall.copyWith(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                            color: l.startsWith('@@')
+                                ? WebTuiColors.textMuted
+                                : WebTuiColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-            ],
+              ),
+            ),
           ),
         ),
       ),
@@ -645,7 +655,7 @@ class _PlanPendingCardState extends State<_PlanPendingCard> {
           if (text.isNotEmpty)
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 240),
-              child: SingleChildScrollView(child: SelectableText(text)),
+              child: SingleChildScrollView(child: IdeMarkdown(text: text)),
             ),
           for (var i = 0; i < _decisions.length; i++)
             Padding(
