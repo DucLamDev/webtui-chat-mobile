@@ -8,6 +8,7 @@ import '../../../../core/result/result.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../profile/application/use_cases/profile_use_cases.dart';
 import '../../application/message_attachment_memo.dart';
+import '../../application/message_sync_service.dart';
 import '../../application/use_cases/call_use_cases.dart';
 import '../../application/use_cases/conversation_realtime_reducer.dart';
 import '../../application/use_cases/message_attachment_use_cases.dart';
@@ -88,6 +89,7 @@ final chatRoomControllerProvider = StateNotifierProvider.autoDispose
         resolveCurrentUserId: () =>
             ref.read(resolveCurrentUserIdUseCaseProvider).execute(),
         getMessageUseCase: ref.watch(getMessageUseCaseProvider),
+        messageSyncService: ref.watch(messageSyncServiceProvider),
         canCreateUserContent: () => legalPolicy.canCreateUserContent,
         onLegalAcceptanceRequired: legalPolicy.requireAcceptance,
         // Rời / xoá nhóm (room kênh): người khác rời thì làm mới số thành
@@ -126,6 +128,20 @@ final class ChatRoomScope {
   int get hashCode => Object.hash(workspaceId, channelId, title);
 }
 
+/// Kết quả tìm kiếm đang hiện lấy từ đâu.
+enum MessageSearchSource {
+  none,
+
+  /// Tìm trên máy chủ (máy chủ cũ / không lưu tin trên máy).
+  server,
+
+  /// Chỉ trong tin đã lưu trên máy (chưa hỏi máy chủ).
+  device,
+
+  /// Tin trên máy + kết quả máy chủ đã gộp.
+  deviceAndServer,
+}
+
 final class ChatRoomState {
   const ChatRoomState({
     required this.scope,
@@ -146,6 +162,10 @@ final class ChatRoomState {
     this.isSending = false,
     this.isSendingThread = false,
     this.isSearching = false,
+    this.searchSource = MessageSearchSource.none,
+    this.isSearchingServer = false,
+    this.searchServerError,
+    this.syncNotice,
     this.isRecordingVoice = false,
     this.isStartingCall = false,
     this.errorMessage,
@@ -176,6 +196,20 @@ final class ChatRoomState {
   final bool isSending;
   final bool isSendingThread;
   final bool isSearching;
+
+  /// Nguồn của [searchResults]; [MessageSearchSource.device] thì màn hiện nút
+  /// "Tìm thêm trên máy chủ".
+  final MessageSearchSource searchSource;
+
+  /// Đang tìm thêm trên máy chủ (sau khi đã tìm trên máy).
+  final bool isSearchingServer;
+
+  /// Tìm thêm trên máy chủ bị lỗi (kết quả trên máy vẫn giữ).
+  final String? searchServerError;
+
+  /// Báo nhẹ (không phải lỗi đỏ): chưa kết nối được máy chủ, đang hiện tin đã
+  /// lưu trên máy.
+  final String? syncNotice;
   final bool isRecordingVoice;
   final bool isStartingCall;
   final String? errorMessage;
@@ -232,6 +266,10 @@ final class ChatRoomState {
     bool? isSending,
     bool? isSendingThread,
     bool? isSearching,
+    MessageSearchSource? searchSource,
+    bool? isSearchingServer,
+    String? searchServerError,
+    String? syncNotice,
     bool? isRecordingVoice,
     bool? isStartingCall,
     String? errorMessage,
@@ -245,6 +283,8 @@ final class ChatRoomState {
     bool clearError = false,
     bool clearNotice = false,
     bool clearSearch = false,
+    bool clearSearchServerError = false,
+    bool clearSyncNotice = false,
     bool clearThread = false,
     bool clearHighlight = false,
     bool clearActiveCall = false,
@@ -277,6 +317,16 @@ final class ChatRoomState {
       isSending: isSending ?? this.isSending,
       isSendingThread: isSendingThread ?? this.isSendingThread,
       isSearching: isSearching ?? this.isSearching,
+      searchSource: clearSearch
+          ? MessageSearchSource.none
+          : searchSource ?? this.searchSource,
+      isSearchingServer: clearSearch
+          ? false
+          : isSearchingServer ?? this.isSearchingServer,
+      searchServerError: clearSearch || clearSearchServerError
+          ? null
+          : searchServerError ?? this.searchServerError,
+      syncNotice: clearSyncNotice ? null : syncNotice ?? this.syncNotice,
       isRecordingVoice: isRecordingVoice ?? this.isRecordingVoice,
       isStartingCall: isStartingCall ?? this.isStartingCall,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
@@ -338,6 +388,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     required LoadProfileUseCase loadProfileUseCase,
     Future<String?> Function()? resolveCurrentUserId,
     GetMessageUseCase? getMessageUseCase,
+    MessageSyncService? messageSyncService,
     bool Function()? canCreateUserContent,
     void Function()? onLegalAcceptanceRequired,
     void Function(ConversationRealtimeEvent event, String? currentUserId)?
@@ -379,6 +430,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
        _loadProfileUseCase = loadProfileUseCase,
        _resolveCurrentUserId = resolveCurrentUserId,
        _getMessageUseCase = getMessageUseCase,
+       _syncService = messageSyncService,
        _canCreateUserContent =
            canCreateUserContent ?? _allowUserContentByDefault,
        _onLegalAcceptanceRequired = onLegalAcceptanceRequired ?? _noop,
@@ -431,6 +483,15 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
 
   /// Tải lại một tin chạy dần khi thiếu đoạn (`null` = không tải lại, chờ bản cuối).
   final GetMessageUseCase? _getMessageUseCase;
+
+  /// Lưu tin trên máy + chỉ hỏi máy chủ phần thay đổi; `null` (hoặc máy chủ
+  /// cũ chưa có luồng thay đổi) thì tải trang tin như trước.
+  final MessageSyncService? _syncService;
+
+  /// Tin cũ nhất của đoạn liền mạch đang hiện (mốc cho "tải tin cũ hơn"); tin
+  /// mở từ kết quả tìm kiếm chèn vào không đổi mốc này.
+  ChatMessage? _olderAnchor;
+  static const _pageSize = 50;
   final bool Function() _canCreateUserContent;
   final void Function() _onLegalAcceptanceRequired;
   final void Function(ConversationRealtimeEvent event, String? currentUserId)?
@@ -453,6 +514,232 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     // request is in flight cannot fall into the gap between GET and WebSocket.
     _subscribeRealtime();
     _subscribeOutboxAndResets();
+    final sync = _activeSync;
+    if (sync != null) {
+      await _loadFromDevice(sync);
+      return;
+    }
+    await _loadFromServerPage();
+  }
+
+  /// Dịch vụ đồng bộ khi dùng được (có, và máy chủ không báo "không hỗ trợ"
+  /// cho cuộc trò chuyện này).
+  MessageSyncService? get _activeSync {
+    final sync = _syncService;
+    if (sync == null ||
+        sync.isUnsupported(
+          workspaceId: state.scope.workspaceId,
+          channelId: state.scope.channelId,
+        )) {
+      return null;
+    }
+    return sync;
+  }
+
+  /// Mở cuộc trò chuyện khi lưu tin trên máy: hiện ngay tin đã lưu (không
+  /// màn "đang tải" nếu đã có), rồi hỏi máy chủ phần thay đổi, rồi tải trước
+  /// tin cũ ở nền. Không có mạng thì giữ tin trên máy và chỉ báo nhẹ.
+  Future<void> _loadFromDevice(MessageSyncService sync) async {
+    final workspaceId = state.scope.workspaceId;
+    final channelId = state.scope.channelId;
+    state = state.copyWith(clearError: true, clearNotice: true);
+    final draftFuture = _readDraftUseCase.execute(
+      workspaceId: workspaceId,
+      channelId: channelId,
+    );
+    final outboxFuture = _loadMessageOutboxUseCase.execute(
+      workspaceId: workspaceId,
+      channelId: channelId,
+    );
+    final currentUserIdFuture = resolveChatRoomUserId(
+      known: state.currentUserId,
+      fromToken: _resolveCurrentUserId,
+      fromProfile: () async =>
+          (await _loadProfileUseCase.execute()).valueOrNull?.id,
+    );
+    if (state.messages.isEmpty) {
+      final local = await sync.readLatest(
+        workspaceId: workspaceId,
+        channelId: channelId,
+        limit: _pageSize,
+      );
+      if (!mounted) return;
+      if (local.messages.isNotEmpty && state.messages.isEmpty) {
+        final shown = _withOwnership(local.messages, state.currentUserId);
+        _olderAnchor = shown.first;
+        state = state.copyWith(
+          messages: _mergeChronological(shown, const []),
+          hasMore: local.hasMore,
+          isLoading: false,
+        );
+      } else {
+        state = state.copyWith(isLoading: state.messages.isEmpty);
+      }
+    }
+    final draft = await draftFuture;
+    final outboxItems = await outboxFuture;
+    final currentUserId = await currentUserIdFuture;
+    if (!mounted) return;
+    final pendingMessages = outboxItems
+        .map((item) => _optimisticMessage(item, currentUserId))
+        .toList(growable: false);
+    state = state.copyWith(
+      messages: _mergeChronological(
+        _withOwnership(state.messages, currentUserId),
+        pendingMessages,
+      ),
+      draft: draft,
+      outboxItems: outboxItems,
+      currentUserId: currentUserId,
+    );
+
+    final result = await sync.sync(
+      workspaceId: workspaceId,
+      channelId: channelId,
+    );
+    if (!mounted) return;
+    switch (result.status) {
+      case MessageSyncStatus.unsupported:
+        // Máy chủ cũ: đúng cách tải trang tin như trước.
+        await _loadFromServerPage();
+        return;
+      case MessageSyncStatus.failed:
+        await _applySyncResult(sync, result);
+        if (!mounted) return;
+        if (state.messages.every((message) => message.isLocalOptimistic)) {
+          // Chưa có tin nào trên máy: dùng cách cũ (bộ đệm trang tin, báo lỗi).
+          await _loadFromServerPage();
+          return;
+        }
+        state = state.copyWith(
+          isLoading: false,
+          syncNotice: tr(
+            'Chưa kết nối được máy chủ, đang hiện tin đã lưu trên máy.',
+            "Can't reach the server. Showing messages saved on this device.",
+          ),
+        );
+        if (_canCreateUserContent()) {
+          unawaited(retryOutbox(auto: true));
+        }
+      case MessageSyncStatus.synced:
+        await _applySyncResult(sync, result);
+        if (!mounted) return;
+        state = state.copyWith(
+          isLoading: false,
+          clearError: true,
+          clearSyncNotice: true,
+        );
+        unawaited(_hydrateMissingAttachments(state.messages));
+        await _markLatestRead();
+        if (_canCreateUserContent()) {
+          unawaited(retryOutbox(auto: true));
+        }
+        unawaited(
+          sync.prefetchHistory(workspaceId: workspaceId, channelId: channelId),
+        );
+    }
+  }
+
+  /// Áp kết quả đồng bộ vào danh sách đang hiện: dựng lại từ đầu thì đọc lại
+  /// tin mới nhất trên máy; không thì áp từng thay đổi (bia mộ → tin đã thu
+  /// hồi, xoá lịch sử → bỏ tin cũ, tin mới / đã sửa → ghi đè). Tin mới cũ hơn
+  /// đoạn đang hiện thì không chèn (để cuộn lên tải tiếp, không tạo lỗ).
+  Future<void> _applySyncResult(
+    MessageSyncService sync,
+    MessageSyncResult result,
+  ) async {
+    final currentUserId = state.currentUserId;
+    if (result.reset) {
+      final window = await sync.readLatest(
+        workspaceId: state.scope.workspaceId,
+        channelId: state.scope.channelId,
+        limit: _pageSize,
+      );
+      if (!mounted) return;
+      final latest = _withOwnership(window.messages, currentUserId);
+      _forgetNewlyDeletedAttachments(result.deleted);
+      _olderAnchor = latest.isEmpty ? null : latest.first;
+      state = state.copyWith(
+        messages: _mergeChronological(latest, [
+          for (final message in state.messages)
+            if (message.isLocalOptimistic) message,
+        ]),
+        hasMore: window.hasMore,
+      );
+      return;
+    }
+    if (result.deleted.isEmpty &&
+        result.upserted.isEmpty &&
+        result.clearedAt == null) {
+      return;
+    }
+    _forgetNewlyDeletedAttachments(result.deleted);
+    var messages = state.messages;
+    final clearedAt = result.clearedAt;
+    if (clearedAt != null) {
+      messages = [
+        for (final message in messages)
+          if (message.isLocalOptimistic || message.createdAt.isAfter(clearedAt))
+            message,
+      ];
+      final anchor = _olderAnchor;
+      if (anchor != null && !anchor.createdAt.isAfter(clearedAt)) {
+        _olderAnchor = _oldestServerMessage(messages);
+      }
+    }
+    final known = {for (final message in messages) message.id};
+    for (final tombstone in result.deleted) {
+      if (!known.contains(tombstone.id)) continue;
+      messages = _upsertLocal(messages, _owned(tombstone, currentUserId));
+    }
+    final anchor = _olderAnchor ?? _oldestServerMessage(messages);
+    for (final incoming in result.upserted) {
+      final visible =
+          known.contains(incoming.id) ||
+          anchor == null ||
+          !incoming.createdAt.isBefore(anchor.createdAt);
+      if (!visible) continue;
+      messages = _upsertLocal(messages, _owned(incoming, currentUserId));
+    }
+    _olderAnchor ??= _oldestServerMessage(messages);
+    state = state.copyWith(messages: messages);
+  }
+
+  /// Ghi các tin (bản đang hiện) vào máy sau khi realtime / gửi / sửa / thả
+  /// cảm xúc thành công. Tin đã xoá thì xoá khỏi máy.
+  void _persistMessages(Iterable<String> messageIds) {
+    final sync = _syncService;
+    if (sync == null) return;
+    final messages = <ChatMessage>[];
+    for (final id in messageIds) {
+      final message = _messageById(id);
+      if (message != null && !message.isLocalOptimistic) messages.add(message);
+    }
+    if (messages.isEmpty) return;
+    unawaited(
+      sync.recordMessages(
+        workspaceId: state.scope.workspaceId,
+        channelId: state.scope.channelId,
+        messages: messages,
+      ),
+    );
+  }
+
+  void _forgetStoredMessage(String messageId) {
+    final sync = _syncService;
+    if (sync == null || messageId.isEmpty) return;
+    unawaited(
+      sync.forgetMessages(
+        workspaceId: state.scope.workspaceId,
+        channelId: state.scope.channelId,
+        messageIds: [messageId],
+      ),
+    );
+  }
+
+  /// Tải trang tin mới nhất từ máy chủ (cách cũ, cũng dùng cho máy chủ chưa
+  /// có luồng thay đổi).
+  Future<void> _loadFromServerPage() async {
     // Tải lại khi đã có tin (quay lại app, cuộc gọi kết thúc): làm ngầm, không
     // thay danh sách bằng màn "đang tải" và không mất vị trí đang đọc.
     state = state.copyWith(
@@ -503,6 +790,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
           hasMore: page.hasMore,
           isLoading: false,
           clearError: true,
+          clearSyncNotice: true,
         );
         unawaited(_hydrateMissingAttachments(messages));
         await _markLatestRead();
@@ -543,6 +831,11 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   }
 
   Future<void> loadOlder() async {
+    final sync = _activeSync;
+    if (sync != null) {
+      await _loadOlderFromDevice(sync);
+      return;
+    }
     if (!state.hasMore || state.isLoadingOlder || state.nextCursor == null) {
       return;
     }
@@ -568,6 +861,43 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
         );
         unawaited(_hydrateMissingAttachments(olderMessages));
       case FailureResult<MessagePage>(failure: final failure):
+        state = state.copyWith(
+          isLoadingOlder: false,
+          errorMessage: failure.message,
+        );
+    }
+  }
+
+  /// Tin cũ hơn: đọc trên máy trước, hết đoạn đã lưu mới hỏi máy chủ (dịch vụ
+  /// đồng bộ ghi trang đó vào máy và nối dài đoạn đã lưu).
+  Future<void> _loadOlderFromDevice(MessageSyncService sync) async {
+    if (!state.hasMore || state.isLoadingOlder) return;
+    final anchor = _olderAnchor ?? _oldestServerMessage(state.messages);
+    if (anchor == null) {
+      state = state.copyWith(hasMore: false);
+      return;
+    }
+    state = state.copyWith(isLoadingOlder: true, clearError: true);
+    final result = await sync.loadOlder(
+      workspaceId: state.scope.workspaceId,
+      channelId: state.scope.channelId,
+      beforeCreatedAt: anchor.createdAt,
+      beforeId: anchor.id,
+      limit: _pageSize,
+    );
+    if (!mounted) return;
+    switch (result) {
+      case Success<MessageWindow>(value: final window):
+        final older = _chronological(window.messages, state.currentUserId);
+        _forgetNewlyDeletedAttachments(older);
+        if (older.isNotEmpty) _olderAnchor = older.first;
+        state = state.copyWith(
+          messages: _mergeChronological(older, state.messages),
+          hasMore: window.hasMore,
+          isLoadingOlder: false,
+        );
+        unawaited(_hydrateMissingAttachments(older));
+      case FailureResult<MessageWindow>(failure: final failure):
         state = state.copyWith(
           isLoadingOlder: false,
           errorMessage: failure.message,
@@ -703,6 +1033,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
           clearReply: true,
           clearEditing: true,
         );
+        _persistMessages([prepared.id]);
         await _clearDraftUseCase.execute(
           workspaceId: state.scope.workspaceId,
           channelId: state.scope.channelId,
@@ -792,6 +1123,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
           outboxItems: _removeOutboxItem(item.id),
           clearError: true,
         );
+        if (message != null) _persistMessages([message.id]);
         unawaited(_markLatestRead());
       case MessageOutboxDispatchPhase.failed when message != null:
         state = state.copyWith(
@@ -882,6 +1214,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
           ...?previous,
           ...message.attachments,
         ]);
+        _forgetStoredMessage(message.id);
       case FailureResult<void>(failure: final failure):
         state = state.copyWith(errorMessage: failure.message);
     }
@@ -930,6 +1263,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
             ),
           );
         }
+        _persistMessages([message.id]);
       case FailureResult<ChatMessage?>(failure: final failure):
         state = state.copyWith(errorMessage: failure.message);
     }
@@ -1004,6 +1338,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
           isSendingThread: false,
           clearError: true,
         );
+        _persistMessages([prepared.id]);
         await _markLatestRead();
       case FailureResult<ChatMessage>(failure: final failure):
         state = state.copyWith(
@@ -1303,15 +1638,42 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     );
   }
 
+  /// Tìm trong cuộc trò chuyện. Lưu tin trên máy: tìm trong tin đã lưu trước
+  /// (hiện ngay, không cần mạng), người dùng bấm "Tìm thêm trên máy chủ" thì
+  /// gọi [searchOnServer]. Máy chủ cũ: tìm trên máy chủ như trước.
   Future<void> search(String query) async {
     final normalized = query.trim();
     if (normalized.isEmpty) {
       state = state.copyWith(clearSearch: true);
       return;
     }
+    final sync = _activeSync;
+    if (sync != null) {
+      state = state.copyWith(
+        searchQuery: normalized,
+        searchResults: const [],
+        isSearching: true,
+        searchSource: MessageSearchSource.device,
+        isSearchingServer: false,
+        clearSearchServerError: true,
+        clearError: true,
+      );
+      final local = await sync.searchLocal(
+        workspaceId: state.scope.workspaceId,
+        channelId: state.scope.channelId,
+        query: normalized,
+      );
+      if (!mounted || state.searchQuery != normalized) return;
+      state = state.copyWith(
+        searchResults: _chronological(local, state.currentUserId),
+        isSearching: false,
+      );
+      return;
+    }
     state = state.copyWith(
       searchQuery: normalized,
       isSearching: true,
+      searchSource: MessageSearchSource.server,
       clearError: true,
     );
     final result = await _searchMessagesUseCase.execute(
@@ -1331,6 +1693,45 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
         state = state.copyWith(
           isSearching: false,
           errorMessage: failure.message,
+        );
+    }
+  }
+
+  /// Tìm thêm trên máy chủ (tin chưa lưu trên máy, cũ hơn đoạn đã lưu) rồi gộp
+  /// với kết quả trên máy (bỏ trùng theo mã tin). Lỗi thì giữ kết quả trên máy.
+  Future<void> searchOnServer() async {
+    final query = state.searchQuery;
+    if (query.isEmpty || state.isSearchingServer) return;
+    state = state.copyWith(
+      isSearchingServer: true,
+      clearSearchServerError: true,
+    );
+    final result = await _searchMessagesUseCase.execute(
+      MessageSearchCommand(
+        workspaceId: state.scope.workspaceId,
+        channelId: state.scope.channelId,
+        query: query,
+      ),
+    );
+    if (!mounted || state.searchQuery != query) return;
+    switch (result) {
+      case Success<MessagePage>(value: final page):
+        final byId = <String, ChatMessage>{
+          for (final message in state.searchResults) message.id: message,
+          for (final message in page.messages) message.id: message,
+        };
+        state = state.copyWith(
+          searchResults: _chronological(
+            byId.values.toList(growable: false),
+            state.currentUserId,
+          ),
+          searchSource: MessageSearchSource.deviceAndServer,
+          isSearchingServer: false,
+        );
+      case FailureResult<MessagePage>(failure: final failure):
+        state = state.copyWith(
+          isSearchingServer: false,
+          searchServerError: failure.message,
         );
     }
   }
@@ -1469,6 +1870,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
             message.copyWith(isMine: message.senderId == state.currentUserId),
           ),
         );
+        _persistMessages([message.id]);
       case FailureResult<ChatMessage>(failure: final failure):
         state = state.copyWith(errorMessage: failure.message);
     }
@@ -1493,6 +1895,25 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
   /// kết nối không được đẩy lại). Giữ bản nháp đang gõ; lỗi mạng thì bỏ qua.
   Future<void> _catchUpAfterReconnect() async {
     unawaited(_refreshOpenThread());
+    final sync = _activeSync;
+    if (sync != null) {
+      // Lưu tin trên máy: chỉ hỏi phần thay đổi từ mốc đã lưu.
+      final synced = await sync.sync(
+        workspaceId: state.scope.workspaceId,
+        channelId: state.scope.channelId,
+      );
+      if (!mounted) return;
+      if (!synced.isUnsupported) {
+        await _applySyncResult(sync, synced);
+        if (!mounted) return;
+        if (synced.isSynced) {
+          state = state.copyWith(clearSyncNotice: true);
+          unawaited(_hydrateMissingAttachments(state.messages));
+          unawaited(_markLatestRead());
+        }
+        return;
+      }
+    }
     final result = await _loadMessagesUseCase.execute(
       workspaceId: state.scope.workspaceId,
       channelId: state.scope.channelId,
@@ -1601,6 +2022,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
       typingUserIds: reduced.typingUserIds,
       threadMessages: _reduceThread(event),
     );
+    _persistRealtimeEvent(event);
     if (event.isCallEvent) {
       _handleRealtimeCallEvent(event);
     }
@@ -1620,6 +2042,43 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
       if (messageId != null && messageId.isNotEmpty) {
         unawaited(_hydrateMessageAttachments(messageId));
       }
+    }
+  }
+
+  /// Tin mới / sửa / cảm xúc / ghim / xoá qua realtime: ghi (hoặc xoá) bản
+  /// đang hiện vào máy để mở lại không phải hỏi máy chủ.
+  void _persistRealtimeEvent(ConversationRealtimeEvent event) {
+    final sync = _syncService;
+    if (sync == null) return;
+    final messageId = event.messageId ?? event.message?.id;
+    if (messageId == null || messageId.isEmpty) return;
+    switch (event.type) {
+      case ConversationRealtimeEventType.messageDeleted:
+        _forgetStoredMessage(messageId);
+      case ConversationRealtimeEventType.messageCreated ||
+          ConversationRealtimeEventType.messageUpdated ||
+          ConversationRealtimeEventType.reactionChanged ||
+          ConversationRealtimeEventType.messagePinned ||
+          ConversationRealtimeEventType.messageUnpinned:
+        final current = _messageById(messageId);
+        if (current == null) {
+          // Tin không có trong danh sách đang hiện (vd. ngoài đoạn đã tải):
+          // ghi thẳng bản máy chủ gửi kèm nếu có.
+          final incoming = event.message;
+          if (incoming != null) {
+            unawaited(
+              sync.recordMessages(
+                workspaceId: state.scope.workspaceId,
+                channelId: state.scope.channelId,
+                messages: [_owned(incoming, state.currentUserId)],
+              ),
+            );
+          }
+          return;
+        }
+        _persistMessages([messageId]);
+      default:
+        return;
     }
   }
 
@@ -1706,6 +2165,8 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
         ? current
         : prepared;
     state = state.copyWith(messages: _upsertLocal(state.messages, base));
+    // Bản dở (đang chạy dần) không được lưu; bản cuối thì ghi vào máy.
+    _persistMessages([base.id]);
     final outcome = mergeMessageStreamDeltas(base, buffered);
     if (outcome.changed || outcome.hasGap) _applyStreamMerge(outcome);
     if (!base.isStreaming) _forgetStream(messageId);
@@ -1786,6 +2247,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
             )
             .toList(growable: false),
       );
+      _persistMessages([messageId]);
     }
   }
 
@@ -1839,6 +2301,31 @@ List<ChatMessage> _chronological(
       .toList(growable: false);
   sorted.sort((left, right) => left.createdAt.compareTo(right.createdAt));
   return sorted;
+}
+
+/// Đặt `isMine` theo người dùng hiện tại; chưa biết là ai (đang đọc token) thì
+/// giữ giá trị đã lưu cùng tin. Tin tạm giữ nguyên.
+List<ChatMessage> _withOwnership(
+  List<ChatMessage> messages,
+  String? currentUserId,
+) {
+  return [for (final message in messages) _owned(message, currentUserId)];
+}
+
+ChatMessage _owned(ChatMessage message, String? currentUserId) {
+  final userId = currentUserId?.trim();
+  if (userId == null || userId.isEmpty || message.isLocalOptimistic) {
+    return message;
+  }
+  return message.copyWith(isMine: message.senderId == userId);
+}
+
+/// Tin cũ nhất (không phải tin tạm) của danh sách xếp CŨ → MỚI.
+ChatMessage? _oldestServerMessage(List<ChatMessage> messages) {
+  for (final message in messages) {
+    if (!message.isLocalOptimistic) return message;
+  }
+  return null;
 }
 
 List<ChatMessage> _mergeChronological(

@@ -3,10 +3,13 @@ import '../../../../core/result/result_guard.dart';
 import '../../domain/entities/channel_file.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/conversation_summary.dart';
+import '../../domain/entities/message_sync.dart';
 import '../../domain/repositories/conversation_repository.dart';
+import '../../domain/repositories/message_changes_repository.dart';
 import '../datasources/conversation_remote_data_source.dart';
 
-final class ConversationRepositoryImpl implements ConversationRepository {
+final class ConversationRepositoryImpl
+    implements ConversationRepository, MessageChangesRepository {
   const ConversationRepositoryImpl(this._remote);
 
   final ConversationRemoteDataSource _remote;
@@ -253,6 +256,25 @@ final class ConversationRepositoryImpl implements ConversationRepository {
         channelId: channelId,
         limit: limit,
         beforeId: beforeId,
+      ),
+    );
+  }
+
+  /// Máy chủ cũ chưa có API: 404 → `FailureKind.notFound` (bên gọi quay về
+  /// cách tải trang tin như trước).
+  @override
+  Future<Result<MessageChangesPage>> listMessageChanges({
+    required String workspaceId,
+    required String channelId,
+    String? since,
+    int limit = 200,
+  }) {
+    return guardResult(
+      () => _remote.listMessageChanges(
+        workspaceId: workspaceId,
+        channelId: channelId,
+        since: since,
+        limit: limit,
       ),
     );
   }

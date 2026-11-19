@@ -3,6 +3,20 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.52.0 · 19/11/2026
+### Tính năng
+- Tin nhắn lưu đủ trên máy, như Zalo / Messenger:
+  - Mở cuộc trò chuyện hiện ngay tin đã lưu, không chờ tải; không có mạng vẫn đọc được (có dòng báo "đang hiện tin đã
+    lưu trên máy" và nút "Thử lại").
+  - App chỉ hỏi máy chủ phần thay đổi kể từ lần trước (tin mới, đã sửa, đã thu hồi, đổi cảm xúc), không tải lại cả
+    trang mỗi lần mở. Cần máy chủ đã cập nhật bản có đồng bộ phần thay đổi; máy chủ cũ vẫn chạy như trước.
+  - Mở cuộc trò chuyện thì tải trước ngầm tin của 30 ngày gần nhất; tin cũ hơn được lưu dần khi kéo lên.
+  - Xoá lịch sử trò chuyện ở máy khác thì tin cũ trên máy này cũng được bỏ. Đăng xuất xoá hết tin đã lưu.
+- Tìm trong cuộc trò chuyện tìm trên máy trước (hiện ngay, gõ không dấu vẫn ra tin có dấu); nút "Tìm thêm trên máy chủ"
+  mới hỏi máy chủ và gộp thêm kết quả.
+- Danh sách tin nhắn / nhóm và màn thông tin nhóm (thành viên) hiện ngay bản đã lưu khi mở, rồi mới làm mới; mất mạng
+  thì giữ danh sách thay vì màn lỗi.
+
 ## 1.51.0 · 19/11/2026
 ### Tính năng
 - Thiết lập ứng dụng có nhóm mới "Dung lượng và tải tự động":

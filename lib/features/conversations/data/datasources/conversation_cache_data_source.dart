@@ -432,6 +432,15 @@ MessagePage _messagePageFromJson(Map<String, Object?> json) {
   );
 }
 
+/// JSON của một tin lưu trên máy (cùng dạng trang tin của bộ đệm): kho tin
+/// trên máy (`LocalMessageStore`) dùng chung để hai nơi đọc / ghi giống nhau.
+Map<String, Object?> chatMessageToCacheJson(ChatMessage item) =>
+    _messageToJson(item);
+
+/// Đọc lại tin từ [chatMessageToCacheJson].
+ChatMessage chatMessageFromCacheJson(Map<String, Object?> json) =>
+    _messageFromJson(json);
+
 Map<String, Object?> _messageToJson(ChatMessage item) {
   return {
     'id': item.id,

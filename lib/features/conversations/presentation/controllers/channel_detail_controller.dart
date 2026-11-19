@@ -1,11 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/providers/conversation_local_cache_providers.dart';
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../profile/domain/entities/avatar_upload.dart';
 import '../../application/use_cases/channel_avatar_use_cases.dart';
 import '../../application/use_cases/channel_use_cases.dart';
+import '../../application/use_cases/load_conversation_home_use_case.dart'
+    show isOfflineFailure;
 import '../../application/use_cases/message_attachment_use_cases.dart';
 import '../../domain/entities/channel_file.dart';
 import '../../domain/entities/chat_message.dart';
@@ -24,16 +27,19 @@ final channelDetailControllerProvider = StateNotifierProvider.autoDispose
     ) {
       final controller = ChannelDetailController(
         scope: scope,
-        loadChannelDetailUseCase: ref.watch(loadChannelDetailUseCaseProvider),
+        // Bản có bộ đệm trên máy: hiện thông tin + thành viên đã lưu trước.
+        loadChannelDetailUseCase: ref.watch(
+          cachedLoadChannelDetailUseCaseProvider,
+        ),
         requestJoinChannelUseCase: ref.watch(requestJoinChannelUseCaseProvider),
         inviteChannelMemberUseCase: ref.watch(
-          inviteChannelMemberUseCaseProvider,
+          cachedInviteChannelMemberUseCaseProvider,
         ),
         loadChannelJoinRequestsUseCase: ref.watch(
           loadChannelJoinRequestsUseCaseProvider,
         ),
         approveChannelJoinRequestUseCase: ref.watch(
-          approveChannelJoinRequestUseCaseProvider,
+          cachedApproveChannelJoinRequestUseCaseProvider,
         ),
         rejectChannelJoinRequestUseCase: ref.watch(
           rejectChannelJoinRequestUseCaseProvider,
@@ -193,6 +199,9 @@ final class ChannelDetailController extends StateNotifier<ChannelDetailState> {
   final ListChannelMediaUseCase _listChannelMediaUseCase;
   final ChangeChannelAvatarUseCase? _changeChannelAvatarUseCase;
 
+  /// Đang hiện bản đã lưu trên máy, chưa có dữ liệu máy chủ.
+  bool _showingCached = false;
+
   /// Tải lại thông tin kênh và thành viên (sau `ChannelUpdated` /
   /// `ChannelMemberLeft`) mà không hiện màn chờ;
   /// đang tải ảnh lên / đang tải lần đầu thì bỏ qua (kết quả đó mới hơn).
@@ -289,18 +298,27 @@ final class ChannelDetailController extends StateNotifier<ChannelDetailState> {
     );
   }
 
+  /// Tải chi tiết nhóm. Chưa có gì thì hiện ngay thông tin + thành viên đã lưu
+  /// trên máy rồi mới gọi máy chủ; mất mạng thì giữ bản đã lưu, báo nhẹ.
   Future<void> load() async {
+    final hadData = state.channel != null;
     state = state.copyWith(
-      isLoading: true,
+      isLoading: !hadData,
       clearError: true,
       clearNotice: true,
     );
+    if (!hadData) {
+      await _showCachedDetail();
+      if (!mounted) return;
+    }
     final result = await _loadChannelDetailUseCase.execute(
       workspaceId: state.scope.workspaceId,
       channelId: state.scope.channelId,
     );
+    if (!mounted) return;
     switch (result) {
       case Success<ChannelDetailData>(value: final data):
+        _showingCached = false;
         final mediaResult = await _listChannelMediaUseCase.execute(
           workspaceId: state.scope.workspaceId,
           channelId: state.scope.channelId,
@@ -320,8 +338,48 @@ final class ChannelDetailController extends StateNotifier<ChannelDetailState> {
         );
         await loadJoinRequests();
       case FailureResult<ChannelDetailData>(failure: final failure):
-        state = state.copyWith(isLoading: false, errorMessage: failure.message);
+        if (state.channel != null && isOfflineFailure(failure)) {
+          state = state.copyWith(
+            isLoading: false,
+            noticeMessage: tr(
+              'Chưa kết nối được máy chủ. Đang hiện dữ liệu đã lưu trên máy.',
+              'Can\'t reach the server. Showing data saved on this device.',
+            ),
+          );
+        } else if (_showingCached) {
+          // Bản đã lưu không còn đúng (mất quyền / nhóm đã xoá): bỏ, báo lỗi
+          // như khi chưa có gì.
+          _showingCached = false;
+          state = ChannelDetailState(
+            scope: state.scope,
+            errorMessage: failure.message,
+          );
+        } else {
+          state = state.copyWith(
+            isLoading: false,
+            errorMessage: failure.message,
+          );
+        }
     }
+  }
+
+  Future<void> _showCachedDetail() async {
+    final ChannelDetailData? cached;
+    try {
+      cached = await _loadChannelDetailUseCase.readCached(
+        workspaceId: state.scope.workspaceId,
+        channelId: state.scope.channelId,
+      );
+    } on Object {
+      return;
+    }
+    if (!mounted || cached == null || state.channel != null) return;
+    _showingCached = true;
+    state = state.copyWith(
+      channel: cached.channel,
+      members: cached.members,
+      isLoading: false,
+    );
   }
 
   Future<void> requestJoin() async {

@@ -164,6 +164,7 @@ final class ConversationHomeData {
     this.contactsErrorMessage,
     this.membersErrorMessage,
     this.presenceErrorMessage,
+    this.isOffline = false,
   });
 
   final String workspaceId;
@@ -175,6 +176,10 @@ final class ConversationHomeData {
   final String? contactsErrorMessage;
   final String? membersErrorMessage;
   final String? presenceErrorMessage;
+
+  /// Không kết nối được máy chủ (mạng / hết giờ): danh sách là bản đã lưu
+  /// trên máy, màn chỉ báo nhẹ, không hiện màn lỗi.
+  final bool isOffline;
 }
 
 final class PresenceSummary {

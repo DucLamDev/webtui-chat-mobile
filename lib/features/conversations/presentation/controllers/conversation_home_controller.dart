@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/providers/conversation_local_cache_providers.dart';
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
 import '../../../../l10n/app_strings.dart';
@@ -32,6 +33,9 @@ final conversationHomeControllerProvider = StateNotifierProvider.autoDispose
         workspaceId: workspaceId,
         loadConversationHomeUseCase: ref.watch(
           loadConversationHomeUseCaseProvider,
+        ),
+        readCachedHomeUseCase: ref.watch(
+          readCachedConversationHomeUseCaseProvider,
         ),
         openDirectConversationUseCase: ref.watch(
           openDirectConversationUseCaseProvider,
@@ -82,6 +86,7 @@ final class ConversationHomeState {
     this.isRefreshing = false,
     this.errorMessage,
     this.noticeMessage,
+    this.offlineNotice,
     this.contactsErrorMessage,
     this.membersErrorMessage,
     this.presenceErrorMessage,
@@ -104,6 +109,12 @@ final class ConversationHomeState {
   final bool isRefreshing;
   final String? errorMessage;
   final String? noticeMessage;
+
+  /// Không tới được máy chủ nhưng đang hiện danh sách đã lưu trên máy (không
+  /// thay danh sách bằng màn lỗi). Danh sách không vẽ thêm dòng báo: màn chính
+  /// đã có thanh "Mạng yếu, đang dùng dữ liệu gần nhất" bật cùng lúc (đồng bộ
+  /// workspace lỗi), hiện hai nơi là lặp thông tin.
+  final String? offlineNotice;
   final String? contactsErrorMessage;
   final String? membersErrorMessage;
   final String? presenceErrorMessage;
@@ -360,6 +371,7 @@ final class ConversationHomeState {
     bool? isRefreshing,
     String? errorMessage,
     String? noticeMessage,
+    String? offlineNotice,
     String? contactsErrorMessage,
     String? membersErrorMessage,
     String? presenceErrorMessage,
@@ -371,6 +383,7 @@ final class ConversationHomeState {
     ConversationListPrefs? listPrefs,
     bool clearError = false,
     bool clearNotice = false,
+    bool clearOfflineNotice = false,
     bool clearSelection = false,
   }) {
     return ConversationHomeState(
@@ -384,6 +397,9 @@ final class ConversationHomeState {
       isRefreshing: isRefreshing ?? this.isRefreshing,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
       noticeMessage: clearNotice ? null : noticeMessage ?? this.noticeMessage,
+      offlineNotice: clearOfflineNotice
+          ? null
+          : offlineNotice ?? this.offlineNotice,
       contactsErrorMessage: contactsErrorMessage ?? this.contactsErrorMessage,
       membersErrorMessage: membersErrorMessage ?? this.membersErrorMessage,
       presenceErrorMessage: presenceErrorMessage ?? this.presenceErrorMessage,
@@ -407,11 +423,13 @@ final class ConversationHomeController
     required LoadConversationHomeUseCase loadConversationHomeUseCase,
     required OpenDirectConversationUseCase openDirectConversationUseCase,
     required OpenPrivateChannelSessionUseCase openPrivateChannelSessionUseCase,
+    ReadCachedConversationHomeUseCase? readCachedHomeUseCase,
     bool automationEnabled = false,
     ConversationRealtimeRepository? realtime,
     String? Function()? currentUserId,
     ConversationListPrefsRepository? listPrefs,
   }) : _loadConversationHomeUseCase = loadConversationHomeUseCase,
+       _readCachedHomeUseCase = readCachedHomeUseCase,
        _openDirectConversationUseCase = openDirectConversationUseCase,
        _openPrivateChannelSessionUseCase = openPrivateChannelSessionUseCase,
        _realtime = realtime,
@@ -425,6 +443,7 @@ final class ConversationHomeController
        );
 
   final LoadConversationHomeUseCase _loadConversationHomeUseCase;
+  final ReadCachedConversationHomeUseCase? _readCachedHomeUseCase;
   final OpenDirectConversationUseCase _openDirectConversationUseCase;
   final OpenPrivateChannelSessionUseCase _openPrivateChannelSessionUseCase;
   final ConversationRealtimeRepository? _realtime;
@@ -621,14 +640,24 @@ final class ConversationHomeController
     _unreadMessageIds.removeWhere((_, value) => value == channelId.trim());
   }
 
+  bool get _hasListData =>
+      state.conversations.isNotEmpty || state.channels.isNotEmpty;
+
+  /// Tải danh sách. Màn chưa có gì thì hiện ngay bản đã lưu trên máy (nếu có)
+  /// rồi mới gọi máy chủ và thay bằng dữ liệu mới; vòng tải chỉ hiện khi chưa
+  /// có gì để xem. Mất mạng mà đang có danh sách thì giữ danh sách, báo nhẹ.
   Future<void> load() async {
     state = state.copyWith(
-      isLoading: true,
+      isLoading: !_hasListData,
       clearError: true,
       clearNotice: true,
     );
     await _loadListPrefs();
     if (!mounted) return;
+    if (!_hasListData) {
+      await _showCachedList();
+      if (!mounted) return;
+    }
     final result = await _loadConversationHomeUseCase.execute(
       workspaceId: state.workspaceId,
     );
@@ -637,9 +666,45 @@ final class ConversationHomeController
       case Success<ConversationHomeData>(value: final data):
         _applyData(data);
       case FailureResult<ConversationHomeData>(failure: final failure):
-        state = state.copyWith(isLoading: false, errorMessage: failure.message);
+        if (_hasListData && isOfflineFailure(failure)) {
+          state = state.copyWith(
+            isLoading: false,
+            offlineNotice: _offlineNoticeText(),
+          );
+        } else {
+          state = state.copyWith(
+            isLoading: false,
+            errorMessage: failure.message,
+          );
+        }
     }
   }
+
+  /// Hiện danh sách đã lưu trên máy (không gọi máy chủ). Đọc lỗi / chưa lưu
+  /// thì giữ trạng thái đang tải.
+  Future<void> _showCachedList() async {
+    final useCase = _readCachedHomeUseCase;
+    if (useCase == null) return;
+    final ConversationHomeData? cached;
+    try {
+      cached = await useCase.execute(workspaceId: state.workspaceId);
+    } on Object catch (error) {
+      debugPrint('Không đọc được danh sách hội thoại đã lưu: $error');
+      return;
+    }
+    // Máy chủ đã trả trước (lượt tải khác) thì không đè bằng bản cũ.
+    if (!mounted || cached == null || _hasListData) return;
+    state = state.copyWith(
+      conversations: cached.conversations,
+      channels: cached.channels,
+      isLoading: false,
+    );
+  }
+
+  static String _offlineNoticeText() => tr(
+    'Chưa kết nối được máy chủ. Đang hiện dữ liệu đã lưu trên máy.',
+    'Can\'t reach the server. Showing data saved on this device.',
+  );
 
   /// Cập nhật danh sách ngầm (khi quay về từ phòng chat): không hiện vòng tải;
   /// lỗi mạng thì giữ nguyên danh sách đang có. Trả `false` khi tải lỗi.
@@ -651,25 +716,35 @@ final class ConversationHomeController
       workspaceId: state.workspaceId,
     );
     if (!mounted) return false;
-    if (result case Success<ConversationHomeData>(value: final data)) {
-      _applyData(data);
-      return true;
+    switch (result) {
+      case Success<ConversationHomeData>(value: final data):
+        _applyData(data);
+        return true;
+      case FailureResult<ConversationHomeData>(failure: final failure):
+        if (_hasListData && isOfflineFailure(failure)) {
+          state = state.copyWith(offlineNotice: _offlineNoticeText());
+        }
+        return false;
     }
-    return false;
   }
 
   void _applyData(ConversationHomeData data) {
+    // Mất mạng: danh sách hội thoại là bản đã lưu; danh bạ / hiện diện chưa
+    // có bản lưu nên giữ cái đang hiện thay vì xoá trắng.
+    final keepPeople = data.isOffline && data.workspaceMembers.isEmpty;
     state = state.copyWith(
       conversations: data.conversations,
       channels: data.channels,
-      contacts: data.contacts,
-      workspaceMembers: data.workspaceMembers,
-      presenceByUserId: data.presenceByUserId,
+      contacts: keepPeople && state.contacts.isNotEmpty ? null : data.contacts,
+      workspaceMembers: keepPeople ? null : data.workspaceMembers,
+      presenceByUserId: data.isOffline ? null : data.presenceByUserId,
       contactsErrorMessage: data.contactsErrorMessage,
       membersErrorMessage: data.membersErrorMessage,
       presenceErrorMessage: data.presenceErrorMessage,
       isLoading: false,
       clearError: true,
+      offlineNotice: data.isOffline ? _offlineNoticeText() : null,
+      clearOfflineNotice: !data.isOffline,
     );
     _unreadMessageIds.clear();
     _watchListRealtime();

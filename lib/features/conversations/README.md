@@ -19,6 +19,7 @@ Phase M4 triển khai feature-first Clean Architecture cho màn Tin nhắn, Danh
 - `GET/POST/DELETE /api/v1/workspaces/{workspace_id}/channels/{channel_id}/join-requests`
 - `PUT /api/v1/workspaces/{workspace_id}/channels/{channel_id}/read-state`
 - `GET/POST /api/v1/workspaces/{workspace_id}/channels/{channel_id}/messages`
+- `GET /api/v1/workspaces/{workspace_id}/channels/{channel_id}/messages/changes?since=&limit=` (luồng thay đổi tin)
 - `GET /api/v1/workspaces/{workspace_id}/channels/{channel_id}/pins`
 - `GET /api/v1/contacts`
 - `GET /api/v1/workspaces/{workspace_id}/members`
@@ -45,3 +46,11 @@ Phase M4 triển khai feature-first Clean Architecture cho màn Tin nhắn, Danh
   (`GET /presence`, gộp nhiều thiết bị theo người, tải lại mỗi 30 giây). Không vẽ chấm theo trạng thái thành viên
   nhóm (`active` chỉ nghĩa là còn ở trong nhóm).
 - Tìm kiếm nhanh trong danh sách hiện tại chạy trên dữ liệu API đã tải; tìm kiếm nội dung đầy đủ dùng endpoint search phía server.
+- Lưu tin trên máy (`application/message_sync_service.dart`, `data/datasources/local_message_store.dart`, bảng
+  `local_messages` / `local_channel_sync`): mở phòng hiện ngay tin đã lưu (kể cả không có mạng, chỉ báo nhẹ), rồi
+  chỉ hỏi `messages/changes` từ mốc đã lưu (lần đầu lấy mốc TRƯỚC rồi mới tải trang mới nhất). Tin trên máy là một
+  đoạn liền mạch từ tin mới nhất về trước: thay đổi của tin cũ hơn đoạn đó không ghi; tải trước ngầm tới ~30 ngày,
+  cũ hơn thì lưu dần khi kéo lên. Quá 25 trang thay đổi thì xoá và đồng bộ lại từ đầu. Tin bí mật, tin tạm, tin
+  đang chạy dần không lưu; tin xoá / thu hồi thì xoá dòng. Máy chủ cũ (404) dùng cách tải trang tin như trước.
+- Tìm trong phòng: tìm trong tin đã lưu trên máy trước (bỏ dấu, đủ mọi từ); nút "Tìm thêm trên máy chủ" gọi
+  endpoint search rồi gộp (bỏ trùng theo mã tin).

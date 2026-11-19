@@ -172,6 +172,8 @@ Future<void> pumpChatRoom(
   ValueChanged<String>? onGreetingSuggestion,
   ValueChanged<String>? onOpenSenderProfile,
   TextEditingController? draftController,
+  ChatRoomState Function(ChatRoomState state)? editState,
+  VoidCallback? onSearchOnServer,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -195,12 +197,13 @@ Future<void> pumpChatRoom(
   void noop() {}
   void noop1(Object? _) {}
   void noop2(Object? a, Object? b) {}
-  final state = ChatRoomState(
+  final baseState = ChatRoomState(
     scope: harnessScope,
     messages: messages,
     currentUserId: 'me',
     draft: draft,
   );
+  final state = editState?.call(baseState) ?? baseState;
   final body = ChatRoomBody(
     workspaceId: 'ws',
     state: state,
@@ -224,6 +227,7 @@ Future<void> pumpChatRoom(
     onRetryOutbox: noop,
     onLoadOlder: noop,
     onClearSearch: noop,
+    onSearchOnServer: onSearchOnServer,
     onSend: noop1,
     onSchedule: noop,
     onCreatePoll: noop,

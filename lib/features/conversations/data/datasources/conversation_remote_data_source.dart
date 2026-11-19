@@ -8,6 +8,7 @@ import '../../domain/entities/channel_file.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/collaboration_room.dart';
 import '../../domain/entities/conversation_summary.dart';
+import '../../domain/entities/message_sync.dart';
 import 'message_attachment_remote_data_source.dart';
 
 final class ConversationRemoteDataSource {
@@ -970,6 +971,29 @@ final class ConversationRemoteDataSource {
     return _messagePageFromResponse(response.data, workspaceId, channelId);
   }
 
+  /// Luồng thay đổi tin (`GET .../messages/changes?since=&limit=`): tin đọc
+  /// bằng cùng hàm của danh sách tin; tin có `deleted_at` là bia mộ.
+  Future<MessageChangesPage> listMessageChanges({
+    required String workspaceId,
+    required String channelId,
+    String? since,
+    int limit = 200,
+  }) async {
+    final cursor = since?.trim();
+    final response = await _api.get<Object>(
+      '/api/v1/workspaces/${_e(workspaceId)}/channels/${_e(channelId)}/messages/changes',
+      queryParameters: compactMap({
+        'since': cursor == null || cursor.isEmpty ? null : cursor,
+        'limit': limit.clamp(1, 200),
+      }),
+    );
+    return messageChangesPageFromResponse(
+      response.data,
+      workspaceId: workspaceId,
+      channelId: channelId,
+    );
+  }
+
   Future<List<ChatMessage>> searchMessages({
     required String workspaceId,
     required String query,
@@ -1315,6 +1339,31 @@ MessagePage _messagePageFromResponse(
     messages: messages,
     nextCursor: nullableStringField(meta, const ['next_cursor', 'nextCursor']),
     hasMore: boolField(meta, const ['has_more', 'hasMore']),
+  );
+}
+
+/// Đọc một trang luồng thay đổi: `data.messages` (đúng dạng danh sách tin),
+/// `data.cleared_at`, `meta.has_more` / `meta.next_cursor`. Thiếu
+/// `next_cursor` là sai hợp đồng (không biết hỏi tiếp từ đâu): báo lỗi.
+MessageChangesPage messageChangesPageFromResponse(
+  Object? response, {
+  required String workspaceId,
+  required String channelId,
+}) {
+  final page = _messagePageFromResponse(response, workspaceId, channelId);
+  final nextCursor = page.nextCursor;
+  if (nextCursor == null || nextCursor.isEmpty) {
+    throw const FormatException('messages/changes: thiếu meta.next_cursor');
+  }
+  final clearedAt = nullableDateTimeField(jsonMap(envelopeData(response)), [
+    'cleared_at',
+    'clearedAt',
+  ]);
+  return MessageChangesPage(
+    messages: page.messages,
+    nextCursor: nextCursor,
+    hasMore: page.hasMore,
+    clearedAt: clearedAt?.toUtc(),
   );
 }
 

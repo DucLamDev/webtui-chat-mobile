@@ -81,6 +81,7 @@ import '../../features/call_privacy/data/repositories/call_privacy_repository_im
 import '../../features/call_privacy/domain/repositories/call_privacy_repository.dart';
 import '../../features/conversations/application/incoming_call_ring_gate.dart';
 import '../../features/conversations/application/message_attachment_memo.dart';
+import '../../features/conversations/application/message_sync_service.dart';
 import '../../features/conversations/application/use_cases/call_use_cases.dart';
 import '../../features/conversations/application/use_cases/channel_avatar_use_cases.dart';
 import '../../features/conversations/application/use_cases/channel_exit_use_cases.dart';
@@ -101,6 +102,7 @@ import '../../features/conversations/data/datasources/call_remote_data_source.da
 import '../../features/conversations/data/datasources/collaboration_document_history_remote_data_source.dart';
 import '../../features/conversations/data/datasources/conversation_cache_data_source.dart';
 import '../../features/conversations/data/datasources/conversation_remote_data_source.dart';
+import '../../features/conversations/data/datasources/local_message_store.dart';
 import '../../features/conversations/data/datasources/message_attachment_remote_data_source.dart';
 import '../../features/conversations/data/datasources/message_outbox_data_source.dart';
 import '../../features/conversations/data/datasources/rich_message_remote_data_source.dart';
@@ -129,6 +131,7 @@ import '../../features/conversations/domain/repositories/collaboration_document_
 import '../../features/conversations/domain/repositories/collaboration_task_repository.dart';
 import '../../features/conversations/domain/repositories/conversation_list_prefs_repository.dart';
 import '../../features/conversations/domain/repositories/conversation_repository.dart';
+import '../../features/conversations/domain/repositories/local_message_repository.dart';
 import '../../features/conversations/domain/repositories/message_attachment_repository.dart';
 import '../../features/conversations/domain/repositories/message_outbox_repository.dart';
 import '../../features/conversations/domain/repositories/rich_message_repository.dart';
@@ -999,6 +1002,28 @@ final conversationRepositoryProvider = Provider<ConversationRepository>((ref) {
       ref.watch(conversationRemoteDataSourceProvider),
     ),
     cache: ref.watch(conversationCacheDataSourceProvider),
+  );
+});
+
+/// Tin nhắn lưu trên máy (giai đoạn 2 bộ đệm), theo vùng của máy chủ đang
+/// đăng nhập.
+final localMessageRepositoryProvider = Provider<LocalMessageRepository>((ref) {
+  return LocalMessageStore(
+    ref.watch(appDatabaseProvider),
+    ref.watch(activeInstanceScopeProvider),
+  );
+});
+
+/// Đồng bộ tin trên máy với máy chủ. Hỏi thẳng máy chủ (không qua bộ đệm
+/// trang tin: lỗi mạng không được trả trang cũ như trang mới).
+final messageSyncServiceProvider = Provider<MessageSyncService>((ref) {
+  final remote = ConversationRepositoryImpl(
+    ref.watch(conversationRemoteDataSourceProvider),
+  );
+  return MessageSyncService(
+    local: ref.watch(localMessageRepositoryProvider),
+    changes: remote,
+    messages: remote,
   );
 });
 
