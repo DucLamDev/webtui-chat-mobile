@@ -111,6 +111,20 @@ void main() {
     expect(ideStepTarget(null), '');
   });
 
+  test('thao tác tệp: đối tượng là đường dẫn bị tác động, kèm đích', () {
+    expect(
+      ideStepTarget({'path': '/home/a/x.txt', 'name': 'y.txt'}, 'files.rename'),
+      '/home/a/x.txt → y.txt',
+    );
+    expect(
+      ideStepTarget({'path': '/a/b', 'dest_dir': '/c'}, 'files.move'),
+      '/a/b → /c',
+    );
+    expect(ideStepTarget({'root': '/home/a'}, 'files.trash_purge'), '/home/a');
+    expect(ideStepTarget({'id': 't1'}, 'files.purge'), 't1');
+    expect(ideStepTarget({'name': 'srv-1'}, 'servers.remove'), 'srv-1');
+  });
+
   test('lời tóm tắt IDE gửi: lọc ký tự đảo chiều, cắt 500 ký tự', () {
     final s = ideStepSummaryText(
       IdeStepSummary(summary: '\u202E${'a' * 1000}', op: 'servers.remove'),
