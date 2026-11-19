@@ -89,4 +89,20 @@ void main() {
     expect(utf8.decode((await load())!), 'avatar');
     expect(requests, 1);
   });
+
+  test('phiên đã đổi trong lúc tải thì không ghi ảnh vào kho', () async {
+    final file = File('${root.path}/acc/avatar/c.img');
+    final bytes = await loadCachedImageBytes(
+      cache: MediaDiskCache(root: () async => root),
+      failures: RecentDownloadFailures(),
+      failureKey: 'k',
+      file: file,
+      maxBytes: 1024,
+      download: () async => Uint8List.fromList(utf8.encode('avatar')),
+      isStillCurrent: () async => false,
+    );
+
+    expect(utf8.decode(bytes!), 'avatar');
+    expect(await file.exists(), isFalse);
+  });
 }

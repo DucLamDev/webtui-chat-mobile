@@ -139,6 +139,25 @@ void main() {
     expect(File('${dir.path}/c-10.pdf').existsSync(), isTrue);
   });
 
+  test('dọn cache không xoá tệp đang tải dở của lượt khác', () async {
+    final cache = SharedFileCache(directory: () async => dir, maxBytes: 25);
+    final partial = File('${dir.path}/x-10.pdf.part')
+      ..writeAsBytesSync(List.filled(20, 1));
+    final numbered = File('${dir.path}/y-10.pdf.part-3')
+      ..writeAsBytesSync(List.filled(20, 1));
+    final old = File('${dir.path}/z-10.pdf')
+      ..writeAsBytesSync(List.filled(30, 1));
+    partial.setLastModifiedSync(DateTime(2020));
+    numbered.setLastModifiedSync(DateTime(2020));
+    old.setLastModifiedSync(DateTime(2021));
+
+    await cache.trim();
+
+    expect(partial.existsSync(), isTrue);
+    expect(numbered.existsSync(), isTrue);
+    expect(old.existsSync(), isFalse, reason: 'tệp xong cũ vẫn bị dọn');
+  });
+
   test(
     'đường dẫn phát dần hết hạn thì xin lại, còn hạn thì dùng lại',
     () async {

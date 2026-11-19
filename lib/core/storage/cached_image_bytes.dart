@@ -9,7 +9,7 @@ import 'media_disk_cache.dart';
 /// - [failureKey] vừa bị máy chủ từ chối (403 / 404 / 410) thì trả `null` ngay,
 ///   không hỏi lại máy chủ;
 /// - có trong kho ([file] còn hạn) thì đọc từ máy; chưa có thì [download] rồi
-///   lưu vào kho.
+///   lưu vào kho (bỏ qua bước lưu khi [isStillCurrent] báo phiên đã đổi).
 ///
 /// Lỗi tải trả `null` (ảnh hiện ô trống như trước); lỗi từ chối được nhớ vào
 /// [failures] để lần vẽ lại sau không hỏi lại máy chủ.
@@ -20,6 +20,7 @@ Future<Uint8List?> loadCachedImageBytes({
   required File file,
   required int maxBytes,
   required Future<Uint8List> Function() download,
+  Future<bool> Function()? isStillCurrent,
 }) async {
   if (failures.isBlocked(failureKey)) return null;
   try {
@@ -27,6 +28,7 @@ Future<Uint8List?> loadCachedImageBytes({
       file,
       maxBytes: maxBytes,
       download: download,
+      isStillCurrent: isStillCurrent,
     );
   } on Object catch (error) {
     failures.record(failureKey, error);
