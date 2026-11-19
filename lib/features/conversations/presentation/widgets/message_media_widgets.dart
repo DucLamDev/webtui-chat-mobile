@@ -14,6 +14,7 @@ import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/audio/playable_audio.dart';
 import '../../../../core/media/exclusive_media_playback.dart';
 import '../../../../core/media/media_playback.dart';
+import '../../../../core/network/media_auto_download_policy.dart';
 import '../../../../core/network/recent_download_failures.dart';
 import '../../../../core/network/redirect_safe_file_downloader.dart';
 import '../../../../core/security/instance_scope.dart';
@@ -27,12 +28,17 @@ import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../auth/domain/repositories/auth_token_repository.dart';
 import '../../application/use_cases/message_attachment_use_cases.dart';
+import '../../data/files/attachment_media_cache_keys.dart';
 import '../../data/files/scoped_attachment_file_store.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/message_voice.dart';
+import '../controllers/media_cache_providers.dart';
 import '../controllers/media_gallery_saver.dart';
 import '../controllers/message_video_stream.dart';
 import '../controllers/voice_playback_link.dart';
+
+export '../../data/files/attachment_media_cache_keys.dart'
+    show attachmentDownloadUri, attachmentThumbnailUri, galleryFileName;
 
 Future<void> openMessageImageGallery(
   BuildContext context, {
@@ -332,6 +338,16 @@ class _MessageImageAttachmentViewState
   ImageStream? _sizeStream;
   ImageStreamListener? _sizeListener;
 
+  /// Đang dùng dữ liệu di động, người dùng tắt tự tải ảnh và ảnh chưa có
+  /// trong kho: hiện ô "Chạm để tải ảnh" thay cho ảnh.
+  bool _needsTapToDownload = false;
+
+  /// Người dùng đã chạm "Chạm để tải ảnh": tải bất kể loại mạng.
+  bool _manualDownload = false;
+
+  /// Lượt tải vừa rồi bị dừng vì chưa được tự tải (xem [_needsTapToDownload]).
+  bool _blockedByNetwork = false;
+
   /// Cỡ tối đa của ảnh gốc: bong bóng [maxImagePreviewBytes], màn xem toàn
   /// màn hình [maxImageFullscreenBytes] (giải mã vẫn giới hạn 2048 px).
   int get _originalLimit =>
@@ -409,6 +425,8 @@ class _MessageImageAttachmentViewState
 
   void _reload() {
     _loadGeneration++;
+    _needsTapToDownload = false;
+    _manualDownload = false;
     final localPath = widget.attachment.file.localPath?.trim();
     if (widget.attachment.isImage &&
         localPath != null &&
@@ -437,13 +455,41 @@ class _MessageImageAttachmentViewState
   }
 
   Future<Uint8List?> _load(Uri uri, int generation) async {
-    final bytes = await _loadOnce(uri, generation);
+    _blockedByNetwork = false;
+    var bytes = await _loadOnce(uri, generation);
     final original = _imageUri;
     if (bytes == null && uri == _thumbnailUri && original != null) {
       // Ảnh thu nhỏ chưa có / lỗi: quay về ảnh gốc như trước.
-      return _loadOnce(original, generation);
+      bytes = await _loadOnce(original, generation);
+    }
+    if (bytes == null &&
+        _blockedByNetwork &&
+        mounted &&
+        generation == _loadGeneration) {
+      scheduleMicrotask(() {
+        if (!mounted || generation != _loadGeneration) return;
+        setState(() => _needsTapToDownload = true);
+      });
     }
     return bytes;
+  }
+
+  /// Ảnh chưa có trên máy có được tự tải không (dữ liệu di động + công tắc
+  /// tắt thì không); ảnh đã có trong kho luôn hiện ngay.
+  Future<bool> _mayDownload(File cacheFile) async {
+    if (_manualDownload || !mounted) return true;
+    final policy = ref.read(mediaAutoDownloadPolicyProvider);
+    if (await policy.canAutoDownloadImage()) return true;
+    return await attachmentMediaCache.lookup(cacheFile) != null;
+  }
+
+  /// Chạm "Chạm để tải ảnh": tải ảnh này bất kể loại mạng.
+  void _downloadManually() {
+    setState(() {
+      _needsTapToDownload = false;
+      _manualDownload = true;
+      _loadGeneration += 1;
+    });
   }
 
   Future<Uint8List?> _loadOnce(Uri uri, int generation) async {
@@ -460,17 +506,22 @@ class _MessageImageAttachmentViewState
     final maxBytes = uri == _thumbnailUri
         ? maxImagePreviewBytes
         : _originalLimit;
+    final cacheFile = await binding.cacheFile(
+      purpose: 'image',
+      uri: uri,
+      variant: attachmentImageCacheVariant(widget.attachment),
+    );
+    if (!await _mayDownload(cacheFile)) {
+      _blockedByNetwork = true;
+      return null;
+    }
     // Kho đệm 7 ngày trên máy; ảnh vừa bị từ chối (403 / 404) thì không hỏi
     // lại máy chủ mỗi lần vẽ lại.
     final bytes = await loadCachedImageBytes(
       cache: attachmentMediaCache,
       failures: mediaDownloadFailures,
       failureKey: binding.failureKey(uri),
-      file: await binding.cacheFile(
-        purpose: 'image',
-        uri: uri,
-        variant: '${widget.attachment.file.byteSize}',
-      ),
+      file: cacheFile,
       maxBytes: maxBytes,
       download: () => _imageDownloadGate.run(
         () => _downloader.downloadBytes(
@@ -513,7 +564,13 @@ class _MessageImageAttachmentViewState
     final boxHeight = box?.height ?? widget.height;
     final boxFit = adaptive ? BoxFit.cover : widget.fit;
     final placeholder = _ImagePlaceholder(height: boxHeight, width: boxWidth);
-    final image = localImageFile != null
+    final image = localImageFile == null && uri != null && _needsTapToDownload
+        ? _ImagePlaceholder(
+            height: boxHeight,
+            width: boxWidth,
+            onTapToDownload: _downloadManually,
+          )
+        : localImageFile != null
         ? Image.file(
             localImageFile,
             width: boxWidth,
@@ -821,7 +878,7 @@ class _MessageVoiceAttachmentViewState
       )) {
         final playable = await playableAudioFile(
           source: readyFile,
-          cacheKey: 'chat-${widget.attachment.fileId}',
+          cacheKey: attachmentPlayableAudioCacheKey(widget.attachment),
           // WAV nằm trong kho đệm của tài khoản trên máy chủ này: dùng lại 7
           // ngày; đăng xuất / đổi máy chủ / thu hồi phiên xoá cùng tệp đính kèm.
           cacheDirectory: await binding.cacheDirectory('playable-audio'),
@@ -1117,6 +1174,9 @@ class _MessageVideoAttachmentViewState
   /// Bấm nút phát trên ảnh bìa: sẵn sàng thì phát luôn.
   bool _playWhenReady = false;
 
+  /// Đã xét tải ngầm video phát dần này vào kho (mỗi video một lần).
+  bool _backgroundCacheChecked = false;
+
   /// Số khung xem trước (video cũ chưa có ảnh bìa) đang giữ bộ giải mã; giới
   /// hạn để cuộn qua nhiều video không làm cạn bộ giải mã của máy.
   static int _activePreviews = 0;
@@ -1172,6 +1232,7 @@ class _MessageVideoAttachmentViewState
       _wantsPlaying = false;
       _downloadProgress = null;
       _previewTried = false;
+      _backgroundCacheChecked = false;
       _releasePreviewSlot();
       unawaited(previous?.dispose());
       WidgetsBinding.instance.addPostFrameCallback((_) => _startPreview());
@@ -1664,8 +1725,61 @@ class _MessageVideoAttachmentViewState
       // Chỉ một nguồn có tiếng: tin thoại / video khác đang phát thì dừng.
       ExclusiveMediaPlayback.claim(this, _pauseForOther);
       await controller.play();
+      if (_controllerStreamed) {
+        unawaited(_cacheStreamedVideo(binding, previewOnly: !_wantsPlaying));
+      }
     }
     if (mounted) setState(() {});
+  }
+
+  /// Video phát dần (chưa có trong kho) vừa được phát: tải ngầm vào đúng tệp
+  /// kho của video (cùng khoá / tên với đường tải về, kho gộp lượt trùng) để
+  /// lần xem sau phát thẳng từ máy. Chỉ khi cỡ tối đa
+  /// [backgroundVideoCacheMaxBytes] và đang dùng Wi-Fi hoặc người dùng cho
+  /// phép tự tải khi dùng dữ liệu di động. Lỗi chỉ bỏ qua (lần sau xem lại).
+  Future<void> _cacheStreamedVideo(
+    _AttachmentDownloadBinding binding, {
+    required bool previewOnly,
+  }) async {
+    if (_backgroundCacheChecked || !mounted) return;
+    _backgroundCacheChecked = true;
+    final attachment = widget.attachment;
+    final uri = attachmentDownloadUri(attachment, widget.apiBaseUri);
+    if (uri == null) return;
+    final byteSize = attachment.file.byteSize;
+    final policy = ref.read(mediaAutoDownloadPolicyProvider);
+    try {
+      if (!await policy.canBackgroundCacheVideo(
+        byteSize: byteSize,
+        previewOnly: previewOnly,
+      )) {
+        return;
+      }
+      final target = await binding.cacheFile(
+        purpose: 'video',
+        uri: uri,
+        originalName: galleryFileName(attachment),
+      );
+      if (!await binding.isStillCurrent()) return;
+      final mimeType = attachment.file.mimeType;
+      await attachmentMediaCache.ensureFile(
+        target,
+        expectedBytes: byteSize,
+        download: (file) => _videoDownloadGate.run(
+          () => _downloader.download(
+            uri: uri,
+            target: file,
+            maxBytes: backgroundVideoCacheMaxBytes,
+            expectedBytes: byteSize,
+            accept: mimeType,
+            bearerToken: binding.bearerToken,
+            isStillCurrent: binding.isStillCurrent,
+          ),
+        ),
+      );
+    } on Object {
+      // Tải ngầm là việc phụ: video vẫn đang phát dần bình thường.
+    }
   }
 
   Future<void> _openFullscreen() async {
@@ -2469,14 +2583,60 @@ class _ImagePlaceholder extends StatelessWidget {
     required this.width,
     this.height,
     this.loading = false,
+    this.onTapToDownload,
   });
 
   final double width;
   final double? height;
   final bool loading;
 
+  /// Có giá trị: ô "Chạm để tải ảnh" (đang dùng dữ liệu di động, người dùng
+  /// tắt tự tải ảnh).
+  final VoidCallback? onTapToDownload;
+
   @override
   Widget build(BuildContext context) {
+    final onTap = onTapToDownload;
+    if (onTap != null) {
+      final label = tr('Chạm để tải ảnh', 'Tap to download photo');
+      return Semantics(
+        button: true,
+        label: label,
+        excludeSemantics: true,
+        child: GestureDetector(
+          key: const ValueKey('image-tap-to-download'),
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: SizedBox(
+            width: width,
+            height: height ?? width * 0.72,
+            child: ColoredBox(
+              color: WebTuiColors.primarySoft,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      WebTuiIcons.download,
+                      color: WebTuiColors.primary,
+                      size: 28,
+                    ),
+                    const SizedBox(height: WebTuiSpacing.xs),
+                    Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      style: WebTuiTypography.labelSmall.copyWith(
+                        color: WebTuiColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     return SizedBox(
       width: width,
       height: height ?? width * 0.72,
@@ -2497,33 +2657,6 @@ class _ImagePlaceholder extends StatelessWidget {
       ),
     );
   }
-}
-
-Uri? attachmentDownloadUri(MessageAttachment attachment, Uri? apiBaseUri) {
-  return _resolveAttachmentUri(attachment.file.downloadPath, apiBaseUri);
-}
-
-/// Địa chỉ ảnh thu nhỏ (ảnh bìa video); null nếu máy chủ chưa có.
-Uri? attachmentThumbnailUri(MessageAttachment attachment, Uri? apiBaseUri) {
-  final raw = attachment.file.thumbnailUrl;
-  if (raw == null) return null;
-  return _resolveAttachmentUri(raw, apiBaseUri);
-}
-
-Uri? _resolveAttachmentUri(String raw, Uri? apiBaseUri) {
-  final rawPath = raw.trim();
-  if (rawPath.isEmpty) return null;
-  final uri = Uri.tryParse(rawPath);
-  if (uri == null) return null;
-  final resolved = uri.hasScheme ? uri : apiBaseUri?.resolve(rawPath);
-  if (resolved == null ||
-      !redirectSafeHttpUriAllowed(resolved) ||
-      resolved.host.isEmpty ||
-      resolved.userInfo.isNotEmpty ||
-      resolved.fragment.isNotEmpty) {
-    return null;
-  }
-  return resolved;
 }
 
 bool attachmentUriCanUseInstanceCredentials({
@@ -2584,25 +2717,6 @@ bool isGallerySaveable(MessageAttachment attachment) {
   final mime = _normalizedMime(attachment);
   if (mime.startsWith('video/')) return true;
   return mime.startsWith('image/') && !mime.contains('svg');
-}
-
-/// Thư viện ảnh nhận tệp theo đuôi tên: tên gốc thiếu đuôi thì thêm theo loại tệp.
-String galleryFileName(MessageAttachment attachment) {
-  final name = attachment.file.name.trim();
-  if (RegExp(r'\.[A-Za-z0-9]{2,5}$').hasMatch(name)) return name;
-  final extension = switch (_normalizedMime(attachment)) {
-    'image/jpeg' || 'image/jpg' => '.jpg',
-    'image/png' => '.png',
-    'image/gif' => '.gif',
-    'image/webp' => '.webp',
-    'image/heic' => '.heic',
-    'image/heif' => '.heif',
-    'video/quicktime' => '.mov',
-    'video/webm' => '.webm',
-    final mime when mime.startsWith('video/') => '.mp4',
-    _ => '.jpg',
-  };
-  return '${name.isEmpty ? 'media' : name}$extension';
 }
 
 /// Mã tệp đang được tải để lưu; bấm "Lưu" lần nữa khi chưa xong thì bỏ qua tệp đó.
@@ -2794,7 +2908,7 @@ final class _AttachmentDownloadBinding {
       instanceScope: instanceScope,
       accountKey: accountKey,
       purpose: purpose,
-      key: variant.isEmpty ? '$uri' : '$uri|$variant',
+      key: attachmentMediaCacheKey(uri, variant: variant),
       originalName: originalName,
     );
   }

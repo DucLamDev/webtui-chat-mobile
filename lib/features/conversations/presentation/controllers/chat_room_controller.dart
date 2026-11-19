@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
@@ -23,6 +24,7 @@ import '../../domain/entities/message_outbox_item.dart';
 import '../../domain/entities/message_voice.dart';
 import '../../domain/entities/rich_message.dart';
 import 'channel_membership_events.dart';
+import 'media_cache_providers.dart';
 
 final chatRoomControllerProvider = StateNotifierProvider.autoDispose
     .family<ChatRoomController, ChatRoomState, ChatRoomScope>((ref, scope) {
@@ -55,6 +57,9 @@ final chatRoomControllerProvider = StateNotifierProvider.autoDispose
           listMessageAttachmentsUseCaseProvider,
         ),
         attachmentMemo: ref.watch(messageAttachmentMemoProvider),
+        evictCachedAttachments: ref.watch(
+          messageAttachmentCacheEvictionProvider,
+        ),
         loadMessageOutboxUseCase: ref.watch(loadMessageOutboxUseCaseProvider),
         enqueueMessageOutboxUseCase: ref.watch(
           enqueueMessageOutboxUseCaseProvider,
@@ -313,6 +318,8 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     required MessageMediaUploader messageMediaUploader,
     required ListMessageAttachmentsUseCase listMessageAttachmentsUseCase,
     MessageAttachmentMemo? attachmentMemo,
+    Future<void> Function(List<MessageAttachment> attachments)?
+    evictCachedAttachments,
     required LoadMessageOutboxUseCase loadMessageOutboxUseCase,
     required EnqueueMessageOutboxUseCase enqueueMessageOutboxUseCase,
     required MessageOutboxDispatcher outboxDispatcher,
@@ -353,6 +360,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
        _messageMediaUploader = messageMediaUploader,
        _listMessageAttachmentsUseCase = listMessageAttachmentsUseCase,
        _attachmentMemo = attachmentMemo,
+       _evictCachedAttachments = evictCachedAttachments,
        _loadMessageOutboxUseCase = loadMessageOutboxUseCase,
        _enqueueMessageOutboxUseCase = enqueueMessageOutboxUseCase,
        _outboxDispatcher = outboxDispatcher,
@@ -395,6 +403,11 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
 
   /// Tệp đính kèm đã hỏi của từng tin, dùng chung mọi phòng (null = không nhớ).
   final MessageAttachmentMemo? _attachmentMemo;
+
+  /// Xoá tệp đã lưu trên máy của các tệp đính kèm (tin bị thu hồi / xoá /
+  /// hết hạn); null = không xoá (kho tự dọn sau 7 ngày như trước).
+  final Future<void> Function(List<MessageAttachment> attachments)?
+  _evictCachedAttachments;
   final LoadMessageOutboxUseCase _loadMessageOutboxUseCase;
   final EnqueueMessageOutboxUseCase _enqueueMessageOutboxUseCase;
   final MessageOutboxDispatcher _outboxDispatcher;
@@ -475,10 +488,12 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
         .toList(growable: false);
     switch (result) {
       case Success<MessagePage>(value: final page):
-        final messages = _mergeChronological(
-          _chronological(page.messages, currentUserId),
-          [...state.messages, ...pendingMessages],
-        );
+        final loaded = _chronological(page.messages, currentUserId);
+        _forgetNewlyDeletedAttachments(loaded, userId: currentUserId);
+        final messages = _mergeChronological(loaded, [
+          ...state.messages,
+          ...pendingMessages,
+        ]);
         state = state.copyWith(
           messages: messages,
           draft: draft,
@@ -543,6 +558,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
           page.messages,
           state.currentUserId,
         );
+        _forgetNewlyDeletedAttachments(olderMessages);
         final messages = _mergeChronological(olderMessages, state.messages);
         state = state.copyWith(
           messages: messages,
@@ -849,6 +865,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     );
     switch (result) {
       case Success<void>():
+        final previous = _messageById(message.id)?.attachments;
         state = state.copyWith(
           messages: state.messages
               .map(
@@ -861,6 +878,10 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
               )
               .toList(growable: false),
         );
+        _forgetMessageAttachments(message.id, [
+          ...?previous,
+          ...message.attachments,
+        ]);
       case FailureResult<void>(failure: final failure):
         state = state.copyWith(errorMessage: failure.message);
     }
@@ -1168,9 +1189,74 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     }
   }
 
+  /// Tải lại thấy tin đã bị xoá (trước đó còn hiện, hoặc còn trong bộ nhớ tệp
+  /// đính kèm): xoá tệp đã lưu trên máy của tin đó. Gọi trước khi thay state.
+  void _forgetNewlyDeletedAttachments(
+    List<ChatMessage> incoming, {
+    String? userId,
+  }) {
+    for (final message in incoming) {
+      if (!message.isDeleted) continue;
+      final previous = _messageById(message.id);
+      if (previous != null &&
+          previous.isDeleted &&
+          previous.attachments.isEmpty) {
+        // Đã xử lý ở lần trước.
+        continue;
+      }
+      _forgetMessageAttachments(message.id, [
+        ...?previous?.attachments,
+        ...message.attachments,
+      ], userId: userId);
+    }
+  }
+
+  /// Bỏ mục nhớ tệp của tin [messageId] và xoá tệp kho của mọi tệp đã biết
+  /// ([known] + bộ nhớ tệp đính kèm). Lỗi xoá chỉ bỏ qua (kho tự dọn sau).
+  void _forgetMessageAttachments(
+    String messageId,
+    List<MessageAttachment> known, {
+    String? userId,
+  }) {
+    final remembered = _attachmentMemo?.remove(
+      MessageAttachmentMemo.keyFor(
+        userId: userId ?? state.currentUserId,
+        workspaceId: state.scope.workspaceId,
+        channelId: state.scope.channelId,
+        messageId: messageId,
+      ),
+    );
+    final byId = <String, MessageAttachment>{
+      for (final attachment in [...known, ...?remembered])
+        '${attachment.id}|${attachment.fileId}': attachment,
+    };
+    final evict = _evictCachedAttachments;
+    if (byId.isEmpty || evict == null) return;
+    unawaited(
+      evict(byId.values.toList(growable: false)).catchError((Object _) {}),
+    );
+  }
+
   Future<void> _hydrateMissingAttachments(List<ChatMessage> messages) async {
+    // Máy chủ đã gửi kèm tệp trong danh sách tin: nhớ lại để tin bị thu hồi
+    // sau này (kể cả khi mở lại phòng) vẫn biết tệp nào cần xoá khỏi máy.
+    for (final message in messages) {
+      if (message.attachmentsIncluded &&
+          message.attachments.isNotEmpty &&
+          !message.isDeleted) {
+        _attachmentMemo?.write(
+          MessageAttachmentMemo.keyFor(
+            userId: state.currentUserId,
+            workspaceId: message.workspaceId,
+            channelId: message.channelId,
+            messageId: message.id,
+          ),
+          message.attachments,
+        );
+      }
+    }
     final targets = messages
-        .where(_shouldHydrateAttachments)
+        .where(shouldHydrateMessageAttachments)
         .toList(growable: false);
     if (targets.isEmpty) {
       return;
@@ -1414,6 +1500,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     if (!mounted) return;
     if (result case Success<MessagePage>(value: final page)) {
       final latest = _chronological(page.messages, state.currentUserId);
+      _forgetNewlyDeletedAttachments(latest);
       final knownIds = {for (final message in state.messages) message.id};
       // Mất kết nối lâu (trang mới nhất không nối tiếp tin đang có): bỏ tin cũ
       // để không có khoảng trống giữa hai đoạn, cuộn lên sẽ tải tiếp.
@@ -1482,6 +1569,24 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
       // Bản cuối (hoặc tin bị xoá) thay toàn bộ: bỏ các đoạn còn chờ.
       final messageId = event.messageId ?? event.message?.id;
       if (messageId != null) _forgetStream(messageId);
+    }
+    if (event.type == ConversationRealtimeEventType.messageDeleted) {
+      // Thu hồi / xoá / hết hạn (`MessageExpired`): lấy tệp của tin trước khi
+      // tin bị thay, xoá luôn ảnh / tệp đã lưu trên máy (như Zalo).
+      final messageId = event.messageId ?? event.message?.id;
+      if (messageId != null && messageId.isNotEmpty) {
+        _forgetMessageAttachments(messageId, [
+          ...?_messageById(messageId)?.attachments,
+          for (final message in state.threadMessages)
+            if (message.id == messageId) ...message.attachments,
+          ...?event.message?.attachments,
+        ]);
+      }
+    } else if (event.message case final incoming?
+        when incoming.isDeleted &&
+            event.type == ConversationRealtimeEventType.messageUpdated) {
+      // Máy chủ báo tin đã bị xoá qua bản cập nhật.
+      _forgetNewlyDeletedAttachments([incoming]);
     }
     final reduced = _reducer.reduce(
       ConversationRealtimeState(
@@ -1877,9 +1982,14 @@ List<ChatMessage> _upsertLocal(
   ]);
 }
 
-bool _shouldHydrateAttachments(ChatMessage message) {
+/// Tin này có phải hỏi riêng máy chủ danh sách tệp không (máy chủ cũ không
+/// gửi kèm tệp trong danh sách tin).
+@visibleForTesting
+bool shouldHydrateMessageAttachments(ChatMessage message) {
+  // Máy chủ đã gửi kèm danh sách tệp (kể cả rỗng): không hỏi riêng tin này.
   if (message.id.startsWith('local-') ||
       message.isDeleted ||
+      message.attachmentsIncluded ||
       message.attachments.isNotEmpty) {
     return false;
   }

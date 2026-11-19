@@ -106,6 +106,8 @@ void main() {
     expect(cachedFile.height, 480);
     expect(cachedFile.durationMs, 2500);
     expect(page.messages.single.isPinned, isTrue);
+    // Máy cũ chưa gửi kèm tệp: vẫn hỏi riêng như trước.
+    expect(page.messages.single.attachmentsIncluded, isFalse);
 
     await cache.updateLatestMessagePin(
       workspaceId: 'workspace-1',
@@ -119,6 +121,60 @@ void main() {
       channelId: 'channel-1',
     );
     expect(unpinnedPage!.messages.single.isPinned, isFalse);
+  });
+
+  test('giữ tệp đính kèm máy chủ gửi kèm (cả danh sách rỗng)', () async {
+    final database = AppDatabase(createInMemoryDriftConnection());
+    addTearDown(database.close);
+    final cache = ConversationCacheDataSource(database, _instanceA);
+    final createdAt = DateTime.utc(2026, 11, 19, 8);
+    ChatMessage message(String id, List<MessageAttachment> attachments) =>
+        ChatMessage(
+          id: id,
+          workspaceId: 'workspace-1',
+          channelId: 'channel-1',
+          kind: 'file',
+          body: 'Đã gửi 1 ảnh',
+          createdAt: createdAt,
+          attachments: attachments,
+          attachmentsIncluded: true,
+        );
+    await cache.saveLatestMessagePage(
+      workspaceId: 'workspace-1',
+      channelId: 'channel-1',
+      page: MessagePage(
+        messages: [
+          message('co-tep', [
+            MessageAttachment(
+              id: 'att-1',
+              workspaceId: 'workspace-1',
+              messageId: 'co-tep',
+              fileId: 'file-1',
+              file: UploadedMessageFile(
+                id: 'file-1',
+                name: 'anh.jpg',
+                mimeType: 'image/jpeg',
+                byteSize: 2048,
+                downloadPath: '/files/file-1',
+                createdAt: createdAt,
+              ),
+              createdAt: createdAt,
+            ),
+          ]),
+          message('rong', const []),
+        ],
+      ),
+    );
+
+    final page = await cache.readLatestMessagePage(
+      workspaceId: 'workspace-1',
+      channelId: 'channel-1',
+    );
+    final byId = {for (final item in page!.messages) item.id: item};
+    expect(byId['co-tep']!.attachmentsIncluded, isTrue);
+    expect(byId['co-tep']!.attachments.single.fileId, 'file-1');
+    expect(byId['rong']!.attachmentsIncluded, isTrue);
+    expect(byId['rong']!.attachments, isEmpty);
   });
 
   test('kênh nghiệp vụ giữ cờ bot và slug khi đọc lại từ bộ nhớ đệm', () async {
