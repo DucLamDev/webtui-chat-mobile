@@ -18,6 +18,7 @@ import '../controllers/ide_controllers.dart';
 import '../widgets/ide_step_sheet.dart';
 import 'files/ide_files_tab.dart';
 import 'ide_ai_sessions_tab.dart';
+import 'more/ide_more_tab.dart';
 import 'projects/ide_projects_tab.dart';
 import 'terminal/ide_terminal_tab.dart';
 
@@ -33,7 +34,7 @@ List<IdeTab> visibleIdeTabs(IdeReady? ready) {
     if (ready.hasGroup('term') || ideTermDisabled(ready)) IdeTab.terminal,
     // Tab Dự án đọc `projects.list` trước tiên: thiếu op đó thì không hiện.
     if (ready.hasOp('projects.list')) IdeTab.projects,
-    if (ready.hasGroup('devices')) IdeTab.more,
+    if (ideMoreVisibleKeys(ready).isNotEmpty) IdeTab.more,
   ];
 }
 
@@ -206,14 +207,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen>
         IdeTab.files => const IdeFilesTab(),
         IdeTab.terminal => const IdeTerminalTab(),
         IdeTab.projects => const IdeProjectsTab(),
-        _ => _Message(
-          icon: Icons.hourglass_empty_rounded,
-          title: tr('Sắp có', 'Coming soon'),
-          message: tr(
-            'Chức năng này đang được hoàn thiện.',
-            'This feature is being finished.',
-          ),
-        ),
+        IdeTab.more => const IdeMoreTab(),
       },
       IdeLinkPhase.idle when status?.reason == 'unauthorized' => _Message(
         icon: Icons.key_off_rounded,

@@ -204,7 +204,7 @@ class _ArchView extends StatelessWidget {
             const SizedBox(width: WebTuiSpacing.sm),
             Expanded(
               child: Text(
-                tr('Không có lỗi hay cảnh báo.', 'No errors or warnings.'),
+                tr('Không có lỗi hoặc cảnh báo.', 'No errors or warnings.'),
                 key: const Key('ide_kientruc_check_ok'),
               ),
             ),

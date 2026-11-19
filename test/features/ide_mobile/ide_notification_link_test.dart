@@ -16,8 +16,8 @@ void main() {
   test('liên kết IDE hợp lệ mở đúng màn', () {
     expect(_loc('webtui://ide/ai/$_ai'), '/ide/ai/$_ai');
     expect(_loc('webtui://ide/jobs/$_job'), '/ide/jobs/$_job');
-    expect(_loc('webtui://ide/tasks'), '/ide');
-    expect(_loc('webtui://ide/tasks/t1'), '/ide');
+    expect(_loc('webtui://ide/tasks'), '/ide/tasks');
+    expect(_loc('webtui://ide/tasks/0a1b2c3d4e'), '/ide/tasks/0a1b2c3d4e');
     expect(_loc('webtui://ide/mergeq'), '/ide/mergeq');
     expect(_loc('webtui://ide/mergeq?pr=12'), '/ide/mergeq?pr=12');
     expect(
@@ -37,6 +37,14 @@ void main() {
     expect(_loc('webtui://ide/mergeq?pr=1&project=a%0Ab'), isNull);
     expect(_loc('webtui://ide/mergeq?project=${'x' * 201}'), isNull);
     expect(_loc('webtui://ide/mergeq/5'), isNull);
+  });
+
+  test('mã việc IDE sai dạng thì không mở', () {
+    expect(_loc('webtui://ide/tasks/t1'), isNull);
+    expect(_loc('webtui://ide/tasks/0A1B2C3D4E'), isNull);
+    expect(_loc('webtui://ide/tasks/0a1b2c3d4e5'), isNull);
+    expect(_loc('webtui://ide/tasks/0a1b2c3d4e/x'), isNull);
+    expect(_loc('webtui://ide/tasks/..%2F0a1b2c3d'), isNull);
   });
 
   test('đường lạ, mã xấu hoặc thiếu thì không mở gì', () {

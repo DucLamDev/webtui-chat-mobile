@@ -474,9 +474,12 @@ const _inboxConversationType = 'inbox_conversation';
 final _ideAiRefPattern = RegExp(r'^[0-9a-f]{24}$');
 final _ideJobRefPattern = RegExp(r'^j_[A-Za-z0-9_-]{16}$');
 
+/// Mã việc IDE: 10 ký tự hex thường.
+final _ideTaskRefPattern = RegExp(r'^[0-9a-f]{10}$');
+
 /// `webtui://ide/ai/<mã>` → `/ide/ai/<mã>`, `webtui://ide/jobs/<mã>` →
 /// `/ide/jobs/<mã>`, `webtui://ide/mergeq?…` → `/ide/mergeq?…`,
-/// `webtui://ide/tasks` → `/ide`. Đường lạ hoặc
+/// `webtui://ide/tasks[/<mã>]` → `/ide/tasks[/<mã>]`. Đường lạ hoặc
 /// mã không hợp lệ → null (không mở gì).
 String? ideLocationForLink(String? value) {
   final uri = value == null ? null : Uri.tryParse(value.trim());
@@ -498,7 +501,11 @@ String? ideLocationForLink(String? value) {
       if (rest.length != 1) return null;
       return _ideMergeqLocation(uri.queryParameters);
     case 'tasks':
-      return rest.length <= 2 ? '/ide' : null;
+      if (rest.length == 1) return '/ide/tasks';
+      if (rest.length != 2 || !_ideTaskRefPattern.hasMatch(rest[1])) {
+        return null;
+      }
+      return '/ide/tasks/${rest[1]}';
   }
   return null;
 }

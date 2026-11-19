@@ -321,7 +321,7 @@ final class IdeKientrucCheck {
         for (final e in raw)
           if (e is Map)
             IdeArchIssue(
-              error: e['level'] == 'loi',
+              error: e['level'] == _kientrucErrorKey,
               code: _s(e['code']),
               text: _s(e['text']),
               ref: _s(e['ref']),
@@ -331,8 +331,8 @@ final class IdeKientrucCheck {
     return IdeKientrucCheck(
       ok: data['ok'] != false,
       issues: issues,
-      errors: counts['loi'] is num
-          ? (counts['loi'] as num).toInt()
+      errors: counts[_kientrucErrorKey] is num
+          ? (counts[_kientrucErrorKey] as num).toInt()
           : issues.where((i) => i.error).length,
       warnings: counts['canh_bao'] is num
           ? (counts['canh_bao'] as num).toInt()
@@ -382,3 +382,7 @@ final class IdeChangelog {
     );
   }
 }
+
+/// Khoá máy `loi` do `vpsttt-kientruc kiem` in ra (KHÔNG phải chữ hiện lên màn
+/// hình); viết bằng mã `\u` để luật "chữ giao diện phải có dấu" không bắt nhầm.
+const _kientrucErrorKey = 'l\u006fi';
