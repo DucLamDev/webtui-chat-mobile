@@ -12,6 +12,7 @@ import '../../../../l10n/app_strings.dart';
 import '../../domain/ide_errors.dart';
 import '../widgets/ide_step_sheet.dart';
 import '../widgets/markdown/ide_code_block.dart';
+import '../widgets/projects/ide_job_result.dart';
 
 /// Giữ tối đa chừng này ký tự log trên màn hình (phần cũ nhất bị cắt).
 const ideJobLogLimit = 200000;
@@ -37,6 +38,7 @@ class _IdeJobScreenState extends ConsumerState<IdeJobScreen> {
   String _log = '';
   int _next = 0;
   String _status = '';
+  Object? _result;
   String _op = '';
   String _project = '';
   bool _loading = true;
@@ -133,6 +135,7 @@ class _IdeJobScreenState extends ConsumerState<IdeJobScreen> {
         if (next is num) _next = next.toInt();
         if (data['status'] is String) _status = data['status'] as String;
         _done = data['done'] == true;
+        if (data['result'] != null) _result = data['result'];
       });
       if (text.isNotEmpty) _stickToBottom();
     } finally {
@@ -288,6 +291,7 @@ class _IdeJobScreenState extends ConsumerState<IdeJobScreen> {
             ],
           ),
         ),
+        if (_result != null) IdeJobResultView(op: _op, result: _result),
         Expanded(
           child: Container(
             margin: const EdgeInsets.fromLTRB(

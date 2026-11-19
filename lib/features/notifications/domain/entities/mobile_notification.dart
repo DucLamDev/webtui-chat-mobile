@@ -475,7 +475,8 @@ final _ideAiRefPattern = RegExp(r'^[0-9a-f]{24}$');
 final _ideJobRefPattern = RegExp(r'^j_[A-Za-z0-9_-]{16}$');
 
 /// `webtui://ide/ai/<mã>` → `/ide/ai/<mã>`, `webtui://ide/jobs/<mã>` →
-/// `/ide/jobs/<mã>`, `webtui://ide/tasks` / `mergeq` → `/ide`. Đường lạ hoặc
+/// `/ide/jobs/<mã>`, `webtui://ide/mergeq?…` → `/ide/mergeq?…`,
+/// `webtui://ide/tasks` → `/ide`. Đường lạ hoặc
 /// mã không hợp lệ → null (không mở gì).
 String? ideLocationForLink(String? value) {
   final uri = value == null ? null : Uri.tryParse(value.trim());
@@ -493,11 +494,33 @@ String? ideLocationForLink(String? value) {
       final pattern = rest.first == 'ai' ? _ideAiRefPattern : _ideJobRefPattern;
       if (!pattern.hasMatch(rest[1])) return null;
       return '/ide/${rest.first}/${rest[1]}';
-    case 'tasks' || 'mergeq':
+    case 'mergeq':
+      if (rest.length != 1) return null;
+      return _ideMergeqLocation(uri.queryParameters);
+    case 'tasks':
       return rest.length <= 2 ? '/ide' : null;
   }
   return null;
 }
+
+/// `webtui://ide/mergeq?pr=<n>&project=<tên>` → `/ide/mergeq?project=&pr=`.
+/// Thiếu `project` (máy chủ cũ) thì mở hàng chờ của tôi; `pr` / `project`
+/// sai dạng thì bỏ cả liên kết.
+String? _ideMergeqLocation(Map<String, String> query) {
+  final pr = query['pr']?.trim() ?? '';
+  final project = query['project']?.trim() ?? '';
+  if (pr.isNotEmpty && !_idePrNumberPattern.hasMatch(pr)) return null;
+  if (project.length > 200 || project.contains(_ideControlChars)) return null;
+  final params = <String, String>{
+    if (project.isNotEmpty) 'project': project,
+    if (pr.isNotEmpty) 'pr': pr,
+  };
+  if (params.isEmpty) return '/ide/mergeq';
+  return Uri(path: '/ide/mergeq', queryParameters: params).toString();
+}
+
+final _idePrNumberPattern = RegExp(r'^[1-9][0-9]{0,8}$');
+final _ideControlChars = RegExp(r'[\x00-\x1f\x7f]');
 
 /// Loại thông báo của Lịch họp.
 const meetingReminderNotificationType = 'meeting_reminder';

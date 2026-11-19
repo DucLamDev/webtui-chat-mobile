@@ -22,6 +22,7 @@ import '../../features/ide_mobile/presentation/screens/ide_ai_chat_screen.dart';
 import '../../features/ide_mobile/presentation/screens/ide_job_screen.dart';
 import '../../features/ide_mobile/presentation/screens/ide_pair_screen.dart';
 import '../../features/ide_mobile/presentation/screens/ide_screen.dart';
+import '../../features/ide_mobile/presentation/screens/projects/ide_project_routes.dart';
 import '../../features/ide_mobile/presentation/widgets/ide_access_gate.dart';
 import '../../features/inbox/presentation/screens/inbox_conversation_screen.dart';
 import '../../features/inbox/presentation/screens/inbox_list_screen.dart';
@@ -300,6 +301,7 @@ final appRouterProvider = Provider<GoRouter>((_) {
           child: IdeJobScreen(jobId: state.pathParameters['id'] ?? ''),
         ),
       ),
+      ...ideProjectRoutes(),
       // Tab Công việc: màn con (việc của tôi, lịch họp, tệp, lối tắt).
       GoRoute(
         path: '/my-tasks',
