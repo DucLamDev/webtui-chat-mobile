@@ -12,7 +12,8 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
     lại / làm lại từ một tin, xem các bước AI đang làm, đổi model / mức suy nghĩ / chế độ trong **Cài đặt phiên**.
   - **Bảng duyệt**: trả lời câu hỏi, duyệt lệnh, duyệt kế hoạch. Thao tác quan trọng IDE đòi xác nhận thì app hỏi vân
     tay / khuôn mặt và ký bằng khoá xác nhận; app tự viết tóm tắt từ chính lệnh sẽ gửi, chữ IDE gửi kèm chỉ nối sau
-    "IDE ghi:". Mỗi yêu cầu xác nhận chỉ ký một lần, chỉ ký khi khớp đúng một thao tác đang chờ.
+    "IDE ghi:". Mỗi yêu cầu xác nhận chỉ ký một lần, chỉ ký khi khớp đúng một thao tác đang chờ. Kế hoạch chờ duyệt
+    hiện dạng Markdown (tiêu đề, gạch đầu dòng); dòng thêm / bớt trong phần khác biệt tô màu cả dòng.
   - Trả lời của AI hiện đủ Markdown (bảng, mã có nút chép, chữ màu), biểu đồ, biểu mẫu (gửi giống IDE web) và sơ đồ vẽ
     ngay trong app. Liên kết hỏi trước khi mở, chỉ mở http / https.
   - Tệp AI tạo ra (apk, zip, pdf, ảnh…): tải về có thanh tiến độ, nút Huỷ, kiểm mã băm; Android 10+ lưu vào **Tải về**,
