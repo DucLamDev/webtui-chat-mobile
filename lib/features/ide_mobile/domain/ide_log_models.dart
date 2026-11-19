@@ -1,7 +1,7 @@
 import 'ide_more_time.dart';
 
 String _s(Object? v) => v is String ? v : '';
-int _i(Object? v) => v is num ? v.toInt() : 0;
+int _i(Object? v) => ideSafeInt(v);
 
 List<String> _strs(Object? l) => [
   if (l is List)
@@ -203,7 +203,9 @@ final class IdeOplogPage {
                 target: _s(e['target']),
                 name: _s(e['name']),
                 sha: _s(e['sha']),
-                ms: e['ms'] is num ? (e['ms'] as num).toInt() : null,
+                ms: e['ms'] is num && (e['ms'] as num).isFinite
+                    ? ideSafeInt(e['ms'])
+                    : null,
               ),
       ],
       next: next is num ? next.toDouble() : null,
@@ -214,7 +216,8 @@ final class IdeOplogPage {
       kinds: {
         if (rawKinds is Map)
           for (final e in rawKinds.entries)
-            if (e.value is num) e.key.toString(): (e.value as num).toInt(),
+            if (e.value is num && (e.value as num).isFinite)
+              e.key.toString(): ideSafeInt(e.value),
       },
     );
   }

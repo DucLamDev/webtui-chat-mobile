@@ -13,6 +13,7 @@ import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_errors.dart';
 import '../../../domain/ide_more_time.dart';
 import '../../../domain/ide_note_models.dart';
+import '../../../domain/ide_visible_text.dart';
 import '../../controllers/ide_more_controllers.dart';
 import '../../widgets/markdown/ide_blocks_model.dart';
 import '../../widgets/markdown/ide_diagram_view.dart';
@@ -117,6 +118,7 @@ class _IdeNoteScreenState extends ConsumerState<IdeNoteScreen> {
       );
       return;
     }
+    if (_busy) return;
     if (utf8.encode(body).length > _bodyMax) {
       setState(
         () => _formError = tr(
@@ -194,6 +196,7 @@ class _IdeNoteScreenState extends ConsumerState<IdeNoteScreen> {
   /// Lấy bản mới nhất. [keepMine]: giữ chữ đang gõ nhưng dùng `sha` mới nên
   /// lần lưu sau sẽ ghi đè; ngược lại bỏ chữ đang gõ.
   Future<void> _takeLatest({required bool keepMine}) async {
+    if (_busy) return;
     setState(() => _busy = true);
     try {
       final n = await ref
@@ -245,11 +248,14 @@ class _IdeNoteScreenState extends ConsumerState<IdeNoteScreen> {
                 ),
                 const SizedBox(height: WebTuiSpacing.sm),
                 Text(
-                  latest.title,
+                  ideVisibleText(latest.title),
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: WebTuiSpacing.xs),
-                Text(key: const Key('ide_note_overwrite_latest'), latest.body),
+                Text(
+                  key: const Key('ide_note_overwrite_latest'),
+                  ideOverwritePreview(latest.body),
+                ),
               ],
             ),
           ),
@@ -303,6 +309,7 @@ class _IdeNoteScreenState extends ConsumerState<IdeNoteScreen> {
 
   Future<void> _delete() async {
     final n = _note!;
+    if (_busy) return;
     final ok = await showWebTuiConfirmDialog(
       context,
       title: tr('Xoá ghi chú này?', 'Delete this note?'),
@@ -357,7 +364,7 @@ class _IdeNoteScreenState extends ConsumerState<IdeNoteScreen> {
         title: _creating
             ? tr('Ghi chú mới', 'New note')
             : (n?.title.isNotEmpty ?? false)
-            ? n!.title
+            ? ideVisibleText(n!.title)
             : tr('Ghi chú', 'Note'),
         actions: [
           if (n != null && !_editing) ...[
@@ -599,11 +606,23 @@ class _VersionsSheet extends ConsumerStatefulWidget {
 }
 
 class _VersionsSheetState extends ConsumerState<_VersionsSheet> {
+  bool _restoring = false;
+
   Future<void> _open(IdeNoteVersion v) async {
+    if (_restoring) return;
+    setState(() => _restoring = true);
+    try {
+      await _openInner(v);
+    } finally {
+      if (mounted) setState(() => _restoring = false);
+    }
+  }
+
+  Future<void> _openInner(IdeNoteVersion v) async {
     final restore = await showDialog<bool>(
       context: context,
       builder: (ctx) => WebTuiDialog(
-        title: v.title.isEmpty ? '#${v.n}' : v.title,
+        title: v.title.isEmpty ? '#${v.n}' : ideVisibleText(v.title),
         content: ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 360),
           child: SingleChildScrollView(child: IdeMarkdown(text: v.body)),
@@ -668,15 +687,17 @@ class _VersionsSheetState extends ConsumerState<_VersionsSheet> {
                   ListTile(
                     key: Key('ide_note_version_${v.n}'),
                     minVerticalPadding: 12,
-                    title: Text(v.title.isEmpty ? '#${v.n}' : v.title),
+                    title: Text(
+                      v.title.isEmpty ? '#${v.n}' : ideVisibleText(v.title),
+                    ),
                     subtitle: Text(
                       [
-                        if (v.by.isNotEmpty) v.by,
+                        if (v.by.isNotEmpty) ideVisibleText(v.by),
                         if (v.at != null) ideFormatDateTime(v.at!),
                         if (v.deleted) tr('đã xoá', 'deleted'),
                       ].join(' · '),
                     ),
-                    onTap: () => _open(v),
+                    onTap: _restoring ? null : () => _open(v),
                   ),
               ],
             );
@@ -685,4 +706,12 @@ class _VersionsSheetState extends ConsumerState<_VersionsSheet> {
       ),
     );
   }
+}
+
+/// Xem trước nội dung ghi chú trong hộp xác nhận: tối đa 2000 ký tự đầu.
+String ideOverwritePreview(String body, {int max = 2000}) {
+  final runes = body.runes;
+  if (runes.length <= max) return ideVisibleText(body);
+  final head = String.fromCharCodes(runes.take(max));
+  return '${ideVisibleText(head)}…(còn ${runes.length - max} ký tự)';
 }

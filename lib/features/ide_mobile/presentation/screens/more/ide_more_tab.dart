@@ -8,6 +8,7 @@ import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
+import '../../../domain/ide_project.dart';
 import '../../../domain/ide_ready.dart';
 import '../../controllers/ide_controllers.dart';
 import '../../controllers/ide_project_controllers.dart';
@@ -132,41 +133,54 @@ class IdeMoreTab extends ConsumerWidget {
           ),
           const SizedBox(height: WebTuiSpacing.md),
         ],
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: WebTuiSpacing.md,
-          crossAxisSpacing: WebTuiSpacing.md,
-          childAspectRatio: 1.45,
-          children: [
-            for (final e in entries)
-              _Tile(
+        // Chữ hệ thống cỡ lớn: mỗi mục một hàng (biểu tượng + tên) để tên
+        // không bị ngắt giữa từ; chiều cao theo nội dung nên không tràn.
+        if (_bigText(context))
+          for (final e in entries)
+            Padding(
+              padding: const EdgeInsets.only(bottom: WebTuiSpacing.md),
+              child: _Tile(
                 entry: e,
-                onTap: () {
-                  final project = current?.name;
-                  context.push(
-                    e.project && project != null
-                        ? Uri(
-                            path: e.path,
-                            queryParameters: {'project': project},
-                          ).toString()
-                        : e.path,
-                  );
-                },
+                row: true,
+                onTap: () => _open(context, e, current),
               ),
-          ],
-        ),
+            )
+        else
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: WebTuiSpacing.md,
+            crossAxisSpacing: WebTuiSpacing.md,
+            childAspectRatio: 1.45,
+            children: [
+              for (final e in entries)
+                _Tile(entry: e, onTap: () => _open(context, e, current)),
+            ],
+          ),
       ],
+    );
+  }
+
+  void _open(BuildContext context, _Entry e, IdeProject? current) {
+    final project = current?.name;
+    context.push(
+      e.project && project != null
+          ? Uri(path: e.path, queryParameters: {'project': project}).toString()
+          : e.path,
     );
   }
 }
 
+bool _bigText(BuildContext context) =>
+    MediaQuery.textScalerOf(context).scale(10) > 13;
+
 class _Tile extends StatelessWidget {
-  const _Tile({required this.entry, required this.onTap});
+  const _Tile({required this.entry, required this.onTap, this.row = false});
 
   final _Entry entry;
   final VoidCallback onTap;
+  final bool row;
 
   @override
   Widget build(BuildContext context) {
@@ -185,17 +199,22 @@ class _Tile extends StatelessWidget {
             borderRadius: BorderRadius.circular(WebTuiRadii.md),
             border: Border.all(color: WebTuiColors.border),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Flex(
+            direction: row ? Axis.horizontal : Axis.vertical,
+            crossAxisAlignment: row
+                ? CrossAxisAlignment.center
+                : CrossAxisAlignment.start,
             children: [
               Icon(entry.icon, size: 28, color: WebTuiColors.primary),
-              Text(
-                entry.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: WebTuiTypography.titleMedium.copyWith(
-                  color: WebTuiColors.textPrimary,
+              const SizedBox(width: WebTuiSpacing.md, height: WebTuiSpacing.sm),
+              Flexible(
+                child: Text(
+                  entry.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: WebTuiTypography.titleMedium.copyWith(
+                    color: WebTuiColors.textPrimary,
+                  ),
                 ),
               ),
             ],

@@ -24,7 +24,7 @@ final class IdeJobTail {
     if (data is! Map) return const IdeJobTail();
     return IdeJobTail(
       text: _s(data['text']),
-      next: data['next'] is num ? (data['next'] as num).toInt() : 0,
+      next: ideSafeInt(data['next']),
       status: _s(data['status']),
       done: data['done'] == true,
       result: data['result'],
@@ -341,11 +341,12 @@ final class IdeKientrucCheck {
     return IdeKientrucCheck(
       ok: data['ok'] != false,
       issues: issues,
-      errors: counts[_kientrucErrorKey] is num
-          ? (counts[_kientrucErrorKey] as num).toInt()
+      errors: counts[_kientrucErrorKey] is num &&
+              (counts[_kientrucErrorKey] as num).isFinite
+          ? ideSafeInt(counts[_kientrucErrorKey])
           : issues.where((i) => i.error).length,
-      warnings: counts['canh_bao'] is num
-          ? (counts['canh_bao'] as num).toInt()
+      warnings: counts['canh_bao'] is num && (counts['canh_bao'] as num).isFinite
+          ? ideSafeInt(counts['canh_bao'])
           : issues.where((i) => !i.error).length,
     );
   }

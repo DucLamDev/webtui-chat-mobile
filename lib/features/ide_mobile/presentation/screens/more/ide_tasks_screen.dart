@@ -9,6 +9,7 @@ import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_more_time.dart';
 import '../../../domain/ide_task_models.dart';
+import '../../../domain/ide_visible_text.dart';
 import '../../controllers/ide_more_controllers.dart';
 import '../../controllers/ide_project_controllers.dart';
 import 'ide_more_common.dart';
@@ -238,7 +239,7 @@ class IdeTaskCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            task.title,
+            ideVisibleText(task.title),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: WebTuiTypography.titleMedium.copyWith(
@@ -267,8 +268,9 @@ class IdeTaskCard extends StatelessWidget {
                   (showProject && task.project.isNotEmpty))
                 Text(
                   [
-                    if (task.assignee.isNotEmpty) task.assignee,
-                    if (showProject && task.project.isNotEmpty) task.project,
+                    if (task.assignee.isNotEmpty) ideVisibleText(task.assignee),
+                    if (showProject && task.project.isNotEmpty)
+                      ideVisibleText(task.project),
                   ].join(' · '),
                   style: WebTuiTypography.bodySmall.copyWith(
                     color: WebTuiColors.textSecondary,

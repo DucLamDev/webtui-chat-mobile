@@ -11,6 +11,7 @@ import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_more_time.dart';
 import '../../../domain/ide_task_models.dart';
+import '../../../domain/ide_visible_text.dart';
 import '../../controllers/ide_more_controllers.dart';
 import '../../controllers/ide_project_controllers.dart';
 import '../../widgets/markdown/ide_markdown.dart';
@@ -126,6 +127,7 @@ class _IdeTaskDetailScreenState extends ConsumerState<IdeTaskDetailScreen> {
   }
 
   Future<void> _run(Future<void> Function() action) async {
+    if (_busy) return;
     setState(() => _busy = true);
     try {
       await action();
@@ -141,7 +143,7 @@ class _IdeTaskDetailScreenState extends ConsumerState<IdeTaskDetailScreen> {
   }
 
   Future<void> _changeStatus(IdeTask t, String status) async {
-    if (status == t.status) return;
+    if (status == t.status || _busy) return;
     final note = await _askNote(status);
     if (note == null || !mounted) return;
     await _run(() async {
@@ -302,7 +304,7 @@ class _IdeTaskDetailScreenState extends ConsumerState<IdeTaskDetailScreen> {
       padding: const EdgeInsets.all(WebTuiSpacing.lg),
       children: [
         Text(
-          t.title,
+          ideVisibleText(t.title),
           key: const Key('ide_task_title_text'),
           style: WebTuiTypography.titleLarge.copyWith(
             color: WebTuiColors.textPrimary,
@@ -311,10 +313,11 @@ class _IdeTaskDetailScreenState extends ConsumerState<IdeTaskDetailScreen> {
         const SizedBox(height: WebTuiSpacing.sm),
         Text(
           [
-            if (t.project.isNotEmpty) t.project,
+            if (t.project.isNotEmpty) ideVisibleText(t.project),
             if (t.assignee.isNotEmpty)
-              '${tr('Người nhận', 'Assignee')}: ${t.assignee}',
-            if (t.by.isNotEmpty) '${tr('Giao bởi', 'From')}: ${t.by}',
+              '${tr('Người nhận', 'Assignee')}: ${ideVisibleText(t.assignee)}',
+            if (t.by.isNotEmpty)
+              '${tr('Giao bởi', 'From')}: ${ideVisibleText(t.by)}',
           ].join(' · '),
           style: muted,
         ),

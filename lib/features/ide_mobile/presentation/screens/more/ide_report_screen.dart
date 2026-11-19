@@ -122,7 +122,7 @@ class _ReportBodyState extends ConsumerState<_ReportBody> {
         final tail = await ref.read(ideMoreServiceProvider).jobTail(job, from);
         if (!mounted) return;
         _netFails = 0;
-        setState(() => _log += tail.text);
+        setState(() => _log = ideTrimLog(_log + tail.text));
         if (!tail.done) {
           _poll(job, tail.next);
           return;
@@ -135,7 +135,7 @@ class _ReportBodyState extends ConsumerState<_ReportBody> {
             _error = StateError(
               _log.trim().isEmpty
                   ? tr('Báo cáo không có kết quả.', 'The report has no result.')
-                  : _log.trim(),
+                  : ideLastLines(_log),
             );
           }
         });
@@ -322,4 +322,15 @@ class _ReportBodyState extends ConsumerState<_ReportBody> {
         ),
     ];
   }
+}
+
+/// Giữ tối đa 200 KB (ký tự) cuối của log.
+String ideTrimLog(String log, {int max = 200 * 1024}) =>
+    log.length <= max ? log : log.substring(log.length - max);
+
+/// Chỉ [n] dòng cuối của log, dùng làm lời báo lỗi.
+String ideLastLines(String log, {int n = 20}) {
+  final lines = log.trim().split('\n');
+  final tail = lines.length <= n ? lines : lines.sublist(lines.length - n);
+  return tail.join('\n').trim();
 }

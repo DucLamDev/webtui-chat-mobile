@@ -9,6 +9,7 @@ import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_more_time.dart';
 import '../../../domain/ide_note_models.dart';
+import '../../../domain/ide_visible_text.dart';
 import '../../controllers/ide_more_controllers.dart';
 import 'ide_more_common.dart';
 import 'ide_note_screen.dart';
@@ -36,7 +37,7 @@ class IdeNotesScreen extends ConsumerWidget {
   }
 }
 
-class _NotesBody extends ConsumerWidget {
+class _NotesBody extends ConsumerStatefulWidget {
   const _NotesBody({
     required this.project,
     required this.list,
@@ -46,6 +47,16 @@ class _NotesBody extends ConsumerWidget {
   final String project;
   final IdeNoteList list;
   final Future<void> Function() reload;
+
+  @override
+  ConsumerState<_NotesBody> createState() => _NotesBodyState();
+}
+
+class _NotesBodyState extends ConsumerState<_NotesBody> {
+  String get project => widget.project;
+  IdeNoteList get list => widget.list;
+  Future<void> Function() get reload => widget.reload;
+  bool _restoring = false;
 
   Future<void> _create(BuildContext context) async {
     final created = await Navigator.of(context).push<bool>(
@@ -59,14 +70,16 @@ class _NotesBody extends ConsumerWidget {
     WidgetRef ref,
     IdeDeletedNote d,
   ) async {
-    final ok = await showWebTuiConfirmDialog(
-      context,
-      title: tr('Khôi phục ghi chú?', 'Restore this note?'),
-      message: d.title,
-      confirmLabel: tr('Khôi phục', 'Restore'),
-    );
-    if (!ok || !context.mounted) return;
+    if (_restoring) return;
+    setState(() => _restoring = true);
     try {
+      final ok = await showWebTuiConfirmDialog(
+        context,
+        title: tr('Khôi phục ghi chú?', 'Restore this note?'),
+        message: ideVisibleText(d.title),
+        confirmLabel: tr('Khôi phục', 'Restore'),
+      );
+      if (!ok || !context.mounted) return;
       await ref.read(ideMoreServiceProvider).restoreNote(project, d.id, d.n);
       await reload();
     } on Object catch (e) {
@@ -75,11 +88,13 @@ class _NotesBody extends ConsumerWidget {
           context,
         ).showSnackBar(SnackBar(content: Text(ideMoreErrorText(e))));
       }
+    } finally {
+      if (mounted) setState(() => _restoring = false);
     }
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final muted = WebTuiTypography.bodySmall.copyWith(
       color: WebTuiColors.textMuted,
     );
@@ -146,7 +161,7 @@ class _NotesBody extends ConsumerWidget {
                                     Text(
                                       n.title.isEmpty
                                           ? tr('(chưa đặt tên)', '(untitled)')
-                                          : n.title,
+                                          : ideVisibleText(n.title),
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                       style: WebTuiTypography.titleMedium
@@ -183,15 +198,17 @@ class _NotesBody extends ConsumerWidget {
                           key: Key('ide_note_deleted_${d.id}'),
                           contentPadding: EdgeInsets.zero,
                           minVerticalPadding: 12,
-                          title: Text(d.title),
+                          title: Text(ideVisibleText(d.title)),
                           subtitle: Text(
                             [
-                              if (d.by.isNotEmpty) d.by,
+                              if (d.by.isNotEmpty) ideVisibleText(d.by),
                               if (d.at != null) ideFormatDateTime(d.at!),
                             ].join(' · '),
                           ),
                           trailing: TextButton(
-                            onPressed: () => _restore(context, ref, d),
+                            onPressed: _restoring
+                                ? null
+                                : () => _restore(context, ref, d),
                             child: Text(tr('Khôi phục', 'Restore')),
                           ),
                         ),
