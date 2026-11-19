@@ -5,6 +5,7 @@ import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_deploy.dart';
+import '../../../domain/ide_visible_text.dart';
 import '../markdown/ide_code_block.dart';
 
 /// Nhãn dễ hiểu của ký hiệu `s` trong bản xem trước.
@@ -85,7 +86,7 @@ class IdePreviewView extends StatelessWidget {
             [
               if (p.sha.isNotEmpty)
                 p.sha.substring(0, p.sha.length.clamp(0, 7)),
-              p.subject,
+              ideVisibleText(p.subject),
             ].where((e) => e.isNotEmpty).join(' · '),
             key: const Key('ide_preview_subject'),
             style: WebTuiTypography.bodyMedium.copyWith(
@@ -97,7 +98,7 @@ class IdePreviewView extends StatelessWidget {
           Text(
             '${tr('Đang chạy trên máy chủ', 'Currently on the server')}: '
             '${p.base!.commit.substring(0, p.base!.commit.length.clamp(0, 7))}'
-            ' ${p.base!.subject}',
+            ' ${ideVisibleText(p.base!.subject)}',
             style: WebTuiTypography.bodySmall.copyWith(
               color: WebTuiColors.textMuted,
             ),
@@ -274,6 +275,8 @@ class IdePathText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Tên tệp do người khác đặt: ký tự vô hình / đảo chiều hiện thành <U+…>.
+    final path = ideVisibleText(this.path);
     final cut = path.lastIndexOf('/');
     if (cut <= 0 || cut == path.length - 1) {
       return Text(
@@ -285,34 +288,75 @@ class IdePathText extends StatelessWidget {
     }
     final dir = path.substring(0, cut + 1);
     final name = path.substring(cut + 1);
+    final effective = DefaultTextStyle.of(context).style.merge(style);
+    final scaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
     return Semantics(
       label: path,
       excludeSemantics: true,
       child: LayoutBuilder(
-        builder: (context, c) => Row(
-          children: [
-            Flexible(
-              child: Text(
-                dir,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: style,
-              ),
-            ),
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: c.maxWidth.isFinite ? c.maxWidth * 0.7 : 600,
-              ),
-              child: Text(
-                name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: style,
-              ),
-            ),
-          ],
-        ),
+        builder: (context, c) {
+          final shown = c.maxWidth.isFinite
+              ? ideMiddleCutPath(
+                  dir,
+                  name,
+                  (s) => _measure(s, effective, scaler, direction),
+                  c.maxWidth,
+                )
+              : path;
+          return Text(
+            shown,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: style,
+          );
+        },
       ),
     );
   }
+
+  static double _measure(
+    String s,
+    TextStyle style,
+    TextScaler scaler,
+    TextDirection direction,
+  ) {
+    final p = TextPainter(
+      text: TextSpan(text: s, style: style),
+      textDirection: direction,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+    final w = p.width;
+    p.dispose();
+    return w;
+  }
+}
+
+/// Cắt giữa đường dẫn: giữ trọn tên tệp, rút phần thư mục từ đầu kèm "…" để
+/// vừa [maxWidth]. Tên tệp quá dài thì để [Text] tự cắt đuôi. Tìm nhị phân nên
+/// mỗi dòng chỉ đo ~log2(độ dài) lần.
+String ideMiddleCutPath(
+  String dir,
+  String name,
+  double Function(String) measure,
+  double maxWidth,
+) {
+  final full = '$dir$name';
+  if (measure(full) <= maxWidth) return full;
+  final tail = '…/$name';
+  if (measure(tail) > maxWidth) return tail;
+  var lo = 0;
+  var hi = dir.length - 1; // bỏ dấu "/" cuối vì đã có trong tail
+  while (lo < hi) {
+    final mid = (lo + hi + 1) ~/ 2;
+    if (measure('${dir.substring(0, mid)}$tail') <= maxWidth) {
+      lo = mid;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  // Không cắt đôi một ký tự hai đơn vị UTF-16 (emoji) trong tên thư mục.
+  if (lo > 0 && (dir.codeUnitAt(lo - 1) & 0xFC00) == 0xD800) lo--;
+  return '${dir.substring(0, lo)}$tail';
 }

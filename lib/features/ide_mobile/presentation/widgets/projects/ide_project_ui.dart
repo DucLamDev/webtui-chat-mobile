@@ -9,6 +9,7 @@ import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_errors.dart';
+import '../../../domain/ide_visible_text.dart';
 
 /// Chữ lỗi cho thanh báo: ưu tiên `message` tiếng Việt của IDE.
 String ideProjectErrorText(Object error) {
@@ -99,9 +100,88 @@ Future<T?> ideProjectGuard<T>(
 /// Thời điểm giây Unix → `dd/MM HH:mm` giờ máy.
 String ideFormatUnix(int seconds) {
   if (seconds <= 0) return '';
+  // DateTime chỉ nhận ±8,64e15 ms; ngoài khoảng hợp lệ (năm 1 … 9999) trả "—".
+  if (seconds > 253402300799) return '—';
   final d = DateTime.fromMillisecondsSinceEpoch(seconds * 1000).toLocal();
   String two(int n) => n.toString().padLeft(2, '0');
   return '${two(d.day)}/${two(d.month)} ${two(d.hour)}:${two(d.minute)}';
+}
+
+/// Hộp hỏi trước khi mở liên kết ngoài (PR…): chỉ nhận https, hiện tên miền.
+/// Trả `true` khi đã mở. http / dạng khác: báo lỗi, không mở.
+Future<bool> ideOpenHttpsLink(
+  BuildContext context,
+  String url,
+  Future<bool> Function(String url) open,
+) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final uri = Uri.tryParse(url.trim());
+  if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          tr(
+            'Chỉ mở được liên kết https.',
+            'Only https links can be opened.',
+          ),
+        ),
+      ),
+    );
+    return false;
+  }
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(tr('Mở liên kết?', 'Open link?')),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(text: tr('Trang web: ', 'Website: ')),
+                  TextSpan(
+                    text: uri.host,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: WebTuiSpacing.sm),
+            SelectableText(ideVisibleText(uri.toString())),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          key: const Key('ide_link_cancel'),
+          style: TextButton.styleFrom(minimumSize: const Size(64, 44)),
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: Text(tr('Huỷ', 'Cancel')),
+        ),
+        FilledButton(
+          key: const Key('ide_link_open'),
+          style: FilledButton.styleFrom(minimumSize: const Size(64, 44)),
+          onPressed: () => Navigator.of(ctx).pop(true),
+          child: Text(tr('Mở', 'Open')),
+        ),
+      ],
+    ),
+  );
+  if (ok != true) return false;
+  final opened = await open(uri.toString());
+  if (!opened) {
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          tr('Không mở được liên kết.', 'Could not open the link.'),
+        ),
+      ),
+    );
+  }
+  return opened;
 }
 
 /// Nút hành động cao ≥ 44.

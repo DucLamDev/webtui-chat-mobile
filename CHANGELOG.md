@@ -14,6 +14,9 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
     sử, quay lại bản cũ, khôi phục một tệp (cần vân tay); dự án riêng, chuyển dự án sang Git, máy đích, xin quyền vào máy
     chủ tạm (1–8 giờ).
 - Bấm thông báo "PR đã gộp / bị trả về" mở thẳng hàng chờ gộp của dự án đó.
+- An toàn: tên tệp, tiêu đề PR, commit có ký tự ẩn / đảo chiều chữ thì hiện rõ dạng `<U+202E>` để không bị giả dạng;
+  đường dẫn dài cắt ở giữa, luôn giữ tên tệp; Kéo về, rút PR, xoá việc nhẹ, quay lại bản cũ đều hỏi lại và không gửi
+  trùng khi bấm hai lần; nút Mở PR hỏi trước và chỉ mở liên kết https.
 
 ## 1.54.0 · 19/11/2026
 ### Tính năng

@@ -14,9 +14,11 @@ import '../../../data/ide_connection.dart';
 import '../../../domain/ide_deploy.dart';
 import '../../../domain/ide_project.dart';
 import '../../../domain/ide_project_info.dart';
+import '../../../domain/ide_visible_text.dart';
 import '../../controllers/ide_controllers.dart';
 import '../../controllers/ide_project_controllers.dart';
 import '../../controllers/ide_project_ops_controllers.dart';
+import '../../widgets/projects/ide_preview_view.dart' show IdePathText;
 import '../../widgets/projects/ide_project_ui.dart';
 import 'ide_project_picker.dart';
 import 'ide_project_sheets.dart';
@@ -294,7 +296,10 @@ class _PickerHeader extends StatelessWidget {
           onTap: onTap,
           child: Container(
             constraints: const BoxConstraints(minHeight: 56),
-            padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.lg),
+            padding: const EdgeInsets.symmetric(
+              horizontal: WebTuiSpacing.lg,
+              vertical: WebTuiSpacing.sm,
+            ),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(WebTuiRadii.md),
               border: Border.all(color: WebTuiColors.border),
@@ -303,18 +308,27 @@ class _PickerHeader extends StatelessWidget {
               children: [
                 Icon(Icons.folder_open_rounded, color: WebTuiColors.primary),
                 const SizedBox(width: WebTuiSpacing.md),
+                // Tên dự án dùng hết chiều ngang, nhãn loại nằm dòng dưới để
+                // chữ cỡ lớn vẫn đọc được tên (trước đây chỉ còn "chat-…").
                 Expanded(
-                  child: Text(
-                    project.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: WebTuiTypography.titleMedium.copyWith(
-                      color: WebTuiColors.textPrimary,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        project.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: WebTuiTypography.titleMedium.copyWith(
+                          color: WebTuiColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: WebTuiSpacing.xs),
+                      WebTuiStatusPill(
+                        label: ideProjectGroupLabel(ideProjectGroup(project)),
+                      ),
+                    ],
                   ),
-                ),
-                WebTuiStatusPill(
-                  label: ideProjectGroupLabel(ideProjectGroup(project)),
                 ),
                 const SizedBox(width: WebTuiSpacing.xs),
                 Icon(Icons.unfold_more_rounded, color: WebTuiColors.textMuted),
@@ -380,7 +394,7 @@ class _InfoCard extends StatelessWidget {
           if (c != null)
             line(
               Icons.commit_rounded,
-              '${c.subject}\n${c.shortSha} · ${c.by} · ${ideFormatUnix(c.at)}',
+              '${ideVisibleText(c.subject)}\n${ideVisibleText(c.shortSha)} · ${ideVisibleText(c.by)} · ${ideFormatUnix(c.at)}',
               const Key('ide_info_commit'),
             ),
         ],
@@ -420,10 +434,8 @@ class _ChangesCard extends StatelessWidget {
                     ),
                   ),
                   Expanded(
-                    child: Text(
+                    child: IdePathText(
                       f.path,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                       style: WebTuiTypography.bodySmall.copyWith(
                         color: WebTuiColors.textPrimary,
                       ),
@@ -464,7 +476,7 @@ class _LogCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    c.subject,
+                    ideVisibleText(c.subject),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: WebTuiTypography.bodyMedium.copyWith(
@@ -472,7 +484,7 @@ class _LogCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '${c.shortSha} · ${c.by} · ${ideFormatUnix(c.at)}',
+                    '${ideVisibleText(c.shortSha)} · ${ideVisibleText(c.by)} · ${ideFormatUnix(c.at)}',
                     style: WebTuiTypography.bodySmall.copyWith(
                       color: WebTuiColors.textMuted,
                     ),

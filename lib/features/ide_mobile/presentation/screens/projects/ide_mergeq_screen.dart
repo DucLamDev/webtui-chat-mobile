@@ -12,6 +12,7 @@ import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_errors.dart';
 import '../../../domain/ide_mergeq.dart';
+import '../../../domain/ide_visible_text.dart';
 import '../../controllers/ide_controllers.dart';
 import '../../controllers/ide_project_ops_controllers.dart';
 import '../../widgets/ide_step_sheet.dart';
@@ -78,6 +79,7 @@ class _MergeqState extends ConsumerState<IdeMergeqScreen> {
   IdeMergeView? _view;
   List<IdeMergeMineGroup> _mine = const [];
   bool _reloading = false;
+  bool _acting = false;
   bool _scrolled = false;
   final _prKey = GlobalKey();
   bool _prKeyUsed = false;
@@ -205,47 +207,64 @@ class _MergeqState extends ConsumerState<IdeMergeqScreen> {
   }
 
   Future<void> _withdraw(IdeMergeEntry e) async {
-    final ok = await showWebTuiConfirmDialog(
-      context,
-      title: tr('Rút PR #${e.number}?', 'Withdraw PR #${e.number}?'),
-      message: tr(
-        'PR sẽ rời hàng chờ. Cần xác nhận bằng vân tay.',
-        'The PR leaves the queue. Needs fingerprint.',
-      ),
-      confirmLabel: tr('Rút PR', 'Withdraw'),
-      cancelLabel: tr('Giữ lại', 'Keep'),
-      destructive: true,
-      icon: Icons.undo_rounded,
-    );
-    if (!ok || !mounted) return;
-    final done = await ideProjectGuard(context, () async {
-      await ref
-          .read(ideProjectServiceProvider)
-          .withdraw(widget.project!, e.number);
-      return true;
-    });
-    if (done == true && mounted) {
-      ideProjectSnack(context, tr('Đã rút PR', 'PR withdrawn'));
-      await _load(silent: true);
+    if (_acting) return;
+    setState(() => _acting = true);
+    try {
+      final name = ideVisibleText(widget.project!);
+      final ok = await showWebTuiConfirmDialog(
+        context,
+        title: tr('Rút PR #${e.number}?', 'Withdraw PR #${e.number}?'),
+        message: tr(
+          'PR #${e.number} của dự án $name sẽ rời hàng chờ. Cần xác nhận bằng vân tay.',
+          'PR #${e.number} of project $name leaves the queue. Needs fingerprint.',
+        ),
+        confirmLabel: tr('Rút PR', 'Withdraw'),
+        cancelLabel: tr('Giữ lại', 'Keep'),
+        destructive: true,
+        icon: Icons.undo_rounded,
+      );
+      if (!ok || !mounted) return;
+      final done = await ideProjectGuard(context, () async {
+        await ref
+            .read(ideProjectServiceProvider)
+            .withdraw(widget.project!, e.number);
+        return true;
+      });
+      if (done == true && mounted) {
+        ideProjectSnack(context, tr('Đã rút PR', 'PR withdrawn'));
+        await _load(silent: true);
+      }
+    } finally {
+      if (mounted) setState(() => _acting = false);
     }
   }
 
   Future<void> _changeMode(String mode) async {
-    final ok = await showWebTuiConfirmDialog(
-      context,
-      title: tr('Đổi chế độ duyệt?', 'Change review mode?'),
-      message: '${ideMergeModeLabel(mode)}.',
-      confirmLabel: tr('Đổi', 'Change'),
-      cancelLabel: tr('Huỷ', 'Cancel'),
-    );
-    if (!ok || !mounted) return;
-    final done = await ideProjectGuard(context, () async {
-      await ref
-          .read(ideProjectServiceProvider)
-          .setMergeMode(widget.project!, mode);
-      return true;
-    });
-    if (done == true && mounted) await _load(silent: true);
+    if (_acting) return;
+    setState(() => _acting = true);
+    try {
+      final name = ideVisibleText(widget.project!);
+      final ok = await showWebTuiConfirmDialog(
+        context,
+        title: tr('Đổi chế độ duyệt?', 'Change review mode?'),
+        message: tr(
+          'Dự án $name sẽ chuyển sang chế độ "${ideMergeModeLabel(mode)}".',
+          'Project $name will switch to "${ideMergeModeLabel(mode)}".',
+        ),
+        confirmLabel: tr('Đổi', 'Change'),
+        cancelLabel: tr('Huỷ', 'Cancel'),
+      );
+      if (!ok || !mounted) return;
+      final done = await ideProjectGuard(context, () async {
+        await ref
+            .read(ideProjectServiceProvider)
+            .setMergeMode(widget.project!, mode);
+        return true;
+      });
+      if (done == true && mounted) await _load(silent: true);
+    } finally {
+      if (mounted) setState(() => _acting = false);
+    }
   }
 
   Future<void> _showLog(IdeMergeRecent r) {
@@ -274,7 +293,9 @@ class _MergeqState extends ConsumerState<IdeMergeqScreen> {
         title: Text(
           _isMine
               ? tr('Hàng chờ của tôi', 'My merge queue')
-              : tr('Hàng chờ gộp', 'Merge queue'),
+              : '${tr('Hàng chờ gộp', 'Merge queue')} · ${ideVisibleText(widget.project!)}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
       ),
       body: _body(),
@@ -430,7 +451,7 @@ class _MergeqState extends ConsumerState<IdeMergeqScreen> {
             children: [
               Expanded(
                 child: Text(
-                  '#${e.number} ${e.title}',
+                  '#${e.number} ${ideVisibleText(e.title)}',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: WebTuiTypography.titleMedium.copyWith(
@@ -443,8 +464,8 @@ class _MergeqState extends ConsumerState<IdeMergeqScreen> {
           ),
           Text(
             [
-              e.branch,
-              e.by,
+              ideVisibleText(e.branch),
+              ideVisibleText(e.by),
               ideFormatUnix(e.joinedAt),
             ].where((s) => s.isNotEmpty).join(' · '),
             style: WebTuiTypography.bodySmall.copyWith(
@@ -455,7 +476,10 @@ class _MergeqState extends ConsumerState<IdeMergeqScreen> {
             Padding(
               padding: const EdgeInsets.only(top: WebTuiSpacing.xs),
               child: Text(
-                [e.step, e.note].where((s) => s.isNotEmpty).join(' · '),
+                [e.step, e.note]
+                    .where((s) => s.isNotEmpty)
+                    .map(ideVisibleText)
+                    .join(' · '),
                 style: WebTuiTypography.bodySmall.copyWith(
                   color: WebTuiColors.textSecondary,
                 ),
@@ -466,7 +490,7 @@ class _MergeqState extends ConsumerState<IdeMergeqScreen> {
               alignment: Alignment.centerRight,
               child: TextButton.icon(
                 key: Key('ide_mergeq_withdraw_${e.number}'),
-                onPressed: () => _withdraw(e),
+                onPressed: _acting ? null : () => _withdraw(e),
                 icon: const Icon(Icons.undo_rounded, size: 18),
                 label: Text(tr('Rút PR', 'Withdraw')),
                 style: TextButton.styleFrom(
@@ -506,7 +530,7 @@ class _MergeqState extends ConsumerState<IdeMergeqScreen> {
             children: [
               Expanded(
                 child: Text(
-                  '#${r.number} ${r.title}',
+                  '#${r.number} ${ideVisibleText(r.title)}',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: WebTuiTypography.titleMedium.copyWith(
@@ -522,8 +546,8 @@ class _MergeqState extends ConsumerState<IdeMergeqScreen> {
           ),
           Text(
             [
-              r.branch,
-              r.by,
+              ideVisibleText(r.branch),
+              ideVisibleText(r.by),
               ideFormatUnix(r.closedAt),
             ].where((s) => s.isNotEmpty).join(' · '),
             style: WebTuiTypography.bodySmall.copyWith(
@@ -534,7 +558,7 @@ class _MergeqState extends ConsumerState<IdeMergeqScreen> {
             Padding(
               padding: const EdgeInsets.only(top: WebTuiSpacing.xs),
               child: Text(
-                r.note,
+                ideVisibleText(r.note),
                 style: WebTuiTypography.bodySmall.copyWith(
                   color: WebTuiColors.textSecondary,
                 ),
@@ -741,25 +765,35 @@ class _LightSheetState extends ConsumerState<_LightSheet> {
     }
   }
 
-  Future<void> _clear({String? code}) async {
+  Future<void> _clear({String? code, String? label}) async {
     if (_busy) return;
-    if (code == null) {
-      final yes = await showWebTuiConfirmDialog(
-        context,
-        title: tr('Xoá hết việc nhẹ?', 'Clear all light jobs?'),
-        message: tr(
-          'Tất cả việc nhẹ của dự án sẽ bị xoá. Cần xác nhận bằng vân tay.',
-          'All light jobs of the project will be cleared. Needs fingerprint.',
-        ),
-        confirmLabel: tr('Xoá hết', 'Clear all'),
-        cancelLabel: tr('Giữ lại', 'Keep'),
-        destructive: true,
-        icon: Icons.delete_sweep_rounded,
-      );
-      if (!yes || !mounted) return;
-    }
     setState(() => _busy = true);
     try {
+      final yes = code == null
+          ? await showWebTuiConfirmDialog(
+              context,
+              title: tr('Xoá hết việc nhẹ?', 'Clear all light jobs?'),
+              message: tr(
+                'Tất cả việc nhẹ của dự án sẽ bị xoá.',
+                'All light jobs of the project will be cleared.',
+              ),
+              confirmLabel: tr('Xoá hết', 'Clear all'),
+              cancelLabel: tr('Giữ lại', 'Keep'),
+              destructive: true,
+              icon: Icons.delete_sweep_rounded,
+            )
+          : await showWebTuiConfirmDialog(
+              context,
+              title: tr('Xong việc này?', 'Clear this job?'),
+              message: tr(
+                'Việc "${label ?? code}" sẽ bị xoá khỏi danh sách việc nhẹ.',
+                'The job "${label ?? code}" will be removed from the light jobs.',
+              ),
+              confirmLabel: tr('Xong việc', 'Clear'),
+              cancelLabel: tr('Giữ lại', 'Keep'),
+              icon: Icons.done_rounded,
+            );
+      if (!yes || !mounted) return;
       final ok = await ideProjectGuard(context, () async {
         await ref
             .read(ideProjectServiceProvider)
@@ -799,15 +833,15 @@ class _LightSheetState extends ConsumerState<_LightSheet> {
               key: Key('ide_light_${i.code}'),
               minTileHeight: 56,
               title: Text(
-                i.title.isEmpty ? i.content : i.title,
+                ideVisibleText(i.title.isEmpty ? i.content : i.title),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
               subtitle: Text(
                 [
                   if (i.number > 0) '#${i.number}',
-                  i.branch,
-                  i.by,
+                  ideVisibleText(i.branch),
+                  ideVisibleText(i.by),
                   ideFormatUnix(i.at),
                 ].where((s) => s.isNotEmpty).join(' · '),
               ),
@@ -818,7 +852,14 @@ class _LightSheetState extends ConsumerState<_LightSheet> {
                         minWidth: 44,
                         minHeight: 44,
                       ),
-                      onPressed: _busy ? null : () => _clear(code: i.code),
+                      onPressed: _busy
+                          ? null
+                          : () => _clear(
+                              code: i.code,
+                              label: ideVisibleText(
+                                i.title.isEmpty ? i.content : i.title,
+                              ),
+                            ),
                       icon: const Icon(Icons.done_rounded),
                       tooltip: tr('Xong việc này', 'Clear'),
                     )

@@ -313,4 +313,76 @@ void main() {
     expect(find.byKey(const Key('ide_deploy_failed')), findsOneWidget);
     expect(find.text('Xem log'), findsNothing);
   });
+
+  testWidgets('Kéo về: hỏi xác nhận có số tệp đang đổi, huỷ thì không gửi', (
+    tester,
+  ) async {
+    final sim = _Sim();
+    await _pump(tester, (op, a) {
+      if (op == 'projects.info') return {'dirty': 3};
+      if (op == 'deploy.pull') {
+        sim.sent.putIfAbsent(op, () => []).add(a);
+        return {'job': 'pl1'};
+      }
+      return sim.call(op, a);
+    });
+    await _tap(tester, 'ide_deploy_pull');
+    await tester.tap(find.byKey(const Key('ide_pull_all')));
+    await pumpFor(tester);
+    expect(find.textContaining('bị thay bằng bản trên máy chủ'), findsOneWidget);
+    expect(find.textContaining('3 tệp đang thay đổi'), findsOneWidget);
+    await tester.tap(find.text('Huỷ').last);
+    await pumpFor(tester);
+    expect(sim.sent['deploy.pull'], isNull);
+    await _tap(tester, 'ide_deploy_pull');
+    await tester.tap(find.byKey(const Key('ide_pull_newer')));
+    await pumpFor(tester);
+    await tester.tap(find.byType(FilledButton).last);
+    await pumpFor(tester);
+    expect(sim.sent['deploy.pull']!.single['newer'], isTrue);
+  });
+
+  testWidgets('lịch sử: hộp quay lại ghi mã commit, chữ giả dạng hiện rõ, '
+      'khoá nút khi đang hỏi', (tester) async {
+    final sim = _Sim();
+    await _pump(tester, (op, a) {
+      if (op == 'deploy.history') {
+        return {
+          'items': [
+            {
+              'id': 'abcdef1234',
+              'kind': 'run',
+              'at': 1700000000,
+              'by': 'an',
+              'subject': 'Bản\u202Egpj',
+            },
+          ],
+        };
+      }
+      return sim.call(op, a);
+    });
+    await _tap(tester, 'ide_deploy_history');
+    await tester.tap(find.byKey(const Key('ide_history_rollback_abcdef1234')));
+    await pumpFor(tester);
+    expect(find.textContaining('(abcdef1)'), findsOneWidget);
+    expect(find.textContaining('<U+202E>'), findsWidgets);
+    // Đang mở hộp hỏi: nút phía sau đã khoá chống bấm trùng.
+    final btn = tester.widget<TextButton>(
+      find.byKey(const Key('ide_history_rollback_abcdef1234')),
+    );
+    expect(btn.onPressed, isNull);
+    await tester.tap(find.text('Huỷ').last);
+    await pumpFor(tester);
+    final again = tester.widget<TextButton>(
+      find.byKey(const Key('ide_history_rollback_abcdef1234')),
+    );
+    expect(again.onPressed, isNotNull);
+  });
+
+  test('ideFormatUnix: số giây quá lớn không ném lỗi', () {
+    expect(ideFormatUnix(10000000000000), '—');
+    expect(ideFormatUnix(9223372036854775807), '—');
+    expect(ideFormatUnix(0), '');
+    expect(ideFormatUnix(1700000000), isNot('—'));
+  });
 }

@@ -10,6 +10,7 @@ import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_deploy.dart';
 import '../../../domain/ide_project.dart';
+import '../../../domain/ide_visible_text.dart';
 import '../../controllers/ide_controllers.dart';
 import '../../controllers/ide_project_ops_controllers.dart';
 import '../../widgets/projects/ide_project_ui.dart';
@@ -85,60 +86,82 @@ class _HistoryState extends ConsumerState<IdeDeployHistorySheet> {
     }
   }
 
+  bool _busy = false;
+
+  String _shortId(IdeHistoryItem i) =>
+      ideVisibleText(i.id.length > 7 ? i.id.substring(0, 7) : i.id);
+
+  String _subjectOf(IdeHistoryItem i) =>
+      ideVisibleText(i.subject.isEmpty ? i.id : i.subject);
+
   Future<void> _rollback(IdeHistoryItem item) async {
-    final ok = await showWebTuiConfirmDialog(
-      context,
-      title: tr('Quay lại bản cũ?', 'Roll back?'),
-      message: tr(
-        'Máy chủ${widget.target.isNotEmpty ? ' "${widget.target}"' : ''} sẽ chạy lại bản "${item.subject.isEmpty ? item.id : item.subject}". Cần xác nhận bằng vân tay.',
-        'The server${widget.target.isNotEmpty ? ' "${widget.target}"' : ''} will run "${item.subject.isEmpty ? item.id : item.subject}" again. Needs fingerprint.',
-      ),
-      confirmLabel: tr('Quay lại bản này', 'Roll back'),
-      cancelLabel: tr('Huỷ', 'Cancel'),
-      destructive: true,
-      icon: Icons.history_rounded,
-    );
-    if (!ok || !mounted) return;
-    final job = await ideProjectGuard(
-      context,
-      () => ref.read(ideProjectServiceProvider).startJob(_ops.rollback, {
-        'project': widget.project.name,
-        if (!_ops.isMy && widget.target.isNotEmpty) 'target': widget.target,
-        'id': item.id,
-      }),
-    );
-    if (job != null && mounted) Navigator.of(context).pop(job);
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final label = '"${_subjectOf(item)}" (${_shortId(item)})';
+      final tgt = widget.target.isNotEmpty ? ' "${widget.target}"' : '';
+      final ok = await showWebTuiConfirmDialog(
+        context,
+        title: tr('Quay lại bản cũ?', 'Roll back?'),
+        message: tr(
+          'Máy chủ$tgt sẽ chạy lại bản $label. Cần xác nhận bằng vân tay.',
+          'The server$tgt will run $label again. Needs fingerprint.',
+        ),
+        confirmLabel: tr('Quay lại bản này', 'Roll back'),
+        cancelLabel: tr('Huỷ', 'Cancel'),
+        destructive: true,
+        icon: Icons.history_rounded,
+      );
+      if (!ok || !mounted) return;
+      final job = await ideProjectGuard(
+        context,
+        () => ref.read(ideProjectServiceProvider).startJob(_ops.rollback, {
+          'project': widget.project.name,
+          if (!_ops.isMy && widget.target.isNotEmpty) 'target': widget.target,
+          'id': item.id,
+        }),
+      );
+      if (job != null && mounted) Navigator.of(context).pop(job);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _restore(IdeHistoryItem item) async {
-    final path = await showWebTuiTextInputDialog(
-      context,
-      title: tr('Khôi phục một tệp', 'Restore one file'),
-      message: tr(
-        'Nhập đường dẫn tệp trong dự án (ví dụ src/app.php).',
-        'Enter the file path inside the project (e.g. src/app.php).',
-      ),
-      label: tr('Đường dẫn tệp', 'File path'),
-      confirmLabel: tr('Khôi phục', 'Restore'),
-      validator: (v) => ideRelativePathError(v) == null
-          ? null
-          : tr(
-              'Đường dẫn phải tính từ thư mục dự án, không có "..".',
-              'Use a path inside the project, without "..".',
-            ),
-    );
-    if (path == null || !mounted) return;
-    final done = await ideProjectGuard(
-      context,
-      () => ref.read(ideProjectServiceProvider).call(_ops.restore, {
-        'project': widget.project.name,
-        if (!_ops.isMy && widget.target.isNotEmpty) 'target': widget.target,
-        'id': item.id,
-        'path': path.trim(),
-      }),
-    );
-    if (done != null && mounted) {
-      ideProjectSnack(context, tr('Đã khôi phục tệp', 'File restored'));
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final path = await showWebTuiTextInputDialog(
+        context,
+        title: tr('Khôi phục một tệp', 'Restore one file'),
+        message: tr(
+          'Nhập đường dẫn tệp trong dự án (ví dụ src/app.php).',
+          'Enter the file path inside the project (e.g. src/app.php).',
+        ),
+        label: tr('Đường dẫn tệp', 'File path'),
+        confirmLabel: tr('Khôi phục', 'Restore'),
+        validator: (v) => ideRelativePathError(v) == null
+            ? null
+            : tr(
+                'Đường dẫn phải tính từ thư mục dự án, không có "..".',
+                'Use a path inside the project, without "..".',
+              ),
+      );
+      if (path == null || !mounted) return;
+      final done = await ideProjectGuard(
+        context,
+        () => ref.read(ideProjectServiceProvider).call(_ops.restore, {
+          'project': widget.project.name,
+          if (!_ops.isMy && widget.target.isNotEmpty) 'target': widget.target,
+          'id': item.id,
+          'path': path.trim(),
+        }),
+      );
+      if (done != null && mounted) {
+        ideProjectSnack(context, tr('Đã khôi phục tệp', 'File restored'));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -180,7 +203,7 @@ class _HistoryState extends ConsumerState<IdeDeployHistorySheet> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    i.subject.isEmpty ? i.id : i.subject,
+                    _subjectOf(i),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: WebTuiTypography.bodyMedium.copyWith(
@@ -190,8 +213,8 @@ class _HistoryState extends ConsumerState<IdeDeployHistorySheet> {
                   ),
                   Text(
                     [
-                      i.id.length > 8 ? i.id.substring(0, 8) : i.id,
-                      i.by,
+                      _shortId(i),
+                      ideVisibleText(i.by),
                       ideFormatUnix(i.at),
                       i.stat,
                     ].where((e) => e.isNotEmpty).join(' · '),
@@ -206,7 +229,7 @@ class _HistoryState extends ConsumerState<IdeDeployHistorySheet> {
                         if (canRollback)
                           TextButton(
                             key: Key('ide_history_rollback_${i.id}'),
-                            onPressed: () => _rollback(i),
+                            onPressed: _busy ? null : () => _rollback(i),
                             style: TextButton.styleFrom(
                               minimumSize: const Size(44, 44),
                             ),
@@ -215,7 +238,7 @@ class _HistoryState extends ConsumerState<IdeDeployHistorySheet> {
                         if (canRestore)
                           TextButton(
                             key: Key('ide_history_restore_${i.id}'),
-                            onPressed: () => _restore(i),
+                            onPressed: _busy ? null : () => _restore(i),
                             style: TextButton.styleFrom(
                               minimumSize: const Size(44, 44),
                             ),
