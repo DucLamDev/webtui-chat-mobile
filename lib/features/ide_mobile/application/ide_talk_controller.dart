@@ -82,6 +82,7 @@ class IdeTalkController extends StateNotifier<IdeTalkState> {
     this.idleReopenAfter = const Duration(seconds: 50),
     this.idleCheckEvery = const Duration(seconds: 5),
     this.retryAfter = const Duration(seconds: 4),
+    this.deltaBackoffBase = const Duration(seconds: 1),
   }) : _connection = connection,
        _service = service,
        super(const IdeTalkState());
@@ -92,6 +93,13 @@ class IdeTalkController extends StateNotifier<IdeTalkState> {
   final Duration idleReopenAfter;
   final Duration idleCheckEvery;
   final Duration retryAfter;
+
+  /// Giãn cách mở lại khi delta mang mã tin lạ: base, 2×, 4×… tối đa 30×.
+  final Duration deltaBackoffBase;
+
+  /// Số lần liền nhận delta mã tin lạ (về 0 khi một delta khớp).
+  static const maxDeltaMisses = 5;
+  int _deltaMisses = 0;
 
   IdeChannel? _channel;
   StreamSubscription<Map<String, Object?>>? _sub;
@@ -184,17 +192,34 @@ class IdeTalkController extends StateNotifier<IdeTalkState> {
         _set(
           state.copyWith(link: IdeTalkLink.live, conversation: conversation),
         );
-      case IdeTalkDelta(:final message):
+      case IdeTalkDelta(:final message, :final talkId):
+        // Khung của cuộc khác thì bỏ qua (khung không ghi id thì nhận).
+        if (talkId != null && talkId != this.talkId) return;
         final conv = state.conversation;
         final msgs = conv?.messages ?? const <IdeTalkMessage>[];
         if (conv == null || msgs.isEmpty || msgs.last.id != message.id) {
-          // Tin lạ: mở lại để nhận khung đầy đủ (chống vòng lặp quá nhanh).
-          if (_clock.elapsed - _lastDeltaReopen > const Duration(seconds: 1)) {
-            _lastDeltaReopen = _clock.elapsed;
-            unawaited(_open());
+          // Tin lạ: mở lại để nhận khung đầy đủ, giãn dần; quá
+          // [maxDeltaMisses] lần liền thì báo lỗi (có nút Nối lại).
+          final gap = _deltaMisses == 0
+              ? Duration.zero
+              : deltaBackoffBase * (1 << (_deltaMisses - 1)).clamp(1, 30);
+          if (_clock.elapsed - _lastDeltaReopen < gap) return;
+          if (_deltaMisses >= maxDeltaMisses) {
+            unawaited(_stopChannel());
+            _set(
+              state.copyWith(
+                link: IdeTalkLink.failed,
+                message: 'Tin nhận về không khớp.',
+              ),
+            );
+            return;
           }
+          _deltaMisses++;
+          _lastDeltaReopen = _clock.elapsed;
+          unawaited(_open());
           return;
         }
+        _deltaMisses = 0;
         _set(
           state.copyWith(
             link: IdeTalkLink.live,
@@ -250,6 +275,7 @@ class IdeTalkController extends StateNotifier<IdeTalkState> {
       IdeTalkLink.failed,
     }.contains(state.link)) {
       _paused = false;
+      _deltaMisses = 0;
       unawaited(_open());
     }
   }
@@ -309,6 +335,12 @@ class IdeTalkController extends StateNotifier<IdeTalkState> {
     if (images.length > ideTalkMaxImages || files.length > ideTalkMaxFiles) {
       throw const IdeTooLarge('Đính kèm quá nhiều.');
     }
+    // Kiểm cỡ MỌI tệp trước khi tải cái đầu tiên (không tải dở rồi mới lỗi).
+    for (final a in attachments) {
+      if (a.size > (a.image ? ideTalkMaxImageBytes : ideTalkMaxFileBytes)) {
+        throw IdeTooLarge(a.image ? 'Ảnh quá 20 MB.' : 'Tệp quá 50 MB.');
+      }
+    }
     final imageRefs = <String>[];
     final fileRefs = <String>[];
     for (final a in attachments) {
@@ -328,6 +360,7 @@ class IdeTalkController extends StateNotifier<IdeTalkState> {
       images: imageRefs,
       files: fileRefs,
     );
+    if (_disposed) return result;
     if (state.link == IdeTalkLink.lost) reconnect();
     return result;
   });

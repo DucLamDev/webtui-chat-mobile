@@ -208,7 +208,11 @@ void main() {
         const IdeServersScreen(),
         _h(
           extra: {
-            'servers.add': const IdeFakeError('bad_request', 'chưa vào được'),
+            'servers.add': const IdeFakeError(
+              'bad_request',
+              'chưa vào được',
+              'pubkey',
+            ),
           },
         ),
         ops: _ops,
@@ -261,5 +265,29 @@ void main() {
       textScale: 1.6,
     );
     expect(t.takeException(), isNull);
+  });
+
+  testWidgets('bad_request không kèm hint pubkey: không hiện khoá công khai', (
+    t,
+  ) async {
+    await pumpTool(
+      t,
+      const IdeServersScreen(),
+      _h(
+        extra: {
+          'servers.add': const IdeFakeError('bad_request', 'địa chỉ sai'),
+        },
+      ),
+      ops: _ops,
+    );
+    await _openAdd(t);
+    await _fillAdd(t, pw: '');
+    final submit = find.byKey(const Key('ide_server_submit'));
+    await t.ensureVisible(submit);
+    await t.tap(submit);
+    await settle(t);
+    await settleAll(t);
+    expect(find.byKey(const Key('ide_server_error')), findsOneWidget);
+    expect(find.byKey(const Key('ide_server_pubkey')), findsNothing);
   });
 }

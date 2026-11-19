@@ -50,12 +50,38 @@ class _IdeTalkScreenState extends ConsumerState<IdeTalkScreen>
   IdeTalkController get _ctl =>
       ref.read(ideTalkControllerProvider(widget.talkId).notifier);
 
+  // Stream chỉ chạy khi app ở trước VÀ màn này đang là route trên cùng (mở
+  // cuộc khác đè lên thì dừng, quay lại thì mở lại). Cách của màn hàng chờ gộp.
+  bool _appForeground = true;
+  bool _routeCurrent = true;
+
+  void _syncStream() {
+    if (!mounted) return;
+    if (_appForeground && _routeCurrent) {
+      _ctl.resume();
+    } else {
+      _ctl.pause();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final current = ModalRoute.of(context)?.isCurrent ?? true;
+    if (current != _routeCurrent) {
+      _routeCurrent = current;
+      _syncStream();
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState s) {
     if (s == AppLifecycleState.paused || s == AppLifecycleState.hidden) {
-      _ctl.pause();
+      _appForeground = false;
+      _syncStream();
     } else if (s == AppLifecycleState.resumed) {
-      _ctl.resume();
+      _appForeground = true;
+      _syncStream();
     }
   }
 
@@ -110,7 +136,7 @@ class _IdeTalkScreenState extends ConsumerState<IdeTalkScreen>
               ),
             ),
             const SizedBox(height: WebTuiSpacing.sm),
-            SelectableText(text),
+            SelectableText(ideVisibleText(text)),
           ],
         ),
         actions: [
@@ -121,7 +147,9 @@ class _IdeTalkScreenState extends ConsumerState<IdeTalkScreen>
           FilledButton(
             key: const Key('talk_share_copy'),
             onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: text));
+              await Clipboard.setData(
+                ClipboardData(text: ideTalkCleanText(text)),
+              );
               if (ctx.mounted) Navigator.of(ctx).pop();
               _snack(tr('Đã chép.', 'Copied.'));
             },
@@ -148,10 +176,12 @@ class _IdeTalkScreenState extends ConsumerState<IdeTalkScreen>
     final msg = await showIdeTalkAgentSheet(
       context,
       talkId: widget.talkId,
-      initialName: ideVisibleText(conv.title),
-      initialTask: (firstUser ?? '').length > 8000
-          ? firstUser!.substring(0, 8000)
-          : firstUser ?? '',
+      // Tiêu đề GỐC đã lọc ký tự Cf / điều khiển (không phải chuỗi hiển thị có
+      // `⏎` / `<U+202E>`), cắt theo ký tự người dùng thấy.
+      initialName: ideTalkCleanText(
+        conv.title,
+      ).trim().characters.take(60).string,
+      initialTask: (firstUser ?? '').characters.take(8000).string,
       agent: conv.agent,
       canDraft: ideTalkCan(ref, 'talk.agent_draft'),
     );
@@ -406,8 +436,9 @@ class _Messages extends StatelessWidget {
           message: m,
           canDownload: canFile,
           onFollowup: (q) {
-            input.text = q;
-            input.selection = TextSelection.collapsed(offset: q.length);
+            final clean = ideTalkCleanText(q, keepLayout: true);
+            input.text = clean;
+            input.selection = TextSelection.collapsed(offset: clean.length);
           },
         );
       },
@@ -493,4 +524,18 @@ class _QueuePanel extends StatelessWidget {
       ),
     );
   }
+}
+
+final _ideTalkBadKeep = RegExp(
+  r'[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u2028\u2029]|\p{Cf}',
+  unicode: true,
+);
+
+/// Bỏ ký tự điều khiển / định dạng vô hình (Cf, đảo chiều chữ). [keepLayout]
+/// giữ xuống dòng và tab (chép vào ô soạn); mặc định đổi chúng thành dấu cách.
+String ideTalkCleanText(String raw, {bool keepLayout = false}) {
+  if (keepLayout) return raw.replaceAll(_ideTalkBadKeep, '');
+  return raw
+      .replaceAll(RegExp(r'[\u0000-\u001f\u007f-\u009f\u2028\u2029]'), ' ')
+      .replaceAll(RegExp(r'\p{Cf}', unicode: true), '');
 }

@@ -33,6 +33,7 @@ final class FakeSvc extends IdeTalkService {
   final sends = <Map<String, Object?>>[];
   final gate = Completer<void>();
   bool hold = false;
+  int uploads = 0;
 
   @override
   Future<String> uploadAttachment({
@@ -41,7 +42,10 @@ final class FakeSvc extends IdeTalkService {
     required String mime,
     required int size,
     required Stream<List<int>> Function() read,
-  }) async => image ? 'img_ref_1' : 'file_ref_1';
+  }) async {
+    uploads++;
+    return image ? 'img_ref_1' : 'file_ref_1';
+  }
 
   @override
   Future<IdeTalkSendResult> send({
@@ -63,6 +67,7 @@ final class Rig {
   Rig({
     Duration idle = const Duration(milliseconds: 200),
     Duration check = const Duration(milliseconds: 30),
+    Duration deltaBase = const Duration(seconds: 1),
   }) {
     connection = IdeConnection(
       openChannel: () async {
@@ -85,6 +90,7 @@ final class Rig {
       idleReopenAfter: idle,
       idleCheckEvery: check,
       retryAfter: const Duration(milliseconds: 20),
+      deltaBackoffBase: deltaBase,
     );
   }
 

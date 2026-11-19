@@ -26,7 +26,15 @@ class _IdeDevicesScreenState extends ConsumerState<IdeDevicesScreen> {
 
   Future<void> _revoke(IdeDevice d, Future<void> Function() reload) async {
     if (_busyId != null) return;
-    final self = d.current;
+    // "Máy này" = device_id khớp credentials đã lưu, không chỉ tin `current` từ IDE.
+    String? myId;
+    try {
+      myId = (await ref.read(ideCredentialsProvider.future))?.deviceId;
+    } on Object {
+      myId = null;
+    }
+    if (!mounted) return;
+    final self = myId != null && myId.isNotEmpty && d.id == myId;
     final ok = await showWebTuiConfirmDialog(
       context,
       title: self
@@ -47,13 +55,16 @@ class _IdeDevicesScreenState extends ConsumerState<IdeDevicesScreen> {
     if (ok != true || !mounted) return;
     setState(() => _busyId = d.id);
     try {
-      final current = await ref.read(ideDevicesServiceProvider).revoke(d.id);
+      await ref.read(ideDevicesServiceProvider).revoke(d.id);
       if (!mounted) return;
-      if (self || current) {
-        await ref.read(idePairingServiceProvider).removeThisDevice();
-        ref
-          ..invalidate(ideCredentialsProvider)
-          ..invalidate(ideCapabilitiesProvider);
+      if (self) {
+        try {
+          await ref.read(idePairingServiceProvider).removeThisDevice();
+        } finally {
+          ref
+            ..invalidate(ideCredentialsProvider)
+            ..invalidate(ideCapabilitiesProvider);
+        }
         if (mounted && Navigator.of(context).canPop()) {
           Navigator.of(context).pop();
         }

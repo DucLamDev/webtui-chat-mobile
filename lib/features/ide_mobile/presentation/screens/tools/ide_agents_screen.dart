@@ -290,7 +290,7 @@ class _AgentCard extends StatelessWidget {
                     color: WebTuiColors.textPrimary,
                   ),
                 ),
-                if (agent.scope.isNotEmpty) IdeTag(agent.scope),
+                if (agent.scope.isNotEmpty) IdeTag(ideVisibleText(agent.scope)),
                 if (agent.model.isNotEmpty) IdeTag(ideVisibleText(agent.model)),
                 if (a.running > 0)
                   IdeTag(

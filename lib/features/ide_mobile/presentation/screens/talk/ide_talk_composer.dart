@@ -111,7 +111,8 @@ class _IdeTalkComposerState extends ConsumerState<IdeTalkComposer> {
       _submitting = false;
     }
     if (ok && mounted) {
-      widget.controller.clear();
+      // Chỉ xoá đúng phần đã gửi: ô còn nguyên chữ đó thì xoá, đã gõ thêm thì giữ.
+      if (widget.controller.text == text) widget.controller.clear();
       setState(_picked.clear);
     }
   }

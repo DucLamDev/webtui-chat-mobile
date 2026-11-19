@@ -114,132 +114,138 @@ class _IdeTalkNewSheetState extends ConsumerState<IdeTalkNewSheet> {
   Widget build(BuildContext context) {
     final models = _models;
     final selected = models?.byId(_model ?? '');
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(
-          WebTuiSpacing.lg,
-          0,
-          WebTuiSpacing.lg,
-          WebTuiSpacing.lg,
+    // Đang gửi thì chặn đóng (vuốt, chạm nền, nút Back): không mất kết quả gửi.
+    return PopScope(
+      canPop: !_sending,
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              tr('Chat mới', 'New chat'),
-              style: WebTuiTypography.titleMedium.copyWith(
-                color: WebTuiColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: WebTuiSpacing.md),
-            TextField(
-              key: const Key('talk_new_text'),
-              controller: _text,
-              minLines: 3,
-              maxLines: 8,
-              autofocus: true,
-              textInputAction: TextInputAction.newline,
-              decoration: InputDecoration(
-                hintText: tr('Bạn muốn hỏi gì?', 'What do you want to ask?'),
-                border: const OutlineInputBorder(),
-              ),
-            ),
-            if (widget.withModels) ...[
-              const SizedBox(height: WebTuiSpacing.md),
-              if (_modelsError != null)
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        tr(
-                          'Chưa tải được danh sách mô hình, sẽ dùng mặc định.',
-                          'Could not load models; the default will be used.',
-                        ),
-                        style: WebTuiTypography.bodySmall.copyWith(
-                          color: WebTuiColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _loadModels,
-                      child: Text(tr('Thử lại', 'Retry')),
-                    ),
-                  ],
-                )
-              else if (models == null)
-                const LinearProgressIndicator()
-              else if (models.groups.isNotEmpty) ...[
-                DropdownButtonFormField<String>(
-                  key: const Key('talk_new_model'),
-                  initialValue: _model,
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    labelText: tr('Mô hình', 'Model'),
-                    border: const OutlineInputBorder(),
-                  ),
-                  items: [
-                    for (final m in models.all)
-                      DropdownMenuItem(
-                        value: m.id,
-                        child: Text(
-                          ideVisibleText(m.name),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                  onChanged: (v) => setState(() {
-                    _model = v;
-                    final m = models.byId(v ?? '');
-                    _effort =
-                        _effort != null &&
-                            (m?.efforts.contains(_effort) ?? false)
-                        ? _effort
-                        : _defaultEffort(m);
-                  }),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(
+            WebTuiSpacing.lg,
+            0,
+            WebTuiSpacing.lg,
+            WebTuiSpacing.lg,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                tr('Chat mới', 'New chat'),
+                style: WebTuiTypography.titleMedium.copyWith(
+                  color: WebTuiColors.textPrimary,
                 ),
-                if (selected != null && selected.efforts.isNotEmpty) ...[
-                  const SizedBox(height: WebTuiSpacing.sm),
-                  Text(
-                    tr('Mức suy nghĩ', 'Effort'),
-                    style: WebTuiTypography.labelSmall.copyWith(
-                      color: WebTuiColors.textSecondary,
-                    ),
-                  ),
-                  Wrap(
-                    spacing: WebTuiSpacing.sm,
+              ),
+              const SizedBox(height: WebTuiSpacing.md),
+              TextField(
+                key: const Key('talk_new_text'),
+                controller: _text,
+                minLines: 3,
+                maxLines: 8,
+                autofocus: true,
+                textInputAction: TextInputAction.newline,
+                decoration: InputDecoration(
+                  hintText: tr('Bạn muốn hỏi gì?', 'What do you want to ask?'),
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+              if (widget.withModels) ...[
+                const SizedBox(height: WebTuiSpacing.md),
+                if (_modelsError != null)
+                  Row(
                     children: [
-                      for (final e in selected.efforts)
-                        ChoiceChip(
-                          key: Key('talk_effort_$e'),
-                          label: Text(ideTalkEffortText(e)),
-                          selected: _effort == e,
-                          onSelected: (_) => setState(() => _effort = e),
+                      Expanded(
+                        child: Text(
+                          tr(
+                            'Chưa tải được danh sách mô hình, sẽ dùng mặc định.',
+                            'Could not load models; the default will be used.',
+                          ),
+                          style: WebTuiTypography.bodySmall.copyWith(
+                            color: WebTuiColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _loadModels,
+                        child: Text(tr('Thử lại', 'Retry')),
+                      ),
+                    ],
+                  )
+                else if (models == null)
+                  const LinearProgressIndicator()
+                else if (models.groups.isNotEmpty) ...[
+                  DropdownButtonFormField<String>(
+                    key: const Key('talk_new_model'),
+                    initialValue: _model,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      labelText: tr('Mô hình', 'Model'),
+                      border: const OutlineInputBorder(),
+                    ),
+                    items: [
+                      for (final m in models.all)
+                        DropdownMenuItem(
+                          value: m.id,
+                          child: Text(
+                            ideVisibleText(m.name),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                     ],
+                    onChanged: (v) => setState(() {
+                      _model = v;
+                      final m = models.byId(v ?? '');
+                      _effort =
+                          _effort != null &&
+                              (m?.efforts.contains(_effort) ?? false)
+                          ? _effort
+                          : _defaultEffort(m);
+                    }),
                   ),
+                  if (selected != null && selected.efforts.isNotEmpty) ...[
+                    const SizedBox(height: WebTuiSpacing.sm),
+                    Text(
+                      tr('Mức suy nghĩ', 'Effort'),
+                      style: WebTuiTypography.labelSmall.copyWith(
+                        color: WebTuiColors.textSecondary,
+                      ),
+                    ),
+                    Wrap(
+                      spacing: WebTuiSpacing.sm,
+                      children: [
+                        for (final e in selected.efforts)
+                          ChoiceChip(
+                            key: Key('talk_effort_$e'),
+                            label: Text(ideTalkEffortText(e)),
+                            selected: _effort == e,
+                            onSelected: (_) => setState(() => _effort = e),
+                          ),
+                      ],
+                    ),
+                  ],
                 ],
               ],
+              if (_error != null) ...[
+                const SizedBox(height: WebTuiSpacing.sm),
+                Text(_error!, style: TextStyle(color: WebTuiColors.danger)),
+              ],
+              const SizedBox(height: WebTuiSpacing.md),
+              FilledButton(
+                key: const Key('talk_new_send'),
+                onPressed: _sending ? null : _send,
+                style: FilledButton.styleFrom(minimumSize: const Size(44, 48)),
+                child: _sending
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(tr('Bắt đầu chat', 'Start chat')),
+              ),
             ],
-            if (_error != null) ...[
-              const SizedBox(height: WebTuiSpacing.sm),
-              Text(_error!, style: TextStyle(color: WebTuiColors.danger)),
-            ],
-            const SizedBox(height: WebTuiSpacing.md),
-            FilledButton(
-              key: const Key('talk_new_send'),
-              onPressed: _sending ? null : _send,
-              style: FilledButton.styleFrom(minimumSize: const Size(44, 48)),
-              child: _sending
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(tr('Bắt đầu chat', 'Start chat')),
-            ),
-          ],
+          ),
         ),
       ),
     );

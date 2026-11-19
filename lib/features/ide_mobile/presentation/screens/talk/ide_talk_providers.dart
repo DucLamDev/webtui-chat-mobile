@@ -36,14 +36,14 @@ final ideTalkControllerProvider = StateNotifierProvider.autoDispose
       )..start(),
     );
 
-/// Op có trong `ready.ops`? Chưa biết `ready` thì [unknown] (mặc định: có).
-bool ideTalkHasOp(WidgetRef ref, String op, {bool unknown = true}) {
+/// Op có trong `ready.ops`? Chưa biết `ready` thì [unknown] (mặc định: KHÔNG có, như `ideToolsHas`).
+bool ideTalkHasOp(WidgetRef ref, String op, {bool unknown = false}) {
   final ready = ref.watch(ideLinkStatusProvider).valueOrNull?.ready;
   return ready == null ? unknown : ready.hasOp(op);
 }
 
 /// Như [ideTalkHasOp] nhưng chỉ đọc: dùng trong hàm xử lý bấm, không trong `build`.
-bool ideTalkCan(WidgetRef ref, String op, {bool unknown = true}) {
+bool ideTalkCan(WidgetRef ref, String op, {bool unknown = false}) {
   final ready = ref.read(ideLinkStatusProvider).valueOrNull?.ready;
   return ready == null ? unknown : ready.hasOp(op);
 }

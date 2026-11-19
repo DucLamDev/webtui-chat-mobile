@@ -5,13 +5,14 @@ sealed class IdeException implements Exception {
   final String code;
   final String message;
 
-  factory IdeException.fromCode(String? code, String? message) {
+  /// [hint] (`error.hint`, vd `pubkey`) chỉ được giữ cho `bad_request`.
+  factory IdeException.fromCode(String? code, String? message, {String? hint}) {
     final text = (message ?? '').trim();
     return switch (code) {
       'not_found' => IdeNotFound(text),
       'forbidden' => IdeForbidden(text),
       'too_large' => IdeTooLarge(text),
-      'bad_request' => IdeBadRequest(text),
+      'bad_request' => IdeBadRequest(text, hint),
       'conflict' => IdeConflict(text),
       'busy' => IdeBusy(text),
       'timeout' => IdeTimeout(text),
@@ -39,7 +40,11 @@ final class IdeTooLarge extends IdeException {
 }
 
 final class IdeBadRequest extends IdeException {
-  const IdeBadRequest([String message = '']) : super('bad_request', message);
+  const IdeBadRequest([String message = '', this.hint])
+    : super('bad_request', message);
+
+  /// Gợi ý máy đọc được kèm lỗi (vd `pubkey`), `null` nếu IDE không gửi.
+  final String? hint;
 }
 
 final class IdeConflict extends IdeException {

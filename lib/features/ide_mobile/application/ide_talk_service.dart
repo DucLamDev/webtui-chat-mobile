@@ -149,7 +149,7 @@ class IdeTalkService {
     final d = await _rpc.call('talk.file', {'id': id, 'name': name});
     final m = d is Map ? d : const <Object?, Object?>{};
     final path = _s(m['path']);
-    if (!path.startsWith('/')) throw const IdeNotFound();
+    if (!ideTalkPathSafe(path)) throw const IdeNotFound();
     return (path: path, size: ideSafeInt(m['size']));
   }
 
@@ -176,7 +176,7 @@ class IdeTalkService {
     final path = _s(m['path']);
     final cut = path.lastIndexOf('/');
     if (ref.isEmpty ||
-        !path.startsWith('/') ||
+        !ideTalkSlotPathOk(path) ||
         cut <= 0 ||
         cut == path.length - 1) {
       throw const IdeError('bad_response', 'Không xin được chỗ tải lên.');
@@ -189,4 +189,22 @@ class IdeTalkService {
     }, read());
     return ref;
   }
+}
+
+/// Ô tải lên hợp lệ: `<thư mục>/.cache/vpsttt-ide/<người dùng chat>/(anh|tep)/<tên>`
+/// (mỗi người dùng chat một thư mục riêng, theo hợp đồng GĐ4).
+final _slotPath = RegExp(
+  r'^/[^\x00]+/\.cache/vpsttt-ide/[A-Za-z0-9_-]+/(anh|tep)/[^/]+$',
+);
+
+/// Đường dẫn ô tải lên IDE trả về có dùng được không.
+bool ideTalkSlotPathOk(String path) =>
+    _slotPath.hasMatch(path) && ideTalkPathSafe(path);
+
+/// Đường dẫn IDE trả về chỉ nhận khi tuyệt đối, không có đoạn `..`, không có
+/// ký tự điều khiển (chống thoát thư mục / chèn lệnh).
+bool ideTalkPathSafe(String path) {
+  if (!path.startsWith('/') || path.length > 4096) return false;
+  if (RegExp(r'[\u0000-\u001f\u007f-\u009f]').hasMatch(path)) return false;
+  return !path.split('/').contains('..');
 }

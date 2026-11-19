@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'ide_image_guard.dart';
+
 /// Ảnh quá lớn dù đã thu nhỏ hết mức.
 final class IdeAvatarTooLarge implements Exception {
   const IdeAvatarTooLarge();
@@ -25,16 +27,32 @@ final class DartUiAvatarEncoder implements IdeAvatarEncoder {
   static const side = 256;
   static const smallSide = 192;
 
+  /// Giới hạn trước khi giải mã (chặn bom giải nén).
+  static const maxSourceSide = 8000;
+  static const maxSourcePixels = 40 * 1000 * 1000;
+
+  /// Cạnh ngắn sau khi thu nhỏ ở bước giải mã.
+  static const decodeShortSide = 512;
+
   final int maxBytes;
 
   @override
   Future<Uint8List> encode(Uint8List source) async {
-    final original = await _decode(source);
+    final size = await ideReadImageSize(source);
+    if (size == null) throw const IdeAvatarUnreadable();
+    if (!ideImageSizeWithin(
+      size,
+      maxSide: maxSourceSide,
+      maxPixels: maxSourcePixels,
+    )) {
+      throw const IdeAvatarTooLarge();
+    }
+    final original = await _decode(source, size);
     try {
       final first = await _render(original, side);
       if (first.length <= maxBytes) return first;
       final small = await _render(original, smallSide);
-      final smallImage = await _decode(small);
+      final smallImage = await _decode(small, null);
       try {
         final second = await _render(smallImage, side);
         if (second.length <= maxBytes) return second;
@@ -47,9 +65,25 @@ final class DartUiAvatarEncoder implements IdeAvatarEncoder {
     }
   }
 
-  Future<ui.Image> _decode(Uint8List bytes) async {
+  /// Giải mã; có [size] thì thu về ≈ [decodeShortSide] cạnh ngắn ngay khi giải
+  /// mã (không bao giờ nạp cỡ gốc vào bộ nhớ).
+  Future<ui.Image> _decode(Uint8List bytes, IdeImageSize? size) async {
+    int? tw;
+    int? th;
+    if (size != null) {
+      final shortSide = size.width < size.height ? size.width : size.height;
+      if (shortSide > decodeShortSide) {
+        final k = decodeShortSide / shortSide;
+        tw = (size.width * k).round().clamp(1, maxSourceSide);
+        th = (size.height * k).round().clamp(1, maxSourceSide);
+      }
+    }
     try {
-      final codec = await ui.instantiateImageCodec(bytes);
+      final codec = await ui.instantiateImageCodec(
+        bytes,
+        targetWidth: tw,
+        targetHeight: th,
+      );
       try {
         final frame = await codec.getNextFrame();
         return frame.image;

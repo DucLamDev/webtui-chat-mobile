@@ -194,7 +194,7 @@ class _MachineViewState extends ConsumerState<_MachineView> {
     super.initState();
     _life = AppLifecycleListener(
       onStateChange: (st) {
-        if (st == AppLifecycleState.resumed && mounted && !_stopped) {
+        if (st == AppLifecycleState.resumed && _active) {
           unawaited(_pollLive());
         }
       },
@@ -280,7 +280,12 @@ class _MachineViewState extends ConsumerState<_MachineView> {
         _infoErr = null;
       });
     } on Object catch (e) {
-      if (mounted) setState(() => _infoErr = e);
+      if (mounted) {
+        setState(() {
+          _infoErr = e;
+          if (_terminal(e)) _stopped = true;
+        });
+      }
     } finally {
       _infoBusy = false;
     }

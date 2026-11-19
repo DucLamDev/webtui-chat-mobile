@@ -424,6 +424,24 @@ final class IdeTalkConversation {
   /// Khung quá nhiều tin thì bỏ (tránh nuốt bộ nhớ): cổng đã giữ ≤ 1 MB.
   static const maxMessages = 3000;
 
+  /// Trùng `id` thì giữ tin sau (bỏ tin trước).
+  static List<IdeTalkMessage> _dedupe(List<IdeTalkMessage> list) {
+    final ids = <String>{};
+    for (final m in list) {
+      if (!ids.add(m.id)) {
+        final latest = <String, IdeTalkMessage>{};
+        for (final x in list) {
+          latest[x.id] = x;
+        }
+        return [
+          for (final x in list)
+            if (identical(latest[x.id], x)) x,
+        ];
+      }
+    }
+    return list;
+  }
+
   static IdeTalkConversation? tryParse(Object? raw) {
     if (raw is! Map) return null;
     final id = _s(raw['id']);
@@ -449,7 +467,7 @@ final class IdeTalkConversation {
       contextUsed: ctx is Map ? ideTalkNum(ctx['used']) : null,
       contextWindow: ctx is Map ? ideTalkNum(ctx['window']) : null,
       truncatedBefore: ideSafeInt(raw['truncated_before']).clamp(0, 1 << 30),
-      messages: [for (final m in msgs) ?IdeTalkMessage.tryParse(m)],
+      messages: _dedupe([for (final m in msgs) ?IdeTalkMessage.tryParse(m)]),
     );
   }
 }
@@ -464,7 +482,9 @@ sealed class IdeTalkFrame {
     if (f['heartbeat'] == true) return const IdeTalkHeartbeat();
     if (f['delta'] == true) {
       final m = IdeTalkMessage.tryParse(f['message']);
-      return m == null ? null : IdeTalkDelta(m);
+      if (m == null) return null;
+      final id = f['id'];
+      return IdeTalkDelta(m, talkId: id is String ? id : null);
     }
     final c = IdeTalkConversation.tryParse(f);
     return c == null ? null : IdeTalkFull(c);
@@ -477,8 +497,11 @@ final class IdeTalkFull extends IdeTalkFrame {
 }
 
 final class IdeTalkDelta extends IdeTalkFrame {
-  const IdeTalkDelta(this.message);
+  const IdeTalkDelta(this.message, {this.talkId});
   final IdeTalkMessage message;
+
+  /// Mã cuộc ghi trong khung (`null` nếu khung không ghi).
+  final String? talkId;
 }
 
 final class IdeTalkHeartbeat extends IdeTalkFrame {

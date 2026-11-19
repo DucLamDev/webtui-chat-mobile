@@ -4,6 +4,10 @@ import 'dart:typed_data';
 import '../data/ide_rpc_client.dart';
 import '../domain/ide_errors.dart';
 import '../domain/ide_profile_models.dart';
+import 'ide_image_guard.dart';
+
+/// Ảnh đại diện từ IDE có cạnh lớn hơn mức này thì không hiện.
+const ideAvatarMaxDisplaySide = 1024;
 
 /// Ảnh đại diện đã tải về.
 final class IdeAvatarImage {
@@ -33,7 +37,14 @@ class IdeProfileService {
       final m = d is Map ? d : const <Object?, Object?>{};
       final img = m['image'];
       if (img is! String || img.isEmpty || img.length > 600 * 1024) return null;
-      return IdeAvatarImage(base64Decode(img), '${m['version'] ?? ''}');
+      final bytes = base64Decode(img);
+      // Ảnh từ IDE là dữ liệu ngoài: kiểm kích thước trước khi cho hiện.
+      final size = await ideReadImageSize(bytes);
+      if (size == null ||
+          !ideImageSizeWithin(size, maxSide: ideAvatarMaxDisplaySide)) {
+        return null;
+      }
+      return IdeAvatarImage(bytes, '${m['version'] ?? ''}');
     } on IdeNotFound {
       return null;
     } on FormatException {

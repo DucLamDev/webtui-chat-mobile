@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +13,7 @@ import '../../../application/ide_devices_service.dart';
 import '../../../application/ide_servers_service.dart';
 import '../../../application/ide_tools_service.dart';
 import '../../../domain/ide_errors.dart';
+import '../../../domain/ide_visible_text.dart';
 import '../../controllers/ide_controllers.dart';
 import '../more/ide_more_common.dart';
 
@@ -48,6 +51,41 @@ Future<void> ideToolsCopy(BuildContext context, String text) async {
   await Clipboard.setData(ClipboardData(text: text));
   if (!context.mounted) return;
   ideToolsSnack(context, tr('Đã chép', 'Copied'));
+}
+
+/// Thời gian giữ bí mật trên clipboard trước khi tự xoá.
+const ideSecretClipboardTtl = Duration(seconds: 60);
+
+/// Chép một BÍ MẬT (vd mật khẩu DB): báo sẽ tự xoá sau 60 giây; hết hạn thì
+/// đọc clipboard, còn đúng giá trị đó mới xoá (không đè thứ người dùng chép sau).
+///
+/// Rủi ro còn lại: app bị đóng hẳn trước hạn thì hẹn giờ mất, bí mật ở lại
+/// clipboard; ứng dụng khác (hoặc lịch sử clipboard của bàn phím) có thể đọc
+/// trong 60 giây đó. Bí mật chỉ nằm trong closure hẹn giờ, không giữ ở nơi khác.
+Future<void> ideToolsCopySecret(
+  BuildContext context,
+  String secret, {
+  Duration ttl = ideSecretClipboardTtl,
+}) async {
+  await Clipboard.setData(ClipboardData(text: secret));
+  Timer(ttl, () async {
+    try {
+      final cur = await Clipboard.getData(Clipboard.kTextPlain);
+      if (cur?.text == secret) {
+        await Clipboard.setData(const ClipboardData(text: ''));
+      }
+    } on Object {
+      // Không đọc / xoá được clipboard thì thôi.
+    }
+  });
+  if (!context.mounted) return;
+  ideToolsSnack(
+    context,
+    tr(
+      'Đã chép, sẽ tự xoá sau 60 giây',
+      'Copied, will be cleared in 60 seconds',
+    ),
+  );
 }
 
 // ---------------------------------------------------------------- định dạng
@@ -158,7 +196,7 @@ class ToolInfoRow extends StatelessWidget {
           ),
         ),
         Text(
-          value,
+          ideVisibleText(value),
           style: WebTuiTypography.bodySmall.copyWith(
             color: WebTuiColors.textPrimary,
           ),

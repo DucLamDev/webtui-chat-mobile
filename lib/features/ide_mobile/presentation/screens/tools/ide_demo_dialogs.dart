@@ -300,7 +300,7 @@ class _DbSecretDialogState extends State<_DbSecretDialog> {
                     minHeight: 44,
                   ),
                   icon: const Icon(Icons.copy_rounded),
-                  onPressed: () => ideToolsCopy(context, pw),
+                  onPressed: () => ideToolsCopySecret(context, pw),
                 ),
               ],
             ),

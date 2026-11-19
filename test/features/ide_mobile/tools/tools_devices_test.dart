@@ -6,6 +6,7 @@ import 'package:webtui_chat/core/network/api_transport.dart';
 import 'package:webtui_chat/features/ide_mobile/application/ide_pairing_service.dart';
 import 'package:webtui_chat/features/ide_mobile/data/ide_device_key_store.dart';
 import 'package:webtui_chat/features/ide_mobile/data/ide_pair_api.dart';
+import 'package:webtui_chat/features/ide_mobile/domain/ide_device_credentials.dart';
 import 'package:webtui_chat/features/ide_mobile/domain/ide_pair_code.dart';
 import 'package:webtui_chat/features/ide_mobile/presentation/screens/tools/ide_devices_screen.dart';
 
@@ -15,6 +16,12 @@ import 'tools_env.dart';
 const _ops = {'devices.list', 'devices.revoke'};
 const _me = 'd_abcdefgh';
 const _other = 'd_otherphone';
+const _creds = IdeDeviceCredentials(
+  instanceId: '0b9a6f4e-1c2d-4e3f-8a5b-6c7d8e9f0a1b',
+  chatUserId: 'u_1',
+  deviceId: _me,
+  seed: 'c2VlZA==',
+);
 
 /// Máy chủ chat giả đủ cho gắn máy + gỡ máy.
 final class _Transport implements ApiTransport {
@@ -204,7 +211,10 @@ void main() {
           ? {'current': true}
           : (op == 'devices.list' ? _list() : {}),
       ops: _ops,
-      overrides: [idePairingServiceProvider.overrideWithValue(pairing)],
+      overrides: [
+        idePairingServiceProvider.overrideWithValue(pairing),
+        ideCredentialsProvider.overrideWith((ref) async => _creds),
+      ],
     );
     await t.tap(find.byKey(const Key('ide_device_revoke_$_me')));
     await settleAll(t);
@@ -216,5 +226,50 @@ void main() {
     expect(sentOps(env, 'devices.revoke').single, {'device_id': _me});
     expect(transport.deleted, ['/api/v1/ide/pair/devices/$_me']);
     expect(store.values, isEmpty);
+  });
+
+  testWidgets('IDE báo current nhưng device_id khác: không xoá khoá cục bộ', (
+    t,
+  ) async {
+    final store = MemorySecureStore();
+    final transport = _Transport();
+    final pairing = IdePairingService(
+      api: IdePairApi(transport),
+      keys: IdeDeviceKeyStore(store),
+      security: FakeIdeSecurity(),
+      currentUserId: () async => 'u_1',
+      serverScopeId: 'srv',
+      pollEvery: Duration.zero,
+      maxWait: const Duration(seconds: 2),
+    );
+    await t.runAsync(
+      () async => pairing.pair(
+        code: IdePairCode.tryParse(
+          'webtui-ide-pair:v1:0b9a6f4e-1c2d-4e3f-8a5b-6c7d8e9f0a1b:ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+        )!,
+        deviceName: 'x',
+      ),
+    );
+    final env = await pumpTool(
+      t,
+      const IdeDevicesScreen(),
+      (op, a) => op == 'devices.revoke'
+          ? {'current': true}
+          : (op == 'devices.list' ? _list() : {}),
+      ops: _ops,
+      overrides: [
+        idePairingServiceProvider.overrideWithValue(pairing),
+        ideCredentialsProvider.overrideWith((ref) async => _creds),
+      ],
+    );
+    await t.tap(find.byKey(const Key('ide_device_revoke_$_other')));
+    await settleAll(t);
+    expect(find.text('Thu hồi máy này?'), findsOneWidget);
+    await t.tap(find.text('Thu hồi').last);
+    await settle(t);
+    await settle(t);
+    expect(sentOps(env, 'devices.revoke').single, {'device_id': _other});
+    expect(transport.deleted, isEmpty);
+    expect(store.values, isNotEmpty);
   });
 }

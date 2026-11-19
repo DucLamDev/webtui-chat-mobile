@@ -35,15 +35,29 @@ class _IdeProfileScreenState extends ConsumerState<IdeProfileScreen> {
   Uint8List? _avatar;
   bool _avatarBusy = false;
   bool _avatarLoaded = false;
+  bool _avatarRequested = false;
 
   @override
   void initState() {
     super.initState();
-    if (_has('profile.avatar_get')) unawaited(_loadAvatar());
+    _maybeLoadAvatar();
   }
 
-  /// Đọc (không theo dõi) trạng thái nối; chưa biết `ready` thì coi như có op.
-  bool _has(String op, {bool unknown = true}) {
+  /// Chưa có op `profile.avatar_get` thì coi như đã xong (không quay mãi, nút
+  /// đổi / xoá ảnh không bị khoá). `ready` đến muộn thì tải khi đó.
+  void _maybeLoadAvatar() {
+    if (_avatarRequested) return;
+    if (_has('profile.avatar_get')) {
+      _avatarRequested = true;
+      unawaited(_loadAvatar());
+    } else if (!_avatarLoaded) {
+      _avatarLoaded = true;
+    }
+  }
+
+  /// Đọc (không theo dõi) trạng thái nối; chưa biết `ready` thì coi như KHÔNG
+  /// có op.
+  bool _has(String op, {bool unknown = false}) {
     final ready = ref.read(ideLinkStatusProvider).valueOrNull?.ready;
     return ready == null ? unknown : ready.hasOp(op);
   }
@@ -197,6 +211,7 @@ class _IdeProfileScreenState extends ConsumerState<IdeProfileScreen> {
   Widget build(BuildContext context) {
     // Theo dõi để vẽ lại khi danh sách op đổi; các chỗ khác chỉ đọc.
     ref.watch(ideLinkStatusProvider);
+    ref.listen(ideLinkStatusProvider, (_, _) => _maybeLoadAvatar());
     return IdeMorePage(
       title: tr('Hồ sơ', 'Profile'),
       body: IdeLoader<IdeProfile>(
@@ -345,6 +360,8 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = profile;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final cache = (72 * dpr).round().clamp(144, 256);
     return Padding(
       padding: const EdgeInsets.only(bottom: WebTuiSpacing.md),
       child: IdeCard(
@@ -367,6 +384,9 @@ class _Header extends StatelessWidget {
                         avatar!,
                         key: const Key('profile_avatar'),
                         fit: BoxFit.cover,
+                        // Giải mã nhỏ theo màn hình, không theo cỡ gốc.
+                        cacheWidth: cache,
+                        cacheHeight: cache,
                         errorBuilder: (_, _, _) =>
                             const Icon(Icons.person_rounded),
                       ),

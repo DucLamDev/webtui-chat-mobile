@@ -313,7 +313,8 @@ class _ServerCardState extends ConsumerState<_ServerCard> {
   }
 }
 
-/// Sheet thêm / sửa máy chủ. Mật khẩu: ô ẩn ký tự, xoá khỏi bộ nhớ ngay khi gửi.
+/// Sheet thêm / sửa máy chủ. Mật khẩu: ô ẩn ký tự; ô được xoá ngay khi gửi, còn
+/// chuỗi Dart đã lấy ra không xoá được khỏi bộ nhớ (chỉ bỏ tham chiếu sớm).
 class ServerSheet extends ConsumerStatefulWidget {
   const ServerSheet({this.server, super.key});
 
@@ -430,7 +431,7 @@ class _ServerSheetState extends ConsumerState<ServerSheet> {
       });
     } on Object catch (e) {
       String? key;
-      if (!_edit && pw.isEmpty && e is IdeBadRequest) {
+      if (!_edit && pw.isEmpty && e is IdeBadRequest && e.hint == 'pubkey') {
         try {
           key = await svc.pubkey();
         } on Object {

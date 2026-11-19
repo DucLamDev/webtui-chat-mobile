@@ -171,8 +171,8 @@ class _CatalogListState extends ConsumerState<_CatalogList> {
           message: c.message.isNotEmpty
               ? ideVisibleText(c.message)
               : tr(
-                  'Dự án đã có bản khác của ${e.name}.',
-                  'The project already has another copy of ${e.name}.',
+                  'Dự án đã có bản khác của ${ideVisibleText(e.name)}.',
+                  'The project already has another copy of ${ideVisibleText(e.name)}.',
                 ),
           confirmLabel: tr('Ghi đè', 'Overwrite'),
           destructive: true,

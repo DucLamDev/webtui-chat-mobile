@@ -130,7 +130,10 @@ class _DemoViewState extends ConsumerState<_DemoView> {
           .read(ideToolsServiceProvider)
           .demoSimple('demo.disable', _name);
       if (!mounted) return;
-      ideToolsSnack(context, msg.isEmpty ? tr('Đã tắt', 'Turned off') : msg);
+      ideToolsSnack(
+        context,
+        msg.isEmpty ? tr('Đã tắt', 'Turned off') : ideVisibleText(msg),
+      );
       await widget.reload();
     });
   }
@@ -142,7 +145,9 @@ class _DemoViewState extends ConsumerState<_DemoView> {
     if (!mounted) return;
     ideToolsSnack(
       context,
-      msg.isEmpty ? tr('Đã tạo database', 'Database created') : msg,
+      msg.isEmpty
+          ? tr('Đã tạo database', 'Database created')
+          : ideVisibleText(msg),
     );
     await widget.reload();
   });
@@ -166,7 +171,9 @@ class _DemoViewState extends ConsumerState<_DemoView> {
       if (!mounted) return;
       ideToolsSnack(
         context,
-        msg.isEmpty ? tr('Đã xoá database', 'Database deleted') : msg,
+        msg.isEmpty
+            ? tr('Đã xoá database', 'Database deleted')
+            : ideVisibleText(msg),
       );
       await widget.reload();
     });
