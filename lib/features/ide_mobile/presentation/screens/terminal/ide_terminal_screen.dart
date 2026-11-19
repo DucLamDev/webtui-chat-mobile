@@ -77,7 +77,8 @@ class _State extends ConsumerState<IdeTerminalScreen> {
 
   Future<void> _paste(IdeTermController c) async {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
-    final text = data?.text ?? '';
+    // Làm sạch trước khi đếm dòng: `\r` lẻ cũng là xuống dòng (chạy lệnh).
+    final text = ideTermCleanPaste(data?.text ?? '');
     if (text.isEmpty || !mounted) return;
     if (text.contains('\n')) {
       final lines = text.trimRight().split('\n').length;
@@ -93,8 +94,15 @@ class _State extends ConsumerState<IdeTerminalScreen> {
       );
       if (!ok) return;
     }
-    c.terminal.paste(text);
+    c.paste(text);
   }
+
+  /// Phím tắt mặc định của xterm trừ dán (Ctrl/⌘+V dán thẳng, không qua làm
+  /// sạch và hỏi lại): dán chỉ qua nút Dán. Ctrl+V gửi ^V như terminal thường.
+  static final _shortcuts = {
+    for (final e in defaultTerminalShortcuts.entries)
+      if (e.value is! PasteTextIntent) e.key: e.value,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -206,6 +214,7 @@ class _State extends ConsumerState<IdeTerminalScreen> {
               textStyle: TerminalStyle(fontSize: _font),
               autofocus: true,
               deleteDetection: true,
+              shortcuts: _shortcuts,
               readOnly: !snap.isLive,
               padding: const EdgeInsets.all(4),
             ),

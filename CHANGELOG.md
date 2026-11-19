@@ -11,7 +11,8 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   - Mở hoặc gắn lại terminal luôn hỏi vân tay / khuôn mặt trước; huỷ thì không mở.
   - Màn terminal đầy đủ màu, chụm 2 ngón đổi cỡ chữ, tự báo cỡ màn cho máy tính, giữ màn hình sáng khi đang mở.
     Hàng phím phụ: Esc, Tab, Ctrl, Alt, mũi tên, `|` `~` `/` `-`, Home, End, PgUp, PgDn. Sao chép chữ đã chọn; dán
-    nhiều dòng thì hỏi lại.
+    nhiều dòng (kể cả có dấu Enter ẩn) thì hỏi lại, chữ dán được bỏ ký tự điều khiển, không bị Ctrl / Alt đang giữ
+    làm sai.
   - Đóng màn chỉ ngắt kết nối, phiên trên máy tính vẫn chạy. Báo rõ: mất kết nối (nút Nối lại), phiên đã kết thúc
     (kèm mã), quá số terminal, quản trị đã tắt terminal, không tìm thấy dự án / máy đã chọn.
 - Gói mới: `xterm` (vẽ terminal, MIT) và `wakelock_plus` (giữ màn hình sáng, BSD).

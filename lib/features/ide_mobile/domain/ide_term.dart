@@ -155,6 +155,20 @@ List<Uint8List> ideTermChunks(String text, {int max = ideTermMaxChunk}) {
   return out;
 }
 
+/// Làm sạch chữ dán vào terminal: `\r\n` / `\r` thành `\n` (để hỏi lại khi
+/// dán nhiều dòng, `\r` lẻ là Enter chạy lệnh ngay), bỏ ESC và mọi ký tự điều
+/// khiển khác trừ `\t`, `\n` (chặn chuỗi `ESC[201~` thoát chế độ dán an toàn).
+String ideTermCleanPaste(String text) {
+  final s = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  final out = StringBuffer();
+  for (final r in s.runes) {
+    final control = r < 0x20 || r == 0x7f || (r >= 0x80 && r <= 0x9f);
+    if (control && r != 0x09 && r != 0x0a) continue;
+    out.writeCharCode(r);
+  }
+  return out.toString();
+}
+
 /// Giải mã UTF-8 theo từng khối: byte của một ký tự bị cắt giữa hai khung
 /// `tout` được giữ lại và ghép với khung sau. Byte sai thành U+FFFD.
 final class IdeTermUtf8Decoder {

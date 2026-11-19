@@ -19,6 +19,13 @@ void main() {
     );
   });
 
+  test('làm sạch chữ dán: \\r thành \\n, bỏ ký tự điều khiển, giữ tab', () {
+    expect(ideTermCleanPaste('a\r\nb\rc\n'), 'a\nb\nc\n');
+    expect(ideTermCleanPaste('x\x1b[201~y\x00\x07\x7f\u009b'), 'x[201~y');
+    expect(ideTermCleanPaste('a\tb Việt'), 'a\tb Việt');
+    expect(ideTermCleanPaste('\x1b\x03'), '');
+  });
+
   test('Ctrl + chữ = mã điều khiển', () {
     expect(IdeTermKeys.ctrl('c'), '\x03');
     expect(IdeTermKeys.ctrl('C'), '\x03');

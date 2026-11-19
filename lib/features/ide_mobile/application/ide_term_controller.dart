@@ -179,7 +179,8 @@ class IdeTermController extends StateNotifier<IdeTermSnapshot> {
           return;
         }
         final text = _decoder.decode(bytes);
-        if (text.isNotEmpty) terminal.write(text);
+        // Terminal tự trả lời (vị trí con trỏ...) qua onOutput: gửi nguyên văn.
+        if (text.isNotEmpty) _raw(() => terminal.write(text));
       case 'texit':
         final code = _asInt(f['code']) ?? 0;
         _stopChannel();
@@ -231,11 +232,35 @@ class IdeTermController extends StateNotifier<IdeTermSnapshot> {
 
   // ----- gõ phím -----
 
-  /// Văn bản từ bàn phím mềm / dán: áp Ctrl / Alt dính rồi gửi.
+  /// Đang dán / terminal tự trả lời: không áp Ctrl / Alt dính.
+  bool _rawOutput = false;
+
+  void _raw(void Function() body) {
+    _rawOutput = true;
+    try {
+      body();
+    } finally {
+      _rawOutput = false;
+    }
+  }
+
+  /// Văn bản từ bàn phím mềm: áp Ctrl / Alt dính rồi gửi.
   void _onTyped(String text) {
+    if (_rawOutput) {
+      sendText(text);
+      return;
+    }
     final out = _mods.applyTyped(text);
     _syncMods();
     sendText(out);
+  }
+
+  /// Dán chữ đã làm sạch ([ideTermCleanPaste]); bọc chế độ dán an toàn nếu
+  /// chương trình đang chạy bật nó.
+  void paste(String text) {
+    final clean = ideTermCleanPaste(text);
+    if (clean.isEmpty) return;
+    _raw(() => terminal.paste(clean));
   }
 
   /// Gửi nguyên văn (không áp Ctrl / Alt). Chia khung ≤ 64 KB.

@@ -407,6 +407,57 @@ void main() {
       expect(typed(socket), 'ls\nrm -rf x\n');
     });
 
+    testWidgets('dán: \\r lẻ cũng hỏi lại, bỏ ESC, Ctrl dính không áp', (
+      tester,
+    ) async {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async => call.method == 'Clipboard.getData'
+            ? {'text': 'ls\x1b[201~\rrm x\r'}
+            : null,
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      final (_, socket) = await pumpScreen(tester);
+      socket.emit({'type': 'tready', 'name': 'a', 'cols': 80, 'rows': 24});
+      await settle(tester);
+      await tester.tap(find.byKey(const Key('term_key_ctrl')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('term_paste')));
+      await tester.pumpAndSettle();
+      expect(find.text('Dán nhiều dòng?'), findsOneWidget);
+      await tester.tap(find.text('Dán'));
+      await tester.pumpAndSettle();
+      await settle(tester);
+      expect(typed(socket), 'ls[201~\nrm x\n');
+    });
+
+    testWidgets('bàn phím mềm: mỗi lần gõ chỉ gửi chữ mới', (tester) async {
+      final (_, socket) = await pumpScreen(tester);
+      socket.emit({'type': 'tready', 'name': 'a', 'cols': 80, 'rows': 24});
+      await settle(tester);
+      await tester.tap(find.byKey(const Key('term_view')));
+      await tester.pump();
+      // Bàn phím thật nhận lại trạng thái app đặt sau mỗi lần gõ.
+      for (final ch in ['l', 's', ' ', '-', 'a']) {
+        final base = tester.testTextInput.editingState!['text']! as String;
+        tester.testTextInput.updateEditingValue(
+          TextEditingValue(
+            text: base + ch,
+            selection: TextSelection.collapsed(offset: base.length + 1),
+          ),
+        );
+        await tester.pump();
+      }
+      await settle(tester);
+      expect(typed(socket), 'ls -a');
+      await tester.pump(const Duration(milliseconds: 400));
+    });
+
     testWidgets('chụm 2 ngón đổi cỡ chữ trong giới hạn', (tester) async {
       final (_, socket) = await pumpScreen(tester);
       socket.emit({'type': 'tready', 'name': 'a', 'cols': 80, 'rows': 24});
