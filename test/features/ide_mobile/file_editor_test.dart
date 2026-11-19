@@ -4,7 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/app/providers/foundation_providers.dart';
 import 'package:webtui_chat/design_system/theme/webtui_theme.dart';
 import 'package:webtui_chat/design_system/tokens/webtui_colors.dart';
+import 'package:webtui_chat/design_system/tokens/webtui_spacing.dart';
 import 'package:webtui_chat/features/ide_mobile/presentation/screens/files/ide_file_editor_screen.dart';
+import 'package:webtui_chat/features/ide_mobile/presentation/widgets/files/ide_code_view.dart';
 
 import 'support/rpc_env.dart';
 
@@ -89,6 +91,33 @@ void main() {
     await tester.tap(find.byKey(const Key('ide_editor_redo')));
     await tester.pump();
     expect(_fieldText(tester), 'doi roi 2\n');
+  });
+
+  testWidgets('dòng dài có dấu không tự ngắt: số dòng thẳng hàng với mã', (
+    tester,
+  ) async {
+    final long = "  home: Text('${'Xin chào thế giới, ' * 12}'),";
+    await _pump(tester, (_, _) => <String, Object?>{}, text: 'a\n$long\nb');
+    final field = find.byKey(const Key('ide_editor_field'));
+    final extent = ideCodeLineExtent(tester.element(field));
+    // 3 dòng: không dòng nào bị ngắt thành 2 hàng trên màn hình (mỗi hàng
+    // làm tròn lên điểm ảnh nên so với 3,5 hàng), và cột số dòng cao bằng
+    // phần chữ.
+    final numbers = find.byType(IdeLineNumbers);
+    final textH = tester.getSize(field).height - 2 * WebTuiSpacing.sm;
+    expect(textH, lessThan(3.5 * extent));
+    expect(
+      tester.getSize(numbers).height,
+      moreOrLessEquals(textH, epsilon: 1),
+    );
+  });
+
+  testWidgets('cột số dòng: số 2 chữ số không ngắt dòng', (tester) async {
+    final text = List.generate(12, (i) => 'dòng $i').join('\n');
+    await _pump(tester, (_, _) => <String, Object?>{}, text: text);
+    final numbers = find.byType(IdeLineNumbers);
+    final extent = ideCodeLineExtent(tester.element(numbers));
+    expect(tester.getSize(numbers).height, lessThan(12.5 * extent));
   });
 
   testWidgets('tìm và thay hết', (tester) async {
