@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/error/error_mapper.dart';
 import '../../../../core/result/result.dart';
+import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
@@ -72,6 +73,7 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
   Timer? _conflictTimer;
   int _conflictSerial = 0;
 
+  late final String _initialSnapshot;
   bool _saving = false;
   String? _error;
 
@@ -123,7 +125,68 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
       _end = _start.add(defaultMeetingDuration);
       _reminders = [...defaultReminderOffsets];
     }
+    _initialSnapshot = _snapshot();
+    // Gõ chữ không gọi setState: theo dõi để khoá / mở vuốt lùi đúng lúc.
+    for (final controller in [_title, _description, _url, _count]) {
+      controller.addListener(_syncDirty);
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleConflicts());
+  }
+
+  /// Đã có thay đổi chưa lưu ở lần dựng gần nhất (quyết định vuốt lùi được không).
+  bool _dirty = false;
+
+  void _syncDirty() {
+    final dirty = _hasUnsavedChanges;
+    if (dirty != _dirty && mounted) setState(() => _dirty = dirty);
+  }
+
+  /// Dấu vết mọi trường người dùng sửa được, để biết còn thay đổi chưa lưu.
+  String _snapshot() {
+    final group = _groupAttendees?.toList();
+    group?.sort();
+    final people = _people.toList()..sort();
+    final weekdays = _weekdays.toList()..sort();
+    return [
+      _title.text,
+      _description.text,
+      _url.text,
+      _count.text,
+      _peopleMode,
+      _channelId,
+      group,
+      people,
+      _start.millisecondsSinceEpoch,
+      _end.millisecondsSinceEpoch,
+      _reminders,
+      _frequency,
+      weekdays,
+      _repeatEnd,
+      _until?.millisecondsSinceEpoch,
+    ].join('|');
+  }
+
+  bool get _hasUnsavedChanges => _snapshot() != _initialSnapshot;
+
+  /// Vuốt / nút Back: có thay đổi chưa lưu thì hỏi, không thì thoát thẳng.
+  Future<void> _onBack() async {
+    if (_saving) return;
+    if (!_hasUnsavedChanges) {
+      Navigator.of(context).pop();
+      return;
+    }
+    final discard = await showWebTuiConfirmDialog(
+      context,
+      title: tr('Bỏ thay đổi?', 'Discard changes?'),
+      message: tr(
+        'Những gì bạn vừa nhập chưa được lưu.',
+        'What you just entered has not been saved.',
+      ),
+      confirmLabel: tr('Bỏ', 'Discard'),
+      cancelLabel: tr('Tiếp tục sửa', 'Keep editing'),
+      destructive: true,
+    );
+    if (discard && mounted) Navigator.of(context).pop();
   }
 
   @override
@@ -488,223 +551,232 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
             '${_groupAttendees!.length} people',
           );
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          _isEdit
-              ? tr('Sửa cuộc họp', 'Edit meeting')
-              : tr('Tạo họp', 'New meeting'),
+    // Chưa sửa gì: vuốt lùi / Back thoát thẳng như mọi màn; có thay đổi chưa
+    // lưu thì chặn để hỏi "Bỏ thay đổi?".
+    _dirty = _hasUnsavedChanges;
+    return PopScope(
+      canPop: !_dirty && !_saving,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) unawaited(_onBack());
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(
+            _isEdit
+                ? tr('Sửa cuộc họp', 'Edit meeting')
+                : tr('Tạo họp', 'New meeting'),
+          ),
         ),
-      ),
-      body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-            children: [
-              TextFormField(
-                key: const Key('meeting_title'),
-                controller: _title,
-                textInputAction: TextInputAction.next,
-                maxLength: maxMeetingTitleLength,
-                decoration: InputDecoration(
-                  labelText: tr('Tiêu đề', 'Title'),
-                  counterText: '',
+        body: SafeArea(
+          child: Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+              children: [
+                TextFormField(
+                  key: const Key('meeting_title'),
+                  controller: _title,
+                  textInputAction: TextInputAction.next,
+                  maxLength: maxMeetingTitleLength,
+                  decoration: InputDecoration(
+                    labelText: tr('Tiêu đề', 'Title'),
+                    counterText: '',
+                  ),
+                  validator: (value) => validateMeetingTitle(value ?? ''),
                 ),
-                validator: (value) => validateMeetingTitle(value ?? ''),
-              ),
-              const SizedBox(height: 8),
-              if (!_isEdit) ...[
-                _ModeSwitch(
-                  peopleMode: _peopleMode,
-                  onChanged: (people) {
-                    setState(() {
-                      _peopleMode = people;
-                      _createdGroupId = null;
-                    });
-                    _scheduleConflicts();
-                  },
-                ),
-                const SizedBox(height: 4),
-              ],
-              if (!_peopleMode)
+                const SizedBox(height: 8),
+                if (!_isEdit) ...[
+                  _ModeSwitch(
+                    peopleMode: _peopleMode,
+                    onChanged: (people) {
+                      setState(() {
+                        _peopleMode = people;
+                        _createdGroupId = null;
+                      });
+                      _scheduleConflicts();
+                    },
+                  ),
+                  const SizedBox(height: 4),
+                ],
+                if (!_peopleMode)
+                  _PickerTile(
+                    key: const Key('meeting_group'),
+                    icon: WebTuiIcons.group,
+                    label: tr('Nhóm', 'Group'),
+                    value: _channelName.isNotEmpty
+                        ? _channelName
+                        : tr('Chọn nhóm', 'Choose a group'),
+                    onTap: _isEdit ? null : _pickGroup,
+                  ),
+                if (_peopleMode || (_channelId ?? '').isNotEmpty)
+                  _PickerTile(
+                    key: const Key('meeting_attendees'),
+                    icon: WebTuiIcons.friends,
+                    label: tr('Người tham dự', 'Attendees'),
+                    value: attendeeSummary,
+                    onTap: _pickPeople,
+                  ),
+                if (_peopleMode)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+                    child: Text(
+                      tr(
+                        'Một nhóm riêng tư mới sẽ được tạo cho buổi họp.',
+                        'A new private group will be created for this meeting.',
+                      ),
+                      style: WebTuiTypography.bodySmall.copyWith(
+                        color: WebTuiColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                const Divider(height: 20),
                 _PickerTile(
-                  key: const Key('meeting_group'),
-                  icon: WebTuiIcons.group,
-                  label: tr('Nhóm', 'Group'),
-                  value: _channelName.isNotEmpty
-                      ? _channelName
-                      : tr('Chọn nhóm', 'Choose a group'),
-                  onTap: _isEdit ? null : _pickGroup,
+                  key: const Key('meeting_date'),
+                  icon: WebTuiIcons.meetings,
+                  label: tr('Ngày', 'Date'),
+                  value: meetingLongDate(_start),
+                  onTap: _pickDate,
                 ),
-              if (_peopleMode || (_channelId ?? '').isNotEmpty)
-                _PickerTile(
-                  key: const Key('meeting_attendees'),
-                  icon: WebTuiIcons.friends,
-                  label: tr('Người tham dự', 'Attendees'),
-                  value: attendeeSummary,
-                  onTap: _pickPeople,
+                Row(
+                  children: [
+                    Expanded(
+                      child: _PickerTile(
+                        key: const Key('meeting_start_time'),
+                        icon: WebTuiIcons.scheduleSend,
+                        label: tr('Bắt đầu', 'Starts'),
+                        value: meetingClock(_start),
+                        onTap: () => _pickTime(start: true),
+                      ),
+                    ),
+                    Expanded(
+                      child: _PickerTile(
+                        key: const Key('meeting_end_time'),
+                        icon: WebTuiIcons.scheduleSend,
+                        label: tr('Kết thúc', 'Ends'),
+                        value: meetingSameDay(_start, _end)
+                            ? meetingClock(_end)
+                            : '${meetingClock(_end)} (+1)',
+                        onTap: () => _pickTime(start: false),
+                      ),
+                    ),
+                  ],
                 ),
-              if (_peopleMode)
+                _ConflictBox(
+                  checking: _checkingConflicts,
+                  conflicts: _conflicts,
+                  names: _names,
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const Key('meeting_description'),
+                  controller: _description,
+                  minLines: 2,
+                  maxLines: 6,
+                  maxLength: maxMeetingDescriptionLength,
+                  decoration: InputDecoration(
+                    labelText: tr('Nội dung', 'Description'),
+                    counterText: '',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const Key('meeting_url'),
+                  controller: _url,
+                  keyboardType: TextInputType.url,
+                  decoration: InputDecoration(
+                    labelText: tr(
+                      'Link họp ngoài (không bắt buộc)',
+                      'External meeting link (optional)',
+                    ),
+                    hintText: 'https://meet.google.com/…',
+                    helperText: tr(
+                      'Để trống: dùng phòng video có sẵn.',
+                      'Leave empty to use the built-in video room.',
+                    ),
+                  ),
+                  validator: (value) => validateMeetingExternalUrl(value ?? ''),
+                ),
+                MeetingSectionTitle(tr('Nhắc họp', 'Reminders')),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    for (final minutes in allowedReminderOffsets)
+                      FilterChip(
+                        key: Key('meeting_reminder_$minutes'),
+                        label: Text(meetingReminderLabel(minutes)),
+                        selected: _reminders.contains(minutes),
+                        materialTapTargetSize: MaterialTapTargetSize.padded,
+                        onSelected:
+                            !_reminders.contains(minutes) &&
+                                _reminders.length >= maxReminderOffsets
+                            ? null
+                            : (selected) => setState(() {
+                                if (selected) {
+                                  _reminders.add(minutes);
+                                } else {
+                                  _reminders.remove(minutes);
+                                }
+                              }),
+                      ),
+                  ],
+                ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+                  padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
                   child: Text(
                     tr(
-                      'Một nhóm riêng tư mới sẽ được tạo cho buổi họp.',
-                      'A new private group will be created for this meeting.',
+                      'Chọn tối đa $maxReminderOffsets mốc.',
+                      'Choose up to $maxReminderOffsets.',
                     ),
                     style: WebTuiTypography.bodySmall.copyWith(
                       color: WebTuiColors.textSecondary,
                     ),
                   ),
                 ),
-              const Divider(height: 20),
-              _PickerTile(
-                key: const Key('meeting_date'),
-                icon: WebTuiIcons.meetings,
-                label: tr('Ngày', 'Date'),
-                value: meetingLongDate(_start),
-                onTap: _pickDate,
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: _PickerTile(
-                      key: const Key('meeting_start_time'),
-                      icon: WebTuiIcons.scheduleSend,
-                      label: tr('Bắt đầu', 'Starts'),
-                      value: meetingClock(_start),
-                      onTap: () => _pickTime(start: true),
-                    ),
-                  ),
-                  Expanded(
-                    child: _PickerTile(
-                      key: const Key('meeting_end_time'),
-                      icon: WebTuiIcons.scheduleSend,
-                      label: tr('Kết thúc', 'Ends'),
-                      value: meetingSameDay(_start, _end)
-                          ? meetingClock(_end)
-                          : '${meetingClock(_end)} (+1)',
-                      onTap: () => _pickTime(start: false),
+                if (!_isEdit) ..._recurrenceSection(),
+                if (_isEdit && widget.existing!.recurrence != null) ...[
+                  MeetingSectionTitle(tr('Lặp lại', 'Repeat')),
+                  Text(
+                    meetingRecurrenceLabel(widget.existing!.recurrence!),
+                    style: WebTuiTypography.bodyMedium.copyWith(
+                      color: WebTuiColors.textPrimary,
                     ),
                   ),
                 ],
-              ),
-              _ConflictBox(
-                checking: _checkingConflicts,
-                conflicts: _conflicts,
-                names: _names,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                key: const Key('meeting_description'),
-                controller: _description,
-                minLines: 2,
-                maxLines: 6,
-                maxLength: maxMeetingDescriptionLength,
-                decoration: InputDecoration(
-                  labelText: tr('Nội dung', 'Description'),
-                  counterText: '',
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                key: const Key('meeting_url'),
-                controller: _url,
-                keyboardType: TextInputType.url,
-                decoration: InputDecoration(
-                  labelText: tr(
-                    'Link họp ngoài (không bắt buộc)',
-                    'External meeting link (optional)',
-                  ),
-                  hintText: 'https://meet.google.com/…',
-                  helperText: tr(
-                    'Để trống: dùng phòng video có sẵn.',
-                    'Leave empty to use the built-in video room.',
-                  ),
-                ),
-                validator: (value) => validateMeetingExternalUrl(value ?? ''),
-              ),
-              MeetingSectionTitle(tr('Nhắc họp', 'Reminders')),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: [
-                  for (final minutes in allowedReminderOffsets)
-                    FilterChip(
-                      key: Key('meeting_reminder_$minutes'),
-                      label: Text(meetingReminderLabel(minutes)),
-                      selected: _reminders.contains(minutes),
-                      materialTapTargetSize: MaterialTapTargetSize.padded,
-                      onSelected:
-                          !_reminders.contains(minutes) &&
-                              _reminders.length >= maxReminderOffsets
-                          ? null
-                          : (selected) => setState(() {
-                              if (selected) {
-                                _reminders.add(minutes);
-                              } else {
-                                _reminders.remove(minutes);
-                              }
-                            }),
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: Text(
+                      _error!,
+                      key: const Key('meeting_form_error'),
+                      style: WebTuiTypography.bodyMedium.copyWith(
+                        color: MeetingTones.dangerText,
+                      ),
                     ),
-                ],
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
-                child: Text(
-                  tr(
-                    'Chọn tối đa $maxReminderOffsets mốc.',
-                    'Choose up to $maxReminderOffsets.',
                   ),
-                  style: WebTuiTypography.bodySmall.copyWith(
-                    color: WebTuiColors.textSecondary,
+                const SizedBox(height: 20),
+                FilledButton(
+                  key: const Key('meeting_save'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(meetingMinTapSize),
+                    backgroundColor: MeetingTones.actionBackground,
+                    foregroundColor: Colors.white,
                   ),
-                ),
-              ),
-              if (!_isEdit) ..._recurrenceSection(),
-              if (_isEdit && widget.existing!.recurrence != null) ...[
-                MeetingSectionTitle(tr('Lặp lại', 'Repeat')),
-                Text(
-                  meetingRecurrenceLabel(widget.existing!.recurrence!),
-                  style: WebTuiTypography.bodyMedium.copyWith(
-                    color: WebTuiColors.textPrimary,
-                  ),
+                  onPressed: _saving ? null : _save,
+                  child: _saving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(
+                          _isEdit
+                              ? tr('Lưu thay đổi', 'Save changes')
+                              : tr('Tạo họp', 'Create meeting'),
+                        ),
                 ),
               ],
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: Text(
-                    _error!,
-                    key: const Key('meeting_form_error'),
-                    style: WebTuiTypography.bodyMedium.copyWith(
-                      color: MeetingTones.dangerText,
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 20),
-              FilledButton(
-                key: const Key('meeting_save'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(meetingMinTapSize),
-                  backgroundColor: MeetingTones.actionBackground,
-                  foregroundColor: Colors.white,
-                ),
-                onPressed: _saving ? null : _save,
-                child: _saving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(
-                        _isEdit
-                            ? tr('Lưu thay đổi', 'Save changes')
-                            : tr('Tạo họp', 'Create meeting'),
-                      ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

@@ -54,6 +54,38 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('thoát khi chưa sửa gì: không hỏi', (tester) async {
+    phoneView(tester, height: 2600);
+    await open(tester, form(calendar: FakeMeetingCalendarRepository()));
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('Bỏ thay đổi?'), findsNothing);
+    expect(find.byKey(const Key('meeting_title')), findsNothing);
+  });
+
+  testWidgets('đã sửa mà thoát: hỏi Bỏ thay đổi, Tiếp tục sửa giữ nguyên', (
+    tester,
+  ) async {
+    phoneView(tester, height: 2600);
+    await open(tester, form(calendar: FakeMeetingCalendarRepository()));
+    await tester.enterText(find.byKey(const Key('meeting_title')), 'Họp dở');
+    // Khung hình sau khi gõ: màn biết đã có thay đổi, khoá vuốt lùi.
+    await tester.pump();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('Bỏ thay đổi?'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('webtui_dialog_cancel')));
+    await tester.pumpAndSettle();
+    expect(find.text('Họp dở'), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('webtui_dialog_confirm')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('meeting_title')), findsNothing);
+  });
+
   testWidgets('bắt buộc tiêu đề, link phải https, phải chọn nhóm', (
     tester,
   ) async {

@@ -142,6 +142,19 @@ final class ToggleReactionUseCase {
   }
 }
 
+final class ListPinsUseCase {
+  const ListPinsUseCase(this._repository);
+
+  final ConversationRepository _repository;
+
+  Future<Result<List<ChatMessage>>> execute({
+    required String workspaceId,
+    required String channelId,
+  }) {
+    return _repository.listPins(workspaceId: workspaceId, channelId: channelId);
+  }
+}
+
 final class TogglePinMessageUseCase {
   const TogglePinMessageUseCase(this._repository);
 

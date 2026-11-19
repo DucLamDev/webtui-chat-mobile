@@ -11,6 +11,7 @@ import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/avatar_upload.dart';
+import '../../domain/entities/user_profile.dart';
 import '../controllers/profile_controller.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -29,6 +30,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   String? _boundProfileId;
 
   @override
+  void initState() {
+    super.initState();
+    // Hồ sơ có thể đã nạp sẵn trước khi mở màn: `ref.listen` sẽ không chạy.
+    _bind(ref.read(profileControllerProvider).profile);
+  }
+
+  /// Điền ô một lần cho mỗi hồ sơ; tải lại cùng hồ sơ không đè chữ đang sửa.
+  void _bind(UserProfile? profile) {
+    if (profile == null || _boundProfileId == profile.id) return;
+    _boundProfileId = profile.id;
+    _displayNameController.text = profile.displayName;
+    _phoneController.text = profile.phoneNumber ?? '';
+    _localeController.text = profile.locale;
+    _timezoneController.text = profile.timezone;
+    _titleController.text = profile.work.title ?? '';
+  }
+
+  @override
   void dispose() {
     _displayNameController.dispose();
     _phoneController.dispose();
@@ -40,17 +59,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(profileControllerProvider, (_, next) {
-      final profile = next.profile;
-      if (profile != null && _boundProfileId != profile.id) {
-        _boundProfileId = profile.id;
-        _displayNameController.text = profile.displayName;
-        _phoneController.text = profile.phoneNumber ?? '';
-        _localeController.text = profile.locale;
-        _timezoneController.text = profile.timezone;
-        _titleController.text = profile.work.title ?? '';
-      }
-    });
+    ref.listen(profileControllerProvider, (_, next) => _bind(next.profile));
 
     final state = ref.watch(profileControllerProvider);
     final controller = ref.read(profileControllerProvider.notifier);
@@ -80,7 +89,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         actions: [
           IconButton(
             tooltip: strings.save,
-            onPressed: state.isSaving
+            onPressed: state.isSaving || profile == null
                 ? null
                 : () => controller.save(
                     displayName: _displayNameController.text,

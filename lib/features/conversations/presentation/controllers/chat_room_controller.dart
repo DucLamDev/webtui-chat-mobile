@@ -88,6 +88,7 @@ final chatRoomControllerProvider = StateNotifierProvider.autoDispose
         resolveCurrentUserId: () =>
             ref.read(resolveCurrentUserIdUseCaseProvider).execute(),
         getMessageUseCase: ref.watch(getMessageUseCaseProvider),
+        listPinsUseCase: ref.watch(listPinsUseCaseProvider),
         canCreateUserContent: () => legalPolicy.canCreateUserContent,
         onLegalAcceptanceRequired: legalPolicy.requireAcceptance,
         // Rời / xoá nhóm (room kênh): người khác rời thì làm mới số thành
@@ -130,6 +131,7 @@ final class ChatRoomState {
   const ChatRoomState({
     required this.scope,
     this.messages = const [],
+    this.pins = const [],
     this.searchResults = const [],
     this.threadMessages = const [],
     this.pendingAttachments = const [],
@@ -160,6 +162,10 @@ final class ChatRoomState {
 
   final ChatRoomScope scope;
   final List<ChatMessage> messages;
+
+  /// Tin đã ghim của phòng (từ `GET .../pins`): máy chủ không đánh cờ ghim
+  /// trong danh sách tin nên phải giữ riêng, gồm cả tin ngoài trang đang tải.
+  final List<ChatMessage> pins;
   final List<ChatMessage> searchResults;
   final List<ChatMessage> threadMessages;
   final List<MessageAttachmentUploadItem> pendingAttachments;
@@ -210,12 +216,20 @@ final class ChatRoomState {
             item.status == MessageAttachmentUploadStatus.uploading ||
             item.status == MessageAttachmentUploadStatus.queued,
       );
-  List<ChatMessage> get pinnedMessages => messages
-      .where((message) => message.isPinned && !message.isDeleted)
-      .toList(growable: false);
+
+  /// Tin đã ghim còn hiển thị; lấy bản mới nhất trong `messages` (sửa / xoá).
+  List<ChatMessage> get pinnedMessages {
+    final latest = {for (final message in messages) message.id: message};
+    return [
+      for (final pin in pins)
+        if (!(latest[pin.id] ?? pin).isDeleted)
+          (latest[pin.id] ?? pin).copyWith(isPinned: true),
+    ];
+  }
 
   ChatRoomState copyWith({
     List<ChatMessage>? messages,
+    List<ChatMessage>? pins,
     List<ChatMessage>? searchResults,
     List<ChatMessage>? threadMessages,
     List<MessageAttachmentUploadItem>? pendingAttachments,
@@ -255,6 +269,7 @@ final class ChatRoomState {
     return ChatRoomState(
       scope: scope,
       messages: messages ?? this.messages,
+      pins: pins ?? this.pins,
       searchResults: clearSearch
           ? const []
           : searchResults ?? this.searchResults,
@@ -337,6 +352,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     required ClearDraftUseCase clearDraftUseCase,
     required LoadProfileUseCase loadProfileUseCase,
     Future<String?> Function()? resolveCurrentUserId,
+    ListPinsUseCase? listPinsUseCase,
     GetMessageUseCase? getMessageUseCase,
     bool Function()? canCreateUserContent,
     void Function()? onLegalAcceptanceRequired,
@@ -378,6 +394,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
        _clearDraftUseCase = clearDraftUseCase,
        _loadProfileUseCase = loadProfileUseCase,
        _resolveCurrentUserId = resolveCurrentUserId,
+       _listPinsUseCase = listPinsUseCase,
        _getMessageUseCase = getMessageUseCase,
        _canCreateUserContent =
            canCreateUserContent ?? _allowUserContentByDefault,
@@ -431,6 +448,9 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
 
   /// Tải lại một tin chạy dần khi thiếu đoạn (`null` = không tải lại, chờ bản cuối).
   final GetMessageUseCase? _getMessageUseCase;
+
+  /// Tải danh sách tin ghim (`null` = không tải, thanh ghim không hiện).
+  final ListPinsUseCase? _listPinsUseCase;
   final bool Function() _canCreateUserContent;
   final void Function() _onLegalAcceptanceRequired;
   final void Function(ConversationRealtimeEvent event, String? currentUserId)?
@@ -476,10 +496,12 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
       fromProfile: () async =>
           (await _loadProfileUseCase.execute()).valueOrNull?.id,
     );
+    final pinsFuture = _refreshPins();
     final result = await _loadMessagesUseCase.execute(
       workspaceId: state.scope.workspaceId,
       channelId: state.scope.channelId,
     );
+    await pinsFuture;
     final draft = await draftFuture;
     final outboxItems = await outboxFuture;
     final currentUserId = await currentUserIdFuture;
@@ -902,6 +924,59 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
     _mergeActionResult(result);
   }
 
+  List<ChatMessage> _withoutPin(String messageId) =>
+      state.pins.where((pin) => pin.id != messageId).toList(growable: false);
+
+  List<ChatMessage> _withPin(ChatMessage message) => [
+    message.copyWith(isPinned: true),
+    ...state.pins.where((pin) => pin.id != message.id),
+  ];
+
+  /// Tải lại danh sách ghim; lỗi thì giữ danh sách cũ (không làm hỏng phòng).
+  Future<void> _refreshPins() async {
+    final useCase = _listPinsUseCase;
+    if (useCase == null) return;
+    try {
+      final result = await useCase.execute(
+        workspaceId: state.scope.workspaceId,
+        channelId: state.scope.channelId,
+      );
+      if (!mounted) return;
+      if (result case Success<List<ChatMessage>>(value: final pins)) {
+        state = state.copyWith(
+          pins: pins
+              .map((pin) => pin.copyWith(isPinned: true))
+              .toList(growable: false),
+        );
+      }
+    } on Object {
+      // Chỉ không hiện thanh ghim.
+    }
+  }
+
+  /// Máy chủ không trả cờ ghim trong danh sách tin: đánh cờ theo `pins` để
+  /// menu tin hiện đúng "Ghim" / "Bỏ ghim".
+  @override
+  set state(ChatRoomState value) {
+    if (value.pins.isEmpty && !value.messages.any((m) => m.isPinned)) {
+      super.state = value;
+      return;
+    }
+    final ids = {for (final pin in value.pins) pin.id};
+    var changed = false;
+    final flagged = [
+      for (final message in value.messages)
+        if (message.isPinned != ids.contains(message.id))
+          () {
+            changed = true;
+            return message.copyWith(isPinned: ids.contains(message.id));
+          }()
+        else
+          message,
+    ];
+    super.state = changed ? value.copyWith(messages: flagged) : value;
+  }
+
   Future<void> togglePin(ChatMessage message) async {
     if (!_guardUserContentMutation()) return;
     final result = await _togglePinMessageUseCase.execute(
@@ -914,6 +989,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
       case Success<ChatMessage?>(value: final updated):
         if (updated == null) {
           state = state.copyWith(
+            pins: _withoutPin(message.id),
             messages: state.messages
                 .map(
                   (item) => item.id == message.id
@@ -924,6 +1000,7 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
           );
         } else {
           state = state.copyWith(
+            pins: _withPin(updated),
             messages: _upsertLocal(
               state.messages,
               updated.copyWith(isPinned: true),
@@ -1587,6 +1664,15 @@ final class ChatRoomController extends StateNotifier<ChatRoomState> {
             event.type == ConversationRealtimeEventType.messageUpdated) {
       // Máy chủ báo tin đã bị xoá qua bản cập nhật.
       _forgetNewlyDeletedAttachments([incoming]);
+    }
+    if (event.type == ConversationRealtimeEventType.messagePinned) {
+      final pinned = event.message;
+      if (pinned != null) state = state.copyWith(pins: _withPin(pinned));
+      unawaited(_refreshPins());
+    } else if (event.type == ConversationRealtimeEventType.messageUnpinned) {
+      final id = event.messageId ?? event.message?.id;
+      if (id != null) state = state.copyWith(pins: _withoutPin(id));
+      unawaited(_refreshPins());
     }
     final reduced = _reducer.reduce(
       ConversationRealtimeState(
