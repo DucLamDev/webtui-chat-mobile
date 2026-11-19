@@ -972,7 +972,12 @@ final class ConversationRealtimeEventMapper {
         'target_user_id',
         'targetUserId',
       ]),
-      reason: nullableStringField(payload, const ['reason']),
+      // Sự kiện cuộc gọi (từ chối, kết thúc...) để lý do ở `payload.reason`; tín hiệu
+      // (renegotiate: `video` / `ice_restart`) để trong dữ liệu tín hiệu
+      // `payload.signal.reason` do máy chủ chuyển nguyên.
+      reason:
+          nullableStringField(payload, const ['reason']) ??
+          nullableStringField(signal, const ['reason']),
       callSdp: jsonMap(field(signalPayload, const ['sdp'])),
       callCandidate: jsonMap(field(signalPayload, const ['candidate'])),
       payload: _keepsPayload.contains(type) ? payload : const {},

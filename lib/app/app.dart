@@ -424,6 +424,8 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
             bearerToken: bearerToken,
             isStillCurrent: () => tokenRepository.isMutationGuardCurrent(guard),
           ),
+          // Đã đăng xuất / đổi phiên trong lúc tải thì không ghi vào kho.
+          isStillCurrent: () => tokenRepository.isMutationGuardCurrent(guard),
         ),
       );
     } on Object {

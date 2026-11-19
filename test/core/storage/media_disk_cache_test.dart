@@ -260,4 +260,142 @@ void main() {
     }
     expect(trims, 2);
   });
+
+  test(
+    'tệp vừa dùng (đang phát / mở bằng app khác) không bị xoá; mở một tệp rất lớn không xoá sạch kho',
+    () async {
+      // Kho 1000 byte, vừa mở một video 1500 byte (vượt cả kho).
+      final huge = await writeFile(
+        'acc/video/huge.mp4',
+        1500,
+        age: const Duration(minutes: 5),
+      );
+      final recentSmall = await writeFile(
+        'acc/image/recent.jpg',
+        50,
+        age: const Duration(minutes: 30),
+      );
+      final oldest = await writeFile(
+        'acc/image/oldest.jpg',
+        200,
+        age: const Duration(days: 3),
+      );
+      final middle = await writeFile(
+        'acc/image/middle.jpg',
+        200,
+        age: const Duration(days: 2),
+      );
+      final newest = await writeFile(
+        'acc/image/newest.jpg',
+        200,
+        age: const Duration(hours: 3),
+      );
+
+      final result = await cache(maxBytes: 1000).trim();
+
+      expect(await huge.exists(), isTrue, reason: 'vừa dùng: không xoá');
+      expect(await recentSmall.exists(), isTrue);
+      // Ngân sách tệp cũ = 1000 − min(1550, 500) = 500: bỏ tệp cũ nhất.
+      expect(await oldest.exists(), isFalse);
+      expect(await middle.exists(), isTrue);
+      expect(await newest.exists(), isTrue);
+      expect(result.deletedFiles, 1);
+      expect(result.remainingBytes, 1550 + 400);
+    },
+  );
+
+  test(
+    'tệp cũ quá lớn (> 1/4 kho) bị xoá trước tệp nhỏ lâu không dùng',
+    () async {
+      final smallOld = await writeFile(
+        'acc/image/small.jpg',
+        100,
+        age: const Duration(days: 5),
+      );
+      final big = await writeFile(
+        'acc/video/big.mp4',
+        300,
+        age: const Duration(days: 1),
+      );
+      final others = [
+        await writeFile('acc/image/b.jpg', 200, age: const Duration(days: 4)),
+        await writeFile('acc/image/c.jpg', 200, age: const Duration(days: 3)),
+        await writeFile('acc/image/d.jpg', 240, age: const Duration(days: 2)),
+      ];
+
+      final result = await cache(maxBytes: 1000).trim();
+
+      expect(await big.exists(), isFalse, reason: '300 > 250: xoá trước');
+      expect(
+        await smallOld.exists(),
+        isTrue,
+        reason: 'xoá tệp lớn đã đủ, tệp nhỏ cũ nhất được giữ',
+      );
+      for (final file in others) {
+        expect(await file.exists(), isTrue);
+      }
+      expect(result.deletedFiles, 1);
+    },
+  );
+
+  test(
+    'ghi vào kho từ 1/10 dung lượng thì dọn ngay, không chờ 15 phút',
+    () async {
+      final store = cache(maxBytes: 1000);
+      // Lượt dọn đầu tiên (lần ghi đầu).
+      await store.ensureBytes(
+        File('${root.path}/acc/image/first.jpg'),
+        maxBytes: 1000,
+        download: () async => Uint8List(10),
+      );
+      await store.pendingTrim;
+
+      // Kho bị đầy bởi tệp cũ trong lúc chờ.
+      final old = await writeFile(
+        'acc/video/old.mp4',
+        990,
+        age: const Duration(days: 2),
+      );
+
+      // Ghi ít (< 100 byte) trong 15 phút: chưa dọn.
+      await store.ensureBytes(
+        File('${root.path}/acc/image/small.jpg'),
+        maxBytes: 1000,
+        download: () async => Uint8List(40),
+      );
+      await store.pendingTrim;
+      expect(await old.exists(), isTrue);
+
+      // Ghi thêm qua tải tệp: tổng từ lần dọn trước đủ 100 byte thì dọn ngay.
+      await store.ensureFile(
+        File('${root.path}/acc/file/doc.pdf'),
+        download: (target) async {
+          await target.writeAsBytes(Uint8List(60));
+          return target;
+        },
+      );
+      await store.pendingTrim;
+      expect(await old.exists(), isFalse);
+    },
+  );
+
+  test(
+    'đã đăng xuất ngay trước khi ghi thì không ghi kho, vẫn trả ảnh',
+    () async {
+      final target = File('${root.path}/acc/image/a.jpg');
+      final bytes = await cache().ensureBytes(
+        target,
+        maxBytes: 1024,
+        download: () async => Uint8List.fromList(utf8.encode('anh')),
+        isStillCurrent: () async => false,
+      );
+
+      expect(utf8.decode(bytes), 'anh');
+      expect(await target.exists(), isFalse);
+      expect(
+        await root.list(recursive: true).where((e) => e is File).isEmpty,
+        isTrue,
+      );
+    },
+  );
 }

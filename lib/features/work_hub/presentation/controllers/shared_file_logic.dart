@@ -136,7 +136,10 @@ final class SharedFileCache {
     return target;
   }
 
-  /// Xoá tệp lâu không dùng nhất cho tới khi tổng <= [maxBytes].
+  static final RegExp _partialName = RegExp(r'\.part(-\d+)?$');
+
+  /// Xoá tệp lâu không dùng nhất cho tới khi tổng <= [maxBytes]. Tệp đang tải
+  /// dở (`.part`, `.part-<số>`) của lượt khác không bao giờ bị đụng tới.
   Future<void> trim({File? keep}) async {
     final dir = await _directory();
     if (!await dir.exists()) return;
@@ -144,7 +147,14 @@ final class SharedFileCache {
     var total = 0;
     await for (final entity in dir.list()) {
       if (entity is! File) continue;
-      final stat = await entity.stat();
+      if (_partialName.hasMatch(entity.path)) continue;
+      final FileStat stat;
+      try {
+        stat = await entity.stat();
+      } on FileSystemException {
+        // Tệp vừa bị đổi tên / xoá giữa chừng: bỏ qua.
+        continue;
+      }
       total += stat.size;
       entries.add((entity, stat.size, stat.modified));
     }

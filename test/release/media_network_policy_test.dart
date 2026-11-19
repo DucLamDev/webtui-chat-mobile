@@ -43,7 +43,14 @@ void main() {
 
     expect(media, contains('maxImagePreviewBytes = 5 * 1024 * 1024'));
     expect(media, contains('maxVoicePlaybackBytes = 100 * 1024 * 1024'));
-    expect(media, contains('maxVideoPlaybackBytes = 250 * 1024 * 1024'));
+    // Rà soát 18/11/2026: iPhone luôn tải cả video rồi mới phát, mức 250 MB làm video lớn hơn (gửi được tới mức
+    // tải lên tối đa) không bao giờ xem được. Vẫn có giới hạn: bằng mức tải lên tối đa, và chỉ tải khi người dùng bấm.
+    expect(
+      media,
+      contains(
+        'maxVideoPlaybackBytes = UploadMessageAttachmentUseCase.maxBytes',
+      ),
+    );
     expect(media, contains('_requestDownload'));
     expect(
       media,
