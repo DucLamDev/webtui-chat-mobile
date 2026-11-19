@@ -18,6 +18,7 @@ import '../controllers/ide_controllers.dart';
 import '../widgets/ide_step_sheet.dart';
 import 'files/ide_files_tab.dart';
 import 'ide_ai_sessions_tab.dart';
+import 'projects/ide_projects_tab.dart';
 import 'terminal/ide_terminal_tab.dart';
 
 enum IdeTab { ai, files, terminal, projects, more }
@@ -30,8 +31,9 @@ List<IdeTab> visibleIdeTabs(IdeReady? ready) {
     if (ready.hasGroup('files')) IdeTab.files,
     // Quản trị tắt terminal: `term.*` biến mất khỏi ops nhưng vẫn hiện tab để báo.
     if (ready.hasGroup('term') || ideTermDisabled(ready)) IdeTab.terminal,
-    if (ready.hasGroup('jobs') || ready.hasGroup('projects')) IdeTab.projects,
-    if (ready.hasGroup('devices') || ready.hasGroup('deploy')) IdeTab.more,
+    // Tab Dự án đọc `projects.list` trước tiên: thiếu op đó thì không hiện.
+    if (ready.hasOp('projects.list')) IdeTab.projects,
+    if (ready.hasGroup('devices')) IdeTab.more,
   ];
 }
 
@@ -203,6 +205,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen>
         IdeTab.ai => const IdeAiSessionsTab(),
         IdeTab.files => const IdeFilesTab(),
         IdeTab.terminal => const IdeTerminalTab(),
+        IdeTab.projects => const IdeProjectsTab(),
         _ => _Message(
           icon: Icons.hourglass_empty_rounded,
           title: tr('Sắp có', 'Coming soon'),
