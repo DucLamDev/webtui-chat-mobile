@@ -21,6 +21,7 @@ import '../../core/platform/chat_share_intent_service.dart';
 import '../../core/platform/external_url_launcher.dart';
 import '../../core/platform/native_deep_link_service.dart';
 import '../../core/platform/native_instance_binding_service.dart';
+import '../../core/platform/shared_file_path_guard.dart';
 import '../../core/platform/video_compressor.dart';
 import '../../core/security/instance_scope.dart';
 import '../../core/security/secure_key_value_store.dart';
@@ -407,6 +408,11 @@ final chatShareIntentServiceProvider = Provider<ChatShareIntentService>((ref) {
   final service = ChatShareIntentService();
   ref.onDispose(() => unawaited(service.dispose()));
   return service;
+});
+
+/// Kiểm tệp nhận qua chia sẻ: chỉ nhận tệp trong thư mục chia sẻ tạm.
+final sharedFilePathGuardProvider = FutureProvider<SharedFilePathGuard>((_) {
+  return createPlatformSharedFilePathGuard();
 });
 
 /// Nén video trước khi gửi (native: Media3 Transformer / AVAssetExportSession).

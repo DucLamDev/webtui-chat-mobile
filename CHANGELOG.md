@@ -3,6 +3,12 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.51.1 · 19/11/2026
+### Sửa lỗi
+- Chia sẻ tệp từ ứng dụng khác vào app an toàn hơn: app chỉ nhận bản sao của tệp được chia sẻ, lưu trong thư mục tạm
+  riêng, và làm sạch tên tệp trước khi lưu.
+- Tệp không hợp lệ hoặc không đọc được thì không được thêm vào tin nhắn; app báo số tệp bị bỏ qua.
+
 ## 1.51.0 · 19/11/2026
 ### Tính năng
 - Thiết lập ứng dụng có nhóm mới "Dung lượng và tải tự động":

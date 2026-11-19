@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/error/error_mapper.dart';
 import '../../../../core/platform/chat_share_intent_service.dart';
+import '../../../../core/platform/shared_file_path_guard.dart';
 import '../../../../core/result/result.dart';
 import '../../../../core/security/active_call_tracker.dart';
 import '../../../../design_system/components/webtui_components.dart';
@@ -82,21 +83,17 @@ String _appendDraftText(String current, String addition) {
   return base.isEmpty ? normalized : '$base\n$normalized';
 }
 
+/// Chỉ nhận tệp trong thư mục chia sẻ tạm (xem [SharedFilePathGuard]); tệp
+/// bị từ chối trả về null.
 Future<PickedMessageAttachment?> _pickedAttachmentFromSharedFile(
   SharedChatFile shared,
+  SharedFilePathGuard guard,
 ) async {
-  final path = shared.path.trim();
-  if (path.isEmpty) {
+  final check = await guard.check(shared.path);
+  if (!check.isAccepted) {
     return null;
   }
-  final file = File(path);
-  if (!await file.exists()) {
-    return null;
-  }
-  final stat = await file.stat();
-  if (stat.type != FileSystemEntityType.file || stat.size <= 0) {
-    return null;
-  }
+  final path = check.path;
   final name = shared.name.trim().isEmpty
       ? _sharedFileNameFromPath(path)
       : shared.name.trim();
@@ -105,7 +102,7 @@ Future<PickedMessageAttachment?> _pickedAttachmentFromSharedFile(
     path: path,
     fileName: name,
     mimeType: mimeType,
-    byteSize: stat.size,
+    byteSize: check.byteSize,
     kind: _sharedAttachmentKindForMime(mimeType),
   );
 }
@@ -438,29 +435,52 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
       appliedCount++;
     }
 
-    for (final file in payload.files) {
-      final picked = await _pickedAttachmentFromSharedFile(file);
-      if (picked == null) {
-        continue;
+    var rejectedCount = 0;
+    if (payload.files.isNotEmpty) {
+      SharedFilePathGuard? guard;
+      try {
+        guard = await ref.read(sharedFilePathGuardProvider.future);
+      } on Object {
+        guard = null;
       }
-      await controller.queuePickedAttachment(picked);
-      appliedCount++;
+      for (final file in payload.files) {
+        final picked = guard == null
+            ? null
+            : await _pickedAttachmentFromSharedFile(file, guard);
+        if (picked == null) {
+          rejectedCount++;
+          continue;
+        }
+        await controller.queuePickedAttachment(picked);
+        appliedCount++;
+      }
     }
 
-    if (!mounted || appliedCount == 0) {
+    if (!mounted) {
       return;
     }
-    _draftFocusNode.requestFocus();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          tr(
+    if (appliedCount > 0) {
+      _draftFocusNode.requestFocus();
+    }
+    final message = rejectedCount > 0
+        ? tr(
+            'Không thêm được $rejectedCount tệp được chia sẻ (tệp không hợp lệ '
+                'hoặc không đọc được).',
+            'Could not add $rejectedCount shared file(s) (invalid or '
+                'unreadable).',
+          )
+        : appliedCount > 0
+        ? tr(
             'Đã thêm ${payload.summary} vào cuộc trò chuyện.',
             'Added ${payload.summary} to the conversation.',
-          ),
-        ),
-      ),
-    );
+          )
+        : null;
+    if (message == null) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
