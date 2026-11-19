@@ -10,6 +10,8 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   xuất).
 - An toàn: khung ảnh từ IDE được kiểm định dạng và kích thước trước khi vẽ; huỷ vân tay khi mở màn hình app không còn
   làm nút kẹt ở "Đang mở…".
+- Chọn dự án không làm video trong Studio video thì báo gọn "Không có video" thay vì báo lỗi và mời thử lại; lời lỗi
+  chạy app quá dài được cắt ngắn.
 
 ## 1.57.0 · 19/11/2026
 ### Tính năng
