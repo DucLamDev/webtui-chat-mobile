@@ -13,6 +13,9 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
     phục; sơ đồ chỉ sửa trên máy tính;
   - **Báo cáo** của tôi theo dự án, **Kiến trúc** (sơ đồ, rủi ro, lỗi / cảnh báo), **Changelog nền tảng**.
 - Bấm thông báo "Có việc mới" của IDE mở thẳng việc đó.
+- An toàn: "Giao cho AI" đặt cả tên lẫn chi tiết việc trong khối trích dẫn, ghi rõ ai viết, bỏ ký tự ẩn, để phiên AI
+  không làm theo chữ trong việc như lệnh; tên việc / ghi chú có ký tự đảo chiều chữ thì hiện rõ; khôi phục ghi chú không
+  gửi trùng khi bấm hai lần. Chữ hệ thống cỡ lớn thì tab Thêm hiện thành danh sách một cột.
 
 ## 1.55.0 · 19/11/2026
 ### Tính năng
