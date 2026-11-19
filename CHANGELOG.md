@@ -3,6 +3,37 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.52.0 · 19/11/2026
+### Tính năng
+- Tin nhắn lưu đủ trên máy, như Zalo / Messenger:
+  - Mở cuộc trò chuyện hiện ngay tin đã lưu, không chờ tải; không có mạng vẫn đọc được (có dòng báo "đang hiện tin đã
+    lưu trên máy" và nút "Thử lại").
+  - App chỉ hỏi máy chủ phần thay đổi kể từ lần trước (tin mới, đã sửa, đã thu hồi, đổi cảm xúc), không tải lại cả
+    trang mỗi lần mở. Cần máy chủ đã cập nhật bản có đồng bộ phần thay đổi; máy chủ cũ vẫn chạy như trước.
+  - Mở cuộc trò chuyện thì tải trước ngầm tin của 30 ngày gần nhất; tin cũ hơn được lưu dần khi kéo lên.
+  - Xoá lịch sử trò chuyện ở máy khác thì tin cũ trên máy này cũng được bỏ. Đăng xuất xoá hết tin đã lưu.
+- Tìm trong cuộc trò chuyện tìm trên máy trước (hiện ngay, gõ không dấu vẫn ra tin có dấu); nút "Tìm thêm trên máy chủ"
+  mới hỏi máy chủ và gộp thêm kết quả.
+- Danh sách tin nhắn / nhóm và màn thông tin nhóm (thành viên) hiện ngay bản đã lưu khi mở, rồi mới làm mới; mất mạng
+  thì giữ danh sách thay vì màn lỗi.
+
+## 1.51.0 · 19/11/2026
+### Tính năng
+- Thiết lập ứng dụng có nhóm mới "Dung lượng và tải tự động":
+  - "Dung lượng lưu trên máy": xem ảnh, video, tin thoại và tệp đã tải đang chiếm bao nhiêu. "Xóa bộ nhớ đệm" xoá hết
+    các tệp đó (có hỏi lại; không đăng xuất, không mất tin nhắn), lần xem sau tải lại từ máy chủ.
+  - "Tự tải ảnh khi dùng 4G" (mặc định bật): tắt thì khi dùng dữ liệu di động, ảnh chưa có trên máy hiện ô "Chạm để tải
+    ảnh"; ảnh đã tải vẫn hiện ngay.
+- Thu hồi / xoá tin nhắn (cả tin tự xoá khi hết hạn): ảnh, video, tin thoại và tệp của tin đó đã lưu trên máy bị xoá
+  luôn, không còn nằm lại tới 7 ngày.
+- Android: video từ 30 MB trở xuống vừa xem (phát dần từ máy chủ) được tải ngầm vào máy khi dùng Wi-Fi (hoặc khi bật tự
+  tải trên 4G); lần xem sau phát thẳng từ máy, không tải lại.
+- Mở cuộc trò chuyện dùng luôn danh sách tệp máy chủ gửi kèm từng tin (khi máy chủ đã cập nhật bản gửi kèm tệp), không
+  phải hỏi riêng từng tin có ảnh / tệp như trước. Máy chủ cũ vẫn chạy như trước.
+- Cuộc gọi đỡ hỏi máy chủ: màn gọi hỏi 5 giây một lần thay vì mỗi giây. Bên kia nhận máy thì màn chuyển ngay (qua
+  realtime) và đồng hồ thời lượng tự chạy trên máy; nghe ở máy khác của mình thì màn tự đóng; mất kết nối rồi nối lại
+  thì hỏi lại ngay. Hộp "Cuộc gọi đến" hỏi máy chủ 2 giây một lần (đếm ngược và rung vẫn từng giây).
+
 ## 1.50.2 · 18/11/2026
 ### Sửa lỗi
 Rà soát cuộc gọi, xem video / ảnh / tin thoại và kho tệp trên máy (18/11):

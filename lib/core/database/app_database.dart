@@ -5,7 +5,49 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-final class AppDatabase implements QueryExecutorUser {
+/// Chạy câu SQL thô trên kho dữ liệu trên máy: ngoài giao dịch là chính
+/// [AppDatabase], trong [AppDatabase.transaction] là bản của giao dịch đó.
+abstract interface class SqlRunner {
+  Future<List<Map<String, Object?>>> select(
+    String sql, [
+    List<Object?> args = const [],
+  ]);
+
+  Future<void> execute(String sql, [List<Object?> args = const []]);
+}
+
+final class _ExecutorSqlRunner implements SqlRunner {
+  const _ExecutorSqlRunner(this._executor);
+
+  final QueryExecutor _executor;
+
+  @override
+  Future<List<Map<String, Object?>>> select(
+    String sql, [
+    List<Object?> args = const [],
+  ]) => _executor.runSelect(sql, args);
+
+  @override
+  Future<void> execute(String sql, [List<Object?> args = const []]) =>
+      _executor.runCustom(sql, args);
+}
+
+/// Bảng lưu tin nhắn trên máy (giai đoạn 2 bộ đệm: lưu đủ tin, chỉ đồng bộ
+/// phần thay đổi). Mỗi dòng là một tin của một cuộc trò chuyện:
+/// - `scope`: vùng của máy chủ (`InstanceScope.localScope('message_store')`),
+///   đăng xuất xoá theo tiền tố máy chủ như các bảng khác;
+/// - `created_at_us` / `updated_at_us`: micro giây UTC (số nguyên để xếp đúng
+///   thứ tự, chuỗi ISO có số chữ số lẻ khác nhau xếp sai);
+/// - `search_text`: nội dung đã chuẩn hoá bằng `normalizeSearchText` (tìm trên
+///   máy bằng LIKE, không phân biệt hoa thường / dấu);
+/// - `payload`: JSON đủ của tin (cùng dạng bộ đệm trang tin đang dùng).
+/// Tin đã xoá / thu hồi thì xoá dòng (không giữ bia mộ trên máy).
+const String localMessagesTable = 'local_messages';
+
+/// Trạng thái đồng bộ của từng cuộc trò chuyện (xem `ChannelSyncState`).
+const String localChannelSyncTable = 'local_channel_sync';
+
+final class AppDatabase implements QueryExecutorUser, SqlRunner {
   AppDatabase(this._executor);
 
   final QueryExecutor _executor;
@@ -130,6 +172,46 @@ final class AppDatabase implements QueryExecutorUser {
       ''',
       ['$prefix%'],
     );
+    // Tin nhắn lưu trên máy cùng vùng máy chủ: đăng xuất / thu hồi phiên xoá
+    // luôn. So tiền tố bằng `substr` để `_` / `%` không thành ký tự đại diện.
+    for (final table in const [localMessagesTable, localChannelSyncTable]) {
+      await _executor.runDelete(
+        'DELETE FROM $table WHERE substr(scope, 1, length(?)) = ?;',
+        [prefix, prefix],
+      );
+    }
+  }
+
+  @override
+  Future<List<Map<String, Object?>>> select(
+    String sql, [
+    List<Object?> args = const [],
+  ]) async {
+    await _ensureOpen();
+    return _executor.runSelect(sql, args);
+  }
+
+  @override
+  Future<void> execute(String sql, [List<Object?> args = const []]) async {
+    await _ensureOpen();
+    await _executor.runCustom(sql, args);
+  }
+
+  /// Chạy [action] trong một giao dịch: lỗi thì bỏ hết, không để dữ liệu nửa
+  /// chừng (vd. ghi một trang tin + trạng thái đồng bộ).
+  Future<T> transaction<T>(Future<T> Function(SqlRunner sql) action) async {
+    await _ensureOpen();
+    final transaction = _executor.beginTransaction();
+    await transaction.ensureOpen(this);
+    final T result;
+    try {
+      result = await action(_ExecutorSqlRunner(transaction));
+    } on Object {
+      await transaction.rollback();
+      rethrow;
+    }
+    await transaction.send();
+    return result;
   }
 
   Future<void> close() => _executor.close();
@@ -156,6 +238,36 @@ final class AppDatabase implements QueryExecutorUser {
         value TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         PRIMARY KEY (scope, key)
+      );
+    ''');
+    await _executor.runCustom('''
+      CREATE TABLE IF NOT EXISTS $localMessagesTable (
+        scope TEXT NOT NULL,
+        workspace_id TEXT NOT NULL,
+        channel_id TEXT NOT NULL,
+        id TEXT NOT NULL,
+        created_at_us INTEGER NOT NULL,
+        updated_at_us INTEGER NOT NULL DEFAULT 0,
+        search_text TEXT NOT NULL DEFAULT '',
+        payload TEXT NOT NULL,
+        PRIMARY KEY (scope, id)
+      );
+    ''');
+    await _executor.runCustom('''
+      CREATE INDEX IF NOT EXISTS ${localMessagesTable}_timeline_idx
+      ON $localMessagesTable (scope, workspace_id, channel_id, created_at_us, id);
+    ''');
+    await _executor.runCustom('''
+      CREATE TABLE IF NOT EXISTS $localChannelSyncTable (
+        scope TEXT NOT NULL,
+        workspace_id TEXT NOT NULL,
+        channel_id TEXT NOT NULL,
+        change_cursor TEXT,
+        oldest_message_id TEXT,
+        oldest_created_at_us INTEGER,
+        reached_beginning INTEGER NOT NULL DEFAULT 0,
+        synced_at_us INTEGER,
+        PRIMARY KEY (scope, workspace_id, channel_id)
       );
     ''');
     // Version 1 wrote server-derived data without an instance boundary. It is

@@ -2,10 +2,12 @@ import '../../../../core/result/result.dart';
 import '../../domain/entities/channel_file.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/conversation_summary.dart';
+import '../../domain/repositories/conversation_local_cache.dart';
 import '../../domain/repositories/conversation_repository.dart';
 import '../datasources/conversation_cache_data_source.dart';
 
-final class CachingConversationRepository implements ConversationRepository {
+final class CachingConversationRepository
+    implements ConversationRepository, ConversationListCacheReader {
   const CachingConversationRepository({
     required ConversationRepository remote,
     required ConversationCacheDataSource cache,
@@ -14,6 +16,24 @@ final class CachingConversationRepository implements ConversationRepository {
 
   final ConversationRepository _remote;
   final ConversationCacheDataSource _cache;
+
+  /// Danh sách chat 1-1 đã lưu (không gọi máy chủ); đọc lỗi coi như chưa lưu.
+  @override
+  Future<List<ConversationSummary>?> readCachedDirectConversations({
+    required String workspaceId,
+  }) {
+    return _cacheRead(
+      () => _cache.readDirectConversations(workspaceId: workspaceId),
+    );
+  }
+
+  /// Danh sách nhóm / kênh đã lưu (không gọi máy chủ).
+  @override
+  Future<List<ConversationSummary>?> readCachedChannels({
+    required String workspaceId,
+  }) {
+    return _cacheRead(() => _cache.readChannels(workspaceId: workspaceId));
+  }
 
   @override
   Future<Result<List<ConversationSummary>>> listDirectConversations({

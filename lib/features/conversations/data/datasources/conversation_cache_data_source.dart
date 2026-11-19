@@ -432,6 +432,15 @@ MessagePage _messagePageFromJson(Map<String, Object?> json) {
   );
 }
 
+/// JSON của một tin lưu trên máy (cùng dạng trang tin của bộ đệm): kho tin
+/// trên máy (`LocalMessageStore`) dùng chung để hai nơi đọc / ghi giống nhau.
+Map<String, Object?> chatMessageToCacheJson(ChatMessage item) =>
+    _messageToJson(item);
+
+/// Đọc lại tin từ [chatMessageToCacheJson].
+ChatMessage chatMessageFromCacheJson(Map<String, Object?> json) =>
+    _messageFromJson(json);
+
 Map<String, Object?> _messageToJson(ChatMessage item) {
   return {
     'id': item.id,
@@ -454,6 +463,8 @@ Map<String, Object?> _messageToJson(ChatMessage item) {
     'attachments': item.attachments
         .map(_attachmentToJson)
         .toList(growable: false),
+    // Máy chủ đã gửi kèm tệp: mở lại từ bộ đệm cũng không hỏi riêng từng tin.
+    'attachmentsIncluded': item.attachmentsIncluded,
     'isPinned': item.isPinned,
     'isMine': item.isMine,
   };
@@ -495,6 +506,7 @@ ChatMessage _messageFromJson(Map<String, Object?> json) {
               .map(_attachmentFromJson)
               .toList(growable: false)
         : const [],
+    attachmentsIncluded: _bool(json['attachmentsIncluded']),
     isPinned: _bool(json['isPinned']),
     isMine: _bool(json['isMine']),
   );

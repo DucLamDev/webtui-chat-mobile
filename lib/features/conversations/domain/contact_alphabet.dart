@@ -1,3 +1,4 @@
+import '../../../core/text/search_text.dart';
 import 'entities/conversation_summary.dart';
 
 /// Nhóm đồng nghiệp theo chữ cái đầu của tên (A–Z, cuối cùng là "#").
@@ -11,23 +12,8 @@ final class ContactLetterGroup {
 /// Nhóm cho tên bắt đầu bằng số hoặc ký tự lạ.
 const contactOtherLetter = '#';
 
-const _fromMarks =
-    'àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ';
-const _toBase =
-    'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyyd';
-
 /// Bỏ dấu tiếng Việt (cả dạng tổ hợp NFD) và đưa về chữ thường.
-String foldVietnamese(String input) {
-  final buffer = StringBuffer();
-  for (final rune in input.toLowerCase().runes) {
-    // Dấu thanh / dấu mũ rời (U+0300–U+036F) bị bỏ.
-    if (rune >= 0x0300 && rune <= 0x036F) continue;
-    final char = String.fromCharCode(rune);
-    final index = _fromMarks.indexOf(char);
-    buffer.write(index >= 0 ? _toBase[index] : char);
-  }
-  return buffer.toString();
-}
+String foldVietnamese(String input) => foldVietnameseText(input);
 
 /// Chữ cái nhóm của một tên: "Đức" → "D", "Ánh" → "A"; số / ký tự lạ / rỗng
 /// → "#".

@@ -739,6 +739,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
             : () => unawaited(controller.retryOutbox()),
         onLoadOlder: controller.loadOlder,
         onClearSearch: controller.clearSearch,
+        onSearchOnServer: () => unawaited(controller.searchOnServer()),
         onSend: (silent) =>
             unawaited(controller.sendCurrentDraft(silent: silent)),
         onSchedule: () => unawaited(
@@ -1695,6 +1696,7 @@ class ChatRoomBody extends StatefulWidget {
     required this.onRetryOutbox,
     required this.onLoadOlder,
     required this.onClearSearch,
+    this.onSearchOnServer,
     required this.onSend,
     required this.onSchedule,
     required this.onCreatePoll,
@@ -1774,6 +1776,10 @@ class ChatRoomBody extends StatefulWidget {
   final VoidCallback onRetryOutbox;
   final VoidCallback onLoadOlder;
   final VoidCallback onClearSearch;
+
+  /// Nút "Tìm thêm trên máy chủ" khi kết quả mới chỉ tìm trong tin đã lưu
+  /// trên máy (`null`: ẩn nút).
+  final VoidCallback? onSearchOnServer;
   final ValueChanged<bool> onSend;
   final VoidCallback onSchedule;
   final VoidCallback onCreatePoll;
@@ -1905,6 +1911,7 @@ class _ChatRoomBodyState extends State<ChatRoomBody> {
             blockedUserIds: widget.blockedUserIds,
             onClear: widget.onClearSearch,
             onOpenResult: widget.onFocusMessage,
+            onSearchOnServer: widget.onSearchOnServer,
           ),
         if (visiblePinnedMessages.isNotEmpty)
           _PinnedMessagesBar(
@@ -1926,6 +1933,11 @@ class _ChatRoomBodyState extends State<ChatRoomBody> {
         if (widget.state.errorMessage != null)
           _InlineError(
             message: widget.state.errorMessage!,
+            onRetry: widget.onRetry,
+          )
+        else if (widget.state.syncNotice != null)
+          _SavedMessagesNotice(
+            message: widget.state.syncNotice!,
             onRetry: widget.onRetry,
           ),
         Expanded(
@@ -2336,12 +2348,14 @@ class _MessageSearchPanel extends StatelessWidget {
     required this.blockedUserIds,
     required this.onClear,
     required this.onOpenResult,
+    this.onSearchOnServer,
   });
 
   final ChatRoomState state;
   final Set<String> blockedUserIds;
   final VoidCallback onClear;
   final ValueChanged<ChatMessage> onOpenResult;
+  final VoidCallback? onSearchOnServer;
 
   @override
   Widget build(BuildContext context) {
@@ -2428,9 +2442,151 @@ class _MessageSearchPanel extends StatelessWidget {
                       },
                     ),
                   ),
+                if (_showsServerSearch(visibleResults))
+                  _ServerSearchRow(
+                    state: state,
+                    emptyOnDevice: visibleResults.isEmpty,
+                    onSearchOnServer: onSearchOnServer!,
+                  ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+extension on _MessageSearchPanel {
+  /// Kết quả mới chỉ từ tin đã lưu trên máy (hoặc đang / lỗi tìm thêm): hiện
+  /// hàng "Tìm thêm trên máy chủ".
+  bool _showsServerSearch(List<ChatMessage> visibleResults) {
+    return onSearchOnServer != null &&
+        !state.isSearching &&
+        (state.searchSource == MessageSearchSource.device ||
+            state.isSearchingServer ||
+            state.searchServerError != null);
+  }
+}
+
+/// Hàng dưới kết quả tìm trên máy: chưa thấy thì báo "Không thấy trong tin đã
+/// lưu trên máy"; nút "Tìm thêm trên máy chủ"; đang tìm / lỗi.
+class _ServerSearchRow extends StatelessWidget {
+  const _ServerSearchRow({
+    required this.state,
+    required this.emptyOnDevice,
+    required this.onSearchOnServer,
+  });
+
+  final ChatRoomState state;
+  final bool emptyOnDevice;
+  final VoidCallback onSearchOnServer;
+
+  @override
+  Widget build(BuildContext context) {
+    final error = state.searchServerError;
+    final String? status;
+    if (state.isSearchingServer) {
+      status = tr('Đang tìm trên máy chủ...', 'Searching the server...');
+    } else if (error != null) {
+      status = error;
+    } else if (emptyOnDevice) {
+      status = tr(
+        'Không thấy trong tin đã lưu trên máy.',
+        'Not found in messages saved on this device.',
+      );
+    } else {
+      status = null;
+    }
+    // Dòng trạng thái riêng một hàng, nút nằm dưới: màn hẹp / chữ to vẫn đọc
+    // đủ câu (đặt chung một hàng thì nút ép câu chỉ còn vài chữ).
+    return Padding(
+      padding: const EdgeInsets.only(top: WebTuiSpacing.xs),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (status != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: WebTuiSpacing.xs,
+                vertical: WebTuiSpacing.xs,
+              ),
+              child: Row(
+                children: [
+                  if (state.isSearchingServer) ...[
+                    const SizedBox.square(
+                      dimension: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: WebTuiSpacing.sm),
+                  ],
+                  Expanded(
+                    child: Text(
+                      status,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: WebTuiTypography.labelSmall.copyWith(
+                        color: error != null && !state.isSearchingServer
+                            ? WebTuiColors.danger
+                            : WebTuiColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (!state.isSearchingServer)
+            TextButton.icon(
+              onPressed: onSearchOnServer,
+              icon: const Icon(CupertinoIcons.cloud, size: 16),
+              label: Text(
+                error != null
+                    ? tr('Thử lại', 'Try again')
+                    : tr('Tìm thêm trên máy chủ', 'Search the server'),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Báo nhẹ khi chưa kết nối được máy chủ nhưng đã có tin lưu trên máy (không
+/// dùng màu lỗi: người dùng vẫn đọc được tin).
+class _SavedMessagesNotice extends StatelessWidget {
+  const _SavedMessagesNotice({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: WebTuiColors.surface,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: WebTuiSpacing.lg,
+          vertical: WebTuiSpacing.xs,
+        ),
+        child: Row(
+          children: [
+            Icon(CupertinoIcons.cloud, size: 16, color: WebTuiColors.textMuted),
+            const SizedBox(width: WebTuiSpacing.sm),
+            Expanded(
+              child: Text(
+                message,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: WebTuiTypography.labelSmall.copyWith(
+                  color: WebTuiColors.textSecondary,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: onRetry,
+              child: Text(tr('Thử lại', 'Try again')),
+            ),
+          ],
         ),
       ),
     );

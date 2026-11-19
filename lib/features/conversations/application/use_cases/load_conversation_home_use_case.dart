@@ -3,6 +3,7 @@ import '../../../../core/result/result.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../workspace/domain/repositories/workspace_session_repository.dart';
 import '../../domain/entities/conversation_summary.dart';
+import '../../domain/repositories/conversation_local_cache.dart';
 import '../../domain/repositories/conversation_repository.dart';
 
 final class LoadConversationHomeUseCase {
@@ -95,8 +96,60 @@ final class LoadConversationHomeUseCase {
               )
             : membersResult.failureOrNull?.message,
         presenceErrorMessage: presenceResult.failureOrNull?.message,
+        // Danh sách hội thoại tự lùi về bản đã lưu khi mất mạng (repository),
+        // nên dò mất mạng qua các mục không có bộ đệm gọi cùng lượt.
+        isOffline: [
+          membersResult.failureOrNull,
+          presenceResult.failureOrNull,
+          contactsResult.failureOrNull,
+        ].any(isOfflineFailure),
       ),
     );
+  }
+}
+
+/// Lỗi do không tới được máy chủ (mất mạng / hết giờ), khác lỗi quyền / dữ
+/// liệu: có bản đã lưu thì vẫn hiện bản đó.
+bool isOfflineFailure(Failure? failure) {
+  return failure?.kind == FailureKind.network ||
+      failure?.kind == FailureKind.timeout;
+}
+
+/// Đọc danh sách hội thoại đã lưu trên máy để hiện ngay khi mở app / mở tab
+/// (kiểu Zalo / Messenger), trước khi gọi máy chủ. Không gọi mạng.
+final class ReadCachedConversationHomeUseCase {
+  const ReadCachedConversationHomeUseCase(this._reader);
+
+  final ConversationListCacheReader _reader;
+
+  /// `null` khi chưa lưu gì (để màn hiện trạng thái đang tải như cũ).
+  Future<ConversationHomeData?> execute({required String workspaceId}) async {
+    final id = workspaceId.trim();
+    if (id.isEmpty) return null;
+    final results = await Future.wait([
+      _readSafely(() => _reader.readCachedDirectConversations(workspaceId: id)),
+      _readSafely(() => _reader.readCachedChannels(workspaceId: id)),
+    ]);
+    final directs = results[0];
+    final channels = results[1];
+    if (directs == null && channels == null) return null;
+    return ConversationHomeData(
+      workspaceId: id,
+      conversations: _sortByUpdated(directs ?? const []),
+      channels: _sortByUpdated(channels ?? const []),
+      contacts: const [],
+      workspaceMembers: const [],
+    );
+  }
+}
+
+Future<List<ConversationSummary>?> _readSafely(
+  Future<List<ConversationSummary>?> Function() read,
+) async {
+  try {
+    return await read();
+  } on Object {
+    return null;
   }
 }
 
