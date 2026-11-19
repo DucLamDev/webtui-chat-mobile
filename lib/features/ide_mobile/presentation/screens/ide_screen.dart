@@ -12,10 +12,10 @@ import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../application/ide_access.dart';
 import '../../data/ide_connection.dart';
-import '../../domain/ide_errors.dart';
 import '../../domain/ide_ready.dart';
 import '../controllers/ide_controllers.dart';
 import '../widgets/ide_step_sheet.dart';
+import 'ide_ai_sessions_tab.dart';
 
 enum IdeTab { ai, files, terminal, projects, more }
 
@@ -42,17 +42,17 @@ class _IdeScreenState extends ConsumerState<IdeScreen>
     with WidgetsBindingObserver {
   IdeTab _tab = IdeTab.ai;
   late final IdeConnection _connection;
+  late final IdeStepPresenterLease _lease;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _connection = ref.read(ideConnectionProvider);
-    final presenterNotifier = ref.read(ideStepPresenterProvider.notifier);
+    _lease = IdeStepPresenterLease(ref.read(ideStepPresenterProvider.notifier));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      presenterNotifier.state = (summary) =>
-          mounted ? showIdeStepSheet(context, summary) : Future.value(false);
+      _lease.acquire(context, () => mounted);
       _connection.start();
     });
   }
@@ -60,6 +60,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _lease.release();
     _connection.markInactive();
     super.dispose();
   }
@@ -195,7 +196,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen>
         ),
       ),
       IdeLinkPhase.ready => switch (_tab) {
-        IdeTab.ai => const _AiSessions(),
+        IdeTab.ai => const IdeAiSessionsTab(),
         _ => _Message(
           icon: Icons.hourglass_empty_rounded,
           title: tr('Sắp có', 'Coming soon'),
@@ -308,80 +309,6 @@ class _StatusBar extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _AiSessions extends ConsumerWidget {
-  const _AiSessions();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final sessions = ref.watch(ideAiSessionsProvider);
-    return sessions.when(
-      loading: () => WebTuiLoadingState(
-        message: tr('Đang tải phiên AI...', 'Loading AI sessions...'),
-      ),
-      error: (error, _) {
-        if (error is IdeForbidden) {
-          return _Message(
-            icon: Icons.lock_outline_rounded,
-            title: tr('Không có quyền', 'No permission'),
-            message: tr(
-              'Tài khoản này không được xem phiên AI trên IDE.',
-              'This account cannot view AI sessions on the IDE.',
-            ),
-          );
-        }
-        return WebTuiErrorState(
-          title: tr('Không tải được phiên AI', 'Could not load AI sessions'),
-          message: error is IdeOffline
-              ? tr('IDE vừa mất kết nối.', 'The IDE just disconnected.')
-              : tr('Hãy thử lại.', 'Please try again.'),
-          onRetry: () => ref.invalidate(ideAiSessionsProvider),
-        );
-      },
-      data: (items) {
-        if (items.isEmpty) {
-          return WebTuiEmptyState(
-            title: tr('Chưa có phiên AI', 'No AI sessions'),
-            message: tr(
-              'Phiên AI bạn mở trên IDE sẽ hiện ở đây.',
-              'AI sessions you open in the IDE appear here.',
-            ),
-            icon: Icons.auto_awesome_rounded,
-          );
-        }
-        return RefreshIndicator(
-          onRefresh: () async => ref.refresh(ideAiSessionsProvider.future),
-          child: ListView.separated(
-            itemCount: items.length,
-            separatorBuilder: (_, _) => const Divider(height: 1),
-            itemBuilder: (context, i) {
-              final item = items[i];
-              return ListTile(
-                title: Text(
-                  item.title.isEmpty ? item.project : item.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                subtitle: Text(
-                  [
-                    item.project,
-                    if (item.worktree.isNotEmpty) item.worktree,
-                    item.kind,
-                  ].where((e) => e.isNotEmpty).join(' · '),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () =>
-                    context.push('/ide/ai/${Uri.encodeComponent(item.key)}'),
-              );
-            },
-          ),
-        );
-      },
     );
   }
 }

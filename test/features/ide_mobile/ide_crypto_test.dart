@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
@@ -157,6 +158,40 @@ void main() {
         alias: () => 'a',
       );
       expect(await cancelled.confirm(request), isNull);
+    });
+
+    test('hai lời hỏi vân tay cùng lúc thì xếp hàng', () async {
+      var open = 0;
+      var maxOpen = 0;
+      final gate = Completer<void>();
+      final security = FakeIdeSecurity();
+      Future<bool> present(IdeStepSummary _) async {
+        open++;
+        if (open > maxOpen) maxOpen = open;
+        await gate.future;
+        open--;
+        return true;
+      }
+
+      // Hai nguồn khác nhau (RPC client, phiên AI) dùng chung một hàng chờ.
+      final a = IdeStepUp(
+        security: security,
+        present: present,
+        alias: () => 'a',
+      );
+      final b = IdeStepUp(
+        security: security,
+        present: present,
+        alias: () => 'a',
+      );
+      final fa = a.confirm(request);
+      final fb = b.confirm(request);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(maxOpen, 1);
+      gate.complete();
+      expect(await fa, isNotNull);
+      expect(await fb, isNotNull);
+      expect(maxOpen, 1);
     });
 
     test('args có số thực: báo lỗi, không ký', () async {

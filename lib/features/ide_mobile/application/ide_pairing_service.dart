@@ -13,6 +13,7 @@ enum IdePairOutcome {
   invalid,
   offline,
   rateLimited,
+  busy,
   timedOut,
   noLockScreen,
   biometricRequired,
@@ -30,6 +31,7 @@ final class IdePairingService {
     required Future<String?> Function() currentUserId,
     required String serverScopeId,
     void Function()? onPaired,
+    Future<String?> Function()? chatDeviceId,
     String? Function()? sessionToken,
     this.pollEvery = const Duration(seconds: 2),
     this.maxWait = const Duration(minutes: 2),
@@ -39,6 +41,7 @@ final class IdePairingService {
        _currentUserId = currentUserId,
        _serverScopeId = serverScopeId,
        _onPaired = onPaired,
+       _chatDeviceId = chatDeviceId,
        _sessionToken = sessionToken;
 
   /// Mẫu mã máy IDE cấp (khớp máy chủ chat, header `X-IDE-Device`).
@@ -52,6 +55,14 @@ final class IdePairingService {
 
   /// Gọi khi đã lưu bản ghi gắn mới (kể cả khi màn gắn máy đã đóng).
   final void Function()? _onPaired;
+
+  /// Mã thiết bị push của máy này (`push_devices.device_id`), gửi kèm khi gắn
+  /// để máy chủ đẩy thông báo IDE đúng điện thoại.
+  final Future<String?> Function()? _chatDeviceId;
+
+  /// Kết quả `push_linked` của lần gắn `ok` gần nhất: `false` = máy IDE đã gắn
+  /// nhưng chưa có thiết bị chat nhận thông báo. `null` = chưa rõ.
+  bool? lastPushLinked;
 
   /// Token phiên chat hiện tại: đổi giữa chừng (đăng xuất / người khác đăng
   /// nhập) thì không lưu kết quả gắn.
@@ -73,6 +84,7 @@ final class IdePairingService {
     final clipped = name.runes.length > maxNameLength
         ? String.fromCharCodes(name.runes.take(maxNameLength))
         : name;
+    lastPushLinked = null;
     final session = _sessionToken?.call();
     final userId = await _currentUserId();
     if (userId == null || userId.isEmpty) return IdePairOutcome.failed;
@@ -134,9 +146,16 @@ final class IdePairingService {
     void Function()? onWaiting,
     bool Function()? isCancelled,
   }) async {
+    String? chatDeviceId;
+    try {
+      chatDeviceId = await _chatDeviceId?.call();
+    } on Object {
+      chatDeviceId = null;
+    }
     String pairId;
     try {
       pairId = await _api.requestPair(
+        chatDeviceId: chatDeviceId,
         code: code.code,
         pubkey: pubkey,
         stepPubkey: stepPubkey,
@@ -179,6 +198,7 @@ final class IdePairingService {
             if (oldAlias != null && oldAlias != alias) {
               await _deleteKey(oldAlias);
             }
+            lastPushLinked = poll.pushLinked;
             _onPaired?.call();
             return IdePairOutcome.ok;
           case IdePairRemoteStatus.rejected:
@@ -211,6 +231,45 @@ final class IdePairingService {
     return true;
   }
 
+  /// Người dùng gỡ máy IDE của chính điện thoại này (hoặc đăng xuất): báo máy
+  /// chủ gỡ máy `ide_device_id` rồi xoá bản ghi + khoá xác nhận ở máy. Lỗi mạng
+  /// / 404 bỏ qua. Không có bản ghi thì không làm gì.
+  Future<void> removeThisDevice() async {
+    final IdeDeviceCredentials? stored;
+    try {
+      final userId = await _currentUserId();
+      if (userId == null || userId.isEmpty) return;
+      // Chỉ máy đã gắn của đúng người + máy chủ đang dùng.
+      stored = await _keys.load(
+        chatUserId: userId,
+        serverScope: _serverScopeId,
+      );
+    } on Object {
+      // Không đọc được người dùng / bản ghi: vẫn cố xoá khoá xác nhận theo bản
+      // ghi đã lưu (nếu đọc được) để đăng xuất không để sót khoá. Nuốt lỗi.
+      try {
+        final any = await _keys.loadAny();
+        if (any != null) {
+          await _keys.clear();
+          await _deleteKey(any.stepKeyAlias);
+        }
+      } on Object {
+        // Đăng xuất không được hỏng.
+      }
+      return;
+    }
+    if (stored == null) return;
+    try {
+      await _api
+          .removeDevice(stored.deviceId)
+          .timeout(const Duration(seconds: 5));
+    } on Object {
+      // Mạng chậm / hỏng: vẫn gỡ ở máy.
+    }
+    await _keys.clear();
+    await _deleteKey(stored.stepKeyAlias);
+  }
+
   Future<void> _deleteKey(String alias) async {
     try {
       await _security.deleteStepKey(alias);
@@ -223,6 +282,7 @@ final class IdePairingService {
       switch (error.kind) {
         IdePairErrorKind.offline => IdePairOutcome.offline,
         IdePairErrorKind.rateLimited => IdePairOutcome.rateLimited,
+        IdePairErrorKind.busy => IdePairOutcome.busy,
         IdePairErrorKind.invalid => IdePairOutcome.invalid,
         IdePairErrorKind.other => IdePairOutcome.failed,
       };

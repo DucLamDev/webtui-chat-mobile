@@ -192,6 +192,36 @@ import flutter_callkit_incoming
         UIApplication.shared.open(url, options: [:]) { opened in result(opened) }
       }
 
+    FlutterMethodChannel(name: "webtui/downloads", binaryMessenger: messenger)
+      .setMethodCallHandler { [weak self] call, result in
+        guard call.method == "shareFile",
+          let arguments = call.arguments as? [String: Any],
+          let path = arguments["path"] as? String
+        else {
+          result(FlutterMethodNotImplemented)
+          return
+        }
+        let url = URL(fileURLWithPath: path)
+        let allowedRoots = [
+          FileManager.default.temporaryDirectory,
+          FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first,
+        ].compactMap { $0?.resolvingSymlinksInPath().path }
+        let target = url.resolvingSymlinksInPath().path
+        guard allowedRoots.contains(where: { target.hasPrefix($0 + "/") }) else {
+          result(FlutterError(code: "BAD_PATH", message: "Tệp không nằm trong thư mục tạm của app.", details: nil))
+          return
+        }
+        let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        if let root = self?.window?.rootViewController {
+          controller.popoverPresentationController?.sourceView = root.view
+          controller.popoverPresentationController?.sourceRect = CGRect(
+            x: root.view.bounds.midX, y: root.view.bounds.maxY - 1, width: 1, height: 1)
+          root.present(controller, animated: true) { result(nil) }
+        } else {
+          result(FlutterError(code: "NO_UI", message: "Không có màn hình để chia sẻ.", details: nil))
+        }
+      }
+
     FlutterMethodChannel(name: "webtui/privacy", binaryMessenger: messenger)
       .setMethodCallHandler { [weak self] call, result in
         guard call.method == "setSecureScreen" else {

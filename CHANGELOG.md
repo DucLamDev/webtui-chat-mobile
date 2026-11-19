@@ -3,6 +3,27 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.52.0 · 19/11/2026
+### Tính năng
+- IDE trên app làm được việc AI như IDE web (cần IDE công ty bật phần cho điện thoại; trước đó dùng cổng IDE giả):
+  - Tab **Phiên AI**: danh sách phiên nhóm theo dự án, nhãn đang làm / chờ duyệt / kế hoạch chờ duyệt / xong / kẹt;
+    kéo để làm mới, nhấn giữ để dừng phiên (có hỏi lại). Nút **Phiên mới**: chọn dự án, Claude / Codex, nhánh làm riêng.
+  - Màn trò chuyện với AI: chữ chạy theo thời gian thực, gửi tin (có nhập bằng giọng nói tiếng Việt), dừng lượt, quay
+    lại / làm lại từ một tin, xem các bước AI đang làm, đổi model / mức suy nghĩ / chế độ trong **Cài đặt phiên**.
+  - **Bảng duyệt**: trả lời câu hỏi, duyệt lệnh, duyệt kế hoạch. Thao tác quan trọng IDE đòi xác nhận thì app hỏi vân
+    tay / khuôn mặt và ký bằng khoá xác nhận; app tự viết tóm tắt từ chính lệnh sẽ gửi, chữ IDE gửi kèm chỉ nối sau
+    "IDE ghi:". Mỗi yêu cầu xác nhận chỉ ký một lần, chỉ ký khi khớp đúng một thao tác đang chờ.
+  - Trả lời của AI hiện đủ Markdown (bảng, mã có nút chép, chữ màu), biểu đồ, biểu mẫu (gửi giống IDE web) và sơ đồ vẽ
+    ngay trong app. Liên kết hỏi trước khi mở, chỉ mở http / https.
+  - Tệp AI tạo ra (apk, zip, pdf, ảnh…): tải về có thanh tiến độ, nút Huỷ, kiểm mã băm; Android 10+ lưu vào **Tải về**,
+    iPhone mở bảng chia sẻ. Tên tệp được làm sạch, giới hạn 2 GB, xoá tệp tạm sau khi lưu.
+  - Màn **Tiến trình**: xem log chạy theo, huỷ tiến trình (có hỏi lại).
+- Thông báo IDE: AI chờ duyệt / làm xong / tiến trình xong thì điện thoại nhận thông báo, chạm mở đúng phiên hoặc tiến
+  trình. Chỉ máy đã gắn với IDE mới nhận. Gắn máy gửi kèm mã thiết bị nhận thông báo; máy chưa bật thông báo thì app báo.
+- Đăng xuất thì app gỡ máy khỏi danh sách nhận thông báo IDE trên máy chủ chat (mạng lỗi vẫn đăng xuất bình thường).
+- Gói mới: `markdown` (đọc Markdown) và `speech_to_text` (nhập giọng nói), giấy phép BSD. Android khai báo thêm dịch vụ
+  nhận dạng giọng nói (dùng quyền micro sẵn có).
+
 ## 1.51.0 · 19/11/2026
 ### Tính năng
 - Bước đầu đưa IDE công ty lên app (nền móng, chưa dùng được với IDE thật): khi máy chủ chat báo có IDE

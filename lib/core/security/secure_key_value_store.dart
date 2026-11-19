@@ -27,7 +27,9 @@ enum SecureStoreKey {
   appLockIdleMinutes('app_lock_idle_minutes'),
   serverAccounts('server_accounts_v1'),
   // Khoá thiết bị gắn IDE; đăng xuất gỡ gắn (xoá cùng phiên).
-  ideDevice('ide_device_v1');
+  ideDevice('ide_device_v1'),
+  // Mã máy (`mobile-<uuid>`) báo cho phiên AI của IDE; giữ cố định theo máy.
+  ideClientId('ide_client_id_v1');
 
   const SecureStoreKey(this.value);
 

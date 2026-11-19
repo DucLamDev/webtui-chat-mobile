@@ -50,7 +50,8 @@ final class IdeChannelFactory {
   Uri get uri => wsBaseUri.replace(path: '/api/v1/ide/ws', query: '');
 
   /// Lý do ném [IdeHandshakeException]: `not_paired`, `no_session`,
-  /// `wrong_user` (không nối lại ngay), còn lại từ IDE.
+  /// `wrong_user`, `unauthorized` (HTTP 401 / 403: không nối lại ngay), còn lại
+  /// từ IDE.
   Future<IdeChannel> open() async {
     final creds = await _loadCredentials();
     if (creds == null || creds.serverScope != serverScopeId) {
@@ -67,10 +68,24 @@ final class IdeChannelFactory {
     if (!await _tokens.isMutationGuardCurrent(guard)) {
       throw const IdeHandshakeException('no_session');
     }
-    final socket = await _openSocket(uri, {
-      'Authorization': 'Bearer $token',
-      'X-IDE-Device': creds.deviceId,
-    });
+    final IdeSocket socket;
+    try {
+      socket = await _openSocket(uri, {
+        'Authorization': 'Bearer $token',
+        'X-IDE-Device': creds.deviceId,
+      });
+    } on WebSocketException catch (error) {
+      // HTTP 401 / 403 trước khi nâng cấp: token hỏng hoặc sai vùng, nối lại
+      // cũng vô ích. 503 (IDE_DISABLED / IDE_OFFLINE): nối lại có giãn cách.
+      final status = error.httpStatusCode;
+      if (status == 401 || status == 403) {
+        throw IdeHandshakeException('unauthorized', deviceId: creds.deviceId);
+      }
+      if (status == 503) {
+        throw IdeHandshakeException('ide_offline', deviceId: creds.deviceId);
+      }
+      rethrow;
+    }
     if (!await _tokens.isMutationGuardCurrent(guard)) {
       await socket.close();
       throw const IdeHandshakeException('no_session');

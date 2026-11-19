@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import '../data/ide_rpc_client.dart';
@@ -31,8 +32,21 @@ final class IdeStepUp {
   final IdeStepPresenter _present;
   final String Function() _alias;
 
+  /// Hàng chờ dùng chung mọi nguồn (RPC client, các phiên AI): mỗi lúc chỉ một
+  /// bảng tóm tắt / hộp vân tay.
+  static Future<void> _tail = Future<void>.value();
+
   /// Dùng làm [IdeStepHandler] của `IdeRpcClient`.
-  Future<String?> confirm(IdeStepRequest request) async {
+  Future<String?> confirm(IdeStepRequest request) {
+    final done = Completer<void>();
+    final previous = _tail;
+    _tail = done.future;
+    return previous
+        .then((_) => _confirmNow(request))
+        .whenComplete(done.complete);
+  }
+
+  Future<String?> _confirmNow(IdeStepRequest request) async {
     final accepted = await _present(
       IdeStepSummary(summary: request.summary, op: request.op),
     );

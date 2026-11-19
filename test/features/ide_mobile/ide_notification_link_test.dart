@@ -1,0 +1,73 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:webtui_chat/app/router/notification_locations.dart';
+import 'package:webtui_chat/core/notifications/scoped_local_notification_service.dart';
+import 'package:webtui_chat/features/notifications/domain/entities/mobile_notification.dart';
+
+const _instance = '11111111-2222-4333-8444-555555555555';
+
+String? _loc(String link) => locationForNotificationTarget(
+  NotificationTarget.fromUri(link, fallbackWorkspaceId: 'w1'),
+);
+
+const _ai = '0123456789abcdef01234567';
+const _job = 'j_AbCdEf0123456789';
+
+void main() {
+  test('liên kết IDE hợp lệ mở đúng màn', () {
+    expect(_loc('webtui://ide/ai/$_ai'), '/ide/ai/$_ai');
+    expect(_loc('webtui://ide/jobs/$_job'), '/ide/jobs/$_job');
+    expect(_loc('webtui://ide/tasks'), '/ide');
+    expect(_loc('webtui://ide/tasks/t1'), '/ide');
+    expect(_loc('webtui://ide/mergeq'), '/ide');
+  });
+
+  test('đường lạ, mã xấu hoặc thiếu thì không mở gì', () {
+    expect(_loc('webtui://ide/unknown/x'), isNull);
+    expect(_loc('webtui://ide/ai/new'), isNull);
+    expect(_loc('webtui://ide/ai/abc123'), isNull);
+    expect(_loc('webtui://ide/ai/${_ai.toUpperCase()}'), isNull);
+    expect(_loc('webtui://ide/jobs/j_9f'), isNull);
+    expect(_loc('webtui://ide/jobs/${_job}x'), isNull);
+    expect(_loc('webtui://ide/ai'), isNull);
+    expect(_loc('webtui://ide/ai/'), isNull);
+    expect(_loc('webtui://ide/ai/a/b'), isNull);
+    expect(_loc('webtui://ide/ai/..%2Fx'), isNull);
+    expect(_loc('webtui://ide/jobs/a b'), isNull);
+    expect(_loc('webtui://ide'), isNull);
+    expect(_loc('https://ide/ai/abc'), isNull);
+  });
+
+  test('thông báo đẩy mang deep_link IDE được định tuyến', () {
+    final data = <String, Object?>{
+      'instance_id': _instance,
+      'workspace_id': 'w1',
+      'tag': 'ide-ai-abc',
+      'deep_link': 'webtui://ide/ai/$_ai',
+    };
+    final routing = scopedNotificationRoutingData(data);
+    expect(routing, isNotNull);
+    expect(routing!['event_id'], 'ide-ai-abc');
+    expect(routing['deep_link'], 'webtui://ide/ai/$_ai');
+  });
+
+  test('deep_link IDE lạ bị bỏ, không tạo thông báo mở không được', () {
+    expect(
+      scopedNotificationRoutingData({
+        'instance_id': _instance,
+        'workspace_id': 'w1',
+        'tag': 'x',
+        'deep_link': 'webtui://ide/bay-ba',
+      }),
+      isNull,
+    );
+  });
+
+  test('đang mở đúng /ide/ai/<mã> thì không nhắc lại', () {
+    expect(isSameIdeLocation('/ide/ai/abc', '/ide/ai/abc'), isTrue);
+    expect(isSameIdeLocation('/ide/ai/abc%20', '/ide/ai/abc%20'), isTrue);
+    expect(isSameIdeLocation('/ide/ai/abc', '/ide/ai/xyz'), isFalse);
+    expect(isSameIdeLocation('/ide', '/ide/ai/abc'), isFalse);
+    expect(isSameIdeLocation('/ide/ai/abc', null), isFalse);
+    expect(isSameIdeLocation('/conversations/1', '/conversations/1'), isFalse);
+  });
+}

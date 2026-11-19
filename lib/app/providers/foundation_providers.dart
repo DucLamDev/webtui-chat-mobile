@@ -702,6 +702,8 @@ final logoutUseCaseProvider = Provider<LogoutUseCase>((ref) {
     authRepository: ref.watch(authRepositoryProvider),
     tokenRepository: ref.watch(authTokenRepositoryProvider),
     sessionStateRepository: ref.watch(sessionStateRepositoryProvider),
+    // Còn token: báo máy chủ gỡ máy IDE đã gắn trước khi xoá phiên.
+    beforeSignOut: () => ref.read(idePairingServiceProvider).removeThisDevice(),
   );
 });
 
@@ -1231,6 +1233,8 @@ final idePairingServiceProvider = Provider<IdePairingService>((ref) {
         ref.read(resolveCurrentUserIdUseCaseProvider).execute(),
     serverScopeId: ref.watch(activeInstanceScopeProvider).storageId,
     onPaired: () => ref.invalidate(ideCredentialsProvider),
+    chatDeviceId: () async =>
+        (await ref.read(deviceIdentityRepositoryProvider).currentDevice()).id,
     sessionToken: () => ref.read(_ideSessionTokenProvider),
   );
 });

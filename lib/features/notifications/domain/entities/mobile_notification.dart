@@ -424,6 +424,9 @@ final class NotificationTarget {
       meetingId?.trim().isNotEmpty == true &&
       canOpenConversation;
 
+  /// Đường dẫn màn IDE (`webtui://ide/...`) hoặc null nếu không phải liên kết IDE hợp lệ.
+  String? get ideLocation => ideLocationForLink(deepLink);
+
   /// Bấm thông báo giao việc / đổi hạn thì mở tab Task của phòng.
   bool get opensTasks => targetType == 'task';
 
@@ -466,6 +469,35 @@ final class NotificationTarget {
 }
 
 const _inboxConversationType = 'inbox_conversation';
+
+/// Mã phiên AI: 24 ký tự hex thường. Mã việc nền: `j_` + 16 ký tự (hợp đồng IDE).
+final _ideAiRefPattern = RegExp(r'^[0-9a-f]{24}$');
+final _ideJobRefPattern = RegExp(r'^j_[A-Za-z0-9_-]{16}$');
+
+/// `webtui://ide/ai/<mã>` → `/ide/ai/<mã>`, `webtui://ide/jobs/<mã>` →
+/// `/ide/jobs/<mã>`, `webtui://ide/tasks` / `mergeq` → `/ide`. Đường lạ hoặc
+/// mã không hợp lệ → null (không mở gì).
+String? ideLocationForLink(String? value) {
+  final uri = value == null ? null : Uri.tryParse(value.trim());
+  if (uri == null || uri.scheme.toLowerCase() != 'webtui') return null;
+  final parts = [
+    if (uri.host.isNotEmpty) uri.host,
+    ...uri.pathSegments.where((p) => p.isNotEmpty),
+  ];
+  if (parts.isEmpty || parts.first != 'ide') return null;
+  final rest = parts.sublist(1);
+  if (rest.isEmpty) return null;
+  switch (rest.first) {
+    case 'ai' || 'jobs':
+      if (rest.length != 2) return null;
+      final pattern = rest.first == 'ai' ? _ideAiRefPattern : _ideJobRefPattern;
+      if (!pattern.hasMatch(rest[1])) return null;
+      return '/ide/${rest.first}/${rest[1]}';
+    case 'tasks' || 'mergeq':
+      return rest.length <= 2 ? '/ide' : null;
+  }
+  return null;
+}
 
 /// Loại thông báo của Lịch họp.
 const meetingReminderNotificationType = 'meeting_reminder';

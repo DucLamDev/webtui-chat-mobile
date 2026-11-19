@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
@@ -6,6 +7,37 @@ import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../application/ide_step_up.dart';
+
+/// Màn đặt presenter hộp vân tay khi mở và trả lại cái trước đó khi đóng
+/// (chỉ khi presenter hiện tại vẫn là của màn này).
+final class IdeStepPresenterLease {
+  IdeStepPresenterLease(this._notifier);
+
+  final StateController<IdeStepPresenter?> _notifier;
+  IdeStepPresenter? _previous;
+  IdeStepPresenter? _mine;
+
+  void acquire(BuildContext context, bool Function() mounted) {
+    _previous = _notifier.state;
+    _mine = (summary) =>
+        mounted() ? showIdeStepSheet(context, summary) : Future.value(false);
+    _notifier.state = _mine;
+  }
+
+  void release() {
+    final mine = _mine;
+    final previous = _previous;
+    _mine = null;
+    // Đang dỡ cây widget: không đổi provider ngay (Riverpod báo lỗi).
+    Future.microtask(() {
+      try {
+        if (identical(_notifier.state, mine)) _notifier.state = previous;
+      } on StateError {
+        // Kho provider đã đóng cùng ứng dụng / test.
+      }
+    });
+  }
+}
 
 /// Bảng tóm tắt thao tác nhạy cảm trước khi ký bằng vân tay.
 Future<bool> showIdeStepSheet(

@@ -143,6 +143,13 @@ final class ScopedNotificationQuickReply {
   final String? messageId;
 }
 
+bool _looksLikeIdeLink(String? value) {
+  final uri = value == null ? null : Uri.tryParse(value.trim());
+  return uri != null &&
+      uri.scheme.toLowerCase() == 'webtui' &&
+      uri.host == 'ide';
+}
+
 /// Returns a canonical, allowlisted routing payload, or null for calls and
 /// malformed/non-navigable notifications.
 Map<String, String>? scopedNotificationRoutingData(Map<String, Object?> data) {
@@ -155,6 +162,8 @@ Map<String, String>? scopedNotificationRoutingData(Map<String, Object?> data) {
     'notification_id',
     'message_id',
     'approval_id',
+    // Thông báo IDE (webtui://ide/...) chỉ có `tag` làm mã duy nhất.
+    'tag',
   ], 256);
   if (instanceId == null ||
       workspaceId == null ||
@@ -168,7 +177,9 @@ Map<String, String>? scopedNotificationRoutingData(Map<String, Object?> data) {
     workspaceId: workspaceId,
     data: data,
   );
+  final ideLink = _looksLikeIdeLink(target.deepLink);
   if (!target.isBoundToInstance(instanceId) ||
+      (ideLink && target.ideLocation == null) ||
       (!target.canOpenConversation &&
           target.deepLink == null &&
           !target.isApprovalRequest &&

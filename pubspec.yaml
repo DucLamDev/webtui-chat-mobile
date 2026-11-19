@@ -80,6 +80,8 @@ dependencies:
   opus_flutter: ^3.0.3
   gal: ^3.0.1
   cryptography: ^2.9.0
+  markdown: ^7.3.1
+  speech_to_text: ^7.5.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
