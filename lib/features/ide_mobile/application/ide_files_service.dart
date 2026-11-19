@@ -182,8 +182,16 @@ class IdeFilesService {
     return data is Map && data['diff'] is String ? data['diff'] as String : '';
   }
 
-  Future<String> fetch(String dir, String url) async =>
-      _jobOf(await _rpc.call('files.fetch', {'dir': _path(dir), 'url': url}));
+  /// Chỉ nhận `https://` có tên máy (hợp đồng GĐ2); IDE vẫn kiểm lại.
+  Future<String> fetch(String dir, String url) async {
+    final u = Uri.tryParse(url);
+    if (u == null || u.scheme != 'https' || u.host.isEmpty) {
+      throw const IdeBadRequest('Chỉ nhận liên kết https://');
+    }
+    return _jobOf(
+      await _rpc.call('files.fetch', {'dir': _path(dir), 'url': url}),
+    );
+  }
 
   Future<String> zip(String path) async =>
       _jobOf(await _rpc.call('files.zip', {'path': _path(path)}));

@@ -3,6 +3,21 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.53.0 · 19/11/2026
+### Tính năng
+- IDE trên app có tab **Tệp** (cần IDE công ty bật phần Tệp cho điện thoại; trước đó dùng cổng IDE giả):
+  - Cây tệp của từng dự án: thư mục xếp trước, chấm màu trạng thái git, hiện / ẩn tệp ẩn, kéo để làm mới.
+  - Xem tệp chữ có tô màu cú pháp, xem ảnh; sửa tệp có số dòng, tìm và thay, hoàn tác / làm lại. Lưu khi máy tính vừa
+    sửa cùng tệp thì app hỏi: Tải lại / Ghi đè / Xem khác biệt. Thoát khi chưa lưu thì hỏi lại.
+  - Tạo tệp / thư mục, đổi tên, chép, chuyển, xoá vào thùng rác; thùng rác khôi phục được, xoá hẳn phải xác nhận rồi
+    IDE đòi vân tay.
+  - Tìm theo tên và theo chữ trong dự án (mở đúng dòng khớp), xem khác biệt git, tải tệp về máy, tải tệp lên, nhờ IDE
+    tải từ liên kết (chỉ `https://`), nén zip, đổi tài liệu văn phòng sang PDF.
+  - "Hỏi AI về tệp này" mở phiên AI có sẵn `@đường-dẫn`.
+  - Tệp bí mật (`.env`, khoá…) chỉ hiện tên, có khoá, không mở / chép / nén trên điện thoại.
+  - App kiểm đường dẫn và tên trước khi gửi (không `..`, không `/` trong tên); IDE vẫn là nơi kiểm cuối.
+- Gói mới: `re_highlight` (tô màu cú pháp, giấy phép MIT).
+
 ## 1.52.0 · 19/11/2026
 ### Tính năng
 - IDE trên app làm được việc AI như IDE web (cần IDE công ty bật phần cho điện thoại; trước đó dùng cổng IDE giả):

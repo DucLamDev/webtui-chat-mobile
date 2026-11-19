@@ -1,5 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:webtui_chat/features/ide_mobile/application/ide_files_service.dart';
+import 'package:webtui_chat/features/ide_mobile/domain/ide_errors.dart';
 import 'package:webtui_chat/features/ide_mobile/domain/ide_file_models.dart';
+
+import 'support/rpc_env.dart';
 
 void main() {
   test('tên không hợp lệ bị chặn', () {
@@ -72,5 +76,22 @@ void main() {
     expect(ideDiffLineKind('-x'), IdeDiffLineKind.remove);
     expect(ideDiffLineKind('+++ b/x'), IdeDiffLineKind.header);
     expect(ideDiffLineKind('@@ -1 +1 @@'), IdeDiffLineKind.hunk);
+  });
+
+  test('tải từ liên kết: chỉ gửi https có tên máy', () async {
+    final sent = <String>[];
+    final env = IdeRpcEnv((op, args) {
+      sent.add('$op ${args['url']}');
+      return {'job': 'j1'};
+    }, ops: const ['files.fetch']);
+    await env.up();
+    addTearDown(env.dispose);
+    final files = IdeFilesService(env.rpc);
+    for (final bad in ['http://a.vn/x', 'file:///etc/passwd', 'https:///x', 'x']) {
+      await expectLater(files.fetch('/p', bad), throwsA(isA<IdeBadRequest>()));
+    }
+    expect(sent, isEmpty);
+    expect(await files.fetch('/p', 'https://a.vn/x.zip'), 'j1');
+    expect(sent, ['files.fetch https://a.vn/x.zip']);
   });
 }
