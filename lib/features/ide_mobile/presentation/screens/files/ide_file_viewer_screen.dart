@@ -20,6 +20,7 @@ import '../../widgets/files/ide_file_actions.dart';
 import '../../widgets/files/ide_file_job_dialog.dart';
 import '../../widgets/files/ide_file_transfer.dart';
 import '../../widgets/files/ide_files_ui.dart';
+import '../../widgets/files/ide_image_viewer.dart';
 import '../../widgets/markdown/ide_markdown.dart';
 import 'ide_diff_screen.dart';
 import 'ide_file_editor_screen.dart';
@@ -349,7 +350,7 @@ class _IdeFileViewerScreenState extends ConsumerState<IdeFileViewerScreen> {
         return InteractiveViewer(
           minScale: 0.5,
           maxScale: 6,
-          child: Center(child: Image.file(_file!.file)),
+          child: Center(child: Image(image: ideBoundedImage(_file!.file))),
         );
       case _Mode.video:
         return _VideoBox(controller: _video!);

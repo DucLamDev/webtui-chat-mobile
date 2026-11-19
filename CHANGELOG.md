@@ -28,7 +28,8 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   - Tìm theo tên và theo chữ trong dự án (mở đúng dòng khớp), xem khác biệt git, tải tệp về máy, tải tệp lên, nhờ IDE
     tải từ liên kết (chỉ `https://`), nén zip, đổi tài liệu văn phòng sang PDF.
   - "Hỏi AI về tệp này" mở phiên AI có sẵn `@đường-dẫn`.
-  - Tệp bí mật (`.env`, khoá…) chỉ hiện tên, có khoá, không mở / chép / nén trên điện thoại.
+  - Tệp bí mật (`.env`, khoá…) chỉ hiện tên, có khoá, không mở / chép / đổi tên / chuyển / nén trên điện thoại.
+  - Ảnh rất lớn được thu nhỏ khi hiện để app không hết bộ nhớ.
   - App kiểm đường dẫn và tên trước khi gửi (không `..`, không `/` trong tên); IDE vẫn là nơi kiểm cuối.
 - Gói mới: `re_highlight` (tô màu cú pháp, giấy phép MIT).
 

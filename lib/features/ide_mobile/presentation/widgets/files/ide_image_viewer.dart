@@ -1,8 +1,19 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../l10n/app_strings.dart';
 import '../../../application/ide_download_service.dart';
+
+/// Ảnh giải mã tối đa 4096 điểm ảnh mỗi chiều (giữ tỉ lệ): ảnh nhỏ về dung
+/// lượng nhưng cực lớn về kích thước (30000×30000) không làm app hết bộ nhớ.
+ImageProvider ideBoundedImage(File file) => ResizeImage(
+  FileImage(file),
+  width: 4096,
+  height: 4096,
+  policy: ResizeImagePolicy.fit,
+);
 
 /// Xem ảnh đã tải toàn màn (phóng to / kéo), có nút lưu.
 class IdeImageViewer extends ConsumerWidget {
@@ -44,8 +55,8 @@ class IdeImageViewer extends ConsumerWidget {
         minScale: 0.5,
         maxScale: 6,
         child: Center(
-          child: Image.file(
-            file.file,
+          child: Image(
+            image: ideBoundedImage(file.file),
             errorBuilder: (_, _, _) => Text(
               tr('Không mở được ảnh', 'Cannot open image'),
               style: const TextStyle(color: Colors.white),
