@@ -9,6 +9,7 @@ import '../../domain/entities/channel_file.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/collaboration_room.dart';
 import '../../domain/entities/conversation_summary.dart';
+import 'message_attachment_remote_data_source.dart';
 
 final class ConversationRemoteDataSource {
   ConversationRemoteDataSource(this._api, {this.resolveCurrentUserId});
@@ -1589,6 +1590,11 @@ ChatMessage _messageFromMap(JsonMap map, String workspaceId, String channelId) {
     'workspace_id',
     'workspaceId',
   ], fallback: workspaceId);
+  final includedAttachments = _includedMessageAttachments(
+    map,
+    workspaceId: resolvedWorkspaceId,
+    messageId: messageId,
+  );
   return ChatMessage(
     id: messageId,
     workspaceId: resolvedWorkspaceId,
@@ -1627,12 +1633,37 @@ ChatMessage _messageFromMap(JsonMap map, String workspaceId, String channelId) {
     metadata: Map<String, Object?>.from(
       jsonMap(field(map, const ['metadata'])),
     ),
-    attachments: _messageAttachmentsFromMap(
-      map,
-      workspaceId: resolvedWorkspaceId,
-      messageId: messageId,
-    ),
+    attachments:
+        includedAttachments ??
+        _messageAttachmentsFromMap(
+          map,
+          workspaceId: resolvedWorkspaceId,
+          messageId: messageId,
+        ),
+    attachmentsIncluded: includedAttachments != null,
   );
+}
+
+/// Máy chủ mới gửi kèm khoá `attachments` (mảng, có thể rỗng) cho mỗi tin của
+/// danh sách tin / thread / tìm kiếm, mỗi phần tử đúng dạng của
+/// `GET .../messages/{id}/attachments`: đọc bằng cùng hàm, trả danh sách (đã
+/// biết đủ tệp). Không có khoá / không phải mảng (máy chủ cũ) thì `null`.
+List<MessageAttachment>? _includedMessageAttachments(
+  JsonMap map, {
+  required String workspaceId,
+  required String messageId,
+}) {
+  final raw = map['attachments'];
+  if (raw is! List) return null;
+  return jsonMapList(raw)
+      .map(
+        (item) => messageAttachmentFromJson(
+          item,
+          fallbackWorkspaceId: workspaceId,
+          fallbackMessageId: messageId,
+        ),
+      )
+      .toList(growable: false);
 }
 
 List<MessageAttachment> _messageAttachmentsFromMap(

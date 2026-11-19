@@ -2399,6 +2399,9 @@ class _IncomingCallDialogState extends State<_IncomingCallDialog> {
   final CallTonePlayer _ringtone = CallTonePlayer.ringtone();
   Timer? _timer;
   int _remainingSeconds = 30;
+
+  /// Số nhịp 1 giây đã chạy, để thưa lượt hỏi máy chủ.
+  int _ticks = 0;
   bool _checking = false;
   bool _silenced = false;
 
@@ -2417,11 +2420,16 @@ class _IncomingCallDialogState extends State<_IncomingCallDialog> {
       if (!mounted || _closed) {
         return;
       }
+      _ticks += 1;
       setState(() => _remainingSeconds -= 1);
       if (!_silenced && _remainingSeconds % 2 == 0 && _remainingSeconds > 0) {
         unawaited(HapticFeedback.vibrate());
       }
-      unawaited(_checkCall());
+      // Đếm ngược / rung mỗi giây; hỏi máy chủ thưa hơn (huỷ, đã nghe ở máy
+      // khác vẫn đến ngay qua realtime → [dismissSignal]).
+      if (CallStatePolling.incomingDialogShouldCheck(_ticks)) {
+        unawaited(_checkCall());
+      }
       if (_remainingSeconds <= 0) {
         _close(_IncomingCallDialogResult.timedOut);
       }

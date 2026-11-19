@@ -57,6 +57,7 @@ final class AppSettings {
     this.cameraEnabledOnJoin = true,
     this.textScale = appTextScaleDefault,
     this.soundVolume = appSoundVolumeDefault,
+    this.autoDownloadMediaOnCellular = true,
   });
 
   final WebTuiThemePreference theme;
@@ -75,6 +76,11 @@ final class AppSettings {
   /// Âm lượng chuông trong app, 0..1 (xem [normalizeAppSoundVolume]).
   final double soundVolume;
 
+  /// Tự tải ảnh trong tin khi dùng dữ liệu di động (mặc định bật). Tắt thì ảnh
+  /// chưa có trên máy hiện ô "Chạm để tải ảnh" khi dùng 4G; cũng quyết định có
+  /// lưu ngầm video vừa xem vào máy khi không dùng Wi-Fi.
+  final bool autoDownloadMediaOnCellular;
+
   AppSettings copyWith({
     WebTuiThemePreference? theme,
     String? languageCode,
@@ -87,6 +93,7 @@ final class AppSettings {
     bool? cameraEnabledOnJoin,
     double? textScale,
     double? soundVolume,
+    bool? autoDownloadMediaOnCellular,
   }) {
     return AppSettings(
       theme: theme ?? this.theme,
@@ -102,6 +109,8 @@ final class AppSettings {
       cameraEnabledOnJoin: cameraEnabledOnJoin ?? this.cameraEnabledOnJoin,
       textScale: textScale ?? this.textScale,
       soundVolume: soundVolume ?? this.soundVolume,
+      autoDownloadMediaOnCellular:
+          autoDownloadMediaOnCellular ?? this.autoDownloadMediaOnCellular,
     );
   }
 }
