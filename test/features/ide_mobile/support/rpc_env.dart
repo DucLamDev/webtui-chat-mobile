@@ -15,8 +15,11 @@ typedef IdeFakeHandler = Object? Function(String op, Map<String, Object?> args);
 const Object ideFakeSilent = Object();
 
 final class IdeFakeError {
-  const IdeFakeError(this.code, [this.message]);
+  const IdeFakeError(this.code, [this.message, this.hint]);
   final String code;
+
+  /// `error.hint` kèm lỗi (vd `pubkey`); `null` thì không gửi.
+  final String? hint;
 
   /// Câu `message` của IDE; mặc định lấy luôn mã lỗi.
   final String? message;
@@ -62,7 +65,11 @@ final class AutoIdeSocket implements IdeSocket {
                 'type': 'result',
                 'req': f['req'],
                 'ok': false,
-                'error': {'code': res.code, 'message': res.message ?? res.code},
+                'error': {
+                  'code': res.code,
+                  'message': res.message ?? res.code,
+                  'hint': ?res.hint,
+                },
               }
             : {'type': 'result', 'req': f['req'], 'ok': true, 'data': res},
       ),
