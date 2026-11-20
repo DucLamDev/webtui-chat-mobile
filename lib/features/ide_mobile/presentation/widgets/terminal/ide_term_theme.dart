@@ -8,15 +8,16 @@ const ideTermDefaultFont = 13.0;
 
 double ideTermClampFont(double v) => v.clamp(ideTermMinFont, ideTermMaxFont);
 
-/// Bảng màu terminal theo sáng / tối của app (chữ luôn đủ tương phản).
+/// Bảng màu terminal (chữ luôn đủ tương phản). Màn terminal luôn dùng bộ tối,
+/// nền #181818 như khung terminal của IDE web.
 TerminalTheme ideTermTheme(Brightness brightness) {
   final dark = brightness == Brightness.dark;
   return dark
       ? const TerminalTheme(
           cursor: Color(0xFFE6EDF3),
-          selection: Color(0x663B82F6),
+          selection: Color(0x668100FF),
           foreground: Color(0xFFE6EDF3),
-          background: Color(0xFF0D1117),
+          background: Color(0xFF181818),
           black: Color(0xFF484F58),
           red: Color(0xFFFF7B72),
           green: Color(0xFF3FB950),
@@ -35,7 +36,7 @@ TerminalTheme ideTermTheme(Brightness brightness) {
           brightWhite: Color(0xFFF0F6FC),
           searchHitBackground: Color(0xFFD29922),
           searchHitBackgroundCurrent: Color(0xFF3FB950),
-          searchHitForeground: Color(0xFF0D1117),
+          searchHitForeground: Color(0xFF181818),
         )
       : const TerminalTheme(
           cursor: Color(0xFF1F2328),

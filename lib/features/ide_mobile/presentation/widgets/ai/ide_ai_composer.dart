@@ -1,13 +1,13 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
+import '../ide_wb.dart';
 import 'ide_ai_commands.dart';
 import 'ide_ai_json.dart';
 import 'ide_voice_button.dart';
@@ -43,8 +43,21 @@ class IdeAiComposer extends StatefulWidget {
     this.picker,
     this.voice = true,
     this.initialText = '',
+    this.top,
+    this.tools = const [],
+    this.maxInputHeight,
     super.key,
   });
+
+  /// Chiều cao tối đa của ô gõ (màn chat tính theo vùng nội dung đã trừ bàn
+  /// phím). Null: theo chiều cao màn hình.
+  final double? maxInputHeight;
+
+  /// Phần đầu thẻ (hàng trạng thái lượt, thanh Các bước), như IDE web.
+  final Widget? top;
+
+  /// Chip ở hàng dưới, giữa nút + và nút gửi (mô hình, ngữ cảnh, chế độ).
+  final List<Widget> tools;
 
   /// Chữ điền sẵn vào ô soạn (vd `@đường-dẫn ` từ màn Tệp).
   final String initialText;
@@ -71,6 +84,7 @@ class IdeAiComposer extends StatefulWidget {
 class _IdeAiComposerState extends State<IdeAiComposer> {
   final _text = TextEditingController();
   final _focus = FocusNode();
+  final _scroll = ScrollController();
   final List<IdeDraftAttachment> _files = [];
   late final IdeAttachmentPicker _picker =
       widget.picker ?? PlatformIdeAttachmentPicker();
@@ -91,6 +105,11 @@ class _IdeAiComposerState extends State<IdeAiComposer> {
       );
     }
     _text.addListener(_onChanged);
+    _focus.addListener(_onFocus);
+  }
+
+  void _onFocus() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -98,6 +117,7 @@ class _IdeAiComposerState extends State<IdeAiComposer> {
     _debounce?.cancel();
     _text.dispose();
     _focus.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -225,7 +245,7 @@ class _IdeAiComposerState extends State<IdeAiComposer> {
   void _showAttachMenu() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: WebTuiColors.surface,
+      backgroundColor: IdeWb.bg,
       showDragHandle: true,
       builder: (sheet) => SafeArea(
         child: Column(
@@ -291,159 +311,279 @@ class _IdeAiComposerState extends State<IdeAiComposer> {
               ),
           ])
         : null;
+    final focused = _focus.hasFocus;
+    final radius = BorderRadius.circular(10);
     return Material(
-      color: WebTuiColors.surface,
+      color: IdeWb.bg,
       child: SafeArea(
         top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ?menu,
-            if (_files.isNotEmpty)
-              SizedBox(
-                height: 48,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: WebTuiSpacing.md,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            WebTuiSpacing.sm,
+            WebTuiSpacing.xs,
+            WebTuiSpacing.sm,
+            WebTuiSpacing.sm,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ?menu,
+              // Một thẻ như ô soạn của IDE web: viền tím khi đang gõ.
+              AnimatedContainer(
+                key: const Key('ide_ai_composer_card'),
+                duration: const Duration(milliseconds: 120),
+                decoration: BoxDecoration(
+                  color: IdeWb.bar,
+                  borderRadius: radius,
+                  border: Border.all(
+                    color: focused ? IdeWb.accentInk : IdeWb.borderStrong,
+                    width: focused ? 1.5 : 1,
                   ),
-                  children: [
-                    for (final f in _files)
-                      Padding(
-                        padding: const EdgeInsets.only(right: WebTuiSpacing.xs),
-                        child: InputChip(
-                          key: Key('ide_draft_${f.file.name}'),
-                          avatar: f.path == null && !f.failed
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : Icon(
-                                  f.failed
-                                      ? Icons.error_outline_rounded
-                                      : (f.file.isImage
-                                            ? Icons.image_outlined
-                                            : Icons.insert_drive_file_outlined),
-                                  size: 18,
-                                ),
-                          label: Text(
-                            f.file.name,
-                            overflow: TextOverflow.ellipsis,
+                ),
+                child: ClipRRect(
+                  borderRadius: radius,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ?widget.top,
+                      if (_files.isNotEmpty) _drafts(),
+                      if (_error.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            WebTuiSpacing.md,
+                            WebTuiSpacing.sm,
+                            WebTuiSpacing.md,
+                            0,
                           ),
-                          onDeleted: () => setState(() => _files.remove(f)),
+                          child: Text(
+                            _error,
+                            style: IdeType.bodySmall.copyWith(
+                              color: IdeWb.danger,
+                            ),
+                          ),
                         ),
-                      ),
-                  ],
-                ),
-              ),
-            if (_error.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: WebTuiSpacing.md,
-                ),
-                child: Text(
-                  _error,
-                  style: WebTuiTypography.bodySmall.copyWith(
-                    color: WebTuiColors.danger,
+                      _input(length),
+                      _actions(),
+                    ],
                   ),
                 ),
               ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                WebTuiSpacing.sm,
-                WebTuiSpacing.xs,
-                WebTuiSpacing.sm,
-                WebTuiSpacing.sm,
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  IconButton(
-                    key: const Key('ide_attach_button'),
-                    tooltip: tr('Đính kèm', 'Attach'),
-                    constraints: const BoxConstraints(
-                      minWidth: 44,
-                      minHeight: 44,
-                    ),
-                    onPressed: widget.canControl ? _showAttachMenu : null,
-                    icon: const Icon(Icons.add_circle_outline_rounded),
-                  ),
-                  Expanded(
-                    child: TextField(
-                      key: const Key('ide_ai_input'),
-                      controller: _text,
-                      focusNode: _focus,
-                      enabled: widget.canControl,
-                      minLines: 1,
-                      maxLines: 6,
-                      keyboardType: TextInputType.multiline,
-                      textCapitalization: TextCapitalization.sentences,
-                      inputFormatters: [
-                        LengthLimitingTextInputFormatter(ideMaxMessageLength),
-                      ],
-                      decoration: InputDecoration(
-                        hintText: widget.canControl
-                            ? tr(
-                                'Nhắn cho AI…  (/ lệnh, @ tệp)',
-                                'Message the AI…  (/ command, @ file)',
-                              )
-                            : tr('Chỉ xem', 'View only'),
-                        counterText: length > ideMaxMessageLength - 2000
-                            ? '$length/$ideMaxMessageLength'
-                            : '',
-                        filled: true,
-                        fillColor: WebTuiColors.backgroundMuted,
-                        isDense: true,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(WebTuiRadii.lg),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (widget.voice && widget.canControl)
-                    IdeVoiceButton(
-                      onText: (t) {
-                        final cur = _text.text;
-                        final next = cur.isEmpty ? t : '$cur $t';
-                        _text.text = next.length > ideMaxMessageLength
-                            ? next.substring(0, ideMaxMessageLength)
-                            : next;
-                      },
-                    ),
-                  if (widget.busy)
-                    IconButton.filledTonal(
-                      key: const Key('ide_ai_stop'),
-                      tooltip: tr('Dừng', 'Stop'),
-                      constraints: const BoxConstraints(
-                        minWidth: 44,
-                        minHeight: 44,
-                      ),
-                      onPressed: widget.canControl ? widget.onStop : null,
-                      icon: const Icon(Icons.stop_rounded),
-                    ),
-                  IconButton.filled(
-                    key: const Key('ide_ai_send'),
-                    tooltip: tr('Gửi', 'Send'),
-                    constraints: const BoxConstraints(
-                      minWidth: 44,
-                      minHeight: 44,
-                    ),
-                    onPressed: _canSend ? _send : null,
-                    icon: const Icon(Icons.arrow_upward_rounded),
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
+
+  Widget _drafts() => SizedBox(
+    height: 48,
+    child: ListView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(
+        WebTuiSpacing.sm,
+        WebTuiSpacing.xs,
+        WebTuiSpacing.sm,
+        0,
+      ),
+      children: [
+        for (final f in _files)
+          Padding(
+            padding: const EdgeInsets.only(right: WebTuiSpacing.xs),
+            child: InputChip(
+              key: Key('ide_draft_${f.file.name}'),
+              avatar: f.path == null && !f.failed
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(
+                      f.failed
+                          ? Icons.error_outline_rounded
+                          : (f.file.isImage
+                                ? Icons.image_outlined
+                                : Icons.insert_drive_file_outlined),
+                      size: 18,
+                    ),
+              label: Text(f.file.name, overflow: TextOverflow.ellipsis),
+              onDeleted: () => setState(() => _files.remove(f)),
+            ),
+          ),
+      ],
+    ),
+  );
+
+  /// Ô gõ như IDE web: cao sẵn 3 dòng, gõ nhiều thì giãn lên tới
+  /// [IdeAiComposer.maxInputHeight], quá nữa thì cuộn bên trong ô.
+  Widget _input(int length) {
+    final lineH = MediaQuery.textScalerOf(context).scale(IdeType.chat) * 1.4;
+    final limit =
+        widget.maxInputHeight ?? MediaQuery.sizeOf(context).height * 0.35;
+    // Màn quá thấp (bàn phím + chữ to) vẫn thấy ít nhất 2 dòng.
+    final maxH = math.max(
+      lineH * 2 + WebTuiSpacing.md + WebTuiSpacing.xs,
+      limit,
+    );
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxH),
+      // Thanh cuộn hiện sẵn khi chữ dài hơn ô, để biết là lướt được.
+      child: Scrollbar(
+        controller: _scroll,
+        thumbVisibility: true,
+        child: _field(length),
+      ),
+    );
+  }
+
+  Widget _field(int length) => TextField(
+    key: const Key('ide_ai_input'),
+    controller: _text,
+    focusNode: _focus,
+    scrollController: _scroll,
+    enabled: widget.canControl,
+    minLines: 3,
+    maxLines: null,
+    keyboardType: TextInputType.multiline,
+    textCapitalization: TextCapitalization.sentences,
+    inputFormatters: [LengthLimitingTextInputFormatter(ideMaxMessageLength)],
+    style: IdeType.bodyMedium.copyWith(
+      fontSize: IdeType.chat,
+      fontWeight: FontWeight.w400,
+      height: 1.4,
+      color: IdeWb.textStrong,
+    ),
+    cursorColor: IdeWb.accentInk,
+    decoration: InputDecoration(
+      hintText: widget.canControl
+          ? tr(
+              'Nhắn cho AI · / lệnh, @ tệp',
+              'Message the AI · / command, @ file',
+            )
+          : tr('Chỉ xem', 'View only'),
+      hintStyle: IdeType.bodyMedium.copyWith(
+        fontSize: IdeType.chat,
+        fontWeight: FontWeight.w400,
+        color: IdeWb.text2,
+      ),
+      counterText: length > ideMaxMessageLength - 2000
+          ? '$length/$ideMaxMessageLength'
+          : '',
+      filled: false,
+      isDense: true,
+      contentPadding: const EdgeInsets.fromLTRB(
+        WebTuiSpacing.md,
+        WebTuiSpacing.md,
+        WebTuiSpacing.md,
+        WebTuiSpacing.xs,
+      ),
+      border: InputBorder.none,
+      enabledBorder: InputBorder.none,
+      focusedBorder: InputBorder.none,
+      disabledBorder: InputBorder.none,
+    ),
+  );
+
+  Widget _actions() {
+    final canSend = _canSend;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        WebTuiSpacing.xs,
+        0,
+        WebTuiSpacing.xs,
+        WebTuiSpacing.xs,
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            key: const Key('ide_attach_button'),
+            tooltip: tr('Đính kèm', 'Attach'),
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+            color: IdeWb.text,
+            onPressed: widget.canControl ? _showAttachMenu : null,
+            icon: const Icon(Icons.add_rounded, size: 22),
+          ),
+          Expanded(
+            // Mờ dần ở mép phải: chip dài hơn chỗ (máy nhỏ, chữ to) thì biết là
+            // lướt ngang được, không trông như chữ bị cắt hỏng.
+            child: ShaderMask(
+              blendMode: BlendMode.dstIn,
+              shaderCallback: (r) => LinearGradient(
+                colors: const [Colors.white, Colors.white, Colors.transparent],
+                stops: [0, r.width <= 20 ? 0 : 1 - 20 / r.width, 1],
+              ).createShader(r),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final t in widget.tools)
+                      Padding(
+                        padding: const EdgeInsets.only(right: WebTuiSpacing.xs),
+                        child: t,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (widget.voice && widget.canControl)
+            IdeVoiceButton(
+              onText: (t) {
+                final cur = _text.text;
+                final next = cur.isEmpty ? t : '$cur $t';
+                _text.text = next.length > ideMaxMessageLength
+                    ? next.substring(0, ideMaxMessageLength)
+                    : next;
+              },
+            ),
+          if (widget.busy)
+            _roundButton(
+              key: const Key('ide_ai_stop'),
+              tooltip: tr('Dừng', 'Stop'),
+              icon: Icons.stop_rounded,
+              fill: IdeWb.chip,
+              ink: IdeWb.textStrong,
+              onPressed: widget.canControl ? widget.onStop : null,
+            ),
+          _roundButton(
+            key: const Key('ide_ai_send'),
+            tooltip: tr('Gửi', 'Send'),
+            icon: Icons.arrow_upward_rounded,
+            fill: canSend ? IdeWb.accent : IdeWb.chip,
+            ink: canSend ? Colors.white : IdeWb.text2,
+            onPressed: canSend ? _send : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Nút tròn 34px như IDE web, vùng bấm vẫn đủ 44px.
+  Widget _roundButton({
+    required Key key,
+    required String tooltip,
+    required IconData icon,
+    required Color fill,
+    required Color ink,
+    required VoidCallback? onPressed,
+  }) => IconButton(
+    key: key,
+    tooltip: tooltip,
+    onPressed: onPressed,
+    constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+    style: IconButton.styleFrom(
+      backgroundColor: fill,
+      disabledBackgroundColor: fill,
+      foregroundColor: ink,
+      disabledForegroundColor: ink,
+      fixedSize: const Size(34, 34),
+      minimumSize: const Size(34, 34),
+      padding: EdgeInsets.zero,
+      tapTargetSize: MaterialTapTargetSize.padded,
+    ),
+    icon: Icon(icon, size: 20),
+  );
 
   Widget _menu(Key key, List<Widget> rows) => Container(
     key: key,
@@ -455,10 +595,10 @@ class _IdeAiComposerState extends State<IdeAiComposer> {
       WebTuiSpacing.xs,
     ),
     child: Material(
-      color: WebTuiColors.surfaceElevated,
+      color: IdeWb.bar,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
-        side: BorderSide(color: WebTuiColors.border),
+        side: BorderSide(color: IdeWb.border),
         borderRadius: BorderRadius.circular(WebTuiRadii.md),
       ),
       child: ListView(shrinkWrap: true, children: rows),

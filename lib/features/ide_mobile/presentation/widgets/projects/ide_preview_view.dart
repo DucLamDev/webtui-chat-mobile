@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_deploy.dart';
 import '../../../domain/ide_visible_text.dart';
+import '../ide_wb.dart';
 import '../markdown/ide_code_block.dart';
 
 /// Nhãn dễ hiểu của ký hiệu `s` trong bản xem trước.
@@ -22,10 +22,10 @@ String idePreviewStatusLabel(String s) => switch (s) {
 };
 
 Color idePreviewStatusColor(String s) => switch (s) {
-  'A' => WebTuiColors.accentGreen,
-  'D' => WebTuiColors.danger,
-  'N' => WebTuiColors.accentAmber,
-  _ => WebTuiColors.primary,
+  'A' => IdeWb.ok,
+  'D' => IdeWb.danger,
+  'N' => IdeWb.warn,
+  _ => IdeWb.accentInk,
 };
 
 /// Hiện bản xem trước chuẩn: tóm tắt, cảnh báo, tệp theo `s`, diff.
@@ -89,8 +89,8 @@ class IdePreviewView extends StatelessWidget {
               ideVisibleText(p.subject),
             ].where((e) => e.isNotEmpty).join(' · '),
             key: const Key('ide_preview_subject'),
-            style: WebTuiTypography.bodyMedium.copyWith(
-              color: WebTuiColors.textPrimary,
+            style: IdeType.bodyMedium.copyWith(
+              color: IdeWb.textStrong,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -99,9 +99,7 @@ class IdePreviewView extends StatelessWidget {
             '${tr('Đang chạy trên máy chủ', 'Currently on the server')}: '
             '${p.base!.commit.substring(0, p.base!.commit.length.clamp(0, 7))}'
             ' ${ideVisibleText(p.base!.subject)}',
-            style: WebTuiTypography.bodySmall.copyWith(
-              color: WebTuiColors.textMuted,
-            ),
+            style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
           ),
         const SizedBox(height: WebTuiSpacing.sm),
         for (final w in p.warnings)
@@ -110,24 +108,18 @@ class IdePreviewView extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: WebTuiSpacing.xs),
             padding: const EdgeInsets.all(WebTuiSpacing.sm),
             decoration: BoxDecoration(
-              color: WebTuiColors.accentAmber.withValues(alpha: 0.14),
+              color: IdeWb.warn.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.warning_amber_rounded,
-                  size: 18,
-                  color: WebTuiColors.accentAmber,
-                ),
+                Icon(Icons.warning_amber_rounded, size: 18, color: IdeWb.warn),
                 const SizedBox(width: WebTuiSpacing.sm),
                 Expanded(
                   child: Text(
                     w,
-                    style: WebTuiTypography.bodySmall.copyWith(
-                      color: WebTuiColors.textPrimary,
-                    ),
+                    style: IdeType.bodySmall.copyWith(color: IdeWb.textStrong),
                   ),
                 ),
               ],
@@ -139,7 +131,7 @@ class IdePreviewView extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: WebTuiSpacing.xs),
             padding: const EdgeInsets.all(WebTuiSpacing.sm),
             decoration: BoxDecoration(
-              color: WebTuiColors.danger.withValues(alpha: 0.12),
+              color: IdeWb.danger.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
@@ -147,26 +139,20 @@ class IdePreviewView extends StatelessWidget {
                 'Bản này xoá rất nhiều tệp trên máy chủ. Hãy xem kỹ danh sách.',
                 'This deploy deletes many files on the server. Review the list.',
               ),
-              style: WebTuiTypography.bodySmall.copyWith(
-                color: WebTuiColors.danger,
-              ),
+              style: IdeType.bodySmall.copyWith(color: IdeWb.danger),
             ),
           ),
         if (p.files.isEmpty)
           Text(
             tr('Không có tệp nào thay đổi.', 'No files changed.'),
             key: const Key('ide_preview_no_files'),
-            style: WebTuiTypography.bodyMedium.copyWith(
-              color: WebTuiColors.textSecondary,
-            ),
+            style: IdeType.bodyMedium.copyWith(color: IdeWb.text),
           )
         else ...[
           Text(
             '${p.total} ${tr('tệp thay đổi', 'changed files')}',
             key: const Key('ide_preview_total'),
-            style: WebTuiTypography.bodyMedium.copyWith(
-              color: WebTuiColors.textPrimary,
-            ),
+            style: IdeType.bodyMedium.copyWith(color: IdeWb.textStrong),
           ),
           for (final s in groups) ...[
             Padding(
@@ -183,9 +169,7 @@ class IdePreviewView extends StatelessWidget {
             for (final f in p.files.where((f) => f.s == s).take(_maxFiles))
               IdePathText(
                 f.path,
-                style: WebTuiTypography.bodySmall.copyWith(
-                  color: WebTuiColors.textSecondary,
-                ),
+                style: IdeType.bodySmall.copyWith(color: IdeWb.text),
               ),
           ],
           if (more)
@@ -193,9 +177,7 @@ class IdePreviewView extends StatelessWidget {
               padding: const EdgeInsets.only(top: WebTuiSpacing.xs),
               child: Text(
                 tr('Danh sách chưa hiện hết.', 'The list is not complete.'),
-                style: WebTuiTypography.bodySmall.copyWith(
-                  color: WebTuiColors.textMuted,
-                ),
+                style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
               ),
             ),
         ],
@@ -219,17 +201,17 @@ class IdePreviewView extends StatelessWidget {
                               color:
                                   line.startsWith('+') &&
                                       !line.startsWith('+++')
-                                  ? WebTuiColors.accentGreen
+                                  ? IdeWb.ok
                                   : line.startsWith('-') &&
                                         !line.startsWith('---')
-                                  ? WebTuiColors.danger
-                                  : WebTuiColors.textSecondary,
+                                  ? IdeWb.danger
+                                  : IdeWb.text,
                             ),
                           ),
                         if (diffCut)
                           TextSpan(
                             text: tr('(đã cắt bớt)', '(truncated)'),
-                            style: TextStyle(color: WebTuiColors.textMuted),
+                            style: TextStyle(color: IdeWb.text2),
                           ),
                       ],
                     ),

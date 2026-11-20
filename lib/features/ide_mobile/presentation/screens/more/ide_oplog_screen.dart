@@ -4,13 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_log_models.dart';
 import '../../../domain/ide_more_time.dart';
 import '../../controllers/ide_more_controllers.dart';
+import '../../widgets/ide_wb.dart';
 import 'ide_more_common.dart';
 
 String ideOplogKindLabel(String kind) => switch (kind) {
@@ -232,9 +231,7 @@ class _OplogBodyState extends ConsumerState<_OplogBody> {
                 '${feed.matched > 0 ? feed.matched : feed.events.length} '
                 '${tr('thao tác', 'events')}'
                 '${feed.bad > 0 ? ' · ${feed.bad} ${tr('lỗi', 'failed')}' : ''}',
-                style: WebTuiTypography.bodySmall.copyWith(
-                  color: WebTuiColors.textMuted,
-                ),
+                style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
               ),
             );
           }
@@ -270,9 +267,9 @@ class _EventTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = switch (e.level) {
-      'bad' => WebTuiColors.danger,
-      'ok' => WebTuiColors.accentGreen,
-      _ => WebTuiColors.textSecondary,
+      'bad' => IdeWb.danger,
+      'ok' => IdeWb.ok,
+      _ => IdeWb.text,
     };
     final t = e.time;
     return Padding(
@@ -290,8 +287,8 @@ class _EventTile extends StatelessWidget {
                     e.action,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: WebTuiTypography.bodyMedium.copyWith(
-                      color: WebTuiColors.textPrimary,
+                    style: IdeType.bodyMedium.copyWith(
+                      color: IdeWb.textStrong,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -299,9 +296,7 @@ class _EventTile extends StatelessWidget {
                 if (t != null)
                   Text(
                     ideFormatDateTime(t),
-                    style: WebTuiTypography.bodySmall.copyWith(
-                      color: WebTuiColors.textMuted,
-                    ),
+                    style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
                   ),
               ],
             ),
@@ -312,9 +307,7 @@ class _EventTile extends StatelessWidget {
                   e.detail,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: WebTuiTypography.bodySmall.copyWith(
-                    color: WebTuiColors.textSecondary,
-                  ),
+                  style: IdeType.bodySmall.copyWith(color: IdeWb.text),
                 ),
               ),
             Text(
@@ -325,9 +318,7 @@ class _EventTile extends StatelessWidget {
                 if (e.sha.isNotEmpty)
                   e.sha.substring(0, e.sha.length.clamp(0, 7)),
               ].join(' · '),
-              style: WebTuiTypography.bodySmall.copyWith(
-                color: WebTuiColors.textMuted,
-              ),
+              style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
             ),
           ],
         ),

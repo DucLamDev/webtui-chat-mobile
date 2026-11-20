@@ -52,8 +52,8 @@ class WebTuiUnreadBadge extends StatelessWidget {
           color: muted
               ? (WebTuiColors.brightness == Brightness.dark
                     ? const Color(0xFF4E5A6E)
-                    : WebTuiColors.textMuted)
-              : WebTuiColors.primaryFill,
+                    : WebTuiColors.of(context).textMuted)
+              : WebTuiColors.of(context).primaryFill,
           borderRadius: BorderRadius.circular(WebTuiRadii.lg),
         ),
         child: Padding(
@@ -69,7 +69,7 @@ class WebTuiUnreadBadge extends StatelessWidget {
               overflow: TextOverflow.fade,
               softWrap: false,
               style: WebTuiTypography.labelSmall.copyWith(
-                color: WebTuiColors.textOnPrimary,
+                color: WebTuiColors.of(context).textOnPrimary,
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
               ),
@@ -89,7 +89,7 @@ class WebTuiStatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = this.color ?? WebTuiColors.primary;
+    final color = this.color ?? WebTuiColors.of(context).primary;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),

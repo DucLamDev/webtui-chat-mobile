@@ -228,6 +228,15 @@ final class IdeSessionView {
   Object? get modelSwitch => _s['modelSwitch'];
   Object? get accountActual => _s['accountActual'];
 
+  /// Giây Unix lúc lượt hiện tại bắt đầu / xong (IDE gửi; null nếu chưa có).
+  num? get startedAt => _num('startedAt');
+  num? get finishedAt => _num('finishedAt');
+
+  num? _num(String key) {
+    final v = _s[key];
+    return v is num && v > 0 ? v : null;
+  }
+
   /// Mọi khoá `quota*` (vd. `quota`, `quotaFive`, `quotaWeek`).
   Map<String, Object?> get quota => {
     for (final e in _s.entries)

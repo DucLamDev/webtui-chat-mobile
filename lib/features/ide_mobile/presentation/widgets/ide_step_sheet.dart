@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
-import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../application/ide_step_up.dart';
 import '../../domain/ide_visible_text.dart';
+import 'ide_wb.dart';
 
 /// Màn đặt presenter hộp vân tay khi mở và trả lại cái trước đó khi đóng
 /// (chỉ khi presenter hiện tại vẫn là của màn này).
@@ -77,9 +76,7 @@ Future<bool> showIdeStepSheet(
             child: SingleChildScrollView(
               child: Text(
                 ideStepSummaryText(summary),
-                style: WebTuiTypography.bodyMedium.copyWith(
-                  color: WebTuiColors.textPrimary,
-                ),
+                style: IdeType.bodyMedium.copyWith(color: IdeWb.textStrong),
               ),
             ),
           ),
@@ -92,9 +89,7 @@ Future<bool> showIdeStepSheet(
                 'Thao tác: ${ideStepOpLabel(summary.op)}',
                 'Action: ${ideStepOpLabelEn(summary.op)}',
               ),
-              style: WebTuiTypography.bodySmall.copyWith(
-                color: WebTuiColors.textSecondary,
-              ),
+              style: IdeType.bodySmall.copyWith(color: IdeWb.text),
             ),
           ],
           if (summary.target.isNotEmpty) ...[
@@ -104,9 +99,7 @@ Future<bool> showIdeStepSheet(
                 'Đối tượng: ${ideStepClip(ideVisibleText(summary.target), 200)}',
                 'Target: ${ideStepClip(ideVisibleText(summary.target), 200)}',
               ),
-              style: WebTuiTypography.bodySmall.copyWith(
-                color: WebTuiColors.textSecondary,
-              ),
+              style: IdeType.bodySmall.copyWith(color: IdeWb.text),
             ),
           ],
           const SizedBox(height: WebTuiSpacing.lg),

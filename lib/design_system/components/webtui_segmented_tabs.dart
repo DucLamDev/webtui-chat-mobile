@@ -24,9 +24,11 @@ class WebTuiSegmentedTabs extends StatelessWidget {
       height: WebTuiSegmentedControlTokens.height,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: WebTuiColors.backgroundMuted,
+        color: WebTuiColors.of(context).backgroundMuted,
         borderRadius: BorderRadius.circular(WebTuiRadii.segmented),
-        border: Border.all(color: WebTuiColors.border.withValues(alpha: 0.55)),
+        border: Border.all(
+          color: WebTuiColors.of(context).border.withValues(alpha: 0.55),
+        ),
       ),
       child: tabs.length <= 3
           ? Row(
@@ -84,17 +86,23 @@ class _SegmentButton extends StatelessWidget {
           duration: const Duration(milliseconds: 160),
           curve: Curves.easeOutCubic,
           decoration: BoxDecoration(
-            color: selected ? WebTuiColors.surface : Colors.transparent,
+            color: selected
+                ? WebTuiColors.of(context).surface
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(WebTuiRadii.sm),
             border: selected
                 ? Border.all(
-                    color: WebTuiColors.primary.withValues(alpha: 0.12),
+                    color: WebTuiColors.of(
+                      context,
+                    ).primary.withValues(alpha: 0.12),
                   )
                 : null,
             boxShadow: selected
                 ? [
                     BoxShadow(
-                      color: WebTuiColors.primary.withValues(alpha: 0.08),
+                      color: WebTuiColors.of(
+                        context,
+                      ).primary.withValues(alpha: 0.08),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -110,8 +118,8 @@ class _SegmentButton extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: WebTuiTypography.bodySmall.copyWith(
                   color: selected
-                      ? WebTuiColors.primary
-                      : WebTuiColors.textSecondary,
+                      ? WebTuiColors.of(context).primary
+                      : WebTuiColors.of(context).textSecondary,
                   fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                 ),
               ),

@@ -2,11 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_errors.dart';
+import '../../widgets/ide_wb.dart';
 import '../more/ide_more_common.dart';
 
 /// Tiêu đề mục + nội dung trong thẻ.
@@ -33,9 +32,7 @@ class IdeProfileSection extends StatelessWidget {
           ),
           child: Text(
             title,
-            style: WebTuiTypography.titleMedium.copyWith(
-              color: WebTuiColors.textPrimary,
-            ),
+            style: IdeType.titleMedium.copyWith(color: IdeWb.textStrong),
           ),
         ),
         IdeCard(child: child),
@@ -100,7 +97,7 @@ class _IdeProfileAsyncState<T> extends State<IdeProfileAsync<T>> {
             e is IdeForbidden
                 ? Icons.lock_outline_rounded
                 : Icons.error_outline,
-            color: WebTuiColors.textSecondary,
+            color: IdeWb.text,
           ),
           const SizedBox(width: WebTuiSpacing.sm),
           Expanded(
@@ -111,9 +108,7 @@ class _IdeProfileAsyncState<T> extends State<IdeProfileAsync<T>> {
                       'You do not have access to this.',
                     )
                   : ideMoreErrorText(e),
-              style: WebTuiTypography.bodySmall.copyWith(
-                color: WebTuiColors.textSecondary,
-              ),
+              style: IdeType.bodySmall.copyWith(color: IdeWb.text),
             ),
           ),
           if (e is! IdeForbidden)
@@ -141,9 +136,7 @@ class IdeKeyValue extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: WebTuiTypography.bodySmall.copyWith(
-              color: WebTuiColors.textSecondary,
-            ),
+            style: IdeType.bodySmall.copyWith(color: IdeWb.text),
           ),
         ),
         const SizedBox(width: WebTuiSpacing.sm),
@@ -151,8 +144,8 @@ class IdeKeyValue extends StatelessWidget {
           child: Text(
             value,
             textAlign: TextAlign.end,
-            style: WebTuiTypography.bodySmall.copyWith(
-              color: WebTuiColors.textPrimary,
+            style: IdeType.bodySmall.copyWith(
+              color: IdeWb.textStrong,
               fontWeight: FontWeight.w600,
             ),
           ),

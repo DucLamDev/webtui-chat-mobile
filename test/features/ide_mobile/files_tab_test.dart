@@ -7,6 +7,7 @@ import 'package:webtui_chat/design_system/tokens/webtui_colors.dart';
 import 'package:webtui_chat/features/ide_mobile/data/ide_connection.dart';
 import 'package:webtui_chat/features/ide_mobile/presentation/controllers/ide_controllers.dart';
 import 'package:webtui_chat/features/ide_mobile/presentation/screens/files/ide_files_tab.dart';
+import 'package:webtui_chat/features/ide_mobile/presentation/widgets/files/ide_files_ui.dart';
 
 import 'support/rpc_env.dart';
 
@@ -87,6 +88,44 @@ Object? _ok(String op, Map<String, Object?> a) => switch (op) {
 };
 
 void main() {
+  group('ngày sửa gọn ở hàng tệp', () {
+    final now = DateTime(2026, 11, 19, 15, 0);
+    int ms(DateTime d) => d.millisecondsSinceEpoch;
+    test('trong ngày ghi phút / giờ trước', () {
+      expect(
+        ideShortDate(ms(DateTime(2026, 11, 19, 14, 59, 30)), now: now),
+        'vừa xong',
+      );
+      expect(
+        ideShortDate(ms(DateTime(2026, 11, 19, 14, 55)), now: now),
+        '5 phút trước',
+      );
+      expect(
+        ideShortDate(ms(DateTime(2026, 11, 18, 18, 0)), now: now),
+        '21 giờ trước',
+      );
+    });
+    test('cũ hơn một ngày ghi ngày, năm khác thêm năm', () {
+      expect(
+        ideShortDate(ms(DateTime(2026, 11, 18, 14, 0)), now: now),
+        '18/11',
+      );
+      expect(
+        ideShortDate(ms(DateTime(2025, 12, 31, 9, 0)), now: now),
+        '31/12/2025',
+      );
+    });
+    test('giờ máy IDE chạy trước điện thoại thì ghi ngày, không ghi số âm', () {
+      expect(
+        ideShortDate(ms(DateTime(2026, 11, 19, 15, 30)), now: now),
+        '19/11',
+      );
+    });
+    test('không có giờ thì để trống', () {
+      expect(ideShortDate(0, now: now), '');
+    });
+  });
+
   _scaleSuite();
   for (final b in [Brightness.light, Brightness.dark]) {
     testWidgets('cây tệp: thư mục trước, chấm git, khoá bí mật ($b)', (

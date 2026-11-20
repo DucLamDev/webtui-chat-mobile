@@ -5,6 +5,7 @@ import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_errors.dart';
 import '../../../domain/ide_file_models.dart';
+import '../ide_wb.dart';
 
 /// Lời báo lỗi thân thiện theo mã lỗi của IDE.
 String ideFilesErrorText(Object error) => switch (error) {
@@ -64,11 +65,11 @@ Future<void> ideCopyText(BuildContext context, String text, String note) async {
 
 /// Màu chấm git; chữ cái đi kèm để không chỉ dựa vào màu.
 Color ideGitColor(String git) => switch (git) {
-  'M' => WebTuiColors.accentAmber,
-  'A' || '?' => WebTuiColors.accentGreen,
-  'D' => WebTuiColors.danger,
-  'R' => WebTuiColors.primary,
-  _ => WebTuiColors.textMuted,
+  'M' => IdeWb.warn,
+  'A' || '?' => IdeWb.ok,
+  'D' => IdeWb.danger,
+  'R' => IdeWb.accentInk,
+  _ => IdeWb.text2,
 };
 
 String ideGitLabel(String git) => switch (git) {
@@ -93,6 +94,44 @@ IconData ideEntryIcon(IdeFileEntry e) {
     IdeFileKind.other => Icons.insert_drive_file_outlined,
     IdeFileKind.code => Icons.code_rounded,
   };
+}
+
+/// Màu biểu tượng theo loại tệp (kiểu Working Copy / Files): nhìn là biết loại.
+Color ideEntryTint(IdeFileEntry e) {
+  if (e.secret) return IdeWb.text2;
+  if (e.isDir) return IdeWb.accentInk;
+  if (e.type == IdeEntryType.link) return IdeWb.text;
+  return switch (ideFileKindOf(e.name)) {
+    IdeFileKind.image => IdeWb.ok,
+    IdeFileKind.video => const Color(0xFF8E5BD9),
+    IdeFileKind.pdf => IdeWb.danger,
+    IdeFileKind.office => const Color(0xFF2B7CD3),
+    IdeFileKind.markdown => IdeWb.warn,
+    IdeFileKind.code =>
+      WebTuiColors.brightness == Brightness.dark
+          ? const Color(0xFF8E8CFF)
+          : const Color(0xFF5E5CE6),
+    IdeFileKind.other => IdeWb.text,
+  };
+}
+
+/// Ngày sửa gọn cho hàng tệp: "5 phút trước", "3 giờ trước", "12/11", năm
+/// khác thì "12/11/2025".
+String ideShortDate(int mtimeMs, {DateTime? now}) {
+  if (mtimeMs <= 0) return '';
+  final t = DateTime.fromMillisecondsSinceEpoch(mtimeMs);
+  final n = now ?? DateTime.now();
+  final d = n.difference(t);
+  if (!d.isNegative && d.inHours < 24) {
+    if (d.inMinutes < 1) return tr('vừa xong', 'just now');
+    if (d.inMinutes < 60) {
+      return tr('${d.inMinutes} phút trước', '${d.inMinutes} min ago');
+    }
+    return tr('${d.inHours} giờ trước', '${d.inHours} h ago');
+  }
+  String two(int v) => v.toString().padLeft(2, '0');
+  final dm = '${two(t.day)}/${two(t.month)}';
+  return t.year == n.year ? dm : '$dm/${t.year}';
 }
 
 String ideFormatDate(int mtimeMs) {

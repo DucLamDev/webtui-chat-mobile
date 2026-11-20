@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_more_time.dart';
 import '../../../domain/ide_task_models.dart';
 import '../../controllers/ide_more_controllers.dart';
+import '../../widgets/ide_wb.dart';
 import 'ide_more_common.dart';
 
 /// Bảng thêm việc ([task] null) hoặc sửa việc. Trả `true` khi đã lưu.
@@ -162,9 +161,7 @@ class _IdeTaskFormState extends ConsumerState<IdeTaskForm> {
               _editing
                   ? tr('Sửa việc', 'Edit task')
                   : tr('Thêm việc', 'New task'),
-              style: WebTuiTypography.titleLarge.copyWith(
-                color: WebTuiColors.textPrimary,
-              ),
+              style: IdeType.titleLarge.copyWith(color: IdeWb.textStrong),
             ),
             const SizedBox(height: WebTuiSpacing.md),
             if (!_editing)
@@ -268,9 +265,7 @@ class _IdeTaskFormState extends ConsumerState<IdeTaskForm> {
                 child: Text(
                   _error!,
                   key: const Key('ide_task_error'),
-                  style: WebTuiTypography.bodyMedium.copyWith(
-                    color: WebTuiColors.danger,
-                  ),
+                  style: IdeType.bodyMedium.copyWith(color: IdeWb.danger),
                 ),
               ),
             const SizedBox(height: WebTuiSpacing.md),

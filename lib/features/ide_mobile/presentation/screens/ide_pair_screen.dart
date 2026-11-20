@@ -4,13 +4,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../design_system/components/webtui_components.dart';
-import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../conversations/presentation/screens/qr_scanner_screen.dart';
 import '../../application/ide_pairing_service.dart';
 import '../../domain/ide_pair_code.dart';
+import '../widgets/ide_wb.dart';
 
 /// Câu lỗi dễ hiểu cho từng kết quả gắn máy.
 String idePairOutcomeText(IdePairOutcome outcome) => switch (outcome) {
@@ -99,7 +98,7 @@ class _IdePairScreenState extends ConsumerState<IdePairScreen> {
 
   Future<void> _scan() async {
     final raw = await Navigator.of(context).push<String>(
-      MaterialPageRoute(
+      IdePageRoute(
         builder: (_) => QrScannerScreen(
           title: tr('Quét mã gắn IDE', 'Scan IDE pairing code'),
           hint: tr(
@@ -227,16 +226,14 @@ class _IdePairScreenState extends ConsumerState<IdePairScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 40, color: WebTuiColors.textMuted),
+            Icon(icon, size: 40, color: IdeWb.text2),
             const SizedBox(height: WebTuiSpacing.md),
-            Text(title, style: WebTuiTypography.titleMedium),
+            Text(title, style: IdeType.titleMedium),
             const SizedBox(height: WebTuiSpacing.sm),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: WebTuiTypography.bodyMedium.copyWith(
-                color: WebTuiColors.textSecondary,
-              ),
+              style: IdeType.bodyMedium.copyWith(color: IdeWb.text),
             ),
             const SizedBox(height: WebTuiSpacing.lg),
             ...extra,

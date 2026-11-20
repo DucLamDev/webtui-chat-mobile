@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
@@ -12,6 +11,7 @@ import '../../../domain/ide_errors.dart';
 import '../../../domain/ide_more_time.dart';
 import '../../../domain/ide_server_models.dart';
 import '../../../domain/ide_visible_text.dart';
+import '../../widgets/ide_wb.dart';
 import '../more/ide_more_common.dart';
 import 'ide_tools_common.dart';
 
@@ -235,17 +235,13 @@ class _ServerCardState extends ConsumerState<_ServerCard> {
             children: [
               Text(
                 ideVisibleText(title),
-                style: WebTuiTypography.titleMedium.copyWith(
-                  color: WebTuiColors.textPrimary,
-                ),
+                style: IdeType.titleMedium.copyWith(color: IdeWb.textStrong),
               ),
               IdeTag(
                 s.keyOk
                     ? tr('Đã có khoá', 'Key set')
                     : tr('Chưa có khoá', 'No key'),
-                color: s.keyOk
-                    ? WebTuiColors.accentGreen
-                    : WebTuiColors.accentAmber,
+                color: s.keyOk ? IdeWb.ok : IdeWb.warn,
               ),
             ],
           ),
@@ -292,7 +288,7 @@ class _ServerCardState extends ConsumerState<_ServerCard> {
               if (canRemove)
                 OutlinedButton(
                   key: Key('ide_server_remove_${s.name}'),
-                  style: ideToolsBtn(color: WebTuiColors.danger),
+                  style: ideToolsBtn(color: IdeWb.danger),
                   onPressed: _busy ? null : _remove,
                   child: Text(tr('Gỡ', 'Remove')),
                 ),
@@ -494,9 +490,7 @@ class _ServerSheetState extends ConsumerState<ServerSheet> {
               _edit
                   ? tr('Sửa máy chủ', 'Edit server')
                   : tr('Thêm máy chủ', 'Add server'),
-              style: WebTuiTypography.titleLarge.copyWith(
-                color: WebTuiColors.textPrimary,
-              ),
+              style: IdeType.titleLarge.copyWith(color: IdeWb.textStrong),
             ),
             const SizedBox(height: WebTuiSpacing.md),
             if (!_edit)
@@ -559,9 +553,7 @@ class _ServerSheetState extends ConsumerState<ServerSheet> {
                 'Mật khẩu không được lưu; chỉ dùng để cài khoá SSH rồi bỏ.',
                 'The password is not stored; it only installs the SSH key.',
               ),
-              style: WebTuiTypography.bodySmall.copyWith(
-                color: WebTuiColors.textMuted,
-              ),
+              style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
             ),
             if (_error != null)
               Padding(
@@ -569,9 +561,7 @@ class _ServerSheetState extends ConsumerState<ServerSheet> {
                 child: Text(
                   _error!,
                   key: const Key('ide_server_error'),
-                  style: WebTuiTypography.bodyMedium.copyWith(
-                    color: WebTuiColors.danger,
-                  ),
+                  style: IdeType.bodyMedium.copyWith(color: IdeWb.danger),
                 ),
               ),
             if (_pubkey != null)
@@ -614,17 +604,15 @@ class _KeyBox extends StatelessWidget {
             'Chưa vào được bằng khoá. Thêm khoá công khai này vào authorized_keys của máy chủ rồi thử lại:',
             'Key login failed. Add this public key to the server authorized_keys and retry:',
           ),
-          style: WebTuiTypography.bodySmall.copyWith(
-            color: WebTuiColors.textSecondary,
-          ),
+          style: IdeType.bodySmall.copyWith(color: IdeWb.text),
         ),
         const SizedBox(height: WebTuiSpacing.xs),
         SelectableText(
           pubkey,
           key: const Key('ide_server_pubkey'),
-          style: WebTuiTypography.bodySmall.copyWith(
-            fontFamily: 'monospace',
-            color: WebTuiColors.textPrimary,
+          style: IdeType.bodySmall.copyWith(
+            fontFamily: WebTuiTypography.monoFamily,
+            color: IdeWb.textStrong,
           ),
         ),
         TextButton.icon(
@@ -655,9 +643,7 @@ class ServerKeySheet extends StatelessWidget {
               children: [
                 Text(
                   tr('Khoá công khai SSH của bạn', 'Your SSH public key'),
-                  style: WebTuiTypography.titleLarge.copyWith(
-                    color: WebTuiColors.textPrimary,
-                  ),
+                  style: IdeType.titleLarge.copyWith(color: IdeWb.textStrong),
                 ),
                 const SizedBox(height: WebTuiSpacing.sm),
                 _KeyBox(pubkey: pubkey),

@@ -5,12 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../design_system/components/webtui_components.dart';
-import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../domain/ide_errors.dart';
 import '../widgets/ide_step_sheet.dart';
+import '../widgets/ide_wb.dart';
 import '../widgets/markdown/ide_code_block.dart';
 import '../widgets/projects/ide_job_result.dart';
 
@@ -197,16 +196,12 @@ class _IdeJobScreenState extends ConsumerState<IdeJobScreen> {
   }
 
   (String, Color) get _statusView => switch (_status) {
-    'running' => (tr('Đang chạy', 'Running'), WebTuiColors.primary),
-    'done' ||
-    'ok' ||
-    'success' ||
-    'finished' => (tr('Xong', 'Done'), WebTuiColors.accentGreen),
-    'cancelled' ||
-    'canceled' => (tr('Đã huỷ', 'Cancelled'), WebTuiColors.textMuted),
-    'failed' || 'error' => (tr('Lỗi', 'Failed'), WebTuiColors.danger),
-    '' => (tr('Không rõ', 'Unknown'), WebTuiColors.textMuted),
-    final s => (s, WebTuiColors.textMuted),
+    'running' => (tr('Đang chạy', 'Running'), IdeWb.accentInk),
+    'done' || 'ok' || 'success' || 'finished' => (tr('Xong', 'Done'), IdeWb.ok),
+    'cancelled' || 'canceled' => (tr('Đã huỷ', 'Cancelled'), IdeWb.text2),
+    'failed' || 'error' => (tr('Lỗi', 'Failed'), IdeWb.danger),
+    '' => (tr('Không rõ', 'Unknown'), IdeWb.text2),
+    final s => (s, IdeWb.text2),
   };
 
   @override
@@ -223,7 +218,7 @@ class _IdeJobScreenState extends ConsumerState<IdeJobScreen> {
               icon: const Icon(Icons.stop_circle_outlined),
               label: Text(tr('Huỷ', 'Cancel')),
               style: TextButton.styleFrom(
-                foregroundColor: WebTuiColors.danger,
+                foregroundColor: IdeWb.danger,
                 minimumSize: const Size(44, 44),
               ),
             ),
@@ -283,9 +278,7 @@ class _IdeJobScreenState extends ConsumerState<IdeJobScreen> {
                   [_op, _project].where((e) => e.isNotEmpty).join(' · '),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: WebTuiTypography.bodyMedium.copyWith(
-                    color: WebTuiColors.textSecondary,
-                  ),
+                  style: IdeType.bodyMedium.copyWith(color: IdeWb.text),
                 ),
               ),
             ],
@@ -302,9 +295,9 @@ class _IdeJobScreenState extends ConsumerState<IdeJobScreen> {
             ),
             padding: const EdgeInsets.all(WebTuiSpacing.md),
             decoration: BoxDecoration(
-              color: WebTuiColors.backgroundMuted,
+              color: IdeWb.chip,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: WebTuiColors.border),
+              border: Border.all(color: IdeWb.border),
             ),
             child: _log.isEmpty
                 ? Center(
@@ -318,9 +311,7 @@ class _IdeJobScreenState extends ConsumerState<IdeJobScreen> {
                               'Việc này không có log.',
                               'This job has no log.',
                             ),
-                      style: WebTuiTypography.bodySmall.copyWith(
-                        color: WebTuiColors.textMuted,
-                      ),
+                      style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
                     ),
                   )
                 : SingleChildScrollView(
@@ -328,9 +319,7 @@ class _IdeJobScreenState extends ConsumerState<IdeJobScreen> {
                     child: SelectableText(
                       _log,
                       key: const Key('ide_job_log'),
-                      style: ideMonoStyle.copyWith(
-                        color: WebTuiColors.textPrimary,
-                      ),
+                      style: ideMonoStyle.copyWith(color: IdeWb.textStrong),
                     ),
                   ),
           ),

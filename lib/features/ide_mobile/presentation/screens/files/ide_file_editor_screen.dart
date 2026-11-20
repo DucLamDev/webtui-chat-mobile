@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_errors.dart';
@@ -15,6 +14,7 @@ import '../../controllers/ide_files_controllers.dart';
 import '../../widgets/files/ide_code_controller.dart';
 import '../../widgets/files/ide_code_view.dart';
 import '../../widgets/files/ide_files_ui.dart';
+import '../../widgets/ide_wb.dart';
 import 'ide_diff_screen.dart';
 
 /// Trình sửa tệp chữ: số dòng, tô màu nhẹ, tìm / thay, hoàn tác / làm lại,
@@ -259,7 +259,8 @@ class _IdeFileEditorScreenState extends ConsumerState<IdeFileEditorScreen> {
           return _save(force: true);
         case 'diff':
           await Navigator.of(context).push(
-            MaterialPageRoute<void>(
+            IdePageRoute<void>(
+              dark: true,
               builder: (_) =>
                   IdeDiffScreen(root: widget.root, path: widget.path),
             ),
@@ -388,7 +389,7 @@ class _IdeFileEditorScreenState extends ConsumerState<IdeFileEditorScreen> {
         ? (_findText.text.isEmpty ? '' : tr('0 kết quả', '0 results'))
         : '${_match + 1}/${_matches.length}';
     return Container(
-      color: WebTuiColors.backgroundMuted,
+      color: IdeWbPalette.of(context).chip,
       padding: const EdgeInsets.fromLTRB(
         WebTuiSpacing.md,
         WebTuiSpacing.sm,
@@ -491,7 +492,7 @@ class _IdeFileEditorScreenState extends ConsumerState<IdeFileEditorScreen> {
     var width = 0.0;
     for (final l in candidates.take(64)) {
       final p = TextPainter(
-        text: TextSpan(text: l, style: ideCodeStyle()),
+        text: TextSpan(text: l, style: ideCodeStyle(context)),
         textDirection: TextDirection.ltr,
         textScaler: scaler,
         maxLines: 1,
@@ -534,7 +535,9 @@ class _IdeFileEditorScreenState extends ConsumerState<IdeFileEditorScreen> {
                     right: 0,
                     top: line * extent + WebTuiSpacing.sm,
                     height: extent,
-                    child: ColoredBox(color: WebTuiColors.primarySoft),
+                    child: ColoredBox(
+                      color: IdeWbPalette.of(context).accentSoft,
+                    ),
                   ),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -561,9 +564,9 @@ class _IdeFileEditorScreenState extends ConsumerState<IdeFileEditorScreen> {
                             enableSuggestions: false,
                             smartDashesType: SmartDashesType.disabled,
                             smartQuotesType: SmartQuotesType.disabled,
-                            style: ideCodeStyle(),
+                            style: ideCodeStyle(context),
                             strutStyle: ideCodeStrut,
-                            cursorColor: WebTuiColors.primary,
+                            cursorColor: IdeWbPalette.of(context).accentInk,
                             decoration: const InputDecoration(
                               isDense: true,
                               filled: false,

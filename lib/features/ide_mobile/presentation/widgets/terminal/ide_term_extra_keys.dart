@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_term.dart';
+import '../ide_wb.dart';
 
 /// Hành động của một phím phụ.
 typedef IdeTermNavBuilder = String Function(int mod, bool appCursor);
@@ -29,6 +29,7 @@ class IdeTermExtraKeys extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = IdeWbPalette.of(context);
     Widget key(
       String id,
       Widget label,
@@ -49,11 +50,11 @@ class IdeTermExtraKeys extends StatelessWidget {
     Widget navText(String id, String shown, IdeTermNavBuilder b) =>
         key(id, Text(shown), () => onNav(b));
     return Material(
-      color: WebTuiColors.surface,
+      color: p.bg,
       child: Container(
         height: 52,
         decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: WebTuiColors.hairline)),
+          border: Border(top: BorderSide(color: p.border)),
         ),
         child: ListView(
           scrollDirection: Axis.horizontal,
@@ -126,11 +127,12 @@ class _Key extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = active ? WebTuiColors.textOnPrimary : WebTuiColors.textPrimary;
+    final p = IdeWbPalette.of(context);
+    final fg = active ? Colors.white : p.textStrong;
     final body = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: Material(
-        color: active ? WebTuiColors.primary : WebTuiColors.backgroundMuted,
+        color: active ? p.accent : p.chip,
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           borderRadius: BorderRadius.circular(8),

@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
+import '../ide_wb.dart';
 
 const ideMonoStyle = TextStyle(
-  fontFamily: 'monospace',
-  fontFamilyFallback: ['Menlo', 'Roboto Mono', 'Courier'],
+  fontFamily: WebTuiTypography.monoFamily,
+  fontFamilyFallback: WebTuiTypography.monoFallback,
   fontSize: 12.5,
   height: 1.4,
 );
@@ -32,13 +32,15 @@ class IdeCodeBlock extends StatelessWidget {
     final lines = code.isEmpty ? <String>[''] : code.split('\n');
     final numbersOn = lineNumbers && lines.length > 1;
     final digits = '${lines.length}'.length;
-    final mono = ideMonoStyle.copyWith(color: WebTuiColors.textPrimary);
+    final mono = ideMonoStyle.copyWith(
+      color: IdeWbPalette.of(context).textStrong,
+    );
     return Container(
       margin: const EdgeInsets.symmetric(vertical: WebTuiSpacing.xs),
       decoration: BoxDecoration(
-        color: WebTuiColors.backgroundMuted,
+        color: IdeWbPalette.of(context).chip,
         borderRadius: BorderRadius.circular(WebTuiRadii.md),
-        border: Border.all(color: WebTuiColors.border),
+        border: Border.all(color: IdeWbPalette.of(context).border),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -46,14 +48,14 @@ class IdeCodeBlock extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.only(left: WebTuiSpacing.md),
-            color: WebTuiColors.chipBackground,
+            color: IdeWbPalette.of(context).chip,
             child: Row(
               children: [
                 Expanded(
                   child: Text(
                     language.isEmpty ? tr('Mã', 'Code') : language,
                     style: WebTuiTypography.labelSmall.copyWith(
-                      color: WebTuiColors.textSecondary,
+                      color: IdeWbPalette.of(context).text,
                     ),
                   ),
                 ),
@@ -91,7 +93,7 @@ class IdeCodeBlock extends StatelessWidget {
                         '$i'.padLeft(digits),
                     ].join('\n'),
                     textAlign: TextAlign.right,
-                    style: mono.copyWith(color: WebTuiColors.textMuted),
+                    style: mono.copyWith(color: IdeWbPalette.of(context).text2),
                   ),
                   const SizedBox(width: WebTuiSpacing.md),
                 ],

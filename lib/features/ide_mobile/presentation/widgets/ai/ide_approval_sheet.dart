@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../../../design_system/components/webtui_dialogs.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
+import '../ide_wb.dart';
 import '../markdown/ide_markdown.dart';
 import 'ide_ai_json.dart';
 import 'ide_plan_decisions.dart';
@@ -136,9 +136,7 @@ class IdeApprovalSheet extends StatelessWidget {
                     'Chỉ xem: hãy bấm "Điều khiển từ đây" để duyệt.',
                     'View only: take control to approve.',
                   ),
-                  style: WebTuiTypography.bodySmall.copyWith(
-                    color: WebTuiColors.textMuted,
-                  ),
+                  style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
                 ),
               ),
             if (batchable.length >= 2 && canControl)
@@ -264,10 +262,8 @@ class _IdeApprovalCardState extends State<IdeApprovalCard> {
     return Container(
       padding: const EdgeInsets.all(WebTuiSpacing.md),
       decoration: BoxDecoration(
-        color: WebTuiColors.surfaceElevated,
-        border: Border.all(
-          color: _irreversible ? WebTuiColors.danger : WebTuiColors.border,
-        ),
+        color: IdeWb.bar,
+        border: Border.all(color: _irreversible ? IdeWb.danger : IdeWb.border),
         borderRadius: BorderRadius.circular(WebTuiRadii.md),
       ),
       child: Column(
@@ -278,9 +274,7 @@ class _IdeApprovalCardState extends State<IdeApprovalCard> {
               Expanded(
                 child: Text(
                   title,
-                  style: WebTuiTypography.titleMedium.copyWith(
-                    color: WebTuiColors.textPrimary,
-                  ),
+                  style: IdeType.titleMedium.copyWith(color: IdeWb.textStrong),
                 ),
               ),
               if (_irreversible)
@@ -291,13 +285,13 @@ class _IdeApprovalCardState extends State<IdeApprovalCard> {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: WebTuiColors.danger,
+                    color: IdeWb.danger,
                     borderRadius: BorderRadius.circular(WebTuiRadii.xs),
                   ),
                   child: Text(
                     tr('Quan trọng', 'Important'),
                     style: WebTuiTypography.labelSmall.copyWith(
-                      color: WebTuiColors.textOnPrimary,
+                      color: Colors.white,
                     ),
                   ),
                 ),
@@ -364,14 +358,14 @@ class _IdeApprovalCardState extends State<IdeApprovalCard> {
   Widget _mono(String text) => Container(
     padding: const EdgeInsets.all(WebTuiSpacing.sm),
     decoration: BoxDecoration(
-      color: WebTuiColors.backgroundMuted,
+      color: IdeWb.chip,
       borderRadius: BorderRadius.circular(WebTuiRadii.sm),
     ),
     child: SelectableText(
       text,
-      style: WebTuiTypography.bodySmall.copyWith(
-        fontFamily: 'monospace',
-        color: WebTuiColors.textPrimary,
+      style: IdeType.bodySmall.copyWith(
+        fontFamily: WebTuiTypography.monoFamily,
+        color: IdeWb.textStrong,
       ),
     ),
   );
@@ -390,9 +384,7 @@ class _IdeApprovalCardState extends State<IdeApprovalCard> {
             padding: const EdgeInsets.only(top: WebTuiSpacing.xs),
             child: Text(
               cwd,
-              style: WebTuiTypography.bodySmall.copyWith(
-                color: WebTuiColors.textMuted,
-              ),
+              style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
             ),
           ),
       ],
@@ -426,9 +418,7 @@ class _IdeApprovalCardState extends State<IdeApprovalCard> {
           if (f.$1.isNotEmpty)
             Text(
               f.$1,
-              style: WebTuiTypography.bodyMedium.copyWith(
-                color: WebTuiColors.textPrimary,
-              ),
+              style: IdeType.bodyMedium.copyWith(color: IdeWb.textStrong),
             ),
           if (f.$2.isNotEmpty) IdeDiffView(diff: f.$2),
           const SizedBox(height: WebTuiSpacing.xs),
@@ -458,9 +448,7 @@ class _IdeApprovalCardState extends State<IdeApprovalCard> {
         for (final q in qs) ...[
           Text(
             q.text,
-            style: WebTuiTypography.bodyMedium.copyWith(
-              color: WebTuiColors.textPrimary,
-            ),
+            style: IdeType.bodyMedium.copyWith(color: IdeWb.textStrong),
           ),
           for (final o in q.options) _option(q, o.label, o.description),
           Padding(
@@ -508,7 +496,7 @@ class _IdeApprovalCardState extends State<IdeApprovalCard> {
                   : (on
                         ? Icons.radio_button_checked_rounded
                         : Icons.radio_button_unchecked_rounded),
-              color: on ? WebTuiColors.primary : WebTuiColors.textMuted,
+              color: on ? IdeWb.accentInk : IdeWb.text2,
             ),
             const SizedBox(width: WebTuiSpacing.sm),
             Expanded(
@@ -517,16 +505,12 @@ class _IdeApprovalCardState extends State<IdeApprovalCard> {
                 children: [
                   Text(
                     label,
-                    style: WebTuiTypography.bodyMedium.copyWith(
-                      color: WebTuiColors.textPrimary,
-                    ),
+                    style: IdeType.bodyMedium.copyWith(color: IdeWb.textStrong),
                   ),
                   if (description.isNotEmpty)
                     Text(
                       description,
-                      style: WebTuiTypography.bodySmall.copyWith(
-                        color: WebTuiColors.textMuted,
-                      ),
+                      style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
                     ),
                 ],
               ),
@@ -550,7 +534,7 @@ class IdeDiffView extends StatelessWidget {
     return Container(
       constraints: const BoxConstraints(maxHeight: 240),
       decoration: BoxDecoration(
-        color: WebTuiColors.backgroundMuted,
+        color: IdeWb.chip,
         borderRadius: BorderRadius.circular(WebTuiRadii.sm),
       ),
       // Nền xanh / đỏ phủ cả dòng: cột rộng ít nhất bằng khung, dòng dài thì
@@ -568,19 +552,19 @@ class IdeDiffView extends StatelessWidget {
                     for (final l in lines)
                       Container(
                         color: l.startsWith('+') && !l.startsWith('+++')
-                            ? WebTuiColors.accentGreen.withValues(alpha: 0.18)
+                            ? IdeWb.ok.withValues(alpha: 0.18)
                             : l.startsWith('-') && !l.startsWith('---')
-                            ? WebTuiColors.danger.withValues(alpha: 0.18)
+                            ? IdeWb.danger.withValues(alpha: 0.18)
                             : null,
                         padding: const EdgeInsets.symmetric(horizontal: 6),
                         child: Text(
                           l.isEmpty ? ' ' : l,
-                          style: WebTuiTypography.bodySmall.copyWith(
-                            fontFamily: 'monospace',
+                          style: IdeType.bodySmall.copyWith(
+                            fontFamily: WebTuiTypography.monoFamily,
                             fontSize: 12,
                             color: l.startsWith('@@')
-                                ? WebTuiColors.textMuted
-                                : WebTuiColors.textPrimary,
+                                ? IdeWb.text2
+                                : IdeWb.textStrong,
                           ),
                         ),
                       ),
@@ -639,8 +623,8 @@ class _PlanPendingCardState extends State<_PlanPendingCard> {
       key: const Key('ide_plan_pending'),
       padding: const EdgeInsets.all(WebTuiSpacing.md),
       decoration: BoxDecoration(
-        color: WebTuiColors.surfaceElevated,
-        border: Border.all(color: WebTuiColors.border),
+        color: IdeWb.bar,
+        border: Border.all(color: IdeWb.border),
         borderRadius: BorderRadius.circular(WebTuiRadii.md),
       ),
       child: Column(
@@ -648,9 +632,7 @@ class _PlanPendingCardState extends State<_PlanPendingCard> {
         children: [
           Text(
             tr('Kế hoạch chờ duyệt', 'Plan waiting for approval'),
-            style: WebTuiTypography.titleMedium.copyWith(
-              color: WebTuiColors.textPrimary,
-            ),
+            style: IdeType.titleMedium.copyWith(color: IdeWb.textStrong),
           ),
           if (text.isNotEmpty)
             ConstrainedBox(

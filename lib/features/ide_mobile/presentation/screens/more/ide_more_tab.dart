@@ -3,15 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_project.dart';
 import '../../../domain/ide_ready.dart';
 import '../../controllers/ide_controllers.dart';
 import '../../controllers/ide_project_controllers.dart';
+import '../../widgets/ide_wb.dart';
 import 'ide_more_common.dart';
 
 class _Entry {
@@ -197,7 +196,7 @@ class IdeMoreTab extends ConsumerWidget {
         if (_bigText(context))
           for (final e in entries)
             Padding(
-              padding: const EdgeInsets.only(bottom: WebTuiSpacing.md),
+              padding: const EdgeInsets.only(bottom: WebTuiSpacing.sm),
               child: _Tile(
                 entry: e,
                 row: true,
@@ -205,13 +204,16 @@ class IdeMoreTab extends ConsumerWidget {
               ),
             )
         else
+          // 3 cột ô nhỏ để thấy hết các mục trong một màn như IDE web.
+          // padding zero: không cộng thêm vùng an toàn lần nữa (khoảng trống).
           GridView.count(
-            crossAxisCount: 2,
+            crossAxisCount: 3,
             shrinkWrap: true,
+            padding: EdgeInsets.zero,
             physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: WebTuiSpacing.md,
-            crossAxisSpacing: WebTuiSpacing.md,
-            childAspectRatio: 1.45,
+            mainAxisSpacing: WebTuiSpacing.sm,
+            crossAxisSpacing: WebTuiSpacing.sm,
+            childAspectRatio: 1.15,
             children: [
               for (final e in entries)
                 _Tile(entry: e, onTap: () => _open(context, e, current)),
@@ -252,27 +254,40 @@ class _Tile extends StatelessWidget {
         borderRadius: BorderRadius.circular(WebTuiRadii.md),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.all(WebTuiSpacing.md),
+          padding: const EdgeInsets.all(WebTuiSpacing.sm + 2),
           decoration: BoxDecoration(
-            color: WebTuiColors.surface,
+            color: IdeWb.bg,
             borderRadius: BorderRadius.circular(WebTuiRadii.md),
-            border: Border.all(color: WebTuiColors.border),
+            border: Border.all(color: IdeWb.border),
           ),
           child: Flex(
             direction: row ? Axis.horizontal : Axis.vertical,
+            mainAxisAlignment: row
+                ? MainAxisAlignment.start
+                : MainAxisAlignment.center,
             crossAxisAlignment: row
                 ? CrossAxisAlignment.center
                 : CrossAxisAlignment.start,
             children: [
-              Icon(entry.icon, size: 28, color: WebTuiColors.primary),
+              Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: IdeWb.accentSoft,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(entry.icon, size: 18, color: IdeWb.accentInk),
+              ),
               const SizedBox(width: WebTuiSpacing.md, height: WebTuiSpacing.sm),
               Flexible(
                 child: Text(
                   entry.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: WebTuiTypography.titleMedium.copyWith(
-                    color: WebTuiColors.textPrimary,
+                  style: IdeType.bodyMedium.copyWith(
+                    color: IdeWb.textStrong,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),

@@ -5,8 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../app/providers/foundation_providers.dart';
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../application/ide_term_gate.dart';
 import '../../../data/ide_connection.dart';
@@ -14,6 +12,7 @@ import '../../../domain/ide_errors.dart';
 import '../../../domain/ide_term.dart';
 import '../../controllers/ide_controllers.dart';
 import '../../controllers/ide_term_controllers.dart';
+import '../../widgets/ide_wb.dart';
 import '../../widgets/terminal/ide_term_new_sheet.dart';
 import 'ide_terminal_screen.dart';
 
@@ -63,7 +62,7 @@ Future<bool> openIdeTerminal(
     return false;
   }
   await navigator.push<void>(
-    MaterialPageRoute(
+    IdePageRoute(
       builder: (_) => IdeTerminalScreen(target: target, title: title),
     ),
   );
@@ -178,13 +177,16 @@ class IdeTerminalTab extends ConsumerWidget {
                 onRetry: () => ref.invalidate(ideTermListProvider),
               ),
         data: (items) => items.isEmpty
-            ? WebTuiEmptyState(
-                title: tr('Chưa có terminal', 'No terminals'),
-                message: tr(
-                  'Bấm "Terminal mới" để mở một phiên.',
-                  'Tap "New terminal" to start one.',
+            ? Align(
+                alignment: Alignment.topCenter,
+                child: WebTuiEmptyState(
+                  title: tr('Chưa có terminal', 'No terminals'),
+                  message: tr(
+                    'Bấm "Terminal mới" để mở một phiên.',
+                    'Tap "New terminal" to start one.',
+                  ),
+                  icon: Icons.terminal_rounded,
                 ),
-                icon: Icons.terminal_rounded,
               )
             : RefreshIndicator(
                 onRefresh: () async {
@@ -243,7 +245,7 @@ class _Tile extends StatelessWidget {
       onLongPressHint: tr('Kết thúc phiên', 'End session'),
       child: ListTile(
         minVerticalPadding: 10,
-        leading: Icon(Icons.terminal_rounded, color: WebTuiColors.primary),
+        leading: Icon(Icons.terminal_rounded, color: IdeWb.accentInk),
         title: Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4),
@@ -255,14 +257,14 @@ class _Tile extends StatelessWidget {
               if (item.attached)
                 WebTuiStatusPill(
                   label: tr('Máy khác đang gắn', 'Attached elsewhere'),
-                  color: WebTuiColors.accentAmber,
+                  color: IdeWb.warn,
                 ),
               Text(
                 [
                   if (item.project.isNotEmpty) item.project,
                   ideTermKindLabel(item.cmd),
                 ].join(' · '),
-                style: WebTuiTypography.bodySmall,
+                style: IdeType.bodySmall,
               ),
             ],
           ),

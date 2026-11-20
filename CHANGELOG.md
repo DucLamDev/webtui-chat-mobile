@@ -3,6 +3,17 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.59.0 · 20/11/2026
+### Giao diện
+- Tab **IDE** trên app làm lại theo IDE web: màu nhấn tím, chữ nhỏ hơn khoảng 1 điểm để thấy được nhiều nội dung một
+  lúc, nút và tiêu đề gọn hơn. Áp cho các tab AI, Tệp, Terminal, Dự án, Thêm, bảng duyệt và các màn bên trong.
+- Ô nhập chat với AI to hơn, cao dần khi gõ nhiều rồi cuộn được bên trong để xem lại nội dung đang nhập.
+- Terminal, xem tệp, sửa tệp và xem khác biệt (diff) luôn nền tối như IDE web, dù điện thoại đang để chế độ sáng.
+- Tab Tệp: hàng tệp gọn hơn kiểu cây thư mục (vùng bấm vẫn ≥ 44). Tab Thêm: lưới 3 cột ô nhỏ, thấy hết các mục trong
+  một màn; chữ hệ thống cỡ lớn thì mỗi mục một hàng.
+- Ngoài IDE: nút chính trong hộp thoại xác nhận của app ở nền tối đổi từ xanh sáng sang xanh đậm hơn để chữ trắng đủ
+  tương phản.
+
 ## 1.58.0 · 19/11/2026
 ### Tính năng
 - Tab **Thêm** của IDE trên app có **Màn hình app** (xem app đang chạy thử trên máy IDE, 1 khung mỗi giây, chọn máy và

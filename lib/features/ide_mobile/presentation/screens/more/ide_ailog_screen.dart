@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_log_models.dart';
 import '../../../domain/ide_more_time.dart';
 import '../../controllers/ide_more_controllers.dart';
+import '../../widgets/ide_wb.dart';
 import 'ide_more_common.dart';
 
 /// Nhật ký AI của dự án: phiên AI đã chạy và PR liên quan.
@@ -70,9 +69,7 @@ class _Header extends StatelessWidget {
     padding: const EdgeInsets.only(bottom: WebTuiSpacing.sm),
     child: Text(
       text,
-      style: WebTuiTypography.titleMedium.copyWith(
-        color: WebTuiColors.textPrimary,
-      ),
+      style: IdeType.titleMedium.copyWith(color: IdeWb.textStrong),
     ),
   );
 }
@@ -83,9 +80,7 @@ class _SessionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final muted = WebTuiTypography.bodySmall.copyWith(
-      color: WebTuiColors.textMuted,
-    );
+    final muted = IdeType.bodySmall.copyWith(color: IdeWb.text2);
     final files = s.fileCount > 0 ? s.fileCount : s.files.length;
     return Padding(
       padding: const EdgeInsets.only(bottom: WebTuiSpacing.sm),
@@ -104,17 +99,15 @@ class _SessionTile extends StatelessWidget {
                               : s.kind),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: WebTuiTypography.bodyMedium.copyWith(
-                      color: WebTuiColors.textPrimary,
+                    style: IdeType.bodyMedium.copyWith(
+                      color: IdeWb.textStrong,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
                 IdeTag(
                   s.closed ? tr('Đã đóng', 'Closed') : tr('Đang mở', 'Open'),
-                  color: s.closed
-                      ? WebTuiColors.textSecondary
-                      : WebTuiColors.accentGreen,
+                  color: s.closed ? IdeWb.text : IdeWb.ok,
                 ),
               ],
             ),
@@ -151,9 +144,7 @@ class _PrTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final muted = WebTuiTypography.bodySmall.copyWith(
-      color: WebTuiColors.textMuted,
-    );
+    final muted = IdeType.bodySmall.copyWith(color: IdeWb.text2);
     final merged = pr.mergedAt != null || pr.state == 'merged';
     return Padding(
       padding: const EdgeInsets.only(bottom: WebTuiSpacing.sm),
@@ -168,8 +159,8 @@ class _PrTile extends StatelessWidget {
                     '#${pr.number} ${pr.title}',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: WebTuiTypography.bodyMedium.copyWith(
-                      color: WebTuiColors.textPrimary,
+                    style: IdeType.bodyMedium.copyWith(
+                      color: IdeWb.textStrong,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -177,9 +168,7 @@ class _PrTile extends StatelessWidget {
                 if (pr.state.isNotEmpty)
                   IdeTag(
                     merged ? tr('Đã gộp', 'Merged') : pr.state,
-                    color: merged
-                        ? WebTuiColors.accentGreen
-                        : WebTuiColors.textSecondary,
+                    color: merged ? IdeWb.ok : IdeWb.text,
                   ),
               ],
             ),

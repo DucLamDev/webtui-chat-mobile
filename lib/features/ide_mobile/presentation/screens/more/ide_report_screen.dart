@@ -4,15 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_errors.dart';
 import '../../../domain/ide_insight_models.dart';
 import '../../../domain/ide_more_time.dart';
 import '../../../domain/ide_project.dart';
 import '../../controllers/ide_more_controllers.dart';
+import '../../widgets/ide_wb.dart';
 import '../../widgets/markdown/ide_markdown.dart';
 import 'ide_more_common.dart';
 
@@ -218,16 +217,12 @@ class _ReportBodyState extends ConsumerState<_ReportBody> {
   }
 
   List<Widget> _result(IdeReport r) {
-    final head = WebTuiTypography.titleMedium.copyWith(
-      color: WebTuiColors.textPrimary,
-    );
+    final head = IdeType.titleMedium.copyWith(color: IdeWb.textStrong);
     return [
       if (r.generatedAt != null)
         Text(
           '${tr('Lập lúc', 'Generated')} ${ideFormatDateTime(r.generatedAt!)}',
-          style: WebTuiTypography.bodySmall.copyWith(
-            color: WebTuiColors.textMuted,
-          ),
+          style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
         ),
       const SizedBox(height: WebTuiSpacing.sm),
       if (r.facts.isNotEmpty) ...[
@@ -246,9 +241,7 @@ class _ReportBodyState extends ConsumerState<_ReportBody> {
                       Expanded(
                         child: Text(
                           f.label,
-                          style: WebTuiTypography.bodyMedium.copyWith(
-                            color: WebTuiColors.textSecondary,
-                          ),
+                          style: IdeType.bodyMedium.copyWith(color: IdeWb.text),
                         ),
                       ),
                       const SizedBox(width: WebTuiSpacing.sm),
@@ -256,8 +249,8 @@ class _ReportBodyState extends ConsumerState<_ReportBody> {
                         child: Text(
                           f.value,
                           textAlign: TextAlign.end,
-                          style: WebTuiTypography.bodyMedium.copyWith(
-                            color: WebTuiColors.textPrimary,
+                          style: IdeType.bodyMedium.copyWith(
+                            color: IdeWb.textStrong,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -283,7 +276,7 @@ class _ReportBodyState extends ConsumerState<_ReportBody> {
                   Icon(
                     Icons.warning_amber_rounded,
                     size: 18,
-                    color: WebTuiColors.accentAmber,
+                    color: IdeWb.warn,
                   ),
                   const SizedBox(width: WebTuiSpacing.sm),
                   Expanded(child: Text(a)),

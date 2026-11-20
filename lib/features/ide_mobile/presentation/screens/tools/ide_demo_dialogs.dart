@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../../../core/privacy/background_privacy.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_demo_models.dart';
+import '../../widgets/ide_wb.dart';
 import 'ide_tools_common.dart';
 
 /// Giá trị người dùng nhập khi bật / sửa web demo.
@@ -128,16 +128,11 @@ class _DemoConfigSheetState extends State<_DemoConfigSheet> {
                 widget.editing
                     ? tr('Sửa cấu hình web demo', 'Edit web demo')
                     : tr('Bật web demo', 'Turn on web demo'),
-                style: WebTuiTypography.titleLarge.copyWith(
-                  color: WebTuiColors.textPrimary,
-                ),
+                style: IdeType.titleLarge.copyWith(color: IdeWb.textStrong),
               ),
               const SizedBox(height: WebTuiSpacing.md),
               if (!s.my) ...[
-                Text(
-                  tr('Máy chủ web', 'Web server'),
-                  style: WebTuiTypography.bodySmall,
-                ),
+                Text(tr('Máy chủ web', 'Web server'), style: IdeType.bodySmall),
                 const SizedBox(height: WebTuiSpacing.xs),
                 SegmentedButton<String>(
                   segments: const [
@@ -274,9 +269,7 @@ class _DbSecretDialogState extends State<_DbSecretDialog> {
                 'Chỉ hiện một lần. Đóng hộp này là mất, muốn xem lại phải gọi lại.',
                 'Shown once. It is gone when you close this box; ask again to see it.',
               ),
-              style: WebTuiTypography.bodySmall.copyWith(
-                color: WebTuiColors.accentAmber,
-              ),
+              style: IdeType.bodySmall.copyWith(color: IdeWb.warn),
             ),
             const SizedBox(height: WebTuiSpacing.sm),
             ToolInfoRow(tr('Máy chủ', 'Host'), info.host),
@@ -290,9 +283,9 @@ class _DbSecretDialogState extends State<_DbSecretDialog> {
                   child: Text(
                     _show ? pw : '••••••••••••',
                     key: const Key('ide_db_password'),
-                    style: WebTuiTypography.bodyMedium.copyWith(
-                      fontFamily: 'monospace',
-                      color: WebTuiColors.textPrimary,
+                    style: IdeType.bodyMedium.copyWith(
+                      fontFamily: WebTuiTypography.monoFamily,
+                      color: IdeWb.textStrong,
                     ),
                   ),
                 ),
@@ -352,9 +345,9 @@ Future<void> showDemoLogSheet(BuildContext context, String text) =>
             child: SelectableText(
               text.isEmpty ? tr('Chưa có nhật ký.', 'No log yet.') : text,
               key: const Key('ide_demo_log_text'),
-              style: WebTuiTypography.bodySmall.copyWith(
-                fontFamily: 'monospace',
-                color: WebTuiColors.textPrimary,
+              style: IdeType.bodySmall.copyWith(
+                fontFamily: WebTuiTypography.monoFamily,
+                color: IdeWb.textStrong,
               ),
             ),
           ),

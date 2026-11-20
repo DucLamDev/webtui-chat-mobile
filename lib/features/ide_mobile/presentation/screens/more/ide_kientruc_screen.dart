@@ -4,13 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_insight_models.dart';
 import '../../../domain/ide_more_time.dart';
 import '../../controllers/ide_more_controllers.dart';
+import '../../widgets/ide_wb.dart';
 import '../../widgets/markdown/ide_blocks_model.dart';
 import '../../widgets/markdown/ide_diagram_view.dart';
 import 'ide_more_common.dart';
@@ -73,9 +72,7 @@ class _ArchView extends StatelessWidget {
         icon: Icons.account_tree_outlined,
       );
     }
-    final head = WebTuiTypography.titleMedium.copyWith(
-      color: WebTuiColors.textPrimary,
-    );
+    final head = IdeType.titleMedium.copyWith(color: IdeWb.textStrong);
     IdeDiagramSpec? spec;
     if (a.diagram != null) {
       try {
@@ -91,14 +88,11 @@ class _ArchView extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(WebTuiSpacing.lg),
         children: [
-          if (a.name.isNotEmpty)
-            Text(a.name, style: WebTuiTypography.titleLarge),
+          if (a.name.isNotEmpty) Text(a.name, style: IdeType.titleLarge),
           if (a.mtime != null)
             Text(
               '${tr('Cập nhật', 'Updated')} ${ideFormatDateTime(a.mtime!)}',
-              style: WebTuiTypography.bodySmall.copyWith(
-                color: WebTuiColors.textMuted,
-              ),
+              style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
             ),
           if (a.progress != null) ...[
             const SizedBox(height: WebTuiSpacing.md),
@@ -126,9 +120,7 @@ class _ArchView extends StatelessWidget {
                           ? Icons.check_circle_rounded
                           : Icons.radio_button_unchecked_rounded,
                       size: 20,
-                      color: s.done
-                          ? WebTuiColors.accentGreen
-                          : WebTuiColors.textMuted,
+                      color: s.done ? IdeWb.ok : IdeWb.text2,
                     ),
                     const SizedBox(width: WebTuiSpacing.sm),
                     Expanded(child: Text(s.name)),
@@ -163,11 +155,7 @@ class _ArchView extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.shield_outlined,
-                        size: 18,
-                        color: WebTuiColors.accentAmber,
-                      ),
+                      Icon(Icons.shield_outlined, size: 18, color: IdeWb.warn),
                       const SizedBox(width: WebTuiSpacing.sm),
                       Expanded(child: Text(r.text)),
                       if (r.levelKey case final k?)
@@ -178,9 +166,9 @@ class _ArchView extends StatelessWidget {
                             _ => tr('Thấp', 'Low'),
                           },
                           color: switch (k) {
-                            'high' => WebTuiColors.danger,
-                            'mid' => WebTuiColors.accentAmber,
-                            _ => WebTuiColors.textMuted,
+                            'high' => IdeWb.danger,
+                            'mid' => IdeWb.warn,
+                            _ => IdeWb.text2,
                           },
                         ),
                     ],
@@ -212,7 +200,7 @@ class _ArchView extends StatelessWidget {
       return IdeCard(
         child: Row(
           children: [
-            Icon(Icons.check_circle_rounded, color: WebTuiColors.accentGreen),
+            Icon(Icons.check_circle_rounded, color: IdeWb.ok),
             const SizedBox(width: WebTuiSpacing.sm),
             Expanded(
               child: Text(
@@ -230,8 +218,8 @@ class _ArchView extends StatelessWidget {
       children: [
         Text(
           '${c.errors} ${tr('lỗi', 'errors')} · ${c.warnings} ${tr('cảnh báo', 'warnings')}',
-          style: WebTuiTypography.bodySmall.copyWith(
-            color: c.errors > 0 ? WebTuiColors.danger : WebTuiColors.textMuted,
+          style: IdeType.bodySmall.copyWith(
+            color: c.errors > 0 ? IdeWb.danger : IdeWb.text2,
           ),
         ),
         const SizedBox(height: WebTuiSpacing.xs),
@@ -244,9 +232,7 @@ class _ArchView extends StatelessWidget {
                 children: [
                   IdeTag(
                     i.error ? tr('Lỗi', 'Error') : tr('Cảnh báo', 'Warning'),
-                    color: i.error
-                        ? WebTuiColors.danger
-                        : WebTuiColors.accentAmber,
+                    color: i.error ? IdeWb.danger : IdeWb.warn,
                   ),
                   const SizedBox(width: WebTuiSpacing.sm),
                   Expanded(

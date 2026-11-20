@@ -4,15 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_deploy.dart';
 import '../../../domain/ide_project.dart';
 import '../../../domain/ide_visible_text.dart';
 import '../../controllers/ide_controllers.dart';
 import '../../controllers/ide_project_ops_controllers.dart';
+import '../../widgets/ide_wb.dart';
 import '../../widgets/projects/ide_project_ui.dart';
 
 /// Lịch sử triển khai. Trả mã job khi người dùng chọn "Quay lại bản này".
@@ -206,8 +205,8 @@ class _HistoryState extends ConsumerState<IdeDeployHistorySheet> {
                     _subjectOf(i),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: WebTuiTypography.bodyMedium.copyWith(
-                      color: WebTuiColors.textPrimary,
+                    style: IdeType.bodyMedium.copyWith(
+                      color: IdeWb.textStrong,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -218,9 +217,7 @@ class _HistoryState extends ConsumerState<IdeDeployHistorySheet> {
                       ideFormatUnix(i.at),
                       i.stat,
                     ].where((e) => e.isNotEmpty).join(' · '),
-                    style: WebTuiTypography.bodySmall.copyWith(
-                      color: WebTuiColors.textMuted,
-                    ),
+                    style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
                   ),
                   if (canRollback || canRestore)
                     Wrap(

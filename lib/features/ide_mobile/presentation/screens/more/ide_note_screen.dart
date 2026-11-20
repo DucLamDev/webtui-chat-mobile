@@ -6,15 +6,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_errors.dart';
 import '../../../domain/ide_more_time.dart';
 import '../../../domain/ide_note_models.dart';
 import '../../../domain/ide_visible_text.dart';
 import '../../controllers/ide_more_controllers.dart';
+import '../../widgets/ide_wb.dart';
 import '../../widgets/markdown/ide_blocks_model.dart';
 import '../../widgets/markdown/ide_diagram_view.dart';
 import '../../widgets/markdown/ide_markdown.dart';
@@ -413,19 +412,14 @@ class _IdeNoteScreenState extends ConsumerState<IdeNoteScreen> {
             if (n!.updatedBy.isNotEmpty) n.updatedBy,
             if (n.updatedAt != null) ideFormatDateTime(n.updatedAt!),
           ].join(' · '),
-          style: WebTuiTypography.bodySmall.copyWith(
-            color: WebTuiColors.textMuted,
-          ),
+          style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
         ),
         const SizedBox(height: WebTuiSpacing.sm),
         if (diagram) ...[
           IdeCard(
             child: Row(
               children: [
-                Icon(
-                  Icons.desktop_windows_outlined,
-                  color: WebTuiColors.textSecondary,
-                ),
+                Icon(Icons.desktop_windows_outlined, color: IdeWb.text),
                 const SizedBox(width: WebTuiSpacing.sm),
                 Expanded(
                   child: Text(
@@ -492,9 +486,7 @@ class _IdeNoteScreenState extends ConsumerState<IdeNoteScreen> {
               child: Text(
                 _formError!,
                 key: const Key('ide_note_error'),
-                style: WebTuiTypography.bodyMedium.copyWith(
-                  color: WebTuiColors.danger,
-                ),
+                style: IdeType.bodyMedium.copyWith(color: IdeWb.danger),
               ),
             ),
           const SizedBox(height: WebTuiSpacing.sm),
@@ -538,18 +530,16 @@ class _IdeNoteScreenState extends ConsumerState<IdeNoteScreen> {
       margin: const EdgeInsets.only(bottom: WebTuiSpacing.sm),
       padding: const EdgeInsets.all(WebTuiSpacing.md),
       decoration: BoxDecoration(
-        color: WebTuiColors.accentAmber.withValues(alpha: 0.14),
+        color: IdeWb.warn.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: WebTuiColors.accentAmber),
+        border: Border.all(color: IdeWb.warn),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             _conflict!,
-            style: WebTuiTypography.bodyMedium.copyWith(
-              color: WebTuiColors.textPrimary,
-            ),
+            style: IdeType.bodyMedium.copyWith(color: IdeWb.textStrong),
           ),
           const SizedBox(height: WebTuiSpacing.xs),
           Text(
@@ -557,9 +547,7 @@ class _IdeNoteScreenState extends ConsumerState<IdeNoteScreen> {
               'Chữ bạn đang gõ vẫn còn nguyên. Chọn cách xử lý:',
               'Your typed text is still here. Choose what to do:',
             ),
-            style: WebTuiTypography.bodySmall.copyWith(
-              color: WebTuiColors.textSecondary,
-            ),
+            style: IdeType.bodySmall.copyWith(color: IdeWb.text),
           ),
           Wrap(
             spacing: WebTuiSpacing.sm,

@@ -3,13 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_more_time.dart';
 import '../../../domain/ide_talk_models.dart';
 import '../../../domain/ide_visible_text.dart';
+import '../../widgets/ide_wb.dart';
 import '../more/ide_more_common.dart';
 import 'ide_talk_new_sheet.dart';
 import 'ide_talk_providers.dart';
@@ -170,19 +170,15 @@ class _TalkRow extends StatelessWidget {
               if (item.unread)
                 Padding(
                   padding: const EdgeInsets.only(right: WebTuiSpacing.sm),
-                  child: Icon(
-                    Icons.circle,
-                    size: 10,
-                    color: WebTuiColors.primary,
-                  ),
+                  child: Icon(Icons.circle, size: 10, color: IdeWb.accentInk),
                 ),
               Expanded(
                 child: Text(
                   title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: WebTuiTypography.bodyMedium.copyWith(
-                    color: WebTuiColors.textPrimary,
+                  style: IdeType.bodyMedium.copyWith(
+                    color: IdeWb.textStrong,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -195,30 +191,24 @@ class _TalkRow extends StatelessWidget {
             runSpacing: WebTuiSpacing.xs,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              if (item.isAgent) IdeTag('Agent', color: WebTuiColors.primary),
+              if (item.isAgent) IdeTag('Agent', color: IdeWb.accentInk),
               if (item.busy)
-                IdeTag(
-                  tr('Đang trả lời', 'Replying'),
-                  color: WebTuiColors.accentAmber,
-                ),
+                IdeTag(tr('Đang trả lời', 'Replying'), color: IdeWb.warn),
               if (item.shared)
-                IdeTag(
-                  tr('Đã chia sẻ', 'Shared'),
-                  color: WebTuiColors.accentGreen,
-                ),
+                IdeTag(tr('Đã chia sẻ', 'Shared'), color: IdeWb.ok),
               if (item.archived) IdeTag(tr('Lưu trữ', 'Archived')),
               if (time.isNotEmpty)
                 Text(
                   time,
                   style: WebTuiTypography.labelSmall.copyWith(
-                    color: WebTuiColors.textSecondary,
+                    color: IdeWb.text,
                   ),
                 ),
               if (item.model.isNotEmpty)
                 Text(
                   ideVisibleText(item.model),
                   style: WebTuiTypography.labelSmall.copyWith(
-                    color: WebTuiColors.textMuted,
+                    color: IdeWb.text2,
                   ),
                 ),
             ],
@@ -230,9 +220,7 @@ class _TalkRow extends StatelessWidget {
                 ideVisibleText(item.agent!.lastRun!.summary),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: WebTuiTypography.bodySmall.copyWith(
-                  color: WebTuiColors.textSecondary,
-                ),
+                style: IdeType.bodySmall.copyWith(color: IdeWb.text),
               ),
             ),
         ],

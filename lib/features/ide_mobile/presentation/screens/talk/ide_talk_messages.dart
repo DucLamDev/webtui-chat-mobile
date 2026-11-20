@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
@@ -10,6 +9,7 @@ import '../../../application/ide_download_service.dart' show ideIsImageName;
 import '../../../domain/ide_talk_models.dart';
 import '../../../domain/ide_visible_text.dart';
 import '../../widgets/files/ide_file_card.dart';
+import '../../widgets/ide_wb.dart';
 import '../../widgets/markdown/ide_markdown.dart';
 import '../more/ide_more_common.dart';
 import 'ide_talk_providers.dart';
@@ -43,12 +43,8 @@ class IdeTalkMessageTile extends StatelessWidget {
         ),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: user ? WebTuiColors.messageOutgoing : WebTuiColors.surface,
-            border: Border.all(
-              color: user
-                  ? WebTuiColors.messageOutgoingBorder
-                  : WebTuiColors.border,
-            ),
+            color: user ? IdeWb.chip : IdeWb.bg,
+            border: Border.all(color: user ? IdeWb.border : IdeWb.border),
             borderRadius: BorderRadius.circular(WebTuiRadii.md),
           ),
           child: Padding(
@@ -59,9 +55,7 @@ class IdeTalkMessageTile extends StatelessWidget {
                 if (user && m.text.isNotEmpty)
                   SelectableText(
                     m.text,
-                    style: WebTuiTypography.bodyMedium.copyWith(
-                      color: WebTuiColors.textPrimary,
-                    ),
+                    style: IdeType.bodyMedium.copyWith(color: IdeWb.textStrong),
                   )
                 else if (!user && m.text.isNotEmpty)
                   IdeMarkdown(text: m.text, streaming: m.pending),
@@ -82,7 +76,7 @@ class IdeTalkMessageTile extends StatelessWidget {
                     m.note.isNotEmpty
                         ? ideVisibleText(m.note)
                         : tr('AI gặp lỗi khi trả lời.', 'The AI hit an error.'),
-                    color: WebTuiColors.danger,
+                    color: IdeWb.danger,
                   )
                 else if (m.note.isNotEmpty && !m.pending)
                   _Hint(ideVisibleText(m.note)),
@@ -133,7 +127,7 @@ class IdeTalkMessageTile extends StatelessWidget {
                         if (m.effort.isNotEmpty) m.effort,
                       ].join(' · '),
                       style: WebTuiTypography.labelSmall.copyWith(
-                        color: WebTuiColors.textMuted,
+                        color: IdeWb.text2,
                       ),
                     ),
                   ),
@@ -170,9 +164,7 @@ class _Hint extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: WebTuiTypography.bodySmall.copyWith(
-              color: color ?? WebTuiColors.textSecondary,
-            ),
+            style: IdeType.bodySmall.copyWith(color: color ?? IdeWb.text),
           ),
         ),
       ],
@@ -201,16 +193,14 @@ class _Plan extends StatelessWidget {
                     : Icons.radio_button_unchecked_rounded,
                 size: 16,
                 color: p.status == 'done' || p.status == 'completed'
-                    ? WebTuiColors.accentGreen
-                    : WebTuiColors.textMuted,
+                    ? IdeWb.ok
+                    : IdeWb.text2,
               ),
               const SizedBox(width: WebTuiSpacing.xs),
               Expanded(
                 child: Text(
                   ideVisibleText(p.step),
-                  style: WebTuiTypography.bodySmall.copyWith(
-                    color: WebTuiColors.textSecondary,
-                  ),
+                  style: IdeType.bodySmall.copyWith(color: IdeWb.text),
                 ),
               ),
             ],
@@ -233,9 +223,7 @@ class _Steps extends StatelessWidget {
       minTileHeight: 44,
       title: Text(
         tr('${steps.length} bước AI đã làm', '${steps.length} steps taken'),
-        style: WebTuiTypography.bodySmall.copyWith(
-          color: WebTuiColors.textSecondary,
-        ),
+        style: IdeType.bodySmall.copyWith(color: IdeWb.text),
       ),
       children: [
         for (final s in steps)
@@ -247,9 +235,7 @@ class _Steps extends StatelessWidget {
                 '${ideVisibleText(s.tool)}: ${ideVisibleText(s.detail)}',
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
-                style: WebTuiTypography.labelSmall.copyWith(
-                  color: WebTuiColors.textMuted,
-                ),
+                style: WebTuiTypography.labelSmall.copyWith(color: IdeWb.text2),
               ),
             ),
           ),
@@ -271,18 +257,14 @@ class _Sources extends StatelessWidget {
       children: [
         Text(
           tr('Nguồn', 'Sources'),
-          style: WebTuiTypography.labelSmall.copyWith(
-            color: WebTuiColors.textSecondary,
-          ),
+          style: WebTuiTypography.labelSmall.copyWith(color: IdeWb.text),
         ),
         for (final s in sources)
           Text(
             ideVisibleText(s.title.isEmpty ? s.url : s.title),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: WebTuiTypography.bodySmall.copyWith(
-              color: WebTuiColors.primary,
-            ),
+            style: IdeType.bodySmall.copyWith(color: IdeWb.accentInk),
           ),
       ],
     ),
@@ -346,7 +328,7 @@ class _TalkFileTileState extends ConsumerState<_TalkFileTile> {
     return Padding(
       padding: const EdgeInsets.only(top: WebTuiSpacing.sm),
       child: Material(
-        color: WebTuiColors.backgroundMuted,
+        color: IdeWb.chip,
         borderRadius: BorderRadius.circular(WebTuiRadii.sm),
         child: InkWell(
           key: Key('talk_file_${f.name}'),
@@ -366,7 +348,7 @@ class _TalkFileTileState extends ConsumerState<_TalkFileTile> {
                         ? Icons.image_outlined
                         : Icons.insert_drive_file_outlined,
                     size: 20,
-                    color: WebTuiColors.textSecondary,
+                    color: IdeWb.text,
                   ),
                   const SizedBox(width: WebTuiSpacing.sm),
                   Expanded(
@@ -377,22 +359,22 @@ class _TalkFileTileState extends ConsumerState<_TalkFileTile> {
                           ideVisibleText(label),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: WebTuiTypography.bodySmall.copyWith(
-                            color: WebTuiColors.textPrimary,
+                          style: IdeType.bodySmall.copyWith(
+                            color: IdeWb.textStrong,
                           ),
                         ),
                         if (_error != null)
                           Text(
                             _error!,
                             style: WebTuiTypography.labelSmall.copyWith(
-                              color: WebTuiColors.danger,
+                              color: IdeWb.danger,
                             ),
                           )
                         else if (f.size != null)
                           Text(
                             ideFormatSize(f.size!.round()),
                             style: WebTuiTypography.labelSmall.copyWith(
-                              color: WebTuiColors.textMuted,
+                              color: IdeWb.text2,
                             ),
                           ),
                       ],
@@ -408,7 +390,7 @@ class _TalkFileTileState extends ConsumerState<_TalkFileTile> {
                     Icon(
                       Icons.download_rounded,
                       size: 20,
-                      color: WebTuiColors.primary,
+                      color: IdeWb.accentInk,
                     ),
                 ],
               ),

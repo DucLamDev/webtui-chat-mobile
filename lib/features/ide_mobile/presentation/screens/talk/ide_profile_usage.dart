@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_more_time.dart';
 import '../../../domain/ide_profile_models.dart';
 import '../../../domain/ide_visible_text.dart';
+import '../../widgets/ide_wb.dart';
 import '../../widgets/markdown/ide_blocks_model.dart';
 import '../../widgets/markdown/ide_chart_view.dart';
 import '../more/ide_more_common.dart';
@@ -55,9 +55,7 @@ class IdeUsageTotals extends StatelessWidget {
     if (t == null) {
       return Text(
         tr('Chưa có số liệu dùng AI.', 'No AI usage yet.'),
-        style: WebTuiTypography.bodySmall.copyWith(
-          color: WebTuiColors.textSecondary,
-        ),
+        style: IdeType.bodySmall.copyWith(color: IdeWb.text),
       );
     }
     return Column(
@@ -91,9 +89,7 @@ class IdeUsageTotals extends StatelessWidget {
                 'Giá quy đổi theo giá API công khai.',
                 'Converted at public API prices.',
               ),
-              style: WebTuiTypography.labelSmall.copyWith(
-                color: WebTuiColors.textMuted,
-              ),
+              style: WebTuiTypography.labelSmall.copyWith(color: IdeWb.text2),
             ),
           ),
         ),
@@ -112,9 +108,7 @@ class IdeUsageRows extends StatelessWidget {
     if (rows.isEmpty) {
       return Text(
         tr('Chưa có dữ liệu.', 'No data.'),
-        style: WebTuiTypography.bodySmall.copyWith(
-          color: WebTuiColors.textSecondary,
-        ),
+        style: IdeType.bodySmall.copyWith(color: IdeWb.text),
       );
     }
     return Column(
@@ -149,7 +143,7 @@ class IdeAiUsageView extends StatelessWidget {
                 Text(
                   ideVisibleText(a.note),
                   style: WebTuiTypography.labelSmall.copyWith(
-                    color: WebTuiColors.textMuted,
+                    color: IdeWb.text2,
                   ),
                 ),
             ],
@@ -159,9 +153,7 @@ class IdeAiUsageView extends StatelessWidget {
     if (nothing) {
       return Text(
         tr('Chưa được cấp tài khoản AI.', 'No AI account granted.'),
-        style: WebTuiTypography.bodySmall.copyWith(
-          color: WebTuiColors.textSecondary,
-        ),
+        style: IdeType.bodySmall.copyWith(color: IdeWb.text),
       );
     }
     return Column(
@@ -189,9 +181,7 @@ class IdeAiRoutesView extends StatelessWidget {
     if (routes.isEmpty) {
       return Text(
         tr('Chưa có tài khoản nào.', 'No accounts.'),
-        style: WebTuiTypography.bodySmall.copyWith(
-          color: WebTuiColors.textSecondary,
-        ),
+        style: IdeType.bodySmall.copyWith(color: IdeWb.text),
       );
     }
     return Column(
@@ -209,17 +199,14 @@ class IdeAiRoutesView extends StatelessWidget {
                   children: [
                     Text(
                       ideVisibleText(r.label.isEmpty ? r.id : r.label),
-                      style: WebTuiTypography.bodyMedium.copyWith(
-                        color: WebTuiColors.textPrimary,
+                      style: IdeType.bodyMedium.copyWith(
+                        color: IdeWb.textStrong,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     if (r.state.isNotEmpty) IdeTag(ideVisibleText(r.state)),
                     if (r.blocked)
-                      IdeTag(
-                        tr('Bị chặn', 'Blocked'),
-                        color: WebTuiColors.danger,
-                      ),
+                      IdeTag(tr('Bị chặn', 'Blocked'), color: IdeWb.danger),
                   ],
                 ),
                 for (final w in r.windows) _QuotaBar(w: w),
@@ -250,9 +237,7 @@ class _QuotaBar extends StatelessWidget {
         children: [
           Text(
             '$label: ${used == null ? '—' : '${used.round()}%'}$reset',
-            style: WebTuiTypography.labelSmall.copyWith(
-              color: WebTuiColors.textSecondary,
-            ),
+            style: WebTuiTypography.labelSmall.copyWith(color: IdeWb.text),
           ),
           LinearProgressIndicator(
             value: used == null ? 0 : used / 100,
@@ -274,9 +259,7 @@ class IdeProfileChart extends StatelessWidget {
   Widget build(BuildContext context) => spec == null
       ? Text(
           tr('Chưa có dữ liệu để vẽ biểu đồ.', 'No data to chart.'),
-          style: WebTuiTypography.bodySmall.copyWith(
-            color: WebTuiColors.textSecondary,
-          ),
+          style: IdeType.bodySmall.copyWith(color: IdeWb.text),
         )
       : IdeChartView(spec: spec!);
 }

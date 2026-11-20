@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
+import '../ide_wb.dart';
 import 'ide_blocks_model.dart';
 
 /// Sơ đồ (vùng / nút / mũi tên) tự vẽ. Trong tin: thu vừa bề rộng, chạm mở
@@ -29,7 +29,7 @@ class IdeDiagramView extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
+          IdePageRoute<void>(
             fullscreenDialog: true,
             builder: (_) => IdeDiagramFullScreen(spec: spec),
           ),
@@ -38,9 +38,9 @@ class IdeDiagramView extends StatelessWidget {
           margin: const EdgeInsets.symmetric(vertical: WebTuiSpacing.sm),
           padding: const EdgeInsets.all(WebTuiSpacing.sm),
           decoration: BoxDecoration(
-            color: WebTuiColors.surface,
+            color: IdeWbPalette.of(context).bg,
             borderRadius: BorderRadius.circular(WebTuiRadii.md),
-            border: Border.all(color: WebTuiColors.border),
+            border: Border.all(color: IdeWbPalette.of(context).border),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -59,13 +59,13 @@ class IdeDiagramView extends StatelessWidget {
                   Icon(
                     Icons.zoom_out_map_rounded,
                     size: 16,
-                    color: WebTuiColors.textMuted,
+                    color: IdeWbPalette.of(context).text2,
                   ),
                   const SizedBox(width: 6),
                   Text(
                     tr('Chạm để phóng to', 'Tap to enlarge'),
-                    style: WebTuiTypography.bodySmall.copyWith(
-                      color: WebTuiColors.textMuted,
+                    style: IdeType.bodySmall.copyWith(
+                      color: IdeWbPalette.of(context).text2,
                     ),
                   ),
                 ],
@@ -122,14 +122,14 @@ class _DiagramCanvas extends StatelessWidget {
       painter: _DiagramPainter(
         spec,
         layout,
-        brightness: WebTuiColors.brightness,
-        primary: WebTuiColors.primary,
-        surface: WebTuiColors.surface,
-        band: WebTuiColors.backgroundMuted,
-        border: WebTuiColors.border,
-        text: WebTuiColors.textPrimary,
-        muted: WebTuiColors.textMuted,
-        edge: WebTuiColors.textSecondary,
+        brightness: IdeWbPalette.of(context).brightness,
+        primary: IdeWbPalette.of(context).accentInk,
+        surface: IdeWbPalette.of(context).bg,
+        band: IdeWbPalette.of(context).chip,
+        border: IdeWbPalette.of(context).border,
+        text: IdeWbPalette.of(context).textStrong,
+        muted: IdeWbPalette.of(context).text2,
+        edge: IdeWbPalette.of(context).text,
       ),
     );
   }

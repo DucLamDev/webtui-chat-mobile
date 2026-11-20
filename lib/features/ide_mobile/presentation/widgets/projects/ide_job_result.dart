@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../app/providers/foundation_providers.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_deploy.dart';
+import '../ide_wb.dart';
 import 'ide_project_ui.dart';
 
 /// Kết quả (`result`) của việc nền đã xong: số PR + nút mở, trạng thái gộp,
@@ -40,13 +39,7 @@ class IdeJobResultView extends ConsumerWidget {
         ),
       );
       for (final w in pr.warnings) {
-        lines.add(
-          _line(
-            const Key('ide_job_pr_warning'),
-            w,
-            color: WebTuiColors.accentAmber,
-          ),
-        );
+        lines.add(_line(const Key('ide_job_pr_warning'), w, color: IdeWb.warn));
       }
       final url = pr.url;
       if (url != null) {
@@ -76,7 +69,7 @@ class IdeJobResultView extends ConsumerWidget {
         _line(
           const Key('ide_job_merge'),
           text,
-          color: m.queued || m.merged ? WebTuiColors.accentGreen : null,
+          color: m.queued || m.merged ? IdeWb.ok : null,
           strong: true,
         ),
       );
@@ -87,7 +80,7 @@ class IdeJobResultView extends ConsumerWidget {
         _line(
           const Key('ide_job_message'),
           msg,
-          color: r['ok'] == false ? WebTuiColors.danger : null,
+          color: r['ok'] == false ? IdeWb.danger : null,
         ),
       );
     }
@@ -101,9 +94,9 @@ class IdeJobResultView extends ConsumerWidget {
       ),
       padding: const EdgeInsets.all(WebTuiSpacing.md),
       decoration: BoxDecoration(
-        color: WebTuiColors.surface,
+        color: IdeWb.bg,
         borderRadius: BorderRadius.circular(WebTuiRadii.md),
-        border: Border.all(color: WebTuiColors.border),
+        border: Border.all(color: IdeWb.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -118,8 +111,8 @@ class IdeJobResultView extends ConsumerWidget {
       child: Text(
         text,
         key: key,
-        style: WebTuiTypography.bodyMedium.copyWith(
-          color: color ?? WebTuiColors.textPrimary,
+        style: IdeType.bodyMedium.copyWith(
+          color: color ?? IdeWb.textStrong,
           fontWeight: strong ? FontWeight.w700 : null,
         ),
       ),

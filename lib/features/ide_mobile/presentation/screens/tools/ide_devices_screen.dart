@@ -3,13 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../app/providers/foundation_providers.dart';
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_more_time.dart';
 import '../../../domain/ide_server_models.dart';
 import '../../../domain/ide_visible_text.dart';
+import '../../widgets/ide_wb.dart';
 import '../more/ide_more_common.dart';
 import 'ide_tools_common.dart';
 
@@ -144,14 +143,14 @@ class _IdeDevicesScreenState extends ConsumerState<IdeDevicesScreen> {
                                         ? tr('Điện thoại', 'Phone')
                                         : d.name,
                                   ),
-                                  style: WebTuiTypography.titleMedium.copyWith(
-                                    color: WebTuiColors.textPrimary,
+                                  style: IdeType.titleMedium.copyWith(
+                                    color: IdeWb.textStrong,
                                   ),
                                 ),
                                 if (d.current)
                                   IdeTag(
                                     tr('Máy này', 'This phone'),
-                                    color: WebTuiColors.accentGreen,
+                                    color: IdeWb.ok,
                                   ),
                               ],
                             ),
@@ -173,9 +172,7 @@ class _IdeDevicesScreenState extends ConsumerState<IdeDevicesScreen> {
                                 alignment: Alignment.centerRight,
                                 child: OutlinedButton(
                                   key: Key('ide_device_revoke_${d.id}'),
-                                  style: ideToolsBtn(
-                                    color: WebTuiColors.danger,
-                                  ),
+                                  style: ideToolsBtn(color: IdeWb.danger),
                                   onPressed: _busyId != null
                                       ? null
                                       : () => _revoke(d, reload),

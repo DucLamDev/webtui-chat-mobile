@@ -3,14 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_more_time.dart';
 import '../../../domain/ide_note_models.dart';
 import '../../../domain/ide_visible_text.dart';
 import '../../controllers/ide_more_controllers.dart';
+import '../../widgets/ide_wb.dart';
 import 'ide_more_common.dart';
 import 'ide_note_screen.dart';
 
@@ -59,9 +58,9 @@ class _NotesBodyState extends ConsumerState<_NotesBody> {
   bool _restoring = false;
 
   Future<void> _create(BuildContext context) async {
-    final created = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => IdeNoteScreen(project: project)),
-    );
+    final created = await Navigator.of(
+      context,
+    ).push<bool>(IdePageRoute(builder: (_) => IdeNoteScreen(project: project)));
     if (created == true) await reload();
   }
 
@@ -95,9 +94,7 @@ class _NotesBodyState extends ConsumerState<_NotesBody> {
 
   @override
   Widget build(BuildContext context) {
-    final muted = WebTuiTypography.bodySmall.copyWith(
-      color: WebTuiColors.textMuted,
-    );
+    final muted = IdeType.bodySmall.copyWith(color: IdeWb.text2);
     return Stack(
       children: [
         RefreshIndicator(
@@ -151,7 +148,7 @@ class _NotesBodyState extends ConsumerState<_NotesBody> {
                                 n.isDiagram
                                     ? Icons.account_tree_outlined
                                     : Icons.sticky_note_2_outlined,
-                                color: WebTuiColors.textSecondary,
+                                color: IdeWb.text,
                               ),
                               const SizedBox(width: WebTuiSpacing.md),
                               Expanded(
@@ -164,10 +161,9 @@ class _NotesBodyState extends ConsumerState<_NotesBody> {
                                           : ideVisibleText(n.title),
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
-                                      style: WebTuiTypography.titleMedium
-                                          .copyWith(
-                                            color: WebTuiColors.textPrimary,
-                                          ),
+                                      style: IdeType.titleMedium.copyWith(
+                                        color: IdeWb.textStrong,
+                                      ),
                                     ),
                                     Text(
                                       [
@@ -189,8 +185,8 @@ class _NotesBodyState extends ConsumerState<_NotesBody> {
                       const SizedBox(height: WebTuiSpacing.md),
                       Text(
                         tr('Đã xoá gần đây', 'Recently deleted'),
-                        style: WebTuiTypography.titleMedium.copyWith(
-                          color: WebTuiColors.textPrimary,
+                        style: IdeType.titleMedium.copyWith(
+                          color: IdeWb.textStrong,
                         ),
                       ),
                       for (final d in list.deleted)

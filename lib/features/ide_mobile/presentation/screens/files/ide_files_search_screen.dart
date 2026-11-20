@@ -4,14 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_file_models.dart';
 import '../../controllers/ide_files_controllers.dart';
 import '../../widgets/files/ide_code_view.dart';
 import '../../widgets/files/ide_files_ui.dart';
+import '../../widgets/ide_wb.dart';
 import 'ide_file_viewer_screen.dart';
 
 /// Tìm trong dự án: theo tên (`files.find`) hoặc theo chữ (`files.grep`).
@@ -111,7 +110,8 @@ class _IdeFilesSearchScreenState extends ConsumerState<IdeFilesSearchScreen> {
   void _open(String path, {int? line}) {
     unawaited(
       Navigator.of(context).push(
-        MaterialPageRoute<void>(
+        IdePageRoute<void>(
+          dark: true,
           builder: (_) =>
               IdeFileViewerScreen(root: widget.root, path: path, line: line),
         ),
@@ -210,9 +210,7 @@ class _IdeFilesSearchScreenState extends ConsumerState<IdeFilesSearchScreen> {
                 'Còn nhiều kết quả nữa. Hãy gõ cụ thể hơn.',
                 'There are more results. Be more specific.',
               ),
-              style: WebTuiTypography.bodySmall.copyWith(
-                color: WebTuiColors.textMuted,
-              ),
+              style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
             ),
           );
         }
@@ -222,7 +220,7 @@ class _IdeFilesSearchScreenState extends ConsumerState<IdeFilesSearchScreen> {
             minVerticalPadding: 10,
             leading: Icon(
               h.isDir ? Icons.folder_rounded : Icons.insert_drive_file_outlined,
-              color: WebTuiColors.textSecondary,
+              color: IdeWb.text,
             ),
             title: Text(h.name, maxLines: 1, overflow: TextOverflow.ellipsis),
             subtitle: Text(
@@ -240,7 +238,7 @@ class _IdeFilesSearchScreenState extends ConsumerState<IdeFilesSearchScreen> {
             h.text.trim(),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: ideCodeStyle(),
+            style: ideCodeStyle(context),
           ),
           subtitle: Text(
             '${_rel(h.path)}:${h.line}',

@@ -4,13 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_errors.dart';
 import '../../../domain/ide_monitor_models.dart';
 import '../../../domain/ide_visible_text.dart';
+import '../../widgets/ide_wb.dart';
 import '../../widgets/markdown/ide_blocks_model.dart';
 import '../../widgets/markdown/ide_chart_view.dart';
 import '../more/ide_more_common.dart';
@@ -403,12 +402,12 @@ class _MachineViewState extends ConsumerState<_MachineView> {
   Widget _bar(String label, double? pct, {String? detail}) {
     final v = pct == null ? 0.0 : (pct / 100).clamp(0.0, 1.0);
     final color = pct == null
-        ? WebTuiColors.textMuted
+        ? IdeWb.text2
         : pct >= 90
-        ? WebTuiColors.danger
+        ? IdeWb.danger
         : pct >= 75
-        ? WebTuiColors.accentAmber
-        : WebTuiColors.accentGreen;
+        ? IdeWb.warn
+        : IdeWb.ok;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
@@ -419,16 +418,12 @@ class _MachineViewState extends ConsumerState<_MachineView> {
               Expanded(
                 child: Text(
                   label,
-                  style: WebTuiTypography.bodySmall.copyWith(
-                    color: WebTuiColors.textSecondary,
-                  ),
+                  style: IdeType.bodySmall.copyWith(color: IdeWb.text),
                 ),
               ),
               Text(
                 detail ?? ideToolsPct(pct),
-                style: WebTuiTypography.bodySmall.copyWith(
-                  color: WebTuiColors.textPrimary,
-                ),
+                style: IdeType.bodySmall.copyWith(color: IdeWb.textStrong),
               ),
             ],
           ),
@@ -437,7 +432,7 @@ class _MachineViewState extends ConsumerState<_MachineView> {
             value: v,
             minHeight: 6,
             color: color,
-            backgroundColor: WebTuiColors.hairline,
+            backgroundColor: IdeWb.border,
             borderRadius: BorderRadius.circular(3),
           ),
         ],
@@ -461,16 +456,12 @@ class _MachineViewState extends ConsumerState<_MachineView> {
                     ideVisibleText(p.name.isEmpty ? '${p.pid ?? ''}' : p.name),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: WebTuiTypography.bodySmall.copyWith(
-                      color: WebTuiColors.textPrimary,
-                    ),
+                    style: IdeType.bodySmall.copyWith(color: IdeWb.textStrong),
                   ),
                 ),
                 Text(
                   byMem ? ideToolsBytes(p.mem) : '${ideToolsNum(p.cpu)}%',
-                  style: WebTuiTypography.bodySmall.copyWith(
-                    color: WebTuiColors.textMuted,
-                  ),
+                  style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
                 ),
               ],
             ),
@@ -521,8 +512,8 @@ class _MachineViewState extends ConsumerState<_MachineView> {
                   children: [
                     Text(
                       ideVisibleText(item.title),
-                      style: WebTuiTypography.titleMedium.copyWith(
-                        color: WebTuiColors.textPrimary,
+                      style: IdeType.titleMedium.copyWith(
+                        color: IdeWb.textStrong,
                       ),
                     ),
                     IdeTag(
@@ -533,7 +524,7 @@ class _MachineViewState extends ConsumerState<_MachineView> {
                     if (item.ok == false)
                       IdeTag(
                         tr('Mất kết nối', 'Unreachable'),
-                        color: WebTuiColors.danger,
+                        color: IdeWb.danger,
                       ),
                   ],
                 ),
@@ -546,8 +537,8 @@ class _MachineViewState extends ConsumerState<_MachineView> {
                           child: Text(
                             ideMoreErrorText(_liveErr!),
                             key: const Key('ide_monitor_live_error'),
-                            style: WebTuiTypography.bodySmall.copyWith(
-                              color: WebTuiColors.danger,
+                            style: IdeType.bodySmall.copyWith(
+                              color: IdeWb.danger,
                             ),
                           ),
                         ),
@@ -603,10 +594,8 @@ class _MachineViewState extends ConsumerState<_MachineView> {
                   key: Key('ide_monitor_alert_${a.code}'),
                   child: Text(
                     _alertText(a),
-                    style: WebTuiTypography.bodyMedium.copyWith(
-                      color: a.level == 'bad'
-                          ? WebTuiColors.danger
-                          : WebTuiColors.accentAmber,
+                    style: IdeType.bodyMedium.copyWith(
+                      color: a.level == 'bad' ? IdeWb.danger : IdeWb.warn,
                     ),
                   ),
                 ),
@@ -656,9 +645,7 @@ class _MachineViewState extends ConsumerState<_MachineView> {
             IdeCard(
               child: Text(
                 ideMoreErrorText(_histErr!),
-                style: WebTuiTypography.bodySmall.copyWith(
-                  color: WebTuiColors.danger,
-                ),
+                style: IdeType.bodySmall.copyWith(color: IdeWb.danger),
               ),
             )
           else if (_hist == null)
@@ -722,9 +709,7 @@ class _MachineViewState extends ConsumerState<_MachineView> {
                 'Số liệu cập nhật khi màn đang mở.',
                 'Metrics refresh while this screen is open.',
               ),
-              style: WebTuiTypography.bodySmall.copyWith(
-                color: WebTuiColors.textMuted,
-              ),
+              style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
             ),
           ),
         ],

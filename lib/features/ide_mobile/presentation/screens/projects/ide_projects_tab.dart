@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
@@ -18,6 +17,7 @@ import '../../../domain/ide_visible_text.dart';
 import '../../controllers/ide_controllers.dart';
 import '../../controllers/ide_project_controllers.dart';
 import '../../controllers/ide_project_ops_controllers.dart';
+import '../../widgets/ide_wb.dart';
 import '../../widgets/projects/ide_preview_view.dart' show IdePathText;
 import '../../widgets/projects/ide_project_ui.dart';
 import 'ide_project_picker.dart';
@@ -246,9 +246,7 @@ class _ProjectBody extends ConsumerWidget {
                   'No actions for this project on the phone yet.',
                 ),
                 key: const Key('ide_projects_no_actions'),
-                style: WebTuiTypography.bodyMedium.copyWith(
-                  color: WebTuiColors.textSecondary,
-                ),
+                style: IdeType.bodyMedium.copyWith(color: IdeWb.text),
               ),
             )
           else
@@ -288,7 +286,7 @@ class _PickerHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(WebTuiSpacing.lg),
       child: Material(
-        color: WebTuiColors.surface,
+        color: IdeWb.bg,
         borderRadius: BorderRadius.circular(WebTuiRadii.md),
         child: InkWell(
           key: const Key('ide_project_picker'),
@@ -302,11 +300,11 @@ class _PickerHeader extends StatelessWidget {
             ),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(WebTuiRadii.md),
-              border: Border.all(color: WebTuiColors.border),
+              border: Border.all(color: IdeWb.border),
             ),
             child: Row(
               children: [
-                Icon(Icons.folder_open_rounded, color: WebTuiColors.primary),
+                Icon(Icons.folder_open_rounded, color: IdeWb.accentInk),
                 const SizedBox(width: WebTuiSpacing.md),
                 // Tên dự án dùng hết chiều ngang, nhãn loại nằm dòng dưới để
                 // chữ cỡ lớn vẫn đọc được tên (trước đây chỉ còn "chat-…").
@@ -319,8 +317,8 @@ class _PickerHeader extends StatelessWidget {
                         project.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: WebTuiTypography.titleMedium.copyWith(
-                          color: WebTuiColors.textPrimary,
+                        style: IdeType.titleMedium.copyWith(
+                          color: IdeWb.textStrong,
                         ),
                       ),
                       const SizedBox(height: WebTuiSpacing.xs),
@@ -331,7 +329,7 @@ class _PickerHeader extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: WebTuiSpacing.xs),
-                Icon(Icons.unfold_more_rounded, color: WebTuiColors.textMuted),
+                Icon(Icons.unfold_more_rounded, color: IdeWb.text2),
               ],
             ),
           ),
@@ -357,15 +355,13 @@ class _InfoCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: WebTuiColors.textMuted),
+          Icon(icon, size: 18, color: IdeWb.text2),
           const SizedBox(width: WebTuiSpacing.sm),
           Expanded(
             child: Text(
               text,
               key: key,
-              style: WebTuiTypography.bodyMedium.copyWith(
-                color: WebTuiColors.textPrimary,
-              ),
+              style: IdeType.bodyMedium.copyWith(color: IdeWb.textStrong),
             ),
           ),
         ],
@@ -428,7 +424,7 @@ class _ChangesCard extends StatelessWidget {
                     child: Text(
                       f.code,
                       style: WebTuiTypography.labelSmall.copyWith(
-                        color: WebTuiColors.primary,
+                        color: IdeWb.accentInk,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -436,8 +432,8 @@ class _ChangesCard extends StatelessWidget {
                   Expanded(
                     child: IdePathText(
                       f.path,
-                      style: WebTuiTypography.bodySmall.copyWith(
-                        color: WebTuiColors.textPrimary,
+                      style: IdeType.bodySmall.copyWith(
+                        color: IdeWb.textStrong,
                       ),
                     ),
                   ),
@@ -447,9 +443,7 @@ class _ChangesCard extends StatelessWidget {
           if (more > 0 || status.truncated)
             Text(
               tr('và còn nữa...', 'and more...'),
-              style: WebTuiTypography.bodySmall.copyWith(
-                color: WebTuiColors.textMuted,
-              ),
+              style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
             ),
         ],
       ),
@@ -479,15 +473,11 @@ class _LogCard extends StatelessWidget {
                     ideVisibleText(c.subject),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: WebTuiTypography.bodyMedium.copyWith(
-                      color: WebTuiColors.textPrimary,
-                    ),
+                    style: IdeType.bodyMedium.copyWith(color: IdeWb.textStrong),
                   ),
                   Text(
                     '${ideVisibleText(c.shortSha)} · ${ideVisibleText(c.by)} · ${ideFormatUnix(c.at)}',
-                    style: WebTuiTypography.bodySmall.copyWith(
-                      color: WebTuiColors.textMuted,
-                    ),
+                    style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
                   ),
                 ],
               ),

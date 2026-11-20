@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
@@ -14,6 +13,7 @@ import '../../../application/ide_talk_controller.dart';
 import '../../../domain/ide_errors.dart';
 import '../../../domain/ide_talk_models.dart';
 import '../../../domain/ide_visible_text.dart';
+import '../../widgets/ide_wb.dart';
 import '../more/ide_more_common.dart';
 import 'ide_talk_agent_sheet.dart';
 import 'ide_talk_composer.dart';
@@ -362,7 +362,7 @@ class _Banner extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
-    color: WebTuiColors.accentAmber.withValues(alpha: 0.16),
+    color: IdeWb.warn.withValues(alpha: 0.16),
     padding: const EdgeInsets.symmetric(
       horizontal: WebTuiSpacing.lg,
       vertical: WebTuiSpacing.xs,
@@ -372,9 +372,7 @@ class _Banner extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: WebTuiTypography.bodySmall.copyWith(
-              color: WebTuiColors.textPrimary,
-            ),
+            style: IdeType.bodySmall.copyWith(color: IdeWb.textStrong),
           ),
         ),
         ?action,
@@ -423,9 +421,7 @@ class _Messages extends StatelessWidget {
                 'Older messages were trimmed (${conv.truncatedBefore}); see them on the computer.',
               ),
               textAlign: TextAlign.center,
-              style: WebTuiTypography.bodySmall.copyWith(
-                color: WebTuiColors.textSecondary,
-              ),
+              style: IdeType.bodySmall.copyWith(color: IdeWb.text),
             ),
           );
         }
@@ -464,7 +460,7 @@ class _QueuePanel extends StatelessWidget {
     return Container(
       key: const Key('talk_queue'),
       width: double.infinity,
-      color: WebTuiColors.backgroundMuted,
+      color: IdeWb.chip,
       padding: const EdgeInsets.symmetric(
         horizontal: WebTuiSpacing.lg,
         vertical: WebTuiSpacing.xs,
@@ -480,7 +476,7 @@ class _QueuePanel extends StatelessWidget {
                       ? tr('Hàng chờ (đang tạm dừng)', 'Queue (paused)')
                       : tr('Hàng chờ', 'Queue'),
                   style: WebTuiTypography.labelSmall.copyWith(
-                    color: WebTuiColors.textSecondary,
+                    color: IdeWb.text,
                   ),
                 ),
               ),
@@ -500,9 +496,7 @@ class _QueuePanel extends StatelessWidget {
                     ideVisibleText(q.text),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: WebTuiTypography.bodySmall.copyWith(
-                      color: WebTuiColors.textPrimary,
-                    ),
+                    style: IdeType.bodySmall.copyWith(color: IdeWb.textStrong),
                   ),
                 ),
                 if (onRemove != null)

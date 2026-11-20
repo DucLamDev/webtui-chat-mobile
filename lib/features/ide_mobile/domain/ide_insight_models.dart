@@ -341,11 +341,13 @@ final class IdeKientrucCheck {
     return IdeKientrucCheck(
       ok: data['ok'] != false,
       issues: issues,
-      errors: counts[_kientrucErrorKey] is num &&
+      errors:
+          counts[_kientrucErrorKey] is num &&
               (counts[_kientrucErrorKey] as num).isFinite
           ? ideSafeInt(counts[_kientrucErrorKey])
           : issues.where((i) => i.error).length,
-      warnings: counts['canh_bao'] is num && (counts['canh_bao'] as num).isFinite
+      warnings:
+          counts['canh_bao'] is num && (counts['canh_bao'] as num).isFinite
           ? ideSafeInt(counts['canh_bao'])
           : issues.where((i) => !i.error).length,
     );

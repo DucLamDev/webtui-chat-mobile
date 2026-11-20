@@ -6,10 +6,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../../app/providers/foundation_providers.dart';
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
+import '../ide_wb.dart';
 
 /// Dự án trong `projects.list`.
 class IdeProjectItem {
@@ -286,9 +286,7 @@ class _State extends ConsumerState<IdeNewSessionSheet> {
     padding: const EdgeInsets.only(bottom: WebTuiSpacing.xs),
     child: Text(
       s,
-      style: WebTuiTypography.labelSmall.copyWith(
-        color: WebTuiColors.textSecondary,
-      ),
+      style: WebTuiTypography.labelSmall.copyWith(color: IdeWb.text),
     ),
   );
 

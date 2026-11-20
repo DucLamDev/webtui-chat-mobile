@@ -5,10 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../app/providers/foundation_providers.dart';
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_errors.dart';
 import '../../../domain/ide_mergeq.dart';
@@ -16,6 +14,7 @@ import '../../../domain/ide_visible_text.dart';
 import '../../controllers/ide_controllers.dart';
 import '../../controllers/ide_project_ops_controllers.dart';
 import '../../widgets/ide_step_sheet.dart';
+import '../../widgets/ide_wb.dart';
 import '../../widgets/markdown/ide_code_block.dart';
 import '../../widgets/projects/ide_project_ui.dart';
 
@@ -46,10 +45,10 @@ String ideMergeStateLabel(String s) => switch (s) {
 };
 
 Color ideMergeResultColor(String r) => switch (r) {
-  'da-gop' || 'trien-khai' => WebTuiColors.accentGreen,
-  'tra-ve' || ideMergeResultDeployFailed => WebTuiColors.danger,
-  'khan-cap' => WebTuiColors.accentAmber,
-  _ => WebTuiColors.textMuted,
+  'da-gop' || 'trien-khai' => IdeWb.ok,
+  'tra-ve' || ideMergeResultDeployFailed => IdeWb.danger,
+  'khan-cap' => IdeWb.warn,
+  _ => IdeWb.text2,
 };
 
 /// Hàng chờ gộp: của dự án (`project`) hoặc của tôi (không `project`).
@@ -384,9 +383,7 @@ class _MergeqState extends ConsumerState<IdeMergeqScreen> {
           Text(
             v.modeName.isNotEmpty ? v.modeName : ideMergeModeLabel(v.mode),
             key: const Key('ide_mergeq_mode'),
-            style: WebTuiTypography.bodyMedium.copyWith(
-              color: WebTuiColors.textPrimary,
-            ),
+            style: IdeType.bodyMedium.copyWith(color: IdeWb.textStrong),
           ),
           if (v.canChangeMode && _has('mergeq.mode')) ...[
             const SizedBox(height: WebTuiSpacing.sm),
@@ -415,9 +412,7 @@ class _MergeqState extends ConsumerState<IdeMergeqScreen> {
                   'Chỉ trưởng / phó dự án đổi được.',
                   'Only leads can change it.',
                 ),
-                style: WebTuiTypography.bodySmall.copyWith(
-                  color: WebTuiColors.textMuted,
-                ),
+                style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
               ),
             ),
         ],
@@ -437,10 +432,10 @@ class _MergeqState extends ConsumerState<IdeMergeqScreen> {
       ),
       padding: const EdgeInsets.all(WebTuiSpacing.md),
       decoration: BoxDecoration(
-        color: hi ? WebTuiColors.primarySoft : WebTuiColors.surface,
+        color: hi ? IdeWb.accentSoft : IdeWb.bg,
         borderRadius: BorderRadius.circular(WebTuiRadii.md),
         border: Border.all(
-          color: hi ? WebTuiColors.primary : WebTuiColors.border,
+          color: hi ? IdeWb.accentInk : IdeWb.border,
           width: hi ? 2 : 1,
         ),
       ),
@@ -454,9 +449,7 @@ class _MergeqState extends ConsumerState<IdeMergeqScreen> {
                   '#${e.number} ${ideVisibleText(e.title)}',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: WebTuiTypography.titleMedium.copyWith(
-                    color: WebTuiColors.textPrimary,
-                  ),
+                  style: IdeType.titleMedium.copyWith(color: IdeWb.textStrong),
                 ),
               ),
               WebTuiStatusPill(label: ideMergeStateLabel(e.state)),
@@ -468,21 +461,17 @@ class _MergeqState extends ConsumerState<IdeMergeqScreen> {
               ideVisibleText(e.by),
               ideFormatUnix(e.joinedAt),
             ].where((s) => s.isNotEmpty).join(' · '),
-            style: WebTuiTypography.bodySmall.copyWith(
-              color: WebTuiColors.textMuted,
-            ),
+            style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
           ),
           if (e.step.isNotEmpty || e.note.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: WebTuiSpacing.xs),
               child: Text(
-                [e.step, e.note]
-                    .where((s) => s.isNotEmpty)
-                    .map(ideVisibleText)
-                    .join(' · '),
-                style: WebTuiTypography.bodySmall.copyWith(
-                  color: WebTuiColors.textSecondary,
-                ),
+                [
+                  e.step,
+                  e.note,
+                ].where((s) => s.isNotEmpty).map(ideVisibleText).join(' · '),
+                style: IdeType.bodySmall.copyWith(color: IdeWb.text),
               ),
             ),
           if (allowWithdraw && e.withdrawable && _has('mergeq.withdraw'))
@@ -495,7 +484,7 @@ class _MergeqState extends ConsumerState<IdeMergeqScreen> {
                 label: Text(tr('Rút PR', 'Withdraw')),
                 style: TextButton.styleFrom(
                   minimumSize: const Size(44, 44),
-                  foregroundColor: WebTuiColors.danger,
+                  foregroundColor: IdeWb.danger,
                 ),
               ),
             ),
@@ -516,10 +505,10 @@ class _MergeqState extends ConsumerState<IdeMergeqScreen> {
       ),
       padding: const EdgeInsets.all(WebTuiSpacing.md),
       decoration: BoxDecoration(
-        color: hi ? WebTuiColors.primarySoft : WebTuiColors.surface,
+        color: hi ? IdeWb.accentSoft : IdeWb.bg,
         borderRadius: BorderRadius.circular(WebTuiRadii.md),
         border: Border.all(
-          color: hi ? WebTuiColors.primary : WebTuiColors.border,
+          color: hi ? IdeWb.accentInk : IdeWb.border,
           width: hi ? 2 : 1,
         ),
       ),
@@ -533,9 +522,7 @@ class _MergeqState extends ConsumerState<IdeMergeqScreen> {
                   '#${r.number} ${ideVisibleText(r.title)}',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: WebTuiTypography.titleMedium.copyWith(
-                    color: WebTuiColors.textPrimary,
-                  ),
+                  style: IdeType.titleMedium.copyWith(color: IdeWb.textStrong),
                 ),
               ),
               WebTuiStatusPill(
@@ -550,18 +537,14 @@ class _MergeqState extends ConsumerState<IdeMergeqScreen> {
               ideVisibleText(r.by),
               ideFormatUnix(r.closedAt),
             ].where((s) => s.isNotEmpty).join(' · '),
-            style: WebTuiTypography.bodySmall.copyWith(
-              color: WebTuiColors.textMuted,
-            ),
+            style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
           ),
           if (r.note.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: WebTuiSpacing.xs),
               child: Text(
                 ideVisibleText(r.note),
-                style: WebTuiTypography.bodySmall.copyWith(
-                  color: WebTuiColors.textSecondary,
-                ),
+                style: IdeType.bodySmall.copyWith(color: IdeWb.text),
               ),
             ),
           if (allowLog && r.rejected && _has('mergeq.log'))
@@ -691,7 +674,7 @@ class _LogSheetState extends ConsumerState<_LogSheet> {
         child: SelectableText(
           _text,
           key: const Key('ide_mergeq_log_text'),
-          style: ideMonoStyle.copyWith(color: WebTuiColors.textPrimary),
+          style: ideMonoStyle.copyWith(color: IdeWb.textStrong),
         ),
       );
     }

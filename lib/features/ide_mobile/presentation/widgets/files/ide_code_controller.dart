@@ -19,8 +19,8 @@ class IdeCodeController extends TextEditingController {
     TextStyle? style,
     required bool withComposing,
   }) {
-    final base = style ?? ideCodeStyle();
-    final dark = ideIsDarkNow();
+    final base = style ?? ideCodeStyle(context);
+    final dark = ideIsDark(context);
     final t = text;
     // Đang gõ tiếng Việt (có vùng soạn): để chữ thường, tránh nhấp nháy.
     if (language.isEmpty || (withComposing && value.composing.isValid)) {

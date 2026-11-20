@@ -5,9 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../application/ide_appscreen_controller.dart' show ideLastLines;
 import '../../../application/ide_media_service.dart';
@@ -15,22 +13,19 @@ import '../../../domain/ide_errors.dart';
 import '../../../domain/ide_media_models.dart';
 import '../../../domain/ide_visible_text.dart';
 import '../../controllers/ide_project_ops_controllers.dart';
+import '../../widgets/ide_wb.dart';
 import '../more/ide_more_common.dart';
 import 'ide_media_common.dart';
 
 /// Nhãn + màu trạng thái video.
-(String, Color) ideVideoStateTag(String state) => switch (IdeVideoState.parse(
-  state,
-)) {
-  IdeVideoState.daXuat => (tr('Đã xuất', 'Exported'), WebTuiColors.accentGreen),
-  IdeVideoState.nhap => (tr('Bản nháp', 'Draft'), WebTuiColors.accentAmber),
-  IdeVideoState.kichBan => (
-    tr('Kịch bản', 'Script'),
-    WebTuiColors.textSecondary,
-  ),
-  IdeVideoState.loi => (tr('Lỗi', 'Error'), WebTuiColors.danger),
-  null => (state.isEmpty ? '—' : ideVisibleText(state), WebTuiColors.textMuted),
-};
+(String, Color) ideVideoStateTag(String state) =>
+    switch (IdeVideoState.parse(state)) {
+      IdeVideoState.daXuat => (tr('Đã xuất', 'Exported'), IdeWb.ok),
+      IdeVideoState.nhap => (tr('Bản nháp', 'Draft'), IdeWb.warn),
+      IdeVideoState.kichBan => (tr('Kịch bản', 'Script'), IdeWb.text),
+      IdeVideoState.loi => (tr('Lỗi', 'Error'), IdeWb.danger),
+      null => (state.isEmpty ? '—' : ideVisibleText(state), IdeWb.text2),
+    };
 
 /// Studio video: danh sách video của dự án (xem, tải; không dựng / lưu).
 class IdeVideoListScreen extends ConsumerWidget {
@@ -259,9 +254,7 @@ class _VideoListBodyState extends ConsumerState<_VideoListBody>
                 ideVisibleText(_log.last),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: WebTuiTypography.bodySmall.copyWith(
-                  color: WebTuiColors.textMuted,
-                ),
+                style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
               ),
             ),
           ),
@@ -318,9 +311,7 @@ class _VideoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final (label, color) = ideVideoStateTag(row.state);
     final st = row.status;
-    final muted = WebTuiTypography.bodySmall.copyWith(
-      color: WebTuiColors.textMuted,
-    );
+    final muted = IdeType.bodySmall.copyWith(color: IdeWb.text2);
     final scenes = row.scenes == null
         ? '—'
         : '${row.scenes} ${tr('cảnh', 'scenes')}';
@@ -338,7 +329,7 @@ class _VideoCard extends StatelessWidget {
                   ideVisibleText(row.title),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: WebTuiTypography.titleMedium,
+                  style: IdeType.titleMedium,
                 ),
               ),
               const SizedBox(width: WebTuiSpacing.sm),
@@ -378,9 +369,7 @@ class _VideoCard extends StatelessWidget {
               ideVisibleText(row.error),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: WebTuiTypography.bodySmall.copyWith(
-                color: WebTuiColors.danger,
-              ),
+              style: IdeType.bodySmall.copyWith(color: IdeWb.danger),
             ),
         ],
       ),

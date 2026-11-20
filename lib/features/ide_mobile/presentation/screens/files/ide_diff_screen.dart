@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_file_models.dart';
 import '../../controllers/ide_files_controllers.dart';
 import '../../widgets/files/ide_code_view.dart';
 import '../../widgets/files/ide_files_ui.dart';
+import '../../widgets/ide_wb.dart';
 
 /// Màn xem thay đổi git (`files.diff`): cả dự án hoặc một tệp; dòng thêm
 /// xanh, dòng xoá đỏ.
@@ -119,19 +119,25 @@ class IdeDiffLine extends StatelessWidget {
     final kind = ideDiffLineKind(line);
     final (bg, fg) = switch (kind) {
       IdeDiffLineKind.add => (
-        WebTuiColors.accentGreen.withValues(alpha: 0.16),
-        WebTuiColors.textPrimary,
+        IdeWbPalette.of(context).ok.withValues(alpha: 0.16),
+        IdeWbPalette.of(context).textStrong,
       ),
       IdeDiffLineKind.remove => (
-        WebTuiColors.danger.withValues(alpha: 0.14),
-        WebTuiColors.textPrimary,
+        IdeWbPalette.of(context).danger.withValues(alpha: 0.14),
+        IdeWbPalette.of(context).textStrong,
       ),
-      IdeDiffLineKind.hunk => (WebTuiColors.primarySoft, WebTuiColors.primary),
+      IdeDiffLineKind.hunk => (
+        IdeWbPalette.of(context).accentSoft,
+        IdeWbPalette.of(context).accentInk,
+      ),
       IdeDiffLineKind.header => (
-        WebTuiColors.backgroundMuted,
-        WebTuiColors.textSecondary,
+        IdeWbPalette.of(context).chip,
+        IdeWbPalette.of(context).text,
       ),
-      IdeDiffLineKind.context => (Colors.transparent, WebTuiColors.textPrimary),
+      IdeDiffLineKind.context => (
+        Colors.transparent,
+        IdeWbPalette.of(context).textStrong,
+      ),
     };
     return Semantics(
       label: switch (kind) {
@@ -149,7 +155,7 @@ class IdeDiffLine extends StatelessWidget {
         ),
         child: Text(
           line.isEmpty ? ' ' : line,
-          style: ideCodeStyle().copyWith(
+          style: ideCodeStyle(context).copyWith(
             color: fg,
             fontWeight: kind == IdeDiffLineKind.header
                 ? FontWeight.w600

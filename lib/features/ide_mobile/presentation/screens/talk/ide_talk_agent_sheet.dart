@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_more_time.dart';
 import '../../../domain/ide_talk_models.dart';
+import '../../widgets/ide_wb.dart';
 import '../more/ide_more_common.dart';
 import 'ide_talk_providers.dart';
 
@@ -209,9 +208,7 @@ class _IdeTalkAgentSheetState extends ConsumerState<IdeTalkAgentSheet> {
           children: [
             Text(
               tr('Lưu thành AI Agent', 'Save as AI Agent'),
-              style: WebTuiTypography.titleMedium.copyWith(
-                color: WebTuiColors.textPrimary,
-              ),
+              style: IdeType.titleMedium.copyWith(color: IdeWb.textStrong),
             ),
             const SizedBox(height: WebTuiSpacing.md),
             TextField(
@@ -297,10 +294,7 @@ class _IdeTalkAgentSheetState extends ConsumerState<IdeTalkAgentSheet> {
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: WebTuiSpacing.sm),
-                child: Text(
-                  _error!,
-                  style: TextStyle(color: WebTuiColors.danger),
-                ),
+                child: Text(_error!, style: TextStyle(color: IdeWb.danger)),
               ),
             FilledButton(
               key: const Key('agent_save'),

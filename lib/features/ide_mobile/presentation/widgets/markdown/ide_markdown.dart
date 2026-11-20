@@ -7,8 +7,8 @@ import 'package:markdown/markdown.dart' as md;
 import '../../../../../core/platform/external_url_launcher.dart';
 import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
+import '../ide_wb.dart';
 import 'ide_blocks_model.dart';
 import 'ide_chart_view.dart';
 import 'ide_code_block.dart';
@@ -28,8 +28,9 @@ const _colorNames = <String, String>{
 };
 
 /// Màu theo ý nghĩa; chữ trên nền trắng / nền tối đều đạt tương phản đọc được.
-Color ideTextColorFor(String kind) {
-  final dark = WebTuiColors.brightness == Brightness.dark;
+/// [dark]: bảng màu của màn đang vẽ (mặc định theo máy).
+Color ideTextColorFor(String kind, {bool? dark}) {
+  dark ??= IdeWbPalette.current.isDark;
   return switch (kind) {
     'bad' => dark ? const Color(0xFFF28B8B) : const Color(0xFFC62828),
     'warn' => dark ? const Color(0xFFEDB04A) : const Color(0xFFA85A00),
@@ -245,17 +246,22 @@ class _IdeMarkdownState extends State<IdeMarkdown> {
     _recognizers.clear();
     final base =
         widget.style ??
-        WebTuiTypography.bodyMedium.copyWith(
-          color: WebTuiColors.textPrimary,
+        IdeType.bodyMedium.copyWith(
+          color: IdeWbPalette.of(context).textStrong,
           fontWeight: FontWeight.w400,
           height: 1.45,
-          fontSize: 15,
+          fontSize: IdeType.chat,
         );
     if (widget.text.length > ideMarkdownMaxChars) {
       // Quá dài (> 100 KB): không tô markdown để khỏi đơ máy; vẫn chọn / chép được.
       return SelectableText(widget.text, style: base);
     }
-    final r = _Renderer(base, _recognizers, (u) => unawaited(_open(u)));
+    final r = _Renderer(
+      base,
+      _recognizers,
+      (u) => unawaited(_open(u)),
+      IdeWbPalette.of(context),
+    );
     final segments = _split(widget.text);
     final children = <Widget>[];
     var formIndex = 0;
@@ -320,9 +326,12 @@ class _IdeMarkdownState extends State<IdeMarkdown> {
 }
 
 class _Renderer {
-  _Renderer(this.base, this.recognizers, this.onLink);
+  _Renderer(this.base, this.recognizers, this.onLink, this.p);
 
   final TextStyle base;
+
+  /// Bảng màu của màn đang vẽ: màn xem tệp luôn tối, chat AI theo máy.
+  final IdeWbPalette p;
   final List<TapGestureRecognizer> recognizers;
   final void Function(String url) onLink;
 
@@ -415,12 +424,10 @@ class _Renderer {
         return Container(
           padding: const EdgeInsets.only(left: WebTuiSpacing.md),
           decoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(color: WebTuiColors.primary, width: 3),
-            ),
+            border: Border(left: BorderSide(color: p.accentInk, width: 3)),
           ),
           child: DefaultTextStyle.merge(
-            style: TextStyle(color: WebTuiColors.textSecondary),
+            style: TextStyle(color: p.text),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: _spaced(blocks(e.children ?? const [])),
@@ -524,9 +531,7 @@ class _Renderer {
         }
         rows.add(
           TableRow(
-            decoration: head
-                ? BoxDecoration(color: WebTuiColors.chipBackground)
-                : null,
+            decoration: head ? BoxDecoration(color: p.chip) : null,
             children: cells,
           ),
         );
@@ -554,7 +559,7 @@ class _Renderer {
     ];
     return DecoratedBox(
       decoration: BoxDecoration(
-        border: Border.all(color: WebTuiColors.border),
+        border: Border.all(color: p.border),
         borderRadius: BorderRadius.circular(8),
       ),
       child: ClipRRect(
@@ -564,8 +569,8 @@ class _Renderer {
           child: Table(
             defaultColumnWidth: const IntrinsicColumnWidth(),
             border: TableBorder(
-              horizontalInside: BorderSide(color: WebTuiColors.hairline),
-              verticalInside: BorderSide(color: WebTuiColors.hairline),
+              horizontalInside: BorderSide(color: p.border),
+              verticalInside: BorderSide(color: p.border),
             ),
             children: fixed,
           ),
@@ -601,7 +606,7 @@ class _Renderer {
           style: style.merge(
             ideMonoStyle.copyWith(
               fontSize: (style.fontSize ?? 15) - 1.5,
-              backgroundColor: WebTuiColors.chipBackground,
+              backgroundColor: p.chip,
             ),
           ),
         );
@@ -610,7 +615,9 @@ class _Renderer {
       case 'ide-color':
         return TextSpan(
           children: kids(
-            style.copyWith(color: ideTextColorFor(n.attributes['k'] ?? '')),
+            style.copyWith(
+              color: ideTextColorFor(n.attributes['k'] ?? '', dark: p.isDark),
+            ),
           ),
         );
       case 'a':
@@ -620,7 +627,7 @@ class _Renderer {
         return TextSpan(
           children: kids(
             style.copyWith(
-              color: WebTuiColors.primary,
+              color: p.accentInk,
               decoration: TextDecoration.underline,
             ),
           ),
