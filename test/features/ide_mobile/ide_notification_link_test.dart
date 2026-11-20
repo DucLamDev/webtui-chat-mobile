@@ -18,7 +18,25 @@ void main() {
     expect(_loc('webtui://ide/jobs/$_job'), '/ide/jobs/$_job');
     expect(_loc('webtui://ide/tasks'), '/ide');
     expect(_loc('webtui://ide/tasks/t1'), '/ide');
-    expect(_loc('webtui://ide/mergeq'), '/ide');
+    expect(_loc('webtui://ide/mergeq'), '/ide/mergeq');
+    expect(_loc('webtui://ide/mergeq?pr=12'), '/ide/mergeq?pr=12');
+    expect(
+      _loc('webtui://ide/mergeq?pr=12&project=chat%20hub'),
+      '/ide/mergeq?project=chat+hub&pr=12',
+    );
+    expect(
+      _loc('webtui://ide/mergeq?pr=7&project=my%3Ablog'),
+      '/ide/mergeq?project=my%3Ablog&pr=7',
+    );
+  });
+
+  test('liên kết hàng chờ gộp sai dạng thì không mở', () {
+    expect(_loc('webtui://ide/mergeq?pr=0'), isNull);
+    expect(_loc('webtui://ide/mergeq?pr=-1'), isNull);
+    expect(_loc('webtui://ide/mergeq?pr=1234567890'), isNull);
+    expect(_loc('webtui://ide/mergeq?pr=1&project=a%0Ab'), isNull);
+    expect(_loc('webtui://ide/mergeq?project=${'x' * 201}'), isNull);
+    expect(_loc('webtui://ide/mergeq/5'), isNull);
   });
 
   test('đường lạ, mã xấu hoặc thiếu thì không mở gì', () {

@@ -3,6 +3,21 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.56.0 · 20/11/2026
+### Tính năng
+- IDE trên app có tab **Dự án** (cần IDE công ty mở chức năng này cho điện thoại; trước đó dùng cổng IDE giả):
+  - chọn dự án (tìm theo tên, nhóm theo dự án Git / VPS / trên máy / dự án riêng), xem nhánh, tệp đang sửa, lịch sử commit;
+  - tạo PR, gộp PR (xếp vào hàng chờ, cần vân tay), màn **Hàng chờ gộp** tự làm mới: PR đang chờ, vừa gộp, bị trả về
+    kèm nhật ký lý do, rút PR, đổi chế độ duyệt (khi được phép), việc nhẹ;
+  - **Triển khai**: bắt buộc bấm Xem trước (danh sách tệp đổi, cảnh báo, khác biệt) rồi mới bấm Triển khai được; bản xem
+    trước quá 15 phút, khác máy đích hoặc đã dùng thì phải xem trước lại; xoá nhiều tệp phải xác nhận riêng; kéo về, lịch
+    sử, quay lại bản cũ, khôi phục một tệp (cần vân tay); dự án riêng, chuyển dự án sang Git, máy đích, xin quyền vào máy
+    chủ tạm (1–8 giờ).
+- Bấm thông báo "PR đã gộp / bị trả về" mở thẳng hàng chờ gộp của dự án đó.
+- An toàn: tên tệp, tiêu đề PR, commit có ký tự ẩn / đảo chiều chữ thì hiện rõ dạng `<U+202E>` để không bị giả dạng;
+  đường dẫn dài cắt ở giữa, luôn giữ tên tệp; Kéo về, rút PR, xoá việc nhẹ, quay lại bản cũ đều hỏi lại và không gửi
+  trùng khi bấm hai lần; nút Mở PR hỏi trước và chỉ mở liên kết https.
+
 ## 1.55.0 · 20/11/2026
 ### Tính năng
 - IDE trên app có tab **Terminal** (cần IDE công ty bật terminal cho điện thoại; trước đó dùng cổng IDE giả):
