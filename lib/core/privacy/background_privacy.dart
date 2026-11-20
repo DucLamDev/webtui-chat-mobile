@@ -12,12 +12,35 @@ final class BackgroundPrivacyController {
 
   static const _channel = MethodChannel('webtui/privacy');
 
+  /// Số chỗ đang giữ chặn chụp màn hình (hộp bí mật đang mở).
+  static int _secureHolds = 0;
+
+  @visibleForTesting
+  static int get secureHolds => _secureHolds;
+
+  @visibleForTesting
+  static void resetSecureHolds() => _secureHolds = 0;
+
   Future<void> setSecureScreen(bool enabled) async {
     try {
       await _channel.invokeMethod<void>('setSecureScreen', enabled);
     } on MissingPluginException {
       // Desktop/web test runners do not provide the mobile privacy channel.
     }
+  }
+
+  /// Bật chặn chụp / quay màn hình cho tới khi [releaseSecureScreen]; có đếm
+  /// để hai hộp bí mật chồng nhau thì đóng một hộp không tắt chặn của hộp kia.
+  Future<void> acquireSecureScreen() async {
+    _secureHolds++;
+    if (_secureHolds == 1) await setSecureScreen(true);
+  }
+
+  /// Trả một lần [acquireSecureScreen]; hết chỗ giữ mới tắt chặn.
+  Future<void> releaseSecureScreen() async {
+    if (_secureHolds == 0) return;
+    _secureHolds--;
+    if (_secureHolds == 0) await setSecureScreen(false);
   }
 }
 

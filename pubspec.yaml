@@ -79,6 +79,15 @@ dependencies:
   opus_dart: ^3.0.1
   opus_flutter: ^3.0.3
   gal: ^3.0.1
+  cryptography: ^2.9.0
+  markdown: ^7.3.1
+  speech_to_text: ^7.5.0
+  xterm: ^4.0.0
+  wakelock_plus: ^1.5.2
+  re_highlight: ^0.0.3
+  # Biết đang dùng Wi-Fi hay dữ liệu di động (tự tải ảnh / lưu video vào kho).
+  # Đã có sẵn qua livekit_client, khai trực tiếp đúng bản trong pubspec.lock.
+  connectivity_plus: ^7.3.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -93,6 +102,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  pointycastle: ^4.0.0
 
 # Chỉ thay phần Linux của hai gói, để bản Linux chạy thử trên Dev VPS
 # (`vpsttt-app run`) dựng được: máy dev thiếu GStreamer / libsecret dev và
@@ -138,6 +148,11 @@ flutter:
     - family: PhosphorDuotone
       fonts:
         - asset: assets/fonts/phosphor-duotone.ttf
+    # Phông mã (OFL, assets/fonts/jetbrains_mono_license.txt): mã, terminal,
+    # đường dẫn, mã commit trong IDE. Chữ thường vẫn dùng phông hệ thống.
+    - family: JetBrainsMono
+      fonts:
+        - asset: assets/fonts/jetbrains-mono.ttf
 
   # To add assets to your application, add an assets section, like this:
   # assets:

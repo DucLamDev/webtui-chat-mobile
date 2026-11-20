@@ -15,6 +15,22 @@ final _instanceB = InstanceScope(
 );
 
 void main() {
+  test('thông báo ide_*: mã chống trùng theo tag + messageId', () {
+    const data = <String, Object?>{
+      'event_type': 'ide_approval',
+      'tag': 'ide:approval:k1',
+    };
+    final first = notificationEventId(data, messageId: 'm1');
+    final second = notificationEventId(data, messageId: 'm2');
+    expect(first, isNot(second));
+    expect(notificationEventId(data, messageId: 'm1'), first);
+    expect(notificationEventId(data), isNull);
+    // Loại khác giữ hành vi cũ: tag là mã sự kiện.
+    expect(
+      notificationEventId(const {'tag': 'chat:1'}, messageId: 'm1'),
+      'chat:1',
+    );
+  });
   approvalNotificationTests();
   test('stale A data-only push is not shown while valid B is shown', () async {
     final displayed = <Map<String, Object?>>[];

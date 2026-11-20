@@ -24,7 +24,7 @@ class WebTuiEmptyState extends StatelessWidget {
       icon: icon,
       title: title,
       message: message,
-      color: WebTuiColors.primary,
+      color: WebTuiColors.of(context).primary,
     );
   }
 }
@@ -36,6 +36,7 @@ class WebTuiLoadingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = WebTuiColors.of(context);
     return Semantics(
       container: true,
       liveRegion: true,
@@ -55,9 +56,7 @@ class WebTuiLoadingState extends StatelessWidget {
                 message ?? tr('Đang tải dữ liệu...', 'Loading data...'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: WebTuiTypography.bodySmall.copyWith(
-                  color: WebTuiColors.textMuted,
-                ),
+                style: WebTuiTypography.bodySmall.copyWith(color: c.textMuted),
               ),
               const SizedBox(height: WebTuiSpacing.sm),
               const _SkeletonLine(widthFactor: 0.72),
@@ -82,7 +81,7 @@ class _SkeletonLine extends StatelessWidget {
       widthFactor: widthFactor,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: WebTuiColors.border.withValues(alpha: 0.62),
+          color: WebTuiColors.of(context).border.withValues(alpha: 0.62),
           borderRadius: BorderRadius.circular(WebTuiRadii.lg),
         ),
         child: const SizedBox(height: 10),
@@ -109,7 +108,7 @@ class WebTuiErrorState extends StatelessWidget {
       icon: Icons.wifi_off_rounded,
       title: title,
       message: message,
-      color: WebTuiColors.danger,
+      color: WebTuiColors.of(context).danger,
       action: onRetry == null
           ? null
           : TextButton.icon(
@@ -138,13 +137,14 @@ class _StateFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = WebTuiColors.of(context);
     return Padding(
       padding: const EdgeInsets.all(WebTuiSpacing.lg),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: WebTuiColors.surfaceElevated,
+          color: c.surfaceElevated,
           borderRadius: BorderRadius.circular(WebTuiRadii.md),
-          border: Border.all(color: WebTuiColors.border.withValues(alpha: 0.8)),
+          border: Border.all(color: c.border.withValues(alpha: 0.8)),
         ),
         child: Padding(
           padding: const EdgeInsets.all(WebTuiSpacing.lg),
@@ -159,7 +159,7 @@ class _StateFrame extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: WebTuiTypography.bodyMedium.copyWith(
-                  color: WebTuiColors.textPrimary,
+                  color: c.textPrimary,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -169,9 +169,7 @@ class _StateFrame extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: WebTuiTypography.bodySmall.copyWith(
-                  color: WebTuiColors.textMuted,
-                ),
+                style: WebTuiTypography.bodySmall.copyWith(color: c.textMuted),
               ),
               if (action != null) ...[
                 const SizedBox(height: WebTuiSpacing.sm),

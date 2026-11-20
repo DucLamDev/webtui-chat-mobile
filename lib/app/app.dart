@@ -97,6 +97,20 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
     );
   }
 
+  /// Cổng vân tay IDE đếm thời gian ở nền cho cả app, không chỉ lúc đang mở
+  /// màn IDE (ra tab chat, để nền lâu rồi vào lại vẫn phải xác thực).
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!ref.exists(ideAccessControllerProvider)) return;
+    final ide = ref.read(ideAccessControllerProvider);
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      ide.onBackground();
+    } else if (state == AppLifecycleState.resumed) {
+      ide.onForeground();
+    }
+  }
+
   @override
   void didChangePlatformBrightness() {
     final next = ui.PlatformDispatcher.instance.platformBrightness;

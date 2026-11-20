@@ -18,6 +18,8 @@ class WebTuiSearchBar extends StatefulWidget {
     this.onChanged,
     this.onTap,
     this.debounceDuration = const Duration(milliseconds: 250),
+    this.fillColor,
+    this.accentColor,
     super.key,
   });
 
@@ -26,6 +28,12 @@ class WebTuiSearchBar extends StatefulWidget {
   final ValueChanged<String>? onChanged;
   final VoidCallback? onTap;
   final Duration debounceDuration;
+
+  /// Nền ô (mặc định nền chip chung của app).
+  final Color? fillColor;
+
+  /// Màu biểu tượng / con trỏ khi đang gõ (mặc định màu nhấn của app).
+  final Color? accentColor;
 
   @override
   State<WebTuiSearchBar> createState() => _WebTuiSearchBarState();
@@ -69,7 +77,7 @@ class _WebTuiSearchBarState extends State<WebTuiSearchBar> {
       // màu biểu tượng.
       height: 40,
       decoration: BoxDecoration(
-        color: WebTuiColors.chipBackground,
+        color: widget.fillColor ?? WebTuiColors.of(context).chipBackground,
         borderRadius: BorderRadius.circular(_radius),
       ),
       child: Material(
@@ -90,8 +98,8 @@ class _WebTuiSearchBarState extends State<WebTuiSearchBar> {
                   WebTuiIcons.search,
                   size: 19,
                   color: focused
-                      ? WebTuiColors.primary
-                      : WebTuiColors.textMuted,
+                      ? (widget.accentColor ?? WebTuiColors.of(context).primary)
+                      : WebTuiColors.of(context).textMuted,
                 ),
                 const SizedBox(width: WebTuiSpacing.sm),
                 Expanded(
@@ -106,7 +114,9 @@ class _WebTuiSearchBarState extends State<WebTuiSearchBar> {
                           onSubmitted: (_) => _focusNode.unfocus(),
                           maxLines: 1,
                           textInputAction: TextInputAction.search,
-                          cursorColor: WebTuiColors.primary,
+                          cursorColor:
+                              widget.accentColor ??
+                              WebTuiColors.of(context).primary,
                           decoration: InputDecoration(
                             isCollapsed: true,
                             border: InputBorder.none,
@@ -119,11 +129,11 @@ class _WebTuiSearchBarState extends State<WebTuiSearchBar> {
                             contentPadding: EdgeInsets.zero,
                             hintText: widget.hintText,
                             hintStyle: WebTuiTypography.bodyMedium.copyWith(
-                              color: WebTuiColors.textSecondary,
+                              color: WebTuiColors.of(context).textSecondary,
                             ),
                           ),
                           style: WebTuiTypography.bodyMedium.copyWith(
-                            color: WebTuiColors.textPrimary,
+                            color: WebTuiColors.of(context).textPrimary,
                             fontWeight: FontWeight.w500,
                           ),
                         )
@@ -132,7 +142,7 @@ class _WebTuiSearchBarState extends State<WebTuiSearchBar> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: WebTuiTypography.bodyMedium.copyWith(
-                            color: WebTuiColors.textSecondary,
+                            color: WebTuiColors.of(context).textSecondary,
                           ),
                         ),
                 ),
@@ -148,7 +158,7 @@ class _WebTuiSearchBarState extends State<WebTuiSearchBar> {
                     icon: Icon(
                       WebTuiIcons.close,
                       size: 18,
-                      color: WebTuiColors.textMuted,
+                      color: WebTuiColors.of(context).textMuted,
                     ),
                     onPressed: _close,
                   ),
