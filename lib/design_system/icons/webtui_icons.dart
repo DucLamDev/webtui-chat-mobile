@@ -157,6 +157,9 @@ abstract final class WebTuiIcons {
   static const IconData micOff = PhosphorRegular.microphoneSlash;
   static const IconData timer = PhosphorRegular.timer;
   static const IconData clearCache = PhosphorRegular.broom;
+
+  /// Dung lượng kho tệp đã tải về máy (Thiết lập).
+  static const IconData storage = PhosphorRegular.hardDrives;
   static const IconData feedback = PhosphorRegular.chatCenteredText;
   static const IconData update = PhosphorRegular.arrowCircleUp;
   static const IconData upToDate = PhosphorRegular.sealCheck;

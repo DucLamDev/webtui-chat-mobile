@@ -125,6 +125,56 @@ class ApprovalDetailView extends StatefulWidget {
 
 class _ApprovalDetailViewState extends State<ApprovalDetailView> {
   final _comment = TextEditingController();
+  ApprovalDecisionKind? _sending;
+
+  bool get _busy => widget.isSubmitting || _sending != null;
+
+  Widget _label(ApprovalDecisionKind kind, String text) {
+    if (!_busy || (_sending != null && _sending != kind)) return Text(text);
+    return const SizedBox(
+      width: 18,
+      height: 18,
+      child: CircularProgressIndicator(strokeWidth: 2),
+    );
+  }
+
+  Future<void> _send(ApprovalDecisionKind kind, String comment) async {
+    if (_busy) return;
+    setState(() => _sending = kind);
+    try {
+      await widget.onDecide(kind, comment);
+    } finally {
+      if (mounted) setState(() => _sending = null);
+    }
+  }
+
+  Future<void> _approve() async {
+    final ok = await showWebTuiConfirmDialog(
+      context,
+      title: tr('Duyệt yêu cầu?', 'Approve this request?'),
+      message: widget.approval.title,
+      confirmLabel: tr('Duyệt', 'Approve'),
+    );
+    if (ok && mounted) await _send(ApprovalDecisionKind.approve, _comment.text);
+  }
+
+  Future<void> _reject() async {
+    final reason = await showWebTuiTextInputDialog(
+      context,
+      title: tr('Từ chối yêu cầu?', 'Reject this request?'),
+      message: widget.approval.title,
+      label: tr('Lý do từ chối', 'Reason for rejecting'),
+      initialValue: _comment.text,
+      confirmLabel: tr('Từ chối', 'Reject'),
+      maxLength: 500,
+      validator: (value) => value.trim().isEmpty
+          ? tr('Hãy nhập lý do.', 'Please enter a reason.')
+          : null,
+    );
+    if (reason == null || reason.trim().isEmpty || !mounted) return;
+    _comment.text = reason;
+    await _send(ApprovalDecisionKind.reject, reason);
+  }
 
   @override
   void dispose() {
@@ -216,26 +266,22 @@ class _ApprovalDetailViewState extends State<ApprovalDetailView> {
               Expanded(
                 child: OutlinedButton(
                   key: const Key('approval_reject'),
-                  onPressed: widget.isSubmitting
-                      ? null
-                      : () => widget.onDecide(
-                          ApprovalDecisionKind.reject,
-                          _comment.text,
-                        ),
-                  child: Text(tr('Từ chối', 'Reject')),
+                  onPressed: _busy ? null : _reject,
+                  child: _label(
+                    ApprovalDecisionKind.reject,
+                    tr('Từ chối', 'Reject'),
+                  ),
                 ),
               ),
               const SizedBox(width: WebTuiSpacing.sm),
               Expanded(
                 child: FilledButton(
                   key: const Key('approval_approve'),
-                  onPressed: widget.isSubmitting
-                      ? null
-                      : () => widget.onDecide(
-                          ApprovalDecisionKind.approve,
-                          _comment.text,
-                        ),
-                  child: Text(tr('Duyệt', 'Approve')),
+                  onPressed: _busy ? null : _approve,
+                  child: _label(
+                    ApprovalDecisionKind.approve,
+                    tr('Duyệt', 'Approve'),
+                  ),
                 ),
               ),
             ],

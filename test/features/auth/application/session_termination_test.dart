@@ -74,6 +74,46 @@ void main() {
       await coordinator.dispose();
     });
 
+    test(
+      'tự đăng xuất: tin thu hồi trong lúc đăng xuất không báo cảnh báo',
+      () async {
+        final tokens = MemoryTokenRepository(
+          accessToken: fakeJwt(sid: 'session-1'),
+          refreshToken: 'refresh',
+        );
+        final sessionState = RecordingSessionStateRepository();
+        final coordinator = SessionTerminationCoordinator(
+          sessionStateRepository: sessionState,
+          tokenRepository: tokens,
+        );
+        final notices = <SessionEndedNotice>[];
+        coordinator.endedSessions.listen(notices.add);
+
+        final ended = await coordinator.runVoluntaryLogout(
+          () => coordinator.endSession(
+            SessionEndedNotice.revokedByServer(null),
+            revokedSessionId: 'session-1',
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        expect(ended, isFalse);
+        expect(notices, isEmpty);
+        expect(tokens.accessToken, isNotNull);
+
+        // Xong đăng xuất: phiên bị thu hồi thật sau đó vẫn được báo.
+        expect(
+          await coordinator.endSession(
+            SessionEndedNotice.revokedByServer(null),
+          ),
+          isTrue,
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(notices, hasLength(1));
+        await coordinator.dispose();
+      },
+    );
+
     test('SessionRevoked của phiên cũ không xoá phiên đang dùng', () async {
       final tokens = MemoryTokenRepository(
         accessToken: fakeJwt(sid: 'session-new'),

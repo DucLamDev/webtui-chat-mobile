@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/features/approvals/application/approval_access_policy.dart';
@@ -46,9 +48,86 @@ void main() {
     );
     expect(find.text('Chi 5 triệu'), findsOneWidget);
     await tester.enterText(find.byKey(const Key('approval_comment')), 'ổn');
-    await tester.tap(find.byKey(const Key('approval_reject')));
-    expect(decided, ApprovalDecisionKind.reject);
+    await tester.tap(find.byKey(const Key('approval_approve')));
+    await tester.pumpAndSettle();
+    expect(decided, isNull, reason: 'phải xác nhận trước khi gửi');
+    expect(find.text('Chi 5 triệu'), findsWidgets);
+    await tester.tap(find.byKey(const Key('webtui_dialog_confirm')));
+    await tester.pumpAndSettle();
+    expect(decided, ApprovalDecisionKind.approve);
     expect(note, 'ổn');
+  });
+
+  testWidgets('Duyệt: huỷ hộp xác nhận thì không gửi', (tester) async {
+    var calls = 0;
+    await _pump(
+      tester,
+      ApprovalDetailView(
+        approval: _approval(canDecide: true),
+        onDecide: (_, _) async => calls++,
+      ),
+    );
+    await tester.tap(find.byKey(const Key('approval_approve')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('webtui_dialog_cancel')));
+    await tester.pumpAndSettle();
+    expect(calls, 0);
+  });
+
+  testWidgets('Từ chối bắt buộc nhập lý do rồi gửi kèm', (tester) async {
+    ApprovalDecisionKind? decided;
+    String? note;
+    await _pump(
+      tester,
+      ApprovalDetailView(
+        approval: _approval(canDecide: true),
+        onDecide: (decision, comment) async {
+          decided = decision;
+          note = comment;
+        },
+      ),
+    );
+    await tester.tap(find.byKey(const Key('approval_reject')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('webtui_dialog_confirm')));
+    await tester.pumpAndSettle();
+    expect(decided, isNull, reason: 'lý do rỗng không được gửi');
+
+    await tester.enterText(find.byType(TextField).last, 'Sai số tiền');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('webtui_dialog_confirm')));
+    await tester.pumpAndSettle();
+    expect(decided, ApprovalDecisionKind.reject);
+    expect(note, 'Sai số tiền');
+  });
+
+  testWidgets('đang gửi: nút có vòng xoay và không bấm lại được', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    var calls = 0;
+    await _pump(
+      tester,
+      ApprovalDetailView(
+        approval: _approval(canDecide: true),
+        onDecide: (_, _) {
+          calls++;
+          return gate.future;
+        },
+      ),
+    );
+    await tester.tap(find.byKey(const Key('approval_approve')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('webtui_dialog_confirm')));
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    await tester.tap(find.byKey(const Key('approval_approve')));
+    await tester.pump();
+    expect(calls, 1);
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
   testWidgets('can_decide=false ẩn nút Duyệt / Từ chối', (tester) async {

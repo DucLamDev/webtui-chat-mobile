@@ -292,7 +292,7 @@ class _LoginContent extends StatelessWidget {
             fieldKey: const Key('login_identifier_field'),
             initialValue: state.identifier,
             label: tr('Email hoặc username', 'Email or username'),
-            hint: 'duclamdev',
+            hint: 'ban@congty.vn',
             icon: Icons.alternate_email_rounded,
             enabled: !state.isLoading,
             keyboardType: TextInputType.emailAddress,
@@ -327,23 +327,47 @@ class _LoginContent extends StatelessWidget {
         const SizedBox(height: 12),
         Row(
           children: [
-            Checkbox(
-              value: state.remember,
-              onChanged: state.isLoading
-                  ? null
-                  : (value) => controller.updateRemember(value ?? true),
-              visualDensity: VisualDensity.compact,
-            ),
-            Flexible(
-              child: Text(
-                tr('Ghi nhớ đăng nhập', 'Remember me'),
-                style: WebTuiTypography.bodySmall.copyWith(
-                  color: WebTuiColors.textSecondary,
-                  fontWeight: FontWeight.w600,
+            // Ô tích + nhãn là một vùng bấm (≥ 44), nhãn chiếm chỗ còn lại;
+            // gộp ngữ nghĩa để trình đọc màn hình đọc "Ghi nhớ đăng nhập, đã
+            // chọn" như một ô tích.
+            Expanded(
+              child: MergeSemantics(
+                child: InkWell(
+                  key: const Key('login_remember_row'),
+                  onTap: state.isLoading
+                      ? null
+                      : () => controller.updateRemember(!state.remember),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 44),
+                    child: Row(
+                      children: [
+                        IgnorePointer(
+                          child: Checkbox(
+                            value: state.remember,
+                            onChanged: state.isLoading
+                                ? null
+                                : (value) =>
+                                      controller.updateRemember(value ?? true),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            tr('Ghi nhớ đăng nhập', 'Remember me'),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: WebTuiTypography.bodySmall.copyWith(
+                              color: WebTuiColors.textSecondary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
-            const Spacer(),
             TextButton(
               key: const Key('forgot_password_button'),
               onPressed: state.isLoading
