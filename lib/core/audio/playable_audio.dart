@@ -32,6 +32,11 @@ String _safeKey(String key) {
   return '$head-$hash';
 }
 
+/// Tên tệp WAV của [cacheKey] trong thư mục kho ([playableAudioFile]); nơi
+/// xoá tệp của tin bị thu hồi dùng đúng tên này.
+String playableAudioCacheFileName(String cacheKey) =>
+    '${_safeKey(cacheKey)}.wav';
+
 /// Trả tệp phát được cho [source]. WebM / Ogg (nhận diện bằng byte đầu) được
 /// giải mã thành WAV và lưu trong [cacheDirectory] theo [cacheKey] (dùng lại
 /// lần sau); các định dạng khác trả nguyên [source]. Ném lỗi nếu giải mã hỏng.
@@ -70,7 +75,7 @@ Future<File> _playable(
   await dir.create(recursive: true);
   final target = File(
     '${dir.path}${Platform.pathSeparator}'
-    '${_safeKey(cacheKey)}.wav',
+    '${playableAudioCacheFileName(cacheKey)}',
   );
   if (await target.exists() && await target.length() > 44) return target;
 
