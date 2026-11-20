@@ -1897,6 +1897,17 @@ class _ChatRoomBodyState extends State<ChatRoomBody> {
         .where((message) => !_isBlockedMessage(message))
         .toList(growable: false);
     final threadRoot = widget.state.threadRootMessage;
+    // Chat 1-1: "Đã gửi" chỉ dưới tin CUỐI của mình (như Zalo), tin cũ hơn chỉ
+    // có giờ; nhóm không có dòng trạng thái gửi.
+    String? lastOwnMessageId;
+    if (widget.directChat) {
+      for (final message in widget.state.messages.reversed) {
+        if (message.isMine && !message.isDeleted) {
+          lastOwnMessageId = message.id;
+          break;
+        }
+      }
+    }
     return Column(
       children: [
         if (widget.state.searchQuery.isNotEmpty)
@@ -1993,11 +2004,26 @@ class _ChatRoomBodyState extends State<ChatRoomBody> {
                               'sending',
                               'failed',
                             }.contains(message.deliveryStatus);
-                        // Như mẫu: chỉ hiện dòng giờ khi tin vừa được xem, đang gửi /
-                        // lỗi, hoặc người dùng chạm vào tin để xem giờ.
+                        final next =
+                            messageIndex + 1 < widget.state.messages.length
+                            ? widget.state.messages[messageIndex + 1]
+                            : null;
+                        final hasMediaTime = message.attachments.any(
+                          (attachment) =>
+                              attachment.isImage || attachment.isVideo,
+                        );
+                        // Như Zalo: dòng giờ dưới tin CUỐI của mỗi cụm (ảnh /
+                        // video đã có giờ trên ảnh thì không thêm), và khi tin
+                        // vừa được xem, đang gửi / lỗi, hoặc người dùng chạm
+                        // vào tin để xem giờ.
+                        final endsRun =
+                            endsSenderRun(message, next) && !hasMediaTime;
+                        final lastOwn = message.id == lastOwnMessageId;
                         final showStatusLine =
                             seen ||
                             deliveryPending ||
+                            endsRun ||
+                            lastOwn ||
                             _timeShownMessageId == message.id;
                         final senderId = message.senderId?.trim();
                         final senderBlocked =
@@ -2159,12 +2185,21 @@ class _ChatRoomBodyState extends State<ChatRoomBody> {
                                                   message.createdAt,
                                                 ),
                                                 outgoing: message.isMine,
+                                                // "Đã gửi" chỉ dưới tin cuối của
+                                                // mình ở chat 1-1; tin khác chỉ có
+                                                // giờ (trừ khi đang gửi / lỗi hoặc
+                                                // người dùng chạm vào tin).
                                                 statusLabel: message.isMine
                                                     ? seen
                                                           ? tr('Đã xem', 'Seen')
-                                                          : _deliveryStatusLabel(
+                                                          : deliveryPending ||
+                                                                lastOwn ||
+                                                                _timeShownMessageId ==
+                                                                    message.id
+                                                          ? _deliveryStatusLabel(
                                                               message,
                                                             )
+                                                          : null
                                                     : null,
                                                 seen: seen,
                                                 failed:
