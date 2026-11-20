@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:webtui_chat/app/providers/foundation_providers.dart';
 import 'package:webtui_chat/core/network/api_transport.dart';
+import 'package:webtui_chat/core/privacy/background_privacy.dart';
 import 'package:webtui_chat/features/ide_mobile/application/ide_pairing_service.dart';
 import 'package:webtui_chat/features/ide_mobile/application/ide_step_up.dart';
 import 'package:webtui_chat/features/ide_mobile/application/ide_talk_service.dart';
@@ -188,6 +189,40 @@ void main() {
     await t.tap(find.byKey(const Key('ide_db_close')));
     await t.pumpAndSettle();
     expect(calls, [true, false]);
+  });
+
+  test('chặn chụp màn hình có đếm: 2 chỗ giữ, trả 1 vẫn chặn', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    BackgroundPrivacyController.resetSecureHolds();
+    addTearDown(BackgroundPrivacyController.resetSecureHolds);
+    final calls = <Object?>[];
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(const MethodChannel('webtui/privacy'), (
+      call,
+    ) async {
+      if (call.method == 'setSecureScreen') calls.add(call.arguments);
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(
+        const MethodChannel('webtui/privacy'),
+        null,
+      ),
+    );
+    const privacy = BackgroundPrivacyController();
+    await privacy.acquireSecureScreen();
+    await privacy.acquireSecureScreen();
+    expect(calls, [true]);
+    await privacy.releaseSecureScreen();
+    expect(calls, [true]);
+    expect(BackgroundPrivacyController.secureHolds, 1);
+    await privacy.releaseSecureScreen();
+    expect(calls, [true, false]);
+    // Trả thừa không làm số đếm âm, không gửi thêm lệnh.
+    await privacy.releaseSecureScreen();
+    expect(calls, [true, false]);
+    expect(BackgroundPrivacyController.secureHolds, 0);
   });
 
   test('tin chat quá dài bị cắt', () {

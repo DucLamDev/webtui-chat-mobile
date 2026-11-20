@@ -79,6 +79,27 @@ final class IdeTalkModelGroup {
   final List<IdeTalkModelOption> models;
 }
 
+/// Mã dự án Chat hợp lệ: 32 ký tự hex thường.
+final _chatProjectRe = RegExp(r'^[0-9a-f]{32}$');
+bool ideTalkChatProjectIdOk(String id) => _chatProjectRe.hasMatch(id);
+
+/// Dự án Chat (`talk.projects`): chỉ giữ mã + tên.
+final class IdeTalkChatProject {
+  const IdeTalkChatProject(this.id, this.name);
+  final String id;
+  final String name;
+
+  /// Mục sai mã (không khớp 32 hex) bị bỏ; tối đa 100 mục.
+  static List<IdeTalkChatProject> parseList(Object? data) {
+    if (data is! Map) return const [];
+    return [
+      for (final m in _maps(data['items'], max: 100))
+        if (ideTalkChatProjectIdOk(_s(m['id'])))
+          IdeTalkChatProject(_s(m['id']), _clip(_s(m['name']), 200)),
+    ];
+  }
+}
+
 final class IdeTalkModels {
   const IdeTalkModels({
     this.defaultId = '',

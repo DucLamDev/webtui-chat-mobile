@@ -19,18 +19,26 @@ String ideTalkEffortText(String e) =>
 Future<String?> showIdeTalkNewSheet(
   BuildContext context, {
   bool models = true,
+  bool projects = false,
 }) {
   return showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     showDragHandle: true,
-    builder: (_) => IdeTalkNewSheet(withModels: models),
+    builder: (_) => IdeTalkNewSheet(withModels: models, withProjects: projects),
   );
 }
 
 class IdeTalkNewSheet extends ConsumerStatefulWidget {
-  const IdeTalkNewSheet({this.withModels = true, super.key});
+  const IdeTalkNewSheet({
+    this.withModels = true,
+    this.withProjects = false,
+    super.key,
+  });
+
+  /// Có `talk.projects` thì cho chọn "Dự án Chat" (tuỳ chọn).
+  final bool withProjects;
 
   /// Có `talk.models` thì cho chọn mô hình / mức suy nghĩ.
   final bool withModels;
@@ -45,6 +53,8 @@ class _IdeTalkNewSheetState extends ConsumerState<IdeTalkNewSheet> {
   Object? _modelsError;
   String? _model;
   String? _effort;
+  List<IdeTalkChatProject> _projects = const [];
+  String? _project; // null = không dự án
   bool _sending = false;
   String? _error;
 
@@ -52,6 +62,17 @@ class _IdeTalkNewSheetState extends ConsumerState<IdeTalkNewSheet> {
   void initState() {
     super.initState();
     if (widget.withModels) _loadModels();
+    if (widget.withProjects) _loadProjects();
+  }
+
+  /// Lỗi / rỗng thì ẩn ô chọn, không chặn tạo cuộc.
+  Future<void> _loadProjects() async {
+    try {
+      final p = await ref.read(ideTalkServiceProvider).projects();
+      if (mounted) setState(() => _projects = p);
+    } on Object {
+      // Bỏ qua: tạo cuộc vẫn dùng được.
+    }
   }
 
   @override
@@ -98,7 +119,13 @@ class _IdeTalkNewSheetState extends ConsumerState<IdeTalkNewSheet> {
     try {
       final r = await ref
           .read(ideTalkServiceProvider)
-          .send(id: 'new', text: text, model: _model, effort: _effort);
+          .send(
+            id: 'new',
+            text: text,
+            model: _model,
+            effort: _effort,
+            project: _project,
+          );
       if (mounted) Navigator.of(context).pop(r.id);
     } on Object catch (e) {
       if (mounted) {
@@ -222,6 +249,34 @@ class _IdeTalkNewSheetState extends ConsumerState<IdeTalkNewSheet> {
                     ),
                   ],
                 ],
+              ],
+              if (_projects.isNotEmpty) ...[
+                const SizedBox(height: WebTuiSpacing.md),
+                DropdownButtonFormField<String?>(
+                  key: const Key('talk_new_project'),
+                  initialValue: _project,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: tr('Dự án Chat', 'Chat project'),
+                    border: const OutlineInputBorder(),
+                  ),
+                  items: [
+                    DropdownMenuItem<String?>(
+                      child: Text(tr('Không có dự án', 'No project')),
+                    ),
+                    for (final p in _projects)
+                      DropdownMenuItem<String?>(
+                        value: p.id,
+                        child: Text(
+                          ideVisibleText(p.name),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: _sending
+                      ? null
+                      : (v) => setState(() => _project = v),
+                ),
               ],
               if (_error != null) ...[
                 const SizedBox(height: WebTuiSpacing.sm),

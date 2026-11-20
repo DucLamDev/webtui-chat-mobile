@@ -45,6 +45,19 @@ List<GoRoute> ideMoreRoutes() => [
     builder: (context, state) =>
         IdeAccessGate(child: IdeNotesScreen(project: _project(state))),
   ),
+  // Đặt trước `/ide/notes/:id` để "new" không bị hiểu là mã ghi chú.
+  GoRoute(
+    path: '/ide/notes/new',
+    name: 'ide-note-new',
+    builder: (context, state) {
+      final project = _project(state);
+      return IdeAccessGate(
+        child: project != null
+            ? IdeNoteScreen(project: project)
+            : const IdeMoreNotFoundScreen(),
+      );
+    },
+  ),
   GoRoute(
     path: '/ide/notes/:id',
     name: 'ide-note',

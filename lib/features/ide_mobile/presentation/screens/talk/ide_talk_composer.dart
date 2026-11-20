@@ -21,6 +21,59 @@ IdeTalkAttachment ideTalkAttachmentOf(IdePickedFile f) => IdeTalkAttachment(
   read: f.read,
 );
 
+/// Thanh dưới thay ô nhập trong cuộc của AI Agent (cổng IDE không nhận
+/// `talk.send` ở đây): lời ngắn + nút "Chạy ngay" khi có `talk.agent_run`.
+class IdeTalkAgentBar extends StatelessWidget {
+  const IdeTalkAgentBar({required this.onRun, this.busy = false, super.key});
+
+  /// `null` = IDE không có `talk.agent_run`: chỉ hiện lời.
+  final VoidCallback? onRun;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: IdeWb.bg,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WebTuiSpacing.lg,
+            vertical: WebTuiSpacing.sm,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  onRun == null
+                      ? tr(
+                          'Cuộc của AI Agent: không hỏi tiếp được.',
+                          'AI Agent chat: you cannot ask follow-ups here.',
+                        )
+                      : tr(
+                          'Cuộc của AI Agent: bấm Chạy ngay để chạy lại việc',
+                          'AI Agent chat: tap Run now to run the job again',
+                        ),
+                  key: const Key('talk_agent_bar_text'),
+                  style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
+                ),
+              ),
+              if (onRun != null) ...[
+                const SizedBox(width: WebTuiSpacing.sm),
+                FilledButton(
+                  key: const Key('talk_agent_run'),
+                  onPressed: busy ? null : onRun,
+                  child: Text(tr('Chạy ngay', 'Run now')),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Ô soạn tin: gõ, đính kèm ảnh / tệp, gửi (đang bận thì "Xếp hàng"), dừng.
 /// [onSend] trả `true` khi đã gửi (ô được xoá); lỗi thì giữ nguyên chữ.
 class IdeTalkComposer extends ConsumerStatefulWidget {

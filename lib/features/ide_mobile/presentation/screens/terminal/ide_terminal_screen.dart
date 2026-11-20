@@ -264,6 +264,14 @@ class _Banner extends StatelessWidget {
         p.danger,
         true,
       ),
+      IdeTermLink.taken => (
+        tr(
+          'IDE đã đóng phiên ở đây, có thể vì đang mở trên thiết bị khác.',
+          'The IDE closed this view; the session may be open on another device.',
+        ),
+        p.warn,
+        true,
+      ),
       IdeTermLink.exited => (
         tr(
           'Phiên đã kết thúc (mã ${snap.exitCode ?? 0})',
@@ -298,7 +306,11 @@ class _Banner extends StatelessWidget {
                 key: const Key('term_reconnect'),
                 style: TextButton.styleFrom(minimumSize: const Size(44, 44)),
                 onPressed: onReconnect,
-                child: Text(tr('Nối lại', 'Reconnect')),
+                child: Text(
+                  snap.link == IdeTermLink.taken
+                      ? tr('Mở lại ở đây', 'Reopen here')
+                      : tr('Nối lại', 'Reconnect'),
+                ),
               ),
           ],
         ),

@@ -23,7 +23,9 @@ class IdeCodeController extends TextEditingController {
     final dark = ideIsDark(context);
     final t = text;
     // Đang gõ tiếng Việt (có vùng soạn): để chữ thường, tránh nhấp nháy.
-    if (language.isEmpty || (withComposing && value.composing.isValid)) {
+    if (language.isEmpty ||
+        t.length > ideHighlightSyncMaxChars ||
+        (withComposing && value.composing.isValid)) {
       return super.buildTextSpan(
         context: context,
         style: base,

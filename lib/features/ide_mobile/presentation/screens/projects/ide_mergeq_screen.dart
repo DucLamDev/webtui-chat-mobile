@@ -397,10 +397,13 @@ class _MergeqState extends ConsumerState<IdeMergeqScreen> {
                       key: Key('ide_mergeq_mode_$m'),
                       label: Text(ideMergeModeLabel(m)),
                       selected: m == v.mode,
-                      // Không để null: chip đang chọn sẽ bị vẽ như nút bị khoá.
-                      onSelected: (_) {
-                        if (m != v.mode) _changeMode(m);
-                      },
+                      // Chip đang chọn luôn có onSelected (null sẽ vẽ như nút bị
+                      // khoá); chip khác bị khoá + mờ khi đang đổi chế độ.
+                      onSelected: _acting && m != v.mode
+                          ? null
+                          : (_) {
+                              if (m != v.mode) _changeMode(m);
+                            },
                     ),
               ],
             ),

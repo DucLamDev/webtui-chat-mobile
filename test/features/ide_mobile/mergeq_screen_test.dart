@@ -222,6 +222,21 @@ void main() {
     expect(_has('ide_job_pr_number'), isFalse);
   });
 
+  testWidgets(
+    'đang đổi chế độ: chip chưa chọn bị khoá, chip chọn vẫn bấm được',
+    (tester) async {
+      await _pump(tester, _Sim());
+      ChoiceChip chip(String m) =>
+          tester.widget<ChoiceChip>(find.byKey(Key('ide_mergeq_mode_$m')));
+      expect(chip('tat').onSelected, isNotNull);
+      await tester.tap(find.byKey(const Key('ide_mergeq_mode_tat')));
+      await pumpFor(tester); // hộp xác nhận đang mở = đang đổi
+      expect(chip('tat').onSelected, isNull);
+      expect(chip('day-du').onSelected, isNull);
+      expect(chip('hang-cho').onSelected, isNotNull);
+    },
+  );
+
   testWidgets('chạm chip đang chọn: không gửi mergeq.mode, không hỏi', (
     tester,
   ) async {

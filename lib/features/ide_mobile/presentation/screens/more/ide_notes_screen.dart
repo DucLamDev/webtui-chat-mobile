@@ -11,7 +11,6 @@ import '../../../domain/ide_visible_text.dart';
 import '../../controllers/ide_more_controllers.dart';
 import '../../widgets/ide_wb.dart';
 import 'ide_more_common.dart';
-import 'ide_note_screen.dart';
 
 /// Ghi chú dự án: danh sách, tạo mới, khôi phục ghi chú đã xoá.
 class IdeNotesScreen extends ConsumerWidget {
@@ -58,9 +57,13 @@ class _NotesBodyState extends ConsumerState<_NotesBody> {
   bool _restoring = false;
 
   Future<void> _create(BuildContext context) async {
-    final created = await Navigator.of(
-      context,
-    ).push<bool>(IdePageRoute(builder: (_) => IdeNoteScreen(project: project)));
+    // Đường riêng `/ide/notes/new` (thông báo / liên kết mở thẳng được).
+    final created = await context.push<bool>(
+      Uri(
+        path: '/ide/notes/new',
+        queryParameters: {'project': project},
+      ).toString(),
+    );
     if (created == true) await reload();
   }
 

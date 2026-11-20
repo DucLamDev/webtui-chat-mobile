@@ -1251,6 +1251,17 @@ final ideConnectionProvider = Provider<IdeConnection>((ref) {
     serverScopeId: ref.watch(activeInstanceScopeProvider).storageId,
     tokens: ref.watch(authTokenRepositoryProvider),
     loadCredentials: () => ref.read(ideCredentialsProvider.future),
+    // 401 khi nối IDE: làm mới token chat một lần (dùng chung lượt làm mới với
+    // REST); máy chủ từ chối refresh thì luồng hết phiên sẵn có lo đăng xuất.
+    refreshAccessToken: (guard) async {
+      final result = await ref
+          .read(refreshAccessTokenUseCaseProvider)
+          .execute(expectedGuard: guard);
+      if (result.isSuccess) return IdeTokenRefresh.refreshed;
+      return result.failureOrNull?.requiresLogin ?? false
+          ? IdeTokenRefresh.rejected
+          : IdeTokenRefresh.failed;
+    },
   );
   final pairing = ref.watch(idePairingServiceProvider);
   final connection = IdeConnection(

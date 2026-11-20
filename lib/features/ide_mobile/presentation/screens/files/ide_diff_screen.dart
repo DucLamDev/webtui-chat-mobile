@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../design_system/components/webtui_components.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../l10n/app_strings.dart';
+import '../../../application/ide_files_service.dart';
 import '../../../domain/ide_file_models.dart';
 import '../../controllers/ide_files_controllers.dart';
 import '../../widgets/files/ide_code_view.dart';
@@ -28,6 +29,7 @@ class _IdeDiffScreenState extends ConsumerState<IdeDiffScreen> {
   bool _loading = true;
   Object? _error;
   List<String> _lines = const [];
+  bool _clipped = false;
 
   @override
   void initState() {
@@ -46,7 +48,9 @@ class _IdeDiffScreenState extends ConsumerState<IdeDiffScreen> {
           .diff(widget.root, path: widget.path);
       if (!mounted) return;
       setState(() {
-        _lines = diff.trim().isEmpty ? const [] : diff.split('\n');
+        final (lines, clipped) = ideClipDiff(diff);
+        _lines = lines;
+        _clipped = clipped;
         _loading = false;
       });
     } on Object catch (e) {
@@ -87,8 +91,23 @@ class _IdeDiffScreenState extends ConsumerState<IdeDiffScreen> {
     } else {
       body = ListView.builder(
         key: const Key('ide_diff_list'),
-        itemCount: _lines.length,
-        itemBuilder: (_, i) => IdeDiffLine(line: _lines[i]),
+        itemCount: _lines.length + (_clipped ? 1 : 0),
+        itemBuilder: (_, i) {
+          if (i == _lines.length) {
+            return Padding(
+              key: const Key('ide_diff_clipped'),
+              padding: const EdgeInsets.all(WebTuiSpacing.lg),
+              child: Text(
+                tr(
+                  'Khác biệt quá dài, chỉ hiện phần đầu.',
+                  'The diff is too long, showing only the beginning.',
+                ),
+                style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
+              ),
+            );
+          }
+          return IdeDiffLine(line: _lines[i]);
+        },
       );
     }
     return Scaffold(

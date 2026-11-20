@@ -338,7 +338,12 @@ class _IdeTalkScreenState extends ConsumerState<IdeTalkScreen>
                 ? (id) => unawaited(_run(() => _ctl.unqueue(id)))
                 : null,
           ),
-        if (canSend && !gone)
+        if (conv.isAgent && !gone)
+          IdeTalkAgentBar(
+            busy: st.isWorking('agent_run'),
+            onRun: has('talk.agent_run') ? () => unawaited(_runAgent()) : null,
+          )
+        else if (canSend && !gone)
           IdeTalkComposer(
             controller: _input,
             working: conv.working,

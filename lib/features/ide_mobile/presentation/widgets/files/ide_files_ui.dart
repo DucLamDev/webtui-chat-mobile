@@ -81,10 +81,25 @@ String ideGitLabel(String git) => switch (git) {
   _ => '',
 };
 
+/// Tệp chữ thuần (không phải mã): biểu tượng tài liệu chữ.
+bool ideIsPlainTextName(String name) {
+  final dot = name.lastIndexOf('.');
+  if (dot < 0) return false;
+  return const {
+    'txt',
+    'log',
+    'csv',
+    'tsv',
+    'text',
+    'nfo',
+  }.contains(name.substring(dot + 1).toLowerCase());
+}
+
 IconData ideEntryIcon(IdeFileEntry e) {
   if (e.secret) return Icons.lock_outline_rounded;
   if (e.isDir) return Icons.folder_rounded;
   if (e.type == IdeEntryType.link) return Icons.link_rounded;
+  if (ideIsPlainTextName(e.name)) return Icons.notes_rounded;
   return switch (ideFileKindOf(e.name)) {
     IdeFileKind.image => Icons.image_outlined,
     IdeFileKind.video => Icons.movie_outlined,

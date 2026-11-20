@@ -138,6 +138,24 @@ class IdeTalkController extends StateNotifier<IdeTalkState> {
       if (_disposed || generation != _generation) return;
       _set(state.copyWith(link: IdeTalkLink.busy));
       return;
+    } on IdeHandshakeException catch (e) {
+      if (_disposed || generation != _generation) return;
+      if (!e.fatal) {
+        _lose();
+        return;
+      }
+      // Hết phiên / không có quyền / máy bị gỡ: tự nối lại chỉ lặp lỗi (và
+      // làm mới token mãi). Dừng, chờ người dùng bấm Thử lại.
+      _retry?.cancel();
+      _set(
+        state.copyWith(
+          link: e.reason == 'forbidden'
+              ? IdeTalkLink.denied
+              : IdeTalkLink.failed,
+          message: e.reason,
+        ),
+      );
+      return;
     } on Object {
       if (_disposed || generation != _generation) return;
       _lose();

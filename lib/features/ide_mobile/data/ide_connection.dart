@@ -231,12 +231,15 @@ final class IdeConnection {
       _set(IdeLinkStatus(IdeLinkPhase.idle, reason: reason));
       return;
     }
-    if (reason == 'not_paired' ||
-        reason == 'no_session' ||
-        reason == 'wrong_user') {
-      // Thiếu khoá / phiên hoặc khác tài khoản: nối lại cũng vô ích.
+    if (ideFatalReasons.contains(reason)) {
+      // Thiếu khoá / phiên, khác tài khoản, phiên hết hạn hoặc không được dùng
+      // IDE ở đây (403): nối lại cũng vô ích. Đóng luôn stream khác đang mở
+      // (terminal, AI) vì chúng dùng cùng phiên / khoá.
       _wanted = false;
+      _retryTimer?.cancel();
+      _retryTimer = null;
       _set(IdeLinkStatus(IdeLinkPhase.idle, reason: reason));
+      await closeAll(keepRpc: false);
       return;
     }
     if (!_wanted) return;
@@ -286,6 +289,13 @@ final class IdeConnection {
     final IdeChannel channel;
     try {
       channel = await _openChannel();
+    } on IdeHandshakeException catch (e) {
+      // Mở stream phụ gặp lỗi dừng hẳn (hết phiên, không có quyền): dừng cả
+      // đường RPC để màn IDE hiện đúng lý do, không để nó tự nối lại.
+      if (e.fatal && !_disposed) {
+        unawaited(_handleFailure(e.reason, deviceId: e.deviceId));
+      }
+      rethrow;
     } finally {
       _opening[kind] = (_opening[kind] ?? 1) - 1;
     }

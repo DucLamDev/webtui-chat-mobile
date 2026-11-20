@@ -235,7 +235,7 @@ class IdeAiSessionController extends StateNotifier<IdeAiSnapshot> {
       channel = await _connection.openStream(IdeStreamKind.ai, first);
     } on IdeHandshakeException catch (error) {
       if (_disposed || generation != _generation) return;
-      if (error.reason == 'unauthorized' || error.revoked) {
+      if (error.fatal) {
         _closeFor(error.reason);
       } else {
         _scheduleRetry();

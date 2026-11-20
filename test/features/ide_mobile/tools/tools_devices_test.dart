@@ -272,4 +272,107 @@ void main() {
     expect(transport.deleted, isEmpty);
     expect(store.values, isNotEmpty);
   });
+
+  Future<(MemorySecureStore, _Transport, IdePairingService)> pairedPhone(
+    WidgetTester t,
+  ) async {
+    final store = MemorySecureStore();
+    final transport = _Transport();
+    final pairing = IdePairingService(
+      api: IdePairApi(transport),
+      keys: IdeDeviceKeyStore(store),
+      security: FakeIdeSecurity(),
+      currentUserId: () async => 'u_1',
+      serverScopeId: 'srv',
+      pollEvery: Duration.zero,
+      maxWait: const Duration(seconds: 2),
+    );
+    await t.runAsync(
+      () async => pairing.pair(
+        code: IdePairCode.tryParse(
+          'webtui-ide-pair:v1:0b9a6f4e-1c2d-4e3f-8a5b-6c7d8e9f0a1b:ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+        )!,
+        deviceName: 'x',
+      ),
+    );
+    return (store, transport, pairing);
+  }
+
+  testWidgets('gỡ chính máy này mà IDE báo lỗi: vẫn gỡ ở máy, báo IDE chưa '
+      'xác nhận', (t) async {
+    final (store, transport, pairing) = await pairedPhone(t);
+    await pumpTool(
+      t,
+      const IdeDevicesScreen(),
+      (op, a) => op == 'devices.revoke'
+          ? const IdeFakeError('internal')
+          : (op == 'devices.list' ? _list() : {}),
+      ops: _ops,
+      overrides: [
+        idePairingServiceProvider.overrideWithValue(pairing),
+        ideCredentialsProvider.overrideWith((ref) async => _creds),
+      ],
+    );
+    await t.tap(find.byKey(const Key('ide_device_revoke_$_me')));
+    await settleAll(t);
+    await t.tap(find.text('Gỡ ghép'));
+    await settle(t);
+    await settle(t);
+    expect(transport.deleted, ['/api/v1/ide/pair/devices/$_me']);
+    expect(store.values, isEmpty);
+    expect(find.textContaining('IDE chưa xác nhận thu hồi'), findsOneWidget);
+  });
+
+  testWidgets('gỡ chính máy này mà người dùng huỷ bước xác nhận: giữ khoá', (
+    t,
+  ) async {
+    final (store, transport, pairing) = await pairedPhone(t);
+    final env = await pumpTool(
+      t,
+      const IdeDevicesScreen(),
+      (op, a) => op == 'devices.revoke'
+          ? ideFakeSilent
+          : (op == 'devices.list' ? _list() : {}),
+      ops: _ops,
+      step: (r) async => null,
+      overrides: [
+        idePairingServiceProvider.overrideWithValue(pairing),
+        ideCredentialsProvider.overrideWith((ref) async => _creds),
+      ],
+    );
+    await t.tap(find.byKey(const Key('ide_device_revoke_$_me')));
+    await settleAll(t);
+    await t.tap(find.text('Gỡ ghép'));
+    await settle(t);
+    await emitNeedStep(t, env);
+    await settleAll(t);
+    expect(transport.deleted, isEmpty);
+    expect(store.values, isNotEmpty);
+  });
+
+  testWidgets('thu hồi máy khác mà IDE báo lỗi: không đụng khoá ở máy', (
+    t,
+  ) async {
+    final (store, transport, pairing) = await pairedPhone(t);
+    await pumpTool(
+      t,
+      const IdeDevicesScreen(),
+      (op, a) => op == 'devices.revoke'
+          ? const IdeFakeError('internal')
+          : (op == 'devices.list' ? _list() : {}),
+      ops: _ops,
+      overrides: [
+        idePairingServiceProvider.overrideWithValue(pairing),
+        ideCredentialsProvider.overrideWith((ref) async => _creds),
+      ],
+    );
+    await t.tap(find.byKey(const Key('ide_device_revoke_$_other')));
+    await settleAll(t);
+    await t.tap(find.text('Thu hồi').last);
+    await settle(t);
+    await settle(t);
+    expect(transport.deleted, isEmpty);
+    expect(store.values, isNotEmpty);
+    expect(find.textContaining('IDE chưa xác nhận thu hồi'), findsNothing);
+  });
 }
