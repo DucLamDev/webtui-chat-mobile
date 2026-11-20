@@ -141,4 +141,63 @@ void main() {
       isNull,
     );
   });
+
+  group('endsSenderRun (tin cuối cụm)', () {
+    test('không còn tin sau: là tin cuối', () {
+      expect(endsSenderRun(_msg('1', 'a', t0), null), isTrue);
+    });
+
+    test('tin sau cùng người, cách đúng 5 phút: vẫn cùng cụm', () {
+      expect(
+        endsSenderRun(
+          _msg('1', 'a', t0),
+          _msg('2', 'a', t0.add(const Duration(minutes: 5))),
+        ),
+        isFalse,
+      );
+    });
+
+    test('tin sau cách quá 5 phút: tin trước là tin cuối cụm', () {
+      expect(
+        endsSenderRun(
+          _msg('1', 'a', t0),
+          _msg('2', 'a', t0.add(const Duration(minutes: 5, seconds: 1))),
+        ),
+        isTrue,
+      );
+    });
+
+    test('đổi người gửi: tin trước là tin cuối cụm', () {
+      expect(
+        endsSenderRun(
+          _msg('1', 'a', t0),
+          _msg('2', 'b', t0.add(const Duration(minutes: 1))),
+        ),
+        isTrue,
+      );
+    });
+
+    test('sang ngày mới dù cách nhau vài phút: tin trước là tin cuối', () {
+      final late = DateTime(2026, 11, 14, 23, 59);
+      expect(
+        endsSenderRun(
+          _msg('1', 'a', late),
+          _msg('2', 'a', late.add(const Duration(minutes: 2))),
+        ),
+        isTrue,
+      );
+    });
+
+    test('tin hệ thống / sự kiện xen giữa cắt cụm', () {
+      final system = ChatMessage(
+        id: 's',
+        workspaceId: 'w',
+        channelId: 'c',
+        kind: 'system',
+        body: 'An đã tham gia',
+        createdAt: t0.add(const Duration(minutes: 1)),
+      );
+      expect(endsSenderRun(_msg('1', 'a', t0), system), isTrue);
+    });
+  });
 }
