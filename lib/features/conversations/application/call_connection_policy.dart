@@ -2,7 +2,9 @@ import 'dart:async';
 
 import '../../../core/error/failure.dart';
 import '../../../core/result/result.dart';
+import '../domain/entities/call_device_routing.dart';
 import '../domain/entities/call_session.dart';
+import '../domain/entities/conversation_realtime_event.dart';
 
 /// Chạy các bước SDP / ICE (nhận offer, nhận answer, thêm candidate, khởi
 /// động lại ICE, thương lượng lại khi bật video) lần lượt từng bước một.
@@ -266,6 +268,104 @@ CallLookupOutcome classifyCallLookup(Result<CallSession> result) {
   return call.status == CallStatus.ringing
       ? CallLookupOutcome.ringing
       : CallLookupOutcome.accepted;
+}
+
+/// Nhịp hỏi máy chủ / nhịp đồng hồ của màn gọi 1-1 và hộp "Cuộc gọi đến".
+///
+/// Kết thúc, nhận máy, đã nghe ở máy khác đều đến qua realtime; lượt hỏi
+/// `GET /calls/{id}` chỉ còn để bắt sự kiện bị lỡ và làm nhịp "còn trong cuộc
+/// gọi" cho máy chủ (máy chủ ghi `last_active_at` tối đa 10 giây một lần, coi
+/// người dùng còn bận trong 90 giây), nên không cần hỏi mỗi giây.
+abstract final class CallStatePolling {
+  /// Màn gọi hỏi trạng thái cuộc gọi.
+  static const Duration callScreenSyncInterval = Duration(seconds: 5);
+
+  /// Đồng hồ thời lượng chạy trên máy (chỉ vẽ lại, không gọi mạng).
+  static const Duration durationTickInterval = Duration(seconds: 1);
+
+  /// Hộp "Cuộc gọi đến": đếm ngược / rung mỗi giây, hỏi máy chủ mỗi bấy
+  /// nhiêu nhịp.
+  static const int incomingDialogCheckEveryTicks = 2;
+
+  /// Nhịp thứ [tick] (đếm từ 1) của hộp "Cuộc gọi đến" có hỏi máy chủ không:
+  /// nhịp 1, 3, 5… (lượt hỏi đầu vẫn sau 1 giây như trước).
+  static bool incomingDialogShouldCheck(int tick) =>
+      tick > 0 && (tick - 1) % incomingDialogCheckEveryTicks == 0;
+}
+
+/// Thời lượng cuộc gọi tính từ [startedAt]; chưa bắt đầu hoặc giờ máy lệch
+/// (bắt đầu "trong tương lai") thì là 0.
+Duration callElapsed({required DateTime? startedAt, required DateTime now}) {
+  if (startedAt == null) return Duration.zero;
+  final elapsed = now.toUtc().difference(startedAt.toUtc());
+  return elapsed.isNegative ? Duration.zero : elapsed;
+}
+
+/// Trạng thái màn gọi sau một lượt hỏi máy chủ. Máy chủ không bao giờ đưa
+/// cuộc gọi đã nhận về "đang đổ chuông": lượt hỏi gửi đi trước khi realtime
+/// báo nhận máy mà về sau thì không được kéo màn gọi lùi lại.
+CallStatus reconcileCallStatus({
+  required CallStatus local,
+  required CallStatus server,
+}) {
+  if (local == CallStatus.accepted && server == CallStatus.ringing) {
+    return CallStatus.accepted;
+  }
+  return server;
+}
+
+/// Việc màn gọi phải làm ngay với một sự kiện realtime (ngoài tín hiệu
+/// WebRTC và các sự kiện kết thúc).
+enum CallRealtimeLifecycleAction {
+  /// Không làm gì thêm.
+  none,
+
+  /// Kết nối realtime vừa nối lại: hỏi máy chủ ngay để bắt sự kiện bị lỡ.
+  resync,
+
+  /// Bên kia đã nhận máy (chiều gọi đi): chuyển sang "đã nhận" ngay.
+  accepted,
+
+  /// Cuộc gọi đến đã được nghe ở máy khác của chính người dùng: đóng màn.
+  answeredElsewhere,
+}
+
+/// Phân loại sự kiện realtime cho màn gọi [callId].
+///
+/// - `reconnected` không mang mã cuộc gọi: luôn [CallRealtimeLifecycleAction.resync].
+/// - `CallAnsweredElsewhere` / `CallAccepted` mang mã máy đã nhận khác máy
+///   này, trên màn cuộc gọi đến: [CallRealtimeLifecycleAction.answeredElsewhere]
+///   (sự kiện này do chính người dùng tạo nên KHÔNG được bỏ vì "của mình").
+/// - `CallAccepted` của người kia trên màn gọi đi:
+///   [CallRealtimeLifecycleAction.accepted].
+CallRealtimeLifecycleAction callRealtimeLifecycleAction({
+  required ConversationRealtimeEventType type,
+  required String? eventCallId,
+  required String callId,
+  required bool incoming,
+  required bool fromCurrentUser,
+  required String? answeredDeviceId,
+  required String? localDeviceId,
+}) {
+  if (type == ConversationRealtimeEventType.reconnected) {
+    return CallRealtimeLifecycleAction.resync;
+  }
+  if (eventCallId != callId) return CallRealtimeLifecycleAction.none;
+  final answeredElsewhere =
+      incoming &&
+      callAnsweredOnAnotherDevice(
+        answeredDeviceId: answeredDeviceId,
+        localDeviceId: localDeviceId,
+      );
+  return switch (type) {
+    ConversationRealtimeEventType.callAnsweredElsewhere ||
+    ConversationRealtimeEventType.callAccepted when answeredElsewhere =>
+      CallRealtimeLifecycleAction.answeredElsewhere,
+    ConversationRealtimeEventType.callAccepted
+        when !incoming && !fromCurrentUser =>
+      CallRealtimeLifecycleAction.accepted,
+    _ => CallRealtimeLifecycleAction.none,
+  };
 }
 
 /// Lý do trong tín hiệu `renegotiate` khi bên nhận mất kết nối và xin bên gọi
