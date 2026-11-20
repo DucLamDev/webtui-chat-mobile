@@ -49,6 +49,12 @@ final class MessageAttachmentMemo {
     }
   }
 
+  /// Bỏ mục nhớ của một tin (tin bị thu hồi / xoá); trả tệp đã nhớ, nếu có.
+  List<MessageAttachment>? remove(String? key) {
+    if (key == null) return null;
+    return _entries.remove(key);
+  }
+
   void clear() => _entries.clear();
 }
 
