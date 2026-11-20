@@ -456,6 +456,79 @@ void main() {
     expect(opens, 2);
   });
 
+  for (final reason in ['forbidden', 'session_expired']) {
+    test('$reason: dừng, không tự nối lại, không xoá khoá', () async {
+      var revoked = false;
+      var opens = 0;
+      final conn = IdeConnection(
+        openChannel: () async {
+          opens++;
+          throw IdeHandshakeException(reason, deviceId: 'd_x');
+        },
+        onRevoked: (_) async => revoked = true,
+        backoff: const [Duration(milliseconds: 5)],
+      );
+      addTearDown(conn.dispose);
+      conn.start();
+      final status = await conn.statuses.firstWhere((s) => s.reason == reason);
+      expect(status.phase, IdeLinkPhase.idle);
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      expect(opens, 1);
+      expect(revoked, isFalse);
+      conn.retryNow();
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(opens, 2);
+    });
+  }
+
+  test('mở stream phụ gặp hết phiên: dừng cả kết nối, báo lý do', () async {
+    var fail = false;
+    final sockets = <FakeIdeSocket>[];
+    final conn = IdeConnection(
+      openChannel: () async {
+        if (fail) throw const IdeHandshakeException('session_expired');
+        final s = FakeIdeSocket();
+        sockets.add(s);
+        return IdeChannel.connect(
+          socket: s,
+          signAuth: fakeSignAuth,
+          pingEvery: const Duration(hours: 1),
+        );
+      },
+      onRevoked: (_) async {},
+      backoff: const [Duration(milliseconds: 5)],
+    );
+    addTearDown(conn.dispose);
+    conn.start();
+    await conn.statuses.firstWhere((s) => s.phase == IdeLinkPhase.ready);
+    fail = true;
+    final expired = conn.statuses.firstWhere(
+      (s) => s.reason == 'session_expired',
+    );
+    await expectLater(
+      conn.openStream(IdeStreamKind.talk, {'type': 'talk'}),
+      throwsA(isA<IdeHandshakeException>()),
+    );
+    expect((await expired).phase, IdeLinkPhase.idle);
+    expect(sockets.single.closed, isTrue);
+  });
+
+  test('ide_offline: vẫn tự nối lại (không phải lỗi dừng hẳn)', () async {
+    var opens = 0;
+    final conn = IdeConnection(
+      openChannel: () async {
+        opens++;
+        throw const IdeHandshakeException('ide_offline');
+      },
+      onRevoked: (_) async {},
+      backoff: const [Duration(milliseconds: 5)],
+    );
+    addTearDown(conn.dispose);
+    conn.start();
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+    expect(opens, greaterThan(1));
+  });
+
   test(
     'ide_closed idle: đóng bình thường, không tự nối lại, mở lại khi thao tác',
     () async {

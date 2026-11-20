@@ -165,12 +165,14 @@ class IdeFilesService {
     String root,
     String q, {
     bool matchCase = false,
-  }) async => parseIdeGrep(
-    await _rpc.call('files.grep', {
-      'root': _path(root),
-      'q': q,
-      if (matchCase) 'case': true,
-    }),
+  }) async => ideCapGrep(
+    parseIdeGrep(
+      await _rpc.call('files.grep', {
+        'root': _path(root),
+        'q': q,
+        if (matchCase) 'case': true,
+      }),
+    ),
   );
 
   /// `git diff HEAD` của cả dự án hoặc một tệp.
@@ -251,4 +253,36 @@ class IdeFilesService {
     }
     return j;
   }
+}
+
+/// Trần số dòng khớp của `files.grep` hiện trên app.
+const ideGrepMaxHits = 2000;
+
+/// Trần diff: số ký tự và số dòng.
+const ideDiffMaxChars = 1000000;
+const ideDiffMaxLines = 20000;
+
+/// Chỉ giữ phần đầu của kết quả tìm chữ nếu quá [ideGrepMaxHits] (báo cắt).
+IdeSearchResult<IdeGrepHit> ideCapGrep(IdeSearchResult<IdeGrepHit> r) {
+  if (r.items.length <= ideGrepMaxHits) return r;
+  return IdeSearchResult(r.items.sublist(0, ideGrepMaxHits), truncated: true);
+}
+
+/// Cắt diff quá dài: trả (các dòng, đã cắt?). Diff rỗng → không dòng.
+(List<String>, bool) ideClipDiff(String diff) {
+  if (diff.trim().isEmpty) return (const [], false);
+  var clipped = false;
+  var text = diff;
+  if (text.length > ideDiffMaxChars) {
+    // Cắt ở hết một dòng để không dở dang.
+    final cut = text.lastIndexOf('\n', ideDiffMaxChars);
+    text = text.substring(0, cut > 0 ? cut : ideDiffMaxChars);
+    clipped = true;
+  }
+  var lines = text.split('\n');
+  if (lines.length > ideDiffMaxLines) {
+    lines = lines.sublist(0, ideDiffMaxLines);
+    clipped = true;
+  }
+  return (lines, clipped);
 }

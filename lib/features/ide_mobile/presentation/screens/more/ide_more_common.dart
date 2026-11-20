@@ -421,6 +421,15 @@ class _IdeMorePageState extends ConsumerState<IdeMorePage> {
       backgroundColor: IdeWb.bg,
       appBar: AppBar(
         title: Text(widget.title),
+        // Nhãn trợ năng nút Quay lại qua `tr` (mặc định của Flutter là 'Back').
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                key: const Key('ide_more_back'),
+                tooltip: tr('Quay lại', 'Back'),
+                icon: const BackButtonIcon(),
+                onPressed: () => Navigator.maybePop(context),
+              )
+            : null,
         actions: widget.actions,
         surfaceTintColor: Colors.transparent,
       ),

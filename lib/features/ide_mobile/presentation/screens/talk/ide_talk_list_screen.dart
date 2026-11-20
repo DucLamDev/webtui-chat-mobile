@@ -30,6 +30,7 @@ class _IdeTalkListScreenState extends ConsumerState<IdeTalkListScreen> {
     final id = await showIdeTalkNewSheet(
       context,
       models: ideTalkCan(ref, 'talk.models'),
+      projects: ideTalkCan(ref, 'talk.projects'),
     );
     if (id == null || !mounted) return;
     setState(() => _reloadKey++);

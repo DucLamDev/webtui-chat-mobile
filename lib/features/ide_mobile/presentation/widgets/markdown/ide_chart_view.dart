@@ -11,6 +11,12 @@ import 'ide_blocks_model.dart';
 
 /// 8 màu phân loại theo thứ tự cố định (sáng / tối), cùng ý bảng `cb-c0–7` của
 /// IDE web; biểu đồ tròn quá 8 phần đã gom vào "Khác".
+/// Số điểm tối đa của một chuỗi còn vẽ chấm tròn trên đường.
+const ideChartMaxDotPoints = 60;
+
+/// Có vẽ chấm tròn cho chuỗi [points] điểm không (hàm thuần, để test).
+bool ideChartShowDots(int points) => points <= ideChartMaxDotPoints;
+
 const _lightPalette = <Color>[
   Color(0xFF0A6CDE),
   Color(0xFFD9822B),
@@ -347,6 +353,8 @@ class _AxisPainter extends CustomPainter {
           }
         }
         canvas.drawPath(path, line);
+        // Chuỗi dày điểm (> 60) chỉ vẽ đường, chấm tròn chỉ làm rối.
+        if (!ideChartShowDots(n)) continue;
         for (var i = 0; i < n; i++) {
           final v = spec.series[si].values[i];
           if (v == null) continue;

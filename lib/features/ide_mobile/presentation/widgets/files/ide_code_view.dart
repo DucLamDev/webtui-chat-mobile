@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../../design_system/tokens/webtui_spacing.dart';
@@ -116,6 +118,49 @@ class _IdeCodeViewState extends State<IdeCodeView> {
   final _vertical = ScrollController();
   bool _jumped = false;
 
+  // Bộ nhớ kết quả tô: chỉ tô lại khi chữ / ngôn ngữ / sáng-tối đổi.
+  String? _hlText;
+  String? _hlLang;
+  bool? _hlDark;
+  TextStyle? _hlStyle;
+  TextSpan? _hlSpan;
+  int _hlSeq = 0;
+
+  /// Chữ đã tô (hoặc null = chưa có / đang tô nền → vẽ chữ thường).
+  TextSpan? _highlighted(TextStyle style, bool dark) {
+    final text = widget.text;
+    final lang = widget.language;
+    if (_hlText == text &&
+        _hlLang == lang &&
+        _hlDark == dark &&
+        _hlStyle == style) {
+      return _hlSpan;
+    }
+    _hlText = text;
+    _hlLang = lang;
+    _hlDark = dark;
+    _hlStyle = style;
+    _hlSpan = null;
+    final seq = ++_hlSeq;
+    if (text.length <= ideHighlightSyncMaxChars) {
+      _hlSpan = IdeHighlighter.highlight(text, lang, style: style, dark: dark);
+    } else if (lang.isNotEmpty && text.length <= ideHighlightMaxChars) {
+      // Tệp lớn: tô ở isolate nền, trong lúc chờ vẽ chữ thường.
+      unawaited(() async {
+        final segs = await ideHighlightSegmentsAsync(text, lang);
+        if (!mounted || seq != _hlSeq || segs == null) return;
+        setState(() {
+          _hlSpan = IdeHighlighter.spanFromSegments(
+            segs,
+            style: style,
+            dark: dark,
+          );
+        });
+      }());
+    }
+    return _hlSpan;
+  }
+
   @override
   void dispose() {
     _vertical.dispose();
@@ -141,12 +186,7 @@ class _IdeCodeViewState extends State<IdeCodeView> {
     final style = ideCodeStyle(context);
     final extent = ideCodeLineExtent(context);
     final span =
-        IdeHighlighter.highlight(
-          widget.text,
-          widget.language,
-          style: style,
-          dark: ideIsDark(context),
-        ) ??
+        _highlighted(style, ideIsDark(context)) ??
         TextSpan(text: widget.text, style: style);
     final lines = '\n'.allMatches(widget.text).length + 1;
     _jump(extent);

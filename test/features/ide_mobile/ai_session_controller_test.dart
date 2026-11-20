@@ -443,6 +443,17 @@ void main() {
     await rig.dispose();
   });
 
+  test('forbidden / hết phiên ở lúc mở: đóng, không nối lại', () async {
+    for (final reason in ['forbidden', 'session_expired']) {
+      final rig = Rig()..failOpen = IdeHandshakeException(reason);
+      rig.controller.start();
+      await rig.settle(80);
+      expect(rig.controller.state.link, IdeAiLink.closed);
+      expect(rig.controller.state.closedReason, reason);
+      await rig.dispose();
+    }
+  });
+
   group('ký xác nhận qua nhiều lượt', () {
     Future<void> need(Rig rig, String req, [String ch = 'Q0g=']) async {
       rig.socket.emit({'type': 'need_step', 'req': req, 'challenge': ch});

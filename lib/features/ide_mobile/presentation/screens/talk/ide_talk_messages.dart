@@ -126,9 +126,8 @@ class IdeTalkMessageTile extends StatelessWidget {
                         ideVisibleText(m.model),
                         if (m.effort.isNotEmpty) m.effort,
                       ].join(' · '),
-                      style: WebTuiTypography.labelSmall.copyWith(
-                        color: IdeWb.text2,
-                      ),
+                      // Chữ thường như các màn khác (không in đậm).
+                      style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
                     ),
                   ),
               ],

@@ -167,6 +167,18 @@ class _IdeAiChatScreenState extends ConsumerState<IdeAiChatScreen> {
       'Máy này không còn quyền vào IDE. Hãy ghép nối lại.',
       'This device no longer has IDE access. Pair it again.',
     ),
+    'forbidden' => tr(
+      'Tài khoản hoặc địa chỉ máy chủ này chưa được phép dùng IDE.',
+      'Your account or this server address is not allowed to use the IDE.',
+    ),
+    'wrong_user' => tr(
+      'Máy này ghép IDE bằng tài khoản chat khác. Hãy gắn lại.',
+      'This phone was paired with another chat account. Pair it again.',
+    ),
+    'session_expired' || 'no_session' => tr(
+      'Phiên đăng nhập đã hết hạn. Đăng nhập lại rồi thử lại.',
+      'Your session has expired. Sign in again, then retry.',
+    ),
     _ => tr('Phiên đã đóng.', 'The session has closed.'),
   };
 

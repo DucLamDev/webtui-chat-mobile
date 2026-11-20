@@ -30,6 +30,19 @@ final class WebSocketIdeSocket implements IdeSocket {
   Future<void> close() => _socket.close();
 }
 
+/// Lý do bắt tay không được tự nối lại: IDE từ chối / gỡ khoá máy, chưa gắn,
+/// không có phiên chat, khác tài khoản, phiên hết hạn (401 sau khi làm mới
+/// token), không được dùng IDE ở đây (403).
+const ideFatalReasons = {
+  'unauthorized',
+  'revoked',
+  'not_paired',
+  'no_session',
+  'wrong_user',
+  'session_expired',
+  'forbidden',
+};
+
 /// Bắt tay thất bại hoặc IDE đóng ngay.
 final class IdeHandshakeException implements Exception {
   const IdeHandshakeException(this.reason, {this.deviceId = ''});
@@ -44,6 +57,9 @@ final class IdeHandshakeException implements Exception {
   /// (challenge quá hạn...) nên không tính.
   bool get revoked => reason == 'revoked';
   bool get offline => reason == 'ide_offline';
+
+  /// Nối lại cũng vô ích (khoá / phiên / quyền sai): dừng, chờ người dùng.
+  bool get fatal => ideFatalReasons.contains(reason);
 
   @override
   String toString() => 'IdeHandshakeException($reason)';

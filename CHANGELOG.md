@@ -3,6 +3,27 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.61.0 · 20/11/2026
+### IDE trên app: hoàn thiện phần còn thiếu
+- **Kết nối**: phiên đăng nhập app vừa hết hạn thì app tự làm mới rồi nối lại IDE một lần, không bắt đăng nhập lại.
+  Mất mạng đúng lúc làm mới thì vẫn tự nối lại sau, không báo nhầm là hết phiên.
+  IDE báo không có quyền dùng ở máy chủ này, hoặc phiên vẫn hết hạn sau khi làm mới: dừng hẳn, không tự nối lại mãi
+  (cả tab IDE, chat AI và Chat thường), hiện lời rõ ràng kèm nút Thử lại. Máy ghép bằng tài khoản chat khác thì báo
+  riêng và mời gắn lại.
+- **Gỡ chính điện thoại này** khi IDE không trả lời (hết giờ chờ, mất mạng): vẫn gỡ ghép ở máy chủ chat và xoá khoá
+  trên điện thoại, báo "IDE chưa xác nhận thu hồi" để kiểm lại trên IDE máy tính. Tự bấm huỷ bước xác nhận thì giữ
+  nguyên. Thu hồi máy khác mà lỗi thì vẫn báo lỗi như cũ, không đụng khoá trên điện thoại.
+- **Chặn chụp màn hình** khi xem mật khẩu DB có đếm số hộp đang mở: hai hộp chồng nhau thì đóng một hộp không tắt chặn.
+- **Tệp**: tệp lớn (trên 20.000 ký tự) tô màu cú pháp ở luồng nền, hiện chữ thường trước nên không đứng hình; khác biệt
+  quá dài chỉ hiện phần đầu kèm lời báo; tìm trong tệp giới hạn 2.000 kết quả; tệp .txt, .log, .csv có biểu tượng riêng.
+- **Terminal**: IDE đóng phiên đang xem (có thể do mở trên thiết bị khác) thì hiện lời báo và nút "Mở lại ở đây",
+  không tự giành lại phiên.
+- **Chat thường**: chọn được dự án Chat khi tạo cuộc mới; cuộc AI Agent ẩn ô nhập, thay bằng nút "Chạy ngay"; dòng
+  phụ (model, mức suy nghĩ) chữ thường, nhỏ hơn.
+- **Khác**: tiền hiện kiểu Việt Nam ("850.000 đ", "1,1 triệu đ", "1,2 tỷ đ"); biểu đồ quá 60 điểm bỏ chấm tròn cho
+  dễ nhìn; Hàng chờ gộp khoá các chế độ khác trong lúc đang đổi; nút "Ghi chú mới" mở đúng đường dẫn riêng; nút Quay
+  lại trong các màn tab Thêm đọc tiếng Việt cho trình đọc màn hình.
+
 ## 1.60.0 · 20/11/2026
 ### Giao diện
 - Các màn bên trong tab **Thêm** của IDE trên app (Việc cần làm, Ghi chú, Chat thường, Máy chủ, Skill, AI Agent, Giám sát,

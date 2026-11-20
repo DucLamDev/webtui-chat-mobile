@@ -5,6 +5,7 @@ import '../../../../../app/providers/foundation_providers.dart';
 import '../../../../../design_system/components/webtui_components.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../l10n/app_strings.dart';
+import '../../../domain/ide_errors.dart';
 import '../../../domain/ide_more_time.dart';
 import '../../../domain/ide_server_models.dart';
 import '../../../domain/ide_visible_text.dart';
@@ -58,8 +59,27 @@ class _IdeDevicesScreenState extends ConsumerState<IdeDevicesScreen> {
     final devices = ref.read(ideDevicesServiceProvider);
     final pairing = self ? ref.read(idePairingServiceProvider) : null;
     final container = ProviderScope.containerOf(context, listen: false);
+    final messenger = ScaffoldMessenger.maybeOf(context);
     try {
-      await devices.revoke(d.id);
+      // Gỡ chính máy này mà IDE báo lỗi (hết giờ chờ, IDE đã thu hồi trước,
+      // mất mạng): vẫn gỡ ở máy chủ chat + xoá khoá trên điện thoại, không để
+      // sót khoá. Gỡ máy khác mà lỗi thì báo lỗi như thường.
+      // Không tin cờ `current` IDE trả về để xoá khoá ở máy: chỉ so mã máy đã
+      // lưu. Đọc khoá lỗi nên tưởng máy khác thì IDE thu hồi sẽ đóng stream
+      // `revoked`, luồng đó so mã máy rồi mới dọn.
+      Object? revokeError;
+      try {
+        await devices.revoke(d.id);
+      } on Object catch (e) {
+        // Người dùng tự huỷ / không qua được bước xác nhận: dừng, giữ khoá.
+        if (!self ||
+            e is IdeCancelled ||
+            e is IdeStepFailed ||
+            e is IdeStepRequired) {
+          rethrow;
+        }
+        revokeError = e;
+      }
       if (pairing != null) {
         try {
           await pairing.removeThisDevice();
@@ -67,6 +87,22 @@ class _IdeDevicesScreenState extends ConsumerState<IdeDevicesScreen> {
           container
             ..invalidate(ideCredentialsProvider)
             ..invalidate(ideCapabilitiesProvider);
+        }
+        if (revokeError != null) {
+          messenger
+            ?..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(
+                  tr(
+                    'Đã gỡ trên điện thoại này. IDE chưa xác nhận thu hồi; '
+                        'kiểm lại danh sách máy trên IDE máy tính.',
+                    'Unlinked on this phone. The IDE did not confirm the '
+                        'revoke; check the device list in the desktop IDE.',
+                  ),
+                ),
+              ),
+            );
         }
         if (mounted && Navigator.of(context).canPop()) {
           Navigator.of(context).pop();

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -53,6 +54,7 @@ final class FakeSvc extends IdeTalkService {
     required String text,
     String? model,
     String? effort,
+    String? project,
     bool queue = false,
     List<String> images = const [],
     List<String> files = const [],
@@ -71,6 +73,9 @@ final class Rig {
   }) {
     connection = IdeConnection(
       openChannel: () async {
+        opens++;
+        final fail = failOpen;
+        if (fail != null) throw fail;
         final s = FakeIdeSocket(ops: const ['talk.list', 'talk.send']);
         sockets.add(s);
         return IdeChannel.connect(
@@ -96,6 +101,10 @@ final class Rig {
 
   late final IdeConnection connection;
   late final FakeSvc svc;
+
+  /// Đặt thì mọi lần mở stream ném lỗi này.
+  Object? failOpen;
+  var opens = 0;
   late final IdeTalkController controller;
   final sockets = <FakeIdeSocket>[];
 
@@ -114,6 +123,34 @@ final class Rig {
 }
 
 void main() {
+  test('hết phiên / không có quyền khi mở: dừng, không tự nối lại', () async {
+    for (final (reason, link) in [
+      ('session_expired', IdeTalkLink.failed),
+      ('forbidden', IdeTalkLink.denied),
+    ]) {
+      final rig = Rig(idle: const Duration(hours: 1))
+        ..failOpen = IdeHandshakeException(reason);
+      rig.controller.start();
+      await rig.wait(120);
+      expect(rig.controller.state.link, link);
+      // Cả đường RPC lẫn stream talk chỉ thử một lượt mỗi đường, không lặp.
+      final opened = rig.opens;
+      expect(opened, lessThanOrEqualTo(2));
+      await rig.wait(120);
+      expect(rig.opens, opened);
+      await rig.dispose();
+    }
+  });
+
+  test('lỗi mạng khi mở: vẫn tự nối lại', () async {
+    final rig = Rig(idle: const Duration(hours: 1))
+      ..failOpen = const SocketException('mất mạng');
+    rig.controller.start();
+    await rig.wait(150);
+    expect(rig.opens, greaterThan(2));
+    await rig.dispose();
+  });
+
   test('full -> delta thay tin cuối -> gone', () async {
     final rig = Rig(idle: const Duration(hours: 1));
     rig.controller.start();

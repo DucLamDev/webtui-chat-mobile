@@ -228,6 +228,50 @@ class _IdeScreenState extends ConsumerState<IdeScreen>
           ],
         ),
       ),
+      IdeLinkPhase.idle when status?.reason == 'forbidden' => _Message(
+        key: const Key('ide_link_forbidden'),
+        icon: Icons.block_rounded,
+        title: tr('Không dùng được IDE ở đây', 'The IDE is not allowed here'),
+        message: tr(
+          'Tài khoản hoặc địa chỉ máy chủ đang dùng chưa được phép vào IDE. '
+              'Hỏi quản trị nếu bạn cần quyền này.',
+          'Your account or this server address is not allowed to use the IDE. '
+              'Ask an administrator if you need access.',
+        ),
+        action: OutlinedButton(
+          onPressed: _connection.retryNow,
+          child: Text(tr('Thử lại', 'Retry')),
+        ),
+      ),
+      IdeLinkPhase.idle when status?.reason == 'wrong_user' => _Message(
+        key: const Key('ide_link_wrong_user'),
+        icon: Icons.manage_accounts_outlined,
+        title: tr('Máy ghép với tài khoản khác', 'Paired with another account'),
+        message: tr(
+          'Điện thoại này được ghép IDE bằng tài khoản chat khác. Gắn lại bằng '
+              'tài khoản đang đăng nhập.',
+          'This phone was paired with another chat account. Pair it again with '
+              'the account you are signed in with.',
+        ),
+        action: FilledButton(
+          onPressed: () => context.push('/ide/pair'),
+          child: Text(tr('Gắn lại', 'Pair again')),
+        ),
+      ),
+      IdeLinkPhase.idle when _sessionReasons.contains(status?.reason) =>
+        _Message(
+          key: const Key('ide_link_session'),
+          icon: Icons.lock_clock_outlined,
+          title: tr('Phiên đăng nhập đã hết hạn', 'Your session has expired'),
+          message: tr(
+            'Mở lại app hoặc đăng nhập lại rồi thử lại.',
+            'Reopen the app or sign in again, then retry.',
+          ),
+          action: OutlinedButton(
+            onPressed: _connection.retryNow,
+            child: Text(tr('Thử lại', 'Retry')),
+          ),
+        ),
       IdeLinkPhase.idle when status?.reason != null => _Message(
         icon: Icons.pause_circle_outline_rounded,
         title: tr('Đã ngắt vì lâu không dùng', 'Disconnected after being idle'),
@@ -486,12 +530,16 @@ class _StatusBar extends StatelessWidget {
   }
 }
 
+/// Lý do dừng nối IDE vì phiên đăng nhập chat (không phải vì khoá máy).
+const _sessionReasons = {'session_expired', 'no_session'};
+
 class _Message extends StatelessWidget {
   const _Message({
     required this.icon,
     required this.title,
     required this.message,
     this.action,
+    super.key,
   });
 
   final IconData icon;

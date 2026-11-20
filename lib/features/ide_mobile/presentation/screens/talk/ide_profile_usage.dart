@@ -78,7 +78,10 @@ class IdeUsageTotals extends StatelessWidget {
         if (profile.rateVnd != null && t.cost != null)
           IdeKeyValue(
             tr('Ước tính (VND)', 'Estimate (VND)'),
-            '${ideFormatCount(profile.rateVnd! * t.cost!)} đ',
+            ideFormatVnd(
+              profile.rateVnd! * t.cost!,
+              english: AppStrings.current.isEnglish,
+            ),
           ),
         Align(
           alignment: Alignment.centerLeft,

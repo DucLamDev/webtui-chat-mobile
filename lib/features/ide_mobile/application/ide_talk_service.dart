@@ -28,6 +28,10 @@ class IdeTalkService {
         await _rpc.call('talk.models', {if (refresh) 'refresh': true}),
       );
 
+  /// Danh sách dự án Chat (`talk.projects`); mục sai mã bị bỏ.
+  Future<List<IdeTalkChatProject>> projects() async =>
+      IdeTalkChatProject.parseList(await _rpc.call('talk.projects', const {}));
+
   Future<List<IdeTalkSummary>> list() async =>
       IdeTalkSummary.parseList(await _rpc.call('talk.list', const {}));
 
@@ -46,6 +50,7 @@ class IdeTalkService {
     required String text,
     String? model,
     String? effort,
+    String? project,
     bool queue = false,
     List<String> images = const [],
     List<String> files = const [],
@@ -53,11 +58,17 @@ class IdeTalkService {
     if (id != 'new' && !ideTalkIdOk(id)) {
       throw const IdeBadRequest('Mã cuộc chat không hợp lệ.');
     }
+    // `project` chỉ đi kèm cuộc mới và phải là 32 hex.
+    final proj =
+        id == 'new' && project != null && ideTalkChatProjectIdOk(project)
+        ? project
+        : null;
     final data = await _rpc.call('talk.send', {
       'id': id,
       'text': text,
       if (model != null && model.isNotEmpty) 'model': model,
       if (effort != null && effort.isNotEmpty) 'effort': effort,
+      'project': ?proj,
       if (queue) 'queue': true,
       if (images.isNotEmpty) 'images': images,
       if (files.isNotEmpty) 'files': files,

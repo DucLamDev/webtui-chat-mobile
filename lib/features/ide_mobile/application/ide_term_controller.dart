@@ -16,6 +16,11 @@ enum IdeTermLink {
   /// Mất kết nối (phiên vẫn chạy trên máy tính): có nút "Nối lại".
   lost,
 
+  /// IDE đóng stream (`ide_error`) khi phiên đang chạy: thường do thiết bị
+  /// khác gắn phiên này (phiên vẫn sống). KHÔNG tự nối lại, chờ người dùng bấm
+  /// "Mở lại ở đây" để hai máy không giành nhau.
+  taken,
+
   /// Phiên đã kết thúc (`texit`).
   exited,
 
@@ -201,9 +206,17 @@ class IdeTermController extends StateNotifier<IdeTermSnapshot> {
 
   void _onClosed(IdeChannel channel, IdeChannelClose close) {
     if (!identical(_channel, channel)) return;
+    final wasLive = state.link == IdeTermLink.live;
     _stopChannel();
     if (_disposed) return;
-    _set(state.copyWith(link: IdeTermLink.lost, message: close.reason));
+    // Luồng bị IDE đóng khi đang chạy: phiên được gắn ở máy khác.
+    final taken = wasLive && close.reason == 'ide_error' && _name.isNotEmpty;
+    _set(
+      state.copyWith(
+        link: taken ? IdeTermLink.taken : IdeTermLink.lost,
+        message: close.reason,
+      ),
+    );
   }
 
   void _stopChannel() {
@@ -216,9 +229,13 @@ class IdeTermController extends StateNotifier<IdeTermSnapshot> {
     if (channel != null) unawaited(channel.close());
   }
 
-  /// Nối lại phiên đã mất kết nối bằng `{"type":"term","name"}`.
+  /// Nối lại phiên đã mất kết nối (hoặc bị máy khác chiếm, theo yêu cầu người
+  /// dùng) bằng `{"type":"term","name"}`.
   void reconnect() {
-    if (_disposed || state.link != IdeTermLink.lost) return;
+    if (_disposed ||
+        (state.link != IdeTermLink.lost && state.link != IdeTermLink.taken)) {
+      return;
+    }
     _stopChannel();
     // IDE vẽ lại màn hình khi gắn: xoá bản cũ để không chồng chữ.
     terminal.write('\x1b[?1049l\x1b[0m\x1b[?1l\x1b[?25h\x1b[?2004l');

@@ -21,6 +21,37 @@ String ideFormatCount(double? v) {
   return v.round().toString();
 }
 
+/// Tiền VND. Tiếng Việt: < 1 triệu nhóm nghìn "850.000 đ"; ≥ 1 triệu
+/// "1,1 triệu đ"; ≥ 1 tỷ "1,2 tỷ đ". Tiếng Anh gọn "1.1M VND". `null` → "—".
+String ideFormatVnd(double? v, {bool english = false}) {
+  if (v == null || v.isNaN || v.isInfinite) return '—';
+  if (english) {
+    if (v >= 1e9) return '${(v / 1e9).toStringAsFixed(1)}B VND';
+    if (v >= 1e6) return '${(v / 1e6).toStringAsFixed(1)}M VND';
+    return '${_group(v.round())} VND';
+  }
+  String unit(double d, String name) {
+    final t = d.toStringAsFixed(1).replaceFirst(RegExp(r'\.0$'), '');
+    return '${t.replaceFirst('.', ',')} $name đ';
+  }
+
+  if (v >= 1e9) return unit(v / 1e9, 'tỷ');
+  if (v >= 1e6) return unit(v / 1e6, 'triệu');
+  return '${_group(v.round())} đ';
+}
+
+/// Nhóm nghìn bằng dấu chấm: 850000 → "850.000".
+String _group(int n) {
+  final neg = n < 0;
+  final d = n.abs().toString();
+  final b = StringBuffer();
+  for (var i = 0; i < d.length; i++) {
+    if (i > 0 && (d.length - i) % 3 == 0) b.write('.');
+    b.write(d[i]);
+  }
+  return neg ? '-$b' : b.toString();
+}
+
 /// Giá quy đổi USD; `null` → "—".
 String ideFormatUsd(double? v) {
   if (v == null) return '—';

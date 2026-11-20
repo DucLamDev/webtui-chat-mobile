@@ -244,12 +244,12 @@ class _DbSecretDialogState extends State<_DbSecretDialog> {
   @override
   void initState() {
     super.initState();
-    _privacy.setSecureScreen(true);
+    _privacy.acquireSecureScreen();
   }
 
   @override
   void dispose() {
-    _privacy.setSecureScreen(false);
+    _privacy.releaseSecureScreen();
     super.dispose();
   }
 
