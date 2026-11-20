@@ -42,13 +42,13 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>WebTUI Chat dùng microphone cho cuộc gọi và để ghi, gửi tin nhắn thoại khi bạn yêu cầu.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>WebTUI Chat dùng camera cho cuộc gọi video và để chụp ảnh bạn chọn gửi vào cuộc trò chuyện hoặc đính kèm vào ghi chú My Note.</string>
+	<string>WebTUI Chat dùng camera cho cuộc gọi video, để chụp ảnh bạn chọn gửi vào cuộc trò chuyện hoặc đính kèm vào ghi chú My Note, và để quét mã QR gắn điện thoại với IDE.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>WebTUI Chat truy cập các ảnh và video bạn chọn để gửi vào cuộc trò chuyện, đính kèm vào ghi chú My Note hoặc dùng làm ảnh đại diện.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>WebTUI Chat lưu ảnh và video bạn chọn từ cuộc trò chuyện vào thư viện ảnh của máy.</string>
 	<key>NSFaceIDUsageDescription</key>
-	<string>WebTUI Chat dùng Face ID để mở khóa ứng dụng khi bạn bật khóa ứng dụng.</string>
+	<string>WebTUI Chat dùng Face ID để mở khóa ứng dụng khi bạn bật khóa ứng dụng, để mở mục IDE và để xác nhận các thao tác quan trọng của IDE (như triển khai) trên điện thoại.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>WebTUI Chat kết nối đến máy chủ tự lưu trữ trong mạng nội bộ do bạn hoặc tổ chức của bạn chọn.</string>
 	<key>UIBackgroundModes</key>

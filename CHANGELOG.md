@@ -3,6 +3,22 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.52.0 · 20/11/2026
+### Tính năng
+- Bước đầu đưa IDE công ty lên app (nền móng, chưa dùng được với IDE thật): khi máy chủ chat báo có IDE
+  (`capabilities.ide`, chỉ máy chủ nội bộ VPSTTT) thì mục **Ứng dụng** hiện ô **IDE**. Mỗi lần mở mục IDE phải xác thực
+  chủ máy bằng vân tay / khuôn mặt (không có thì dùng mã khoá màn hình); máy không đặt khoá màn hình thì không vào được.
+- Màn **Gắn máy**: quét mã QR trên IDE, app tạo khoá thiết bị (Ed25519, cất trong kho bảo mật của máy) và khoá xác nhận
+  P-256 nằm trong Keystore (Android) / Secure Enclave (iPhone), mỗi lần ký phải xác thực lại. Thao tác quan trọng sau này
+  sẽ hỏi xác nhận bằng khoá này.
+- Màn **IDE**: nối tới IDE qua máy chủ chat, bắt tay bằng chữ ký khoá thiết bị, giữ kết nối (ping mỗi ≤ 25 giây), tự nối
+  lại khi rớt mạng. IDE báo đã gỡ máy thì xoá thông tin gắn; IDE từ chối khoá (chưa gắn / sai người) thì dừng, giữ
+  thông tin gắn và hiện nút **Thử lại** / **Gắn lại**; gắn lại xong tự nối lại. Phiên AI và tiến trình hiện "sắp có".
+- Đăng xuất hoặc đổi máy chủ thì xoá thông tin gắn IDE trên máy; khoá không dùng chéo giữa người dùng / máy chủ.
+- Khoá thiết bị IDE chỉ nằm trên máy này (iPhone không sao lưu / chuyển sang máy khác). Mỗi lần gắn lại tạo khoá xác
+  nhận mới; gắn hỏng thì giữ nguyên khoá cũ. IDE cần Android 9 trở lên. Rời app quá 5 phút thì phải xác thực lại trước khi
+  nối lại IDE (đo bằng đồng hồ của máy tính cả lúc ngủ, chỉnh giờ hệ thống không lách được).
+
 ## 1.51.0 · 19/11/2026
 ### Tính năng
 - Thiết lập ứng dụng có nhóm mới "Dung lượng và tải tự động":

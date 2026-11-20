@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../l10n/app_strings.dart';
+import '../../../ide_mobile/application/ide_access.dart';
 import '../../../my_notes/presentation/controllers/my_notes_access_provider.dart';
 
 /// Mô tả một tiện ích hiện trong tab Công việc. Thêm tiện ích mới = thêm một
@@ -44,6 +45,17 @@ final workspaceModulesProvider = Provider<List<WorkspaceModule>>((ref) {
         queryParameters: {'workspaceId': workspaceId},
       ).toString(),
       enabled: ref.watch(myNotesEnabledProvider),
+    ),
+    WorkspaceModule(
+      id: 'ide',
+      title: 'IDE',
+      description: tr(
+        'Điều khiển IDE trên máy tính từ điện thoại',
+        'Control the desktop IDE from your phone',
+      ),
+      icon: WebTuiIcons.bot,
+      routeFor: (_) => '/ide',
+      enabled: ref.watch(ideEnabledProvider),
     ),
   ];
 });

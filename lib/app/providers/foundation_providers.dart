@@ -139,6 +139,18 @@ import '../../features/customer_tickets/data/repositories/image_picker_customer_
 import '../../features/customer_tickets/data/repositories/public_customer_ticket_image_repository.dart';
 import '../../features/customer_tickets/data/repositories/web_socket_customer_ticket_realtime_repository.dart';
 import '../../features/customer_tickets/domain/repositories/customer_ticket_repository.dart';
+import '../../features/ide_mobile/application/ide_access_controller.dart';
+import '../../features/ide_mobile/application/ide_pairing_service.dart';
+import '../../features/ide_mobile/application/ide_step_up.dart';
+import '../../features/ide_mobile/data/biometric_ide_device_security.dart';
+import '../../features/ide_mobile/data/ide_channel_factory.dart';
+import '../../features/ide_mobile/data/ide_connection.dart';
+import '../../features/ide_mobile/data/ide_device_key_store.dart';
+import '../../features/ide_mobile/data/ide_pair_api.dart';
+import '../../features/ide_mobile/data/ide_rpc_client.dart';
+import '../../features/ide_mobile/domain/ide_device_credentials.dart';
+import '../../features/ide_mobile/domain/ide_device_security.dart';
+import '../../features/ide_mobile/domain/ide_ready.dart';
 import '../../features/inbox/data/datasources/inbox_remote_data_source.dart';
 import '../../features/inbox/data/repositories/inbox_repository_impl.dart';
 import '../../features/inbox/data/repositories/web_socket_inbox_realtime_repository.dart';
@@ -1161,6 +1173,116 @@ final myNotesRepositoryProvider = Provider<MyNotesRepository>((ref) {
 
 final myNotesUseCasesProvider = Provider<MyNotesUseCases>((ref) {
   return MyNotesUseCases(ref.watch(myNotesRepositoryProvider));
+});
+
+// IDE trong app: khoá máy đã gắn, cổng IDE qua máy chủ chat, vân tay.
+final ideDeviceKeyStoreProvider = Provider<IdeDeviceKeyStore>((ref) {
+  return IdeDeviceKeyStore(ref.watch(secureKeyValueStoreProvider));
+});
+
+final idePairApiProvider = Provider<IdePairApi>((ref) {
+  return IdePairApi(ref.watch(apiTransportProvider));
+});
+
+final ideDeviceSecurityProvider = Provider<IdeDeviceSecurity>((ref) {
+  return BiometricIdeDeviceSecurity(ref.watch(biometricAuthServiceProvider));
+});
+
+/// Token chat hiện tại; đổi khi đăng nhập / đăng xuất / hết phiên (các luồng
+/// đó đều làm mới [authAccessTokenProvider]). Mọi trạng thái IDE trong bộ nhớ
+/// theo dõi giá trị này để không sống sang phiên khác.
+final _ideSessionTokenProvider = Provider<String?>((ref) {
+  return ref.watch(authAccessTokenProvider.select((v) => v.valueOrNull));
+});
+
+/// Đổi phiên thì dựng bộ khoá mới (đã khoá): người sau phải xác thực lại.
+final ideAccessControllerProvider = Provider<IdeAccessController>((ref) {
+  ref.watch(_ideSessionTokenProvider);
+  final controller = IdeAccessController(ref.watch(ideDeviceSecurityProvider));
+  ref.onDispose(controller.lock);
+  return controller;
+});
+
+/// Khoá máy đã gắn của đúng người + máy chủ đang dùng; `null` = chưa gắn.
+final ideCredentialsProvider = FutureProvider<IdeDeviceCredentials?>((
+  ref,
+) async {
+  final token = ref.watch(_ideSessionTokenProvider);
+  final serverScope = ref.watch(activeInstanceScopeProvider).storageId;
+  if (token == null || token.isEmpty) return null;
+  final userId = await ref.read(resolveCurrentUserIdUseCaseProvider).execute();
+  if (userId == null || userId.isEmpty) return null;
+  return ref
+      .read(ideDeviceKeyStoreProvider)
+      .load(chatUserId: userId, serverScope: serverScope);
+});
+
+/// Chức năng IDE báo ở `ready` gần nhất (tab nào hiện).
+final ideCapabilitiesProvider = StateProvider<IdeReady?>((ref) {
+  ref.watch(_ideSessionTokenProvider);
+  return null;
+});
+
+/// Màn IDE đặt hàm hiện bảng xác nhận (step-up); chưa đặt thì từ chối ký.
+final ideStepPresenterProvider = StateProvider<IdeStepPresenter?>((_) => null);
+
+final idePairingServiceProvider = Provider<IdePairingService>((ref) {
+  return IdePairingService(
+    api: ref.watch(idePairApiProvider),
+    keys: ref.watch(ideDeviceKeyStoreProvider),
+    security: ref.watch(ideDeviceSecurityProvider),
+    currentUserId: () =>
+        ref.read(resolveCurrentUserIdUseCaseProvider).execute(),
+    serverScopeId: ref.watch(activeInstanceScopeProvider).storageId,
+    onPaired: () => ref.invalidate(ideCredentialsProvider),
+    sessionToken: () => ref.read(_ideSessionTokenProvider),
+  );
+});
+
+/// Đổi phiên thì bỏ kết nối cũ (đóng mọi stream đã xác thực của người trước).
+final ideConnectionProvider = Provider<IdeConnection>((ref) {
+  ref.watch(_ideSessionTokenProvider);
+  final factory = IdeChannelFactory(
+    wsBaseUri: ref.watch(activeServerWsUriProvider),
+    serverScopeId: ref.watch(activeInstanceScopeProvider).storageId,
+    tokens: ref.watch(authTokenRepositoryProvider),
+    loadCredentials: () => ref.read(ideCredentialsProvider.future),
+  );
+  final pairing = ref.watch(idePairingServiceProvider);
+  final connection = IdeConnection(
+    openChannel: factory.open,
+    onReady: (ready) =>
+        ref.read(ideCapabilitiesProvider.notifier).state = ready,
+    onRevoked: (deviceId) async {
+      final removed = await pairing.forgetRevokedDevice(deviceId);
+      if (!removed) return;
+      ref.read(ideCapabilitiesProvider.notifier).state = null;
+      ref.invalidate(ideCredentialsProvider);
+    },
+  );
+  ref.onDispose(connection.dispose);
+  return connection;
+});
+
+final ideStepUpProvider = Provider<IdeStepUp>((ref) {
+  return IdeStepUp(
+    security: ref.watch(ideDeviceSecurityProvider),
+    present: (summary) async {
+      final present = ref.read(ideStepPresenterProvider);
+      return present == null ? false : present(summary);
+    },
+    alias: () =>
+        ref.read(ideCredentialsProvider).valueOrNull?.stepKeyAlias ?? '',
+  );
+});
+
+final ideRpcClientProvider = Provider<IdeRpcClient>((ref) {
+  final client = IdeRpcClient(
+    ref.watch(ideConnectionProvider),
+    stepHandler: ref.watch(ideStepUpProvider).confirm,
+  );
+  ref.onDispose(client.dispose);
+  return client;
 });
 
 final workspaceSyncRemoteDataSourceProvider =

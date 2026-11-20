@@ -18,6 +18,10 @@ import '../../features/conversations/presentation/screens/chat_room_screen.dart'
 import '../../features/customer_tickets/presentation/screens/customer_ticket_detail_screen.dart';
 import '../../features/customer_tickets/presentation/screens/customer_ticket_list_screen.dart';
 import '../../features/home/presentation/screens/home_shell_screen.dart';
+import '../../features/ide_mobile/presentation/screens/ide_coming_soon_screen.dart';
+import '../../features/ide_mobile/presentation/screens/ide_pair_screen.dart';
+import '../../features/ide_mobile/presentation/screens/ide_screen.dart';
+import '../../features/ide_mobile/presentation/widgets/ide_access_gate.dart';
 import '../../features/inbox/presentation/screens/inbox_conversation_screen.dart';
 import '../../features/inbox/presentation/screens/inbox_list_screen.dart';
 import '../../features/meeting_calendar/presentation/screens/meeting_detail_screen.dart';
@@ -252,6 +256,32 @@ final appRouterProvider = Provider<GoRouter>((_) {
           noteId: state.pathParameters['note_id'] ?? 'new',
           workspaceId: state.uri.queryParameters['workspaceId'],
           initialFolderId: state.uri.queryParameters['folderId'],
+        ),
+      ),
+      // IDE: cổng vân tay bọc mọi màn; /ide/ai/:key và /ide/jobs/:id chờ GĐ sau.
+      GoRoute(
+        path: '/ide',
+        name: 'ide',
+        builder: (context, state) => const IdeAccessGate(child: IdeScreen()),
+      ),
+      GoRoute(
+        path: '/ide/pair',
+        name: 'ide-pair',
+        builder: (context, state) =>
+            const IdeAccessGate(child: IdePairScreen()),
+      ),
+      GoRoute(
+        path: '/ide/ai/:key',
+        name: 'ide-ai',
+        builder: (context, state) => IdeAccessGate(
+          child: IdeComingSoonScreen(title: tr('Phiên AI', 'AI session')),
+        ),
+      ),
+      GoRoute(
+        path: '/ide/jobs/:id',
+        name: 'ide-job',
+        builder: (context, state) => IdeAccessGate(
+          child: IdeComingSoonScreen(title: tr('Tiến trình', 'Job')),
         ),
       ),
       // Tab Công việc: màn con (việc của tôi, lịch họp, tệp, lối tắt).

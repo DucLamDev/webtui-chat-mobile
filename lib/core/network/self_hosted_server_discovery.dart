@@ -207,6 +207,8 @@ final class SelfHostedServerDiscovery {
         aiStreaming: capabilities['ai_streaming'] == true,
         transcription: capabilities['transcription'] == true,
         myNotes: capabilities['my_notes'] == true,
+        // IDE trên điện thoại (cổng IDE đã cấu hình); thiếu trường = tắt.
+        ide: capabilities['ide'] == true,
         secretMessages: capabilities['secret_messages'] == true,
         mfa: capabilities['mfa'] == true,
         // Lõi 5: phê duyệt chung; máy chủ cũ không trả → tắt.
@@ -398,6 +400,7 @@ final class SelfHostedCapabilities {
     this.aiStreaming = false,
     this.transcription = false,
     this.myNotes = false,
+    this.ide = false,
     this.secretMessages = false,
     this.mfa = false,
     this.approvals = false,
@@ -438,6 +441,9 @@ final class SelfHostedCapabilities {
 
   /// Sổ ghi chú cá nhân My Note.
   final bool myNotes;
+
+  /// Mục IDE (cổng IDE đã cấu hình ở máy chủ chat).
+  final bool ide;
 
   /// Tin nhắn bí mật tự xoá.
   final bool secretMessages;
@@ -495,6 +501,7 @@ final class SelfHostedCapabilities {
       'ai_streaming': aiStreaming,
       'transcription': transcription,
       'my_notes': myNotes,
+      'ide': ide,
       'secret_messages': secretMessages,
       'mfa': mfa,
       'approvals': approvals,
