@@ -26,6 +26,16 @@ const _forbiddenPermissions = <String>{
   'android.permission.WRITE_SETTINGS',
 };
 
+/// Quyền bộ nhớ kiểu cũ chỉ được khai khi giới hạn `android:maxSdkVersion`
+/// tới mức ghi ở đây. Lưu ảnh / video vào thư viện máy (thư viện `gal`) cần
+/// WRITE_EXTERNAL_STORAGE trên Android 9–10; từ Android 11 (API 30) quyền này
+/// không còn tác dụng nên Google Play không coi là quyền truy cập rộng. Không
+/// giới hạn hoặc giới hạn cao hơn vẫn bị chặn như mọi quyền trong
+/// [_forbiddenPermissions].
+const _legacyStoragePermissionMaxSdk = <String, int>{
+  'android.permission.WRITE_EXTERNAL_STORAGE': 29,
+};
+
 const _foregroundPermissionByType = <String, String>{
   'camera': 'android.permission.FOREGROUND_SERVICE_CAMERA',
   'mediaProjection': 'android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION',
@@ -50,7 +60,39 @@ void main(List<String> arguments) {
     return;
   }
 
-  final xml = manifest.readAsStringSync();
+  final report = checkAndroidManifestPolicy(manifest.readAsStringSync());
+  if (report.failures.isNotEmpty) {
+    stderr.writeln('Merged Android manifest failed release policy:');
+    for (final failure in report.failures) {
+      stderr.writeln('- $failure');
+    }
+    exitCode = 1;
+    return;
+  }
+
+  final sortedPermissions = report.permissions.toList()..sort();
+  stdout.writeln(
+    'Merged Android manifest validated: ${sortedPermissions.length} '
+    'permissions, foreground types ${report.foregroundTypes.toList()..sort()}.',
+  );
+}
+
+/// Kết quả kiểm manifest Android đã gộp theo chính sách phát hành.
+final class AndroidManifestPolicyReport {
+  const AndroidManifestPolicyReport({
+    required this.failures,
+    required this.permissions,
+    required this.foregroundTypes,
+  });
+
+  /// Các điều vi phạm (rỗng = đạt).
+  final List<String> failures;
+  final Set<String> permissions;
+  final Set<String> foregroundTypes;
+}
+
+/// Kiểm nội dung [xml] của manifest đã gộp (bản phát hành prod).
+AndroidManifestPolicyReport checkAndroidManifestPolicy(String xml) {
   final failures = <String>[];
   if (!xml.contains('package="com.vpsttt.webtui_chat"')) {
     failures.add('production package must be com.vpsttt.webtui_chat');
@@ -65,15 +107,41 @@ void main(List<String> arguments) {
     failures.add('production application must disable Android backup');
   }
 
-  final permissions = RegExp(
-    r'<uses-permission\b[^>]*android:name="([^"]+)"[^>]*/?>',
+  final permissions = <String>{};
+  final forbidden = <String>{};
+  for (final match in RegExp(
+    r'<uses-permission\b([^>]*)/?>',
     multiLine: true,
-  ).allMatches(xml).map((match) => match.group(1)!).toSet();
-
-  final forbidden = permissions.intersection(_forbiddenPermissions).toList()
-    ..sort();
-  for (final permission in forbidden) {
-    failures.add('forbidden broad permission present: $permission');
+  ).allMatches(xml)) {
+    final attributes = match.group(1)!;
+    final name = RegExp(
+      r'android:name="([^"]+)"',
+    ).firstMatch(attributes)?.group(1);
+    if (name == null) continue;
+    permissions.add(name);
+    if (!_forbiddenPermissions.contains(name)) continue;
+    final legacyMaxSdk = _legacyStoragePermissionMaxSdk[name];
+    final declaredMaxSdk = int.tryParse(
+      RegExp(
+            r'android:maxSdkVersion="(\d+)"',
+          ).firstMatch(attributes)?.group(1) ??
+          '',
+    );
+    if (legacyMaxSdk != null &&
+        declaredMaxSdk != null &&
+        declaredMaxSdk <= legacyMaxSdk) {
+      continue;
+    }
+    forbidden.add(name);
+  }
+  for (final permission in forbidden.toList()..sort()) {
+    final legacyMaxSdk = _legacyStoragePermissionMaxSdk[permission];
+    failures.add(
+      legacyMaxSdk == null
+          ? 'forbidden broad permission present: $permission'
+          : 'forbidden broad permission present: $permission '
+                '(only allowed with android:maxSdkVersion <= $legacyMaxSdk)',
+    );
   }
 
   final foregroundTypes = <String>{};
@@ -122,18 +190,9 @@ void main(List<String> arguments) {
     failures.add('custom call permission must use signature protection');
   }
 
-  if (failures.isNotEmpty) {
-    stderr.writeln('Merged Android manifest failed release policy:');
-    for (final failure in failures) {
-      stderr.writeln('- $failure');
-    }
-    exitCode = 1;
-    return;
-  }
-
-  final sortedPermissions = permissions.toList()..sort();
-  stdout.writeln(
-    'Merged Android manifest validated: ${sortedPermissions.length} '
-    'permissions, foreground types ${foregroundTypes.toList()..sort()}.',
+  return AndroidManifestPolicyReport(
+    failures: failures,
+    permissions: permissions,
+    foregroundTypes: foregroundTypes,
   );
 }

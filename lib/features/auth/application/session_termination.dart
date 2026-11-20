@@ -150,6 +150,7 @@ final class SessionTerminationCoordinator {
   final _ended = StreamController<SessionEndedNotice>.broadcast();
   final _approvalPending = StreamController<void>.broadcast();
   Future<bool>? _inFlight;
+  int _voluntaryLogouts = 0;
   AuthTokenMutationGuard? _inFlightGuard;
 
   Stream<SessionEndedNotice> get endedSessions => _ended.stream;
@@ -163,12 +164,27 @@ final class SessionTerminationCoordinator {
     }
   }
 
+  /// Người dùng tự đăng xuất: trong lúc [body] chạy, tin "phiên bị thu hồi"
+  /// (WS / 401 do chính lần đăng xuất gây ra) không được hiện băng cảnh báo
+  /// như thể phiên hết hạn.
+  Future<T> runVoluntaryLogout<T>(Future<T> Function() body) async {
+    _voluntaryLogouts++;
+    try {
+      return await body();
+    } finally {
+      _voluntaryLogouts--;
+    }
+  }
+
   /// Trả true khi đã xoá phiên đang dùng và đã báo giao diện.
   Future<bool> endSession(
     SessionEndedNotice notice, {
     AuthTokenMutationGuard? guard,
     String? revokedSessionId,
   }) async {
+    if (_voluntaryLogouts > 0) {
+      return false;
+    }
     final AuthTokenMutationGuard? target;
     try {
       target =
