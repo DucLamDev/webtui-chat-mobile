@@ -3,7 +3,7 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
-## 1.60.0 · 20/11/2026
+## 1.61.0 · 20/11/2026
 ### Giao diện
 - Các màn bên trong tab **Thêm** của IDE trên app (Việc cần làm, Ghi chú, Chat thường, Máy chủ, Skill, AI Agent, Giám sát,
   Màn hình app, Báo cáo...) gọn hơn theo IDE web:
@@ -16,7 +16,7 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   - AI Agent: các ô số liệu xếp lưới 3 cột thay vì mỗi ô một hàng (chữ hệ thống cỡ lớn thì 2 cột).
   - Báo cáo: ô "Chưa có báo cáo" thấp lại.
 
-## 1.59.0 · 20/11/2026
+## 1.60.0 · 20/11/2026
 ### Giao diện
 - Tab **IDE** trên app làm lại theo IDE web: màu nhấn tím, chữ nhỏ hơn khoảng 1 điểm để thấy được nhiều nội dung một
   lúc, nút và tiêu đề gọn hơn. Áp cho các tab AI, Tệp, Terminal, Dự án, Thêm, bảng duyệt và các màn bên trong.
@@ -27,7 +27,7 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
 - Ngoài IDE: nút chính trong hộp thoại xác nhận của app ở nền tối đổi từ xanh sáng sang xanh đậm hơn để chữ trắng đủ
   tương phản.
 
-## 1.58.0 · 19/11/2026
+## 1.59.0 · 20/11/2026
 ### Tính năng
 - Tab **Thêm** của IDE trên app có **Màn hình app** (xem app đang chạy thử trên máy IDE, 1 khung mỗi giây, chọn máy và
   nền tối, chỉ xem) và **Studio video** (danh sách video theo trạng thái, xem các cảnh của kịch bản, xem / tải video đã
@@ -37,7 +37,7 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
 - Chọn dự án không làm video trong Studio video thì báo gọn "Không có video" thay vì báo lỗi và mời thử lại; lời lỗi
   chạy app quá dài được cắt ngắn.
 
-## 1.57.0 · 19/11/2026
+## 1.58.0 · 20/11/2026
 ### Tính năng
 - Tab **Thêm** của IDE trên app có thêm các mục (mục nào IDE công ty chưa mở cho điện thoại thì không hiện):
   - **Skill** và **AI Agent**: xem, cài, cập nhật, gỡ; tạo AI Agent mới và chạy nhiệm vụ cho agent;
@@ -53,7 +53,7 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   thì cuộn trong khung, không che nút. Khi đang xem mật khẩu database thì chặn chụp màn hình. Gỡ máy này rồi rời màn
   ngay vẫn xoá ghép trên điện thoại.
 
-## 1.56.0 · 19/11/2026
+## 1.57.0 · 20/11/2026
 ### Tính năng
 - IDE trên app có tab **Thêm** (mục nào IDE công ty chưa mở cho điện thoại thì không hiện):
   - **Việc cần làm**: việc của tôi / theo dự án, lọc theo trạng thái, giao việc (chọn người nhận, hạn theo ngày), đổi
@@ -67,7 +67,7 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   không làm theo chữ trong việc như lệnh; tên việc / ghi chú có ký tự đảo chiều chữ thì hiện rõ; khôi phục ghi chú không
   gửi trùng khi bấm hai lần. Chữ hệ thống cỡ lớn thì tab Thêm hiện thành danh sách một cột.
 
-## 1.55.0 · 19/11/2026
+## 1.56.0 · 20/11/2026
 ### Tính năng
 - IDE trên app có tab **Dự án** (cần IDE công ty mở chức năng này cho điện thoại; trước đó dùng cổng IDE giả):
   - chọn dự án (tìm theo tên, nhóm theo dự án Git / VPS / trên máy / dự án riêng), xem nhánh, tệp đang sửa, lịch sử commit;
@@ -82,7 +82,7 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   đường dẫn dài cắt ở giữa, luôn giữ tên tệp; Kéo về, rút PR, xoá việc nhẹ, quay lại bản cũ đều hỏi lại và không gửi
   trùng khi bấm hai lần; nút Mở PR hỏi trước và chỉ mở liên kết https.
 
-## 1.54.0 · 19/11/2026
+## 1.55.0 · 20/11/2026
 ### Tính năng
 - IDE trên app có tab **Terminal** (cần IDE công ty bật terminal cho điện thoại; trước đó dùng cổng IDE giả):
   - Danh sách terminal đang chạy: tên, dự án, kiểu (Shell / Claude / Codex / SSH), nhãn "Máy khác đang gắn"; nhấn giữ
@@ -96,7 +96,7 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
     (kèm mã), quá số terminal, quản trị đã tắt terminal, không tìm thấy dự án / máy đã chọn.
 - Gói mới: `xterm` (vẽ terminal, MIT) và `wakelock_plus` (giữ màn hình sáng, BSD).
 
-## 1.53.0 · 19/11/2026
+## 1.54.0 · 20/11/2026
 ### Tính năng
 - IDE trên app có tab **Tệp** (cần IDE công ty bật phần Tệp cho điện thoại; trước đó dùng cổng IDE giả):
   - Cây tệp của từng dự án: thư mục xếp trước, chấm màu trạng thái git, hiện / ẩn tệp ẩn, kéo để làm mới.
@@ -112,7 +112,7 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   - App kiểm đường dẫn và tên trước khi gửi (không `..`, không `/` trong tên); IDE vẫn là nơi kiểm cuối.
 - Gói mới: `re_highlight` (tô màu cú pháp, giấy phép MIT).
 
-## 1.52.0 · 19/11/2026
+## 1.53.0 · 20/11/2026
 ### Tính năng
 - IDE trên app làm được việc AI như IDE web (cần IDE công ty bật phần cho điện thoại; trước đó dùng cổng IDE giả):
   - Tab **Phiên AI**: danh sách phiên nhóm theo dự án, nhãn đang làm / chờ duyệt / kế hoạch chờ duyệt / xong / kẹt;
@@ -135,7 +135,7 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
 - Gói mới: `markdown` (đọc Markdown) và `speech_to_text` (nhập giọng nói), giấy phép BSD. Android khai báo thêm dịch vụ
   nhận dạng giọng nói (dùng quyền micro sẵn có).
 
-## 1.51.0 · 19/11/2026
+## 1.52.0 · 20/11/2026
 ### Tính năng
 - Bước đầu đưa IDE công ty lên app (nền móng, chưa dùng được với IDE thật): khi máy chủ chat báo có IDE
   (`capabilities.ide`, chỉ máy chủ nội bộ VPSTTT) thì mục **Ứng dụng** hiện ô **IDE**. Mỗi lần mở mục IDE phải xác thực
@@ -150,6 +150,49 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
 - Khoá thiết bị IDE chỉ nằm trên máy này (iPhone không sao lưu / chuyển sang máy khác). Mỗi lần gắn lại tạo khoá xác
   nhận mới; gắn hỏng thì giữ nguyên khoá cũ. IDE cần Android 9 trở lên. Rời app quá 5 phút thì phải xác thực lại trước khi
   nối lại IDE (đo bằng đồng hồ của máy tính cả lúc ngủ, chỉnh giờ hệ thống không lách được).
+
+## 1.51.0 · 19/11/2026
+### Tính năng
+- Thiết lập ứng dụng có nhóm mới "Dung lượng và tải tự động":
+  - "Dung lượng lưu trên máy": xem ảnh, video, tin thoại và tệp đã tải đang chiếm bao nhiêu. "Xóa bộ nhớ đệm" xoá hết
+    các tệp đó (có hỏi lại; không đăng xuất, không mất tin nhắn), lần xem sau tải lại từ máy chủ.
+  - "Tự tải ảnh khi dùng 4G" (mặc định bật): tắt thì khi dùng dữ liệu di động, ảnh chưa có trên máy hiện ô "Chạm để tải
+    ảnh"; ảnh đã tải vẫn hiện ngay.
+- Thu hồi / xoá tin nhắn (cả tin tự xoá khi hết hạn): ảnh, video, tin thoại và tệp của tin đó đã lưu trên máy bị xoá
+  luôn, không còn nằm lại tới 7 ngày.
+- Android: video từ 30 MB trở xuống vừa xem (phát dần từ máy chủ) được tải ngầm vào máy khi dùng Wi-Fi (hoặc khi bật tự
+  tải trên 4G); lần xem sau phát thẳng từ máy, không tải lại.
+- Mở cuộc trò chuyện dùng luôn danh sách tệp máy chủ gửi kèm từng tin (khi máy chủ đã cập nhật bản gửi kèm tệp), không
+  phải hỏi riêng từng tin có ảnh / tệp như trước. Máy chủ cũ vẫn chạy như trước.
+- Cuộc gọi đỡ hỏi máy chủ: màn gọi hỏi 5 giây một lần thay vì mỗi giây. Bên kia nhận máy thì màn chuyển ngay (qua
+  realtime) và đồng hồ thời lượng tự chạy trên máy; nghe ở máy khác của mình thì màn tự đóng; mất kết nối rồi nối lại
+  thì hỏi lại ngay. Hộp "Cuộc gọi đến" hỏi máy chủ 2 giây một lần (đếm ngược và rung vẫn từng giây).
+
+## 1.50.4 · 19/11/2026
+### Sửa lỗi
+Giao diện app đợt 1 (theo bản rà soát giao diện 19/11):
+- Hồ sơ cá nhân: mở màn Hồ sơ khi hồ sơ đã tải sẵn thì các ô trống trơn (bấm Lưu dễ ghi đè thành rỗng): nay luôn điền
+  sẵn; nút Lưu khoá tới khi hồ sơ tải xong.
+- Thanh tin ghim: chỉ thấy tin nằm trong trang đang tải, tin người khác ghim / tin cũ không hiện: nay lấy đúng danh sách
+  ghim của máy chủ, cập nhật ngay khi có người ghim / bỏ ghim.
+- Danh sách Tin nhắn: dòng phụ của nhóm là mô tả nhóm thay vì tin mới nhất: nay hiện "Tên: nội dung" như Zalo (tin của
+  mình "Bạn: …", tin chỉ có tệp "Tên: đã gửi một tệp", tin bí mật "Tin nhắn bí mật"), đổi ngay khi có tin mới. Cần máy
+  chủ bản mới (trả tin mới nhất + tên người gửi cho mọi nhóm); máy chủ cũ vẫn hiện mô tả nhóm như trước.
+- Giờ tin nhắn chỉ hiện khi chạm vào tin: nay giờ hiện dưới tin cuối của mỗi cụm tin; chat 1-1 có "Đã gửi" dưới tin
+  cuối của mình và "Đã xem" dưới tin người kia đã xem tới; nhóm chỉ có giờ.
+- Đăng xuất: hỏi lại trước khi đăng xuất; tự đăng xuất không còn hiện băng "Phiên đăng nhập đã kết thúc" ở màn đăng nhập.
+- Phê duyệt: bấm Duyệt thì hỏi lại; Từ chối bắt buộc nhập lý do; nút đang gửi hiện vòng quay, không bấm hai lần được.
+- Tạo / sửa cuộc họp: thoát khi còn thay đổi chưa lưu thì hỏi "Bỏ thay đổi?"; chưa sửa gì thì thoát thẳng (vẫn vuốt lùi
+  được).
+- Đăng nhập: chữ "Ghi nhớ đăng nhập" không còn xuống 3 dòng, bấm cả dòng để tích; gợi ý ô tài khoản đổi sang ví dụ chung
+  `ban@congty.vn`.
+
+## 1.50.3 · 19/11/2026
+### Sửa lỗi
+- Không ra được bản Android trên CH Play / tệp APK từ bản 1.50.0: bước kiểm quyền của bản phát hành chặn hẳn quyền ghi
+  bộ nhớ, trong khi app cần quyền này (chỉ trên Android 9–10) để "Lưu ảnh / video về máy". Nay quyền này được chấp nhận
+  khi giới hạn tới Android 10 như hướng dẫn của Google; khai không giới hạn, khai cho Android mới hơn, quyền đọc bộ nhớ
+  / thư viện ảnh vẫn bị chặn như cũ. Bản iPhone không bị ảnh hưởng.
 
 ## 1.50.2 · 18/11/2026
 ### Sửa lỗi
