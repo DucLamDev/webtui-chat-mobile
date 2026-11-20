@@ -201,7 +201,7 @@ class _TaskListView extends ConsumerWidget {
                 );
                 if (saved) await reload();
               },
-              icon: const Icon(Icons.add_rounded),
+              icon: const Icon(Icons.add_rounded, size: 18),
               label: Text(tr('Thêm việc', 'Add task')),
             ),
           ),

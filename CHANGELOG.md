@@ -3,6 +3,19 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.60.0 · 20/11/2026
+### Giao diện
+- Các màn bên trong tab **Thêm** của IDE trên app (Việc cần làm, Ghi chú, Chat thường, Máy chủ, Skill, AI Agent, Giám sát,
+  Màn hình app, Báo cáo...) gọn hơn theo IDE web:
+  - Nút nổi có chữ nhỏ lại (cao 44 thay vì 56): "Thêm việc", "Ghi chú mới", "Chat mới", "Thêm máy chủ",
+    và cả "Phiên mới" (tab AI), "Terminal mới" (tab Terminal).
+  - Chip chọn (khoảng thời gian, chỉ số, loại máy) bỏ dấu tích và viền; mục đang chọn nền tím nhạt chữ tím đậm.
+    Áp cho mọi chip chọn trong IDE (cả bảng cài đặt phiên AI, Triển khai, Hàng chờ gộp). Giám sát tách khoảng thời gian
+    và chỉ số thành hai hàng.
+  - Nút trong thẻ (Cài, Cập nhật, Gỡ, Kiểm tra, Sửa, Thu hồi) thấp hơn, vùng bấm vẫn đủ lớn; nút gỡ / xoá viền đỏ nhạt.
+  - AI Agent: các ô số liệu xếp lưới 3 cột thay vì mỗi ô một hàng (chữ hệ thống cỡ lớn thì 2 cột).
+  - Báo cáo: ô "Chưa có báo cáo" thấp lại.
+
 ## 1.59.0 · 20/11/2026
 ### Giao diện
 - Tab **IDE** trên app làm lại theo IDE web: màu nhấn tím, chữ nhỏ hơn khoảng 1 điểm để thấy được nhiều nội dung một

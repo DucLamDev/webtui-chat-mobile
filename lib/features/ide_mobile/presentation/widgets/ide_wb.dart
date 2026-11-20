@@ -311,12 +311,24 @@ ThemeData ideWbTheme(ThemeData base, {IdeWbPalette? palette}) {
         textStyle: btnText,
       ).merge(base.filledButtonTheme.style),
     ),
+    // Nút nổi có chữ ("Thêm việc / Ghi chú mới...") gọn như nút chính IDE web:
+    // cao 44 (vẫn đủ vùng bấm), chữ 13,5; biểu tượng 18 đặt tại chỗ dùng (để
+    // nút tròn chỉ có biểu tượng giữ cỡ cũ).
     floatingActionButtonTheme: base.floatingActionButtonTheme.copyWith(
       backgroundColor: p.accent,
       foregroundColor: Colors.white,
+      elevation: 2,
+      highlightElevation: 3,
+      // Tối thiểu (không cố định) để chữ hệ thống rất to vẫn không bị cắt.
+      extendedSizeConstraints: const BoxConstraints(
+        minHeight: 44,
+        minWidth: 44,
+      ),
+      extendedPadding: const EdgeInsetsDirectional.only(start: 14, end: 16),
+      extendedIconLabelSpacing: 6,
       extendedTextStyle: ide(
         IdeType.bodyMedium,
-      ).copyWith(fontSize: 14, fontWeight: FontWeight.w600),
+      ).copyWith(fontSize: 13.5, fontWeight: FontWeight.w600),
     ),
     inputDecorationTheme: base.inputDecorationTheme.copyWith(
       fillColor: p.chip,
@@ -349,11 +361,21 @@ ThemeData ideWbTheme(ThemeData base, {IdeWbPalette? palette}) {
       indicatorColor: p.accentInk,
       dividerColor: p.border,
     ),
+    // Chip chọn (khoảng thời gian, loại máy...) như tab lọc IDE web: không
+    // dấu tích, không viền; đang chọn nền tím nhạt chữ tím đậm.
     chipTheme: base.chipTheme.copyWith(
       backgroundColor: p.chip,
       selectedColor: p.accentSoft,
-      side: BorderSide(color: p.border),
-      labelStyle: ide(IdeType.bodySmall).copyWith(color: p.text),
+      showCheckmark: false,
+      side: BorderSide.none,
+      shape: const StadiumBorder(),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      labelStyle: ide(IdeType.bodySmall).copyWith(
+        color: WidgetStateColor.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? p.accentInk : p.text,
+        ),
+        fontWeight: FontWeight.w600,
+      ),
     ),
     bottomSheetTheme: base.bottomSheetTheme.copyWith(
       backgroundColor: p.bg,

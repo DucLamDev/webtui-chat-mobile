@@ -74,7 +74,7 @@ class _IdeServersScreenState extends ConsumerState<IdeServersScreen> {
           ? FloatingActionButton.extended(
               key: const Key('ide_servers_add'),
               onPressed: () => _openSheet(null),
-              icon: const Icon(Icons.add),
+              icon: const Icon(Icons.add, size: 18),
               label: Text(tr('Thêm máy chủ', 'Add server')),
             )
           : null,

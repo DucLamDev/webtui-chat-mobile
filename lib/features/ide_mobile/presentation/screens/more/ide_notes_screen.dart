@@ -219,7 +219,7 @@ class _NotesBodyState extends ConsumerState<_NotesBody> {
             child: FloatingActionButton.extended(
               key: const Key('ide_note_new'),
               onPressed: () => _create(context),
-              icon: const Icon(Icons.add_rounded),
+              icon: const Icon(Icons.add_rounded, size: 18),
               label: Text(tr('Ghi chú mới', 'New note')),
             ),
           ),

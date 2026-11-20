@@ -143,9 +143,7 @@ class _AgentsView extends StatelessWidget {
                 WebTuiSpacing.xxl,
               ),
               children: [
-                Wrap(
-                  spacing: WebTuiSpacing.sm,
-                  runSpacing: WebTuiSpacing.sm,
+                ToolStatGrid(
                   children: [
                     ToolStat(tr('Agent', 'Agents'), '${o.totals.agents}'),
                     ToolStat(tr('Lần chạy', 'Runs'), '${o.totals.runs}'),

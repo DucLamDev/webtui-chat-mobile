@@ -224,7 +224,7 @@ class IdeTerminalTab extends ConsumerWidget {
           ? FloatingActionButton.extended(
               key: const Key('term_new'),
               onPressed: () => showIdeTermNewSheet(context, ref),
-              icon: const Icon(Icons.add_rounded),
+              icon: const Icon(Icons.add_rounded, size: 18),
               label: Text(tr('Terminal mới', 'New terminal')),
             )
           : null,
