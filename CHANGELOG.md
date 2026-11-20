@@ -3,6 +3,20 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.55.0 · 20/11/2026
+### Tính năng
+- IDE trên app có tab **Terminal** (cần IDE công ty bật terminal cho điện thoại; trước đó dùng cổng IDE giả):
+  - Danh sách terminal đang chạy: tên, dự án, kiểu (Shell / Claude / Codex / SSH), nhãn "Máy khác đang gắn"; nhấn giữ
+    để kết thúc phiên (có hỏi lại). Nút **Terminal mới**: chọn dự án và kiểu, hoặc máy chủ SSH được cấp / máy của tôi.
+  - Mở hoặc gắn lại terminal luôn hỏi vân tay / khuôn mặt trước; huỷ thì không mở.
+  - Màn terminal đầy đủ màu, chụm 2 ngón đổi cỡ chữ, tự báo cỡ màn cho máy tính, giữ màn hình sáng khi đang mở.
+    Hàng phím phụ: Esc, Tab, Ctrl, Alt, mũi tên, `|` `~` `/` `-`, Home, End, PgUp, PgDn. Sao chép chữ đã chọn; dán
+    nhiều dòng (kể cả có dấu Enter ẩn) thì hỏi lại, chữ dán được bỏ ký tự điều khiển, không bị Ctrl / Alt đang giữ
+    làm sai.
+  - Đóng màn chỉ ngắt kết nối, phiên trên máy tính vẫn chạy. Báo rõ: mất kết nối (nút Nối lại), phiên đã kết thúc
+    (kèm mã), quá số terminal, quản trị đã tắt terminal, không tìm thấy dự án / máy đã chọn.
+- Gói mới: `xterm` (vẽ terminal, MIT) và `wakelock_plus` (giữ màn hình sáng, BSD).
+
 ## 1.54.0 · 20/11/2026
 ### Tính năng
 - IDE trên app có tab **Tệp** (cần IDE công ty bật phần Tệp cho điện thoại; trước đó dùng cổng IDE giả):
