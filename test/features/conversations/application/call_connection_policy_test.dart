@@ -7,6 +7,7 @@ import 'package:webtui_chat/core/notifications/native_incoming_call_service.dart
 import 'package:webtui_chat/core/result/result.dart';
 import 'package:webtui_chat/features/conversations/application/call_connection_policy.dart';
 import 'package:webtui_chat/features/conversations/domain/entities/call_session.dart';
+import 'package:webtui_chat/features/conversations/domain/entities/conversation_realtime_event.dart';
 
 CallSession _call(CallStatus status) {
   final now = DateTime.utc(2026, 11, 18);
@@ -396,5 +397,284 @@ void main() {
           CallRecoveryPolicy.iceServersFetchTimeout,
       lessThan(CallRecoveryPolicy.giveUpAfter(incoming: false)),
     );
+  });
+
+  group('CallStatePolling', () {
+    test(
+      'màn gọi hỏi máy chủ 5 giây một lần, vẫn trong cửa sổ bận 90 giây',
+      () {
+        expect(
+          CallStatePolling.callScreenSyncInterval,
+          const Duration(seconds: 5),
+        );
+        // Máy chủ ghi `last_active_at` tối đa 10 giây một lần, coi còn bận
+        // trong 90 giây: nhịp hỏi phải dày hơn nhiều.
+        expect(
+          CallStatePolling.callScreenSyncInterval,
+          lessThanOrEqualTo(const Duration(seconds: 10)),
+        );
+        expect(
+          CallStatePolling.durationTickInterval,
+          const Duration(seconds: 1),
+        );
+      },
+    );
+
+    test('hộp "Cuộc gọi đến" hỏi máy chủ mỗi 2 nhịp, lượt đầu sau 1 giây', () {
+      final checked = [
+        for (var tick = 1; tick <= 30; tick++)
+          if (CallStatePolling.incomingDialogShouldCheck(tick)) tick,
+      ];
+      expect(checked.first, 1);
+      expect(checked.take(4), [1, 3, 5, 7]);
+      expect(checked, hasLength(15));
+      expect(CallStatePolling.incomingDialogShouldCheck(0), isFalse);
+    });
+  });
+
+  group('callElapsed', () {
+    final start = DateTime.utc(2026, 11, 19, 8);
+
+    test('chưa bắt đầu thì 0', () {
+      expect(callElapsed(startedAt: null, now: start), Duration.zero);
+    });
+
+    test('tính theo giờ bắt đầu, chạy mỗi giây không cần hỏi máy chủ', () {
+      expect(
+        callElapsed(
+          startedAt: start,
+          now: start.add(const Duration(seconds: 1)),
+        ),
+        const Duration(seconds: 1),
+      );
+      expect(
+        callElapsed(
+          startedAt: start,
+          now: start.add(const Duration(minutes: 2, seconds: 7)),
+        ),
+        const Duration(minutes: 2, seconds: 7),
+      );
+    });
+
+    test('giờ máy lệch (bắt đầu "trong tương lai") thì 0, không âm', () {
+      expect(
+        callElapsed(
+          startedAt: start,
+          now: start.subtract(const Duration(seconds: 3)),
+        ),
+        Duration.zero,
+      );
+    });
+
+    test('giờ địa phương và UTC cho cùng kết quả', () {
+      expect(
+        callElapsed(
+          startedAt: start.toLocal(),
+          now: start.add(const Duration(seconds: 42)),
+        ),
+        const Duration(seconds: 42),
+      );
+    });
+  });
+
+  group('reconcileCallStatus', () {
+    test('lượt hỏi cũ báo "ringing" không kéo lùi trạng thái đã nhận', () {
+      expect(
+        reconcileCallStatus(
+          local: CallStatus.accepted,
+          server: CallStatus.ringing,
+        ),
+        CallStatus.accepted,
+      );
+    });
+
+    test('các trường hợp khác theo máy chủ', () {
+      expect(
+        reconcileCallStatus(
+          local: CallStatus.ringing,
+          server: CallStatus.accepted,
+        ),
+        CallStatus.accepted,
+      );
+      expect(
+        reconcileCallStatus(
+          local: CallStatus.ringing,
+          server: CallStatus.ringing,
+        ),
+        CallStatus.ringing,
+      );
+      expect(
+        reconcileCallStatus(
+          local: CallStatus.accepted,
+          server: CallStatus.ended,
+        ),
+        CallStatus.ended,
+      );
+    });
+  });
+
+  group('callRealtimeLifecycleAction', () {
+    CallRealtimeLifecycleAction action(
+      ConversationRealtimeEventType type, {
+      String? eventCallId = 'call-1',
+      bool incoming = false,
+      bool fromCurrentUser = false,
+      String? answeredDeviceId,
+      String? localDeviceId = 'device-a',
+    }) {
+      return callRealtimeLifecycleAction(
+        type: type,
+        eventCallId: eventCallId,
+        callId: 'call-1',
+        incoming: incoming,
+        fromCurrentUser: fromCurrentUser,
+        answeredDeviceId: answeredDeviceId,
+        localDeviceId: localDeviceId,
+      );
+    }
+
+    test(
+      'realtime nối lại: hỏi máy chủ ngay (sự kiện không có mã cuộc gọi)',
+      () {
+        expect(
+          action(ConversationRealtimeEventType.reconnected, eventCallId: null),
+          CallRealtimeLifecycleAction.resync,
+        );
+        expect(
+          action(ConversationRealtimeEventType.reconnected, incoming: true),
+          CallRealtimeLifecycleAction.resync,
+        );
+      },
+    );
+
+    test('gọi đi: bên kia nhận máy thì chuyển trạng thái ngay', () {
+      expect(
+        action(
+          ConversationRealtimeEventType.callAccepted,
+          answeredDeviceId: 'device-callee',
+        ),
+        CallRealtimeLifecycleAction.accepted,
+      );
+    });
+
+    test('gọi đi: bỏ sự kiện nhận máy của cuộc gọi khác / của chính mình', () {
+      expect(
+        action(
+          ConversationRealtimeEventType.callAccepted,
+          eventCallId: 'call-2',
+        ),
+        CallRealtimeLifecycleAction.none,
+      );
+      expect(
+        action(
+          ConversationRealtimeEventType.callAccepted,
+          fromCurrentUser: true,
+        ),
+        CallRealtimeLifecycleAction.none,
+      );
+    });
+
+    test(
+      'gọi đến: đã nghe ở máy khác thì đóng màn (kể cả sự kiện của mình)',
+      () {
+        for (final type in [
+          ConversationRealtimeEventType.callAnsweredElsewhere,
+          ConversationRealtimeEventType.callAccepted,
+        ]) {
+          expect(
+            action(
+              type,
+              incoming: true,
+              fromCurrentUser: true,
+              answeredDeviceId: 'device-b',
+            ),
+            CallRealtimeLifecycleAction.answeredElsewhere,
+            reason: '$type',
+          );
+        }
+      },
+    );
+
+    test('gọi đến: chính máy này nhận / thiếu mã máy thì không đóng màn', () {
+      expect(
+        action(
+          ConversationRealtimeEventType.callAnsweredElsewhere,
+          incoming: true,
+          answeredDeviceId: 'device-a',
+        ),
+        CallRealtimeLifecycleAction.none,
+      );
+      expect(
+        action(
+          ConversationRealtimeEventType.callAccepted,
+          incoming: true,
+          fromCurrentUser: true,
+          answeredDeviceId: 'device-a',
+        ),
+        CallRealtimeLifecycleAction.none,
+      );
+      expect(
+        action(
+          ConversationRealtimeEventType.callAnsweredElsewhere,
+          incoming: true,
+        ),
+        CallRealtimeLifecycleAction.none,
+      );
+      expect(
+        action(
+          ConversationRealtimeEventType.callAnsweredElsewhere,
+          incoming: true,
+          answeredDeviceId: 'device-b',
+          localDeviceId: null,
+        ),
+        CallRealtimeLifecycleAction.none,
+      );
+    });
+
+    test(
+      'gọi đến: không đổi trạng thái theo CallAccepted (máy này tự nhận)',
+      () {
+        expect(
+          action(
+            ConversationRealtimeEventType.callAccepted,
+            incoming: true,
+            answeredDeviceId: null,
+          ),
+          CallRealtimeLifecycleAction.none,
+        );
+      },
+    );
+
+    test('đã nghe ở máy khác của cuộc gọi khác: bỏ qua', () {
+      expect(
+        action(
+          ConversationRealtimeEventType.callAnsweredElsewhere,
+          eventCallId: 'call-2',
+          incoming: true,
+          answeredDeviceId: 'device-b',
+        ),
+        CallRealtimeLifecycleAction.none,
+      );
+    });
+
+    test('gọi đi: CallAnsweredElsewhere không đóng màn', () {
+      expect(
+        action(
+          ConversationRealtimeEventType.callAnsweredElsewhere,
+          answeredDeviceId: 'device-b',
+        ),
+        CallRealtimeLifecycleAction.none,
+      );
+    });
+
+    test('tín hiệu WebRTC / sự kiện kết thúc: không có việc riêng', () {
+      for (final type in [
+        ConversationRealtimeEventType.callOffer,
+        ConversationRealtimeEventType.callEnded,
+        ConversationRealtimeEventType.callCancelled,
+      ]) {
+        expect(action(type), CallRealtimeLifecycleAction.none, reason: '$type');
+      }
+    });
   });
 }

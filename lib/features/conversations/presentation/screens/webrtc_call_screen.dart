@@ -63,7 +63,13 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   RTCPeerConnection? _peer;
   MediaStream? _localStream;
   StreamSubscription<ConversationRealtimeEvent>? _signals;
+
+  /// Hỏi máy chủ trạng thái cuộc gọi định kỳ (bắt sự kiện realtime bị lỡ, làm
+  /// nhịp "còn trong cuộc gọi" cho máy chủ).
   Timer? _stateTimer;
+
+  /// Đồng hồ thời lượng chạy trên máy mỗi giây, không gọi mạng.
+  Timer? _durationTimer;
 
   /// Luồng video gửi đi (cuộc gọi video), để đặt trần băng thông / khung hình.
   RTCRtpSender? _videoSender;
@@ -216,16 +222,43 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     });
     unawaited(_initialize());
     _stateTimer = Timer.periodic(
-      const Duration(seconds: 1),
+      CallStatePolling.callScreenSyncInterval,
       (_) => unawaited(_syncCall()),
     );
+    _durationTimer = Timer.periodic(
+      CallStatePolling.durationTickInterval,
+      (_) => _tickDuration(),
+    );
+  }
+
+  /// Dừng hỏi máy chủ định kỳ và đồng hồ thời lượng (rời màn / lỗi).
+  void _stopCallTimers() {
+    _stateTimer?.cancel();
+    _durationTimer?.cancel();
+  }
+
+  /// Cập nhật đồng hồ thời lượng từ [_startedAt] (chỉ khi đã nhận máy).
+  void _tickDuration() {
+    final startedAt = _startedAt;
+    if (!mounted ||
+        _leaving ||
+        _status != CallStatus.accepted ||
+        startedAt == null) {
+      return;
+    }
+    final elapsed = callElapsed(
+      startedAt: startedAt,
+      now: DateTime.now().toUtc(),
+    );
+    if (elapsed.inSeconds == _elapsed.inSeconds) return;
+    setState(() => _elapsed = elapsed);
   }
 
   @override
   void dispose() {
     _activeCalls.end(widget.callId);
     unawaited(_ringback.stop());
-    _stateTimer?.cancel();
+    _stopCallTimers();
     _disconnectTimer?.cancel();
     _connectTimer?.cancel();
     _videoOfferTimer?.cancel();
@@ -674,6 +707,29 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
   }
 
   void _handleSignal(ConversationRealtimeEvent event) {
+    // Nối lại / nhận máy / đã nghe ở máy khác: xử lý ngay, không chờ lượt hỏi
+    // máy chủ. Phải xét trước bộ lọc "sự kiện của chính mình" bên dưới vì
+    // `CallAnsweredElsewhere` do chính người dùng (ở máy khác) tạo ra.
+    switch (callRealtimeLifecycleAction(
+      type: event.type,
+      eventCallId: event.callId,
+      callId: widget.callId,
+      incoming: widget.incoming,
+      fromCurrentUser: _currentUserId != null && event.userId == _currentUserId,
+      answeredDeviceId: event.answeredDeviceId,
+      localDeviceId: _localDeviceId,
+    )) {
+      case CallRealtimeLifecycleAction.resync:
+        unawaited(_syncCall());
+        return;
+      case CallRealtimeLifecycleAction.answeredElsewhere:
+        unawaited(_leaveAnsweredElsewhere());
+        return;
+      case CallRealtimeLifecycleAction.accepted:
+        _applyRealtimeAccepted(event.timestamp);
+      case CallRealtimeLifecycleAction.none:
+        break;
+    }
     if (event.callId != widget.callId ||
         (_currentUserId != null && event.userId == _currentUserId)) {
       return;
@@ -1361,21 +1417,38 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
       await _leaveAnsweredElsewhere();
       return;
     }
-    final startedAt = call.status == CallStatus.accepted
+    final status = reconcileCallStatus(local: _status, server: call.status);
+    final startedAt = status == CallStatus.accepted
         ? call.startedAt ?? _startedAt ?? DateTime.now().toUtc()
         : null;
-    final elapsed = startedAt == null
-        ? Duration.zero
-        : DateTime.now().toUtc().difference(startedAt);
-    if (call.status != CallStatus.ringing) {
+    final elapsed = callElapsed(
+      startedAt: startedAt,
+      now: DateTime.now().toUtc(),
+    );
+    if (status != CallStatus.ringing) {
       unawaited(_ringback.stop());
     }
     // Chiều gọi đi: bên kia đã nhận thì bắt đầu đếm thời hạn có media.
-    if (call.status == CallStatus.accepted) _startConnectTimer();
+    if (status == CallStatus.accepted) _startConnectTimer();
     setState(() {
-      _status = call.status;
+      _status = status;
       _startedAt = startedAt;
-      _elapsed = elapsed.isNegative ? Duration.zero : elapsed;
+      _elapsed = elapsed;
+    });
+  }
+
+  /// Realtime báo bên kia đã nhận máy (chiều gọi đi): chuyển trạng thái ngay,
+  /// không chờ lượt hỏi máy chủ. Giờ bắt đầu lấy theo giờ sự kiện (không có
+  /// thì giờ máy); lượt hỏi sau chỉnh lại theo `started_at` của máy chủ.
+  void _applyRealtimeAccepted(DateTime? acceptedAt) {
+    if (!mounted || _leaving || _fatalErrorHandled) return;
+    unawaited(_ringback.stop());
+    _startConnectTimer();
+    final now = DateTime.now().toUtc();
+    setState(() {
+      _status = CallStatus.accepted;
+      _startedAt ??= acceptedAt?.toUtc() ?? now;
+      _elapsed = callElapsed(startedAt: _startedAt, now: now);
     });
   }
 
@@ -1387,7 +1460,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     _leaving = true;
     unawaited(_ringback.stop());
     _playEndCue(callEndCue(incoming: widget.incoming, status: status));
-    _stateTimer?.cancel();
+    _stopCallTimers();
     _disconnectTimer?.cancel();
     _videoOfferTimer?.cancel();
     if (message != null) {
@@ -1405,7 +1478,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     if (_leaving) return;
     _leaving = true;
     unawaited(_ringback.stop());
-    _stateTimer?.cancel();
+    _stopCallTimers();
     _disconnectTimer?.cancel();
     await NativeIncomingCallService.endCall(widget.callId, remoteEnded: true);
     await _notifyLeave();
@@ -1432,7 +1505,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     if (_leaving) return;
     _leaving = true;
     unawaited(_ringback.stop());
-    _stateTimer?.cancel();
+    _stopCallTimers();
     _disconnectTimer?.cancel();
     _connectTimer?.cancel();
     if (mounted) setState(() => _error = message);
@@ -1449,7 +1522,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     _playEndCue(
       callEndCue(incoming: widget.incoming, status: null, localHangup: true),
     );
-    _stateTimer?.cancel();
+    _stopCallTimers();
     _disconnectTimer?.cancel();
     await NativeIncomingCallService.endCall(widget.callId);
     try {
@@ -1513,7 +1586,7 @@ class _WebRtcCallScreenState extends ConsumerState<WebRtcCallScreen> {
     }
     _fatalErrorHandled = true;
     unawaited(_ringback.stop());
-    _stateTimer?.cancel();
+    _stopCallTimers();
     _disconnectTimer?.cancel();
     if (mounted) {
       setState(() => _error = _friendlyError(error));

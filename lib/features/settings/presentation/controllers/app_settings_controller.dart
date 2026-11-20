@@ -2,7 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
+import '../../../../core/storage/local_media_cache_usage.dart';
 import '../../../../l10n/app_strings.dart';
+import '../../../conversations/presentation/controllers/media_cache_providers.dart';
 import '../../../notifications/application/use_cases/notification_use_cases.dart';
 import '../../../notifications/domain/entities/mobile_notification.dart';
 import '../../application/use_cases/app_settings_use_cases.dart';
@@ -30,6 +32,13 @@ final appSettingsControllerProvider =
           checkMobileReleasePolicyUseCase: ref.watch(
             checkMobileReleasePolicyUseCaseProvider,
           ),
+          mediaCacheUsage: ref.watch(localMediaCacheUsageProvider),
+          // Widget media đọc công tắc tự tải ảnh qua provider nhỏ, không kéo
+          // cả bộ điều khiển này (gọi sau khi đọc / lưu, không lúc khởi tạo).
+          onSettingsChanged: (settings) {
+            ref.read(mediaAutoDownloadOnCellularProvider.notifier).state =
+                settings.autoDownloadMediaOnCellular;
+          },
         )
         ..load()
         ..checkReleasePolicy();
@@ -43,6 +52,10 @@ final class AppSettingsState {
     this.mobileReleasePolicy,
     this.errorMessage,
     this.releaseErrorMessage,
+    this.mediaCacheBytes,
+    this.isMeasuringMediaCache = false,
+    this.isClearingMediaCache = false,
+    this.mediaCacheErrorMessage,
   });
 
   final AppSettings settings;
@@ -51,6 +64,14 @@ final class AppSettingsState {
   final MobileReleasePolicy? mobileReleasePolicy;
   final String? errorMessage;
   final String? releaseErrorMessage;
+
+  /// Dung lượng kho tệp trên máy của tài khoản (byte); `null` khi chưa tính.
+  final int? mediaCacheBytes;
+  final bool isMeasuringMediaCache;
+  final bool isClearingMediaCache;
+
+  /// Lỗi khi tính / xoá kho tệp trên máy.
+  final String? mediaCacheErrorMessage;
 
   AppSettingsState copyWith({
     AppSettings? settings,
@@ -61,6 +82,11 @@ final class AppSettingsState {
     String? releaseErrorMessage,
     bool clearError = false,
     bool clearReleaseError = false,
+    int? mediaCacheBytes,
+    bool? isMeasuringMediaCache,
+    bool? isClearingMediaCache,
+    String? mediaCacheErrorMessage,
+    bool clearMediaCacheError = false,
   }) {
     return AppSettingsState(
       settings: settings ?? this.settings,
@@ -71,6 +97,13 @@ final class AppSettingsState {
       releaseErrorMessage: clearReleaseError
           ? null
           : releaseErrorMessage ?? this.releaseErrorMessage,
+      mediaCacheBytes: mediaCacheBytes ?? this.mediaCacheBytes,
+      isMeasuringMediaCache:
+          isMeasuringMediaCache ?? this.isMeasuringMediaCache,
+      isClearingMediaCache: isClearingMediaCache ?? this.isClearingMediaCache,
+      mediaCacheErrorMessage: clearMediaCacheError
+          ? null
+          : mediaCacheErrorMessage ?? this.mediaCacheErrorMessage,
     );
   }
 }
@@ -83,7 +116,10 @@ final class AppSettingsController extends StateNotifier<AppSettingsState> {
     required this.saveNotificationPreferenceUseCase,
     required this.clearWorkspaceCacheUseCase,
     required this.checkMobileReleasePolicyUseCase,
-  }) : super(const AppSettingsState());
+    this.mediaCacheUsage,
+    void Function(AppSettings settings)? onSettingsChanged,
+  }) : _onSettingsChanged = onSettingsChanged,
+       super(const AppSettingsState());
 
   final LoadAppSettingsUseCase loadUseCase;
   final SaveAppSettingsUseCase saveUseCase;
@@ -91,13 +127,21 @@ final class AppSettingsController extends StateNotifier<AppSettingsState> {
   final SaveNotificationPreferenceUseCase saveNotificationPreferenceUseCase;
   final ClearWorkspaceCacheUseCase clearWorkspaceCacheUseCase;
   final CheckMobileReleasePolicyUseCase checkMobileReleasePolicyUseCase;
+
+  /// Kho tệp trên máy của tài khoản (null: không hiện / không xoá được).
+  final LocalMediaCacheUsage? mediaCacheUsage;
+  final void Function(AppSettings settings)? _onSettingsChanged;
   String? _loadedPreferenceWorkspaceId;
+
+  /// Lượt tính dung lượng mới nhất: kết quả của lượt cũ (chậm hơn) bị bỏ.
+  int _mediaCacheMeasureGeneration = 0;
 
   Future<void> load() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final settings = await loadUseCase.execute();
       state = state.copyWith(settings: settings, isLoading: false);
+      _onSettingsChanged?.call(settings);
     } on Object {
       state = state.copyWith(
         isLoading: false,
@@ -131,6 +175,7 @@ final class AppSettingsController extends StateNotifier<AppSettingsState> {
 
   Future<void> update(AppSettings settings, {String? workspaceId}) async {
     state = state.copyWith(settings: settings, clearError: true);
+    _onSettingsChanged?.call(settings);
     try {
       await saveUseCase.execute(settings);
       final normalizedWorkspaceId = workspaceId?.trim();
@@ -167,6 +212,65 @@ final class AppSettingsController extends StateNotifier<AppSettingsState> {
           'Could not clear the cache right now.',
         ),
       );
+    }
+  }
+
+  /// Tính dung lượng kho tệp trên máy của tài khoản hiện tại.
+  Future<void> measureMediaCache() async {
+    final usage = mediaCacheUsage;
+    if (usage == null) return;
+    final generation = ++_mediaCacheMeasureGeneration;
+    state = state.copyWith(
+      isMeasuringMediaCache: true,
+      clearMediaCacheError: true,
+    );
+    try {
+      final bytes = await usage.usedBytes();
+      if (!mounted || generation != _mediaCacheMeasureGeneration) return;
+      state = state.copyWith(
+        mediaCacheBytes: bytes,
+        isMeasuringMediaCache: false,
+      );
+    } on Object {
+      if (!mounted || generation != _mediaCacheMeasureGeneration) return;
+      state = state.copyWith(
+        isMeasuringMediaCache: false,
+        mediaCacheErrorMessage: tr(
+          'Không tính được dung lượng. Chạm để thử lại.',
+          'Couldn\'t calculate storage. Tap to try again.',
+        ),
+      );
+    }
+  }
+
+  /// Xoá kho tệp trên máy của tài khoản (không đăng xuất, không xoá tin
+  /// nhắn) rồi tính lại dung lượng. Trả `true` khi xoá xong.
+  Future<bool> clearMediaCache() async {
+    final usage = mediaCacheUsage;
+    if (usage == null || state.isClearingMediaCache) return false;
+    // Lượt tính đang chạy (trước khi xoá) không được ghi đè kết quả sau xoá.
+    _mediaCacheMeasureGeneration += 1;
+    state = state.copyWith(
+      isClearingMediaCache: true,
+      isMeasuringMediaCache: false,
+      clearMediaCacheError: true,
+    );
+    try {
+      await usage.clear();
+      if (!mounted) return true;
+      state = state.copyWith(isClearingMediaCache: false);
+      await measureMediaCache();
+      return true;
+    } on Object {
+      if (!mounted) return false;
+      state = state.copyWith(
+        isClearingMediaCache: false,
+        mediaCacheErrorMessage: tr(
+          'Không xóa được bộ nhớ đệm. Thử lại sau.',
+          'Couldn\'t clear the cache. Try again later.',
+        ),
+      );
+      return false;
     }
   }
 

@@ -78,6 +78,15 @@ bool startsSenderRun(ChatMessage? previous, ChatMessage message) {
   return b.difference(a).abs() > messageRunGap;
 }
 
+/// Tin [message] có phải tin CUỐI của cụm không: tin sau ([next]) mở đầu cụm
+/// mới (khác người gửi, sang ngày khác, cách quá [messageRunGap], hoặc là tin
+/// hệ thống / sự kiện xen giữa), hoặc không còn tin sau. Dòng giờ hiện dưới
+/// tin cuối cụm như Zalo.
+bool endsSenderRun(ChatMessage message, ChatMessage? next) {
+  if (next == null) return true;
+  return startsSenderRun(message, next);
+}
+
 /// Tên người gửi in phía trên tin; null khi không nên hiện: chat 1-1 (giống
 /// Zalo, tiêu đề đã là tên người kia, chỉ hiện avatar), tin của mình, tin
 /// không mở đầu cụm, hoặc chưa biết tên (không bao giờ hiện mã người gửi).
