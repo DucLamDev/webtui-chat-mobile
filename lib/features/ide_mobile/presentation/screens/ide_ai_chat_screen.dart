@@ -30,6 +30,7 @@ class IdeAiChatScreen extends ConsumerStatefulWidget {
     required String sessionKey,
     this.picker,
     this.autoOpenApprovals = true,
+    this.initialText = '',
     super.key,
   }) : target = IdeAiOpenTarget.existing(sessionKey);
 
@@ -39,6 +40,7 @@ class IdeAiChatScreen extends ConsumerStatefulWidget {
     String? worktree,
     this.picker,
     this.autoOpenApprovals = true,
+    this.initialText = '',
     super.key,
   }) : target = IdeAiOpenTarget.create(
          kind: kind,
@@ -47,6 +49,9 @@ class IdeAiChatScreen extends ConsumerStatefulWidget {
        );
 
   final IdeAiOpenTarget target;
+
+  /// Chữ điền sẵn vào ô soạn (vd `@đường-dẫn ` từ màn Tệp).
+  final String initialText;
 
   /// Chỗ thay bộ chọn ảnh / tệp khi test.
   final IdeAttachmentPicker? picker;
@@ -452,6 +457,7 @@ class _IdeAiChatScreenState extends ConsumerState<IdeAiChatScreen> {
               ),
             ),
           IdeAiComposer(
+            initialText: widget.initialText,
             canControl: snap.canControl && snap.link != IdeAiLink.closed,
             busy: view.busy,
             commands: view.commands,

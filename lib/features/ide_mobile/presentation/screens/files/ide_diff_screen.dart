@@ -1,0 +1,162 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../../design_system/components/webtui_components.dart';
+import '../../../../../design_system/tokens/webtui_colors.dart';
+import '../../../../../design_system/tokens/webtui_spacing.dart';
+import '../../../../../l10n/app_strings.dart';
+import '../../../domain/ide_file_models.dart';
+import '../../controllers/ide_files_controllers.dart';
+import '../../widgets/files/ide_code_view.dart';
+import '../../widgets/files/ide_files_ui.dart';
+
+/// Màn xem thay đổi git (`files.diff`): cả dự án hoặc một tệp; dòng thêm
+/// xanh, dòng xoá đỏ.
+class IdeDiffScreen extends ConsumerStatefulWidget {
+  const IdeDiffScreen({required this.root, this.path, super.key});
+
+  final String root;
+  final String? path;
+
+  @override
+  ConsumerState<IdeDiffScreen> createState() => _IdeDiffScreenState();
+}
+
+class _IdeDiffScreenState extends ConsumerState<IdeDiffScreen> {
+  bool _loading = true;
+  Object? _error;
+  List<String> _lines = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final diff = await ref
+          .read(ideFilesServiceProvider)
+          .diff(widget.root, path: widget.path);
+      if (!mounted) return;
+      setState(() {
+        _lines = diff.trim().isEmpty ? const [] : diff.split('\n');
+        _loading = false;
+      });
+    } on Object catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e;
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final title = widget.path == null
+        ? tr('Thay đổi trong dự án', 'Project changes')
+        : ideBaseName(widget.path!);
+    final Widget body;
+    if (_loading) {
+      body = WebTuiLoadingState(
+        message: tr('Đang lấy thay đổi...', 'Loading changes...'),
+      );
+    } else if (_error != null) {
+      body = WebTuiErrorState(
+        title: tr('Không lấy được thay đổi', 'Could not load changes'),
+        message: ideFilesErrorText(_error!),
+        onRetry: _load,
+      );
+    } else if (_lines.isEmpty) {
+      body = WebTuiEmptyState(
+        icon: Icons.check_circle_outline_rounded,
+        title: tr('Không có thay đổi', 'No changes'),
+        message: tr(
+          'Mã đang giống bản đã lưu gần nhất.',
+          'The code matches the latest commit.',
+        ),
+      );
+    } else {
+      body = ListView.builder(
+        key: const Key('ide_diff_list'),
+        itemCount: _lines.length,
+        itemBuilder: (_, i) => IdeDiffLine(line: _lines[i]),
+      );
+    }
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title, overflow: TextOverflow.ellipsis),
+        surfaceTintColor: Colors.transparent,
+        actions: [
+          IconButton(
+            tooltip: tr('Tải lại', 'Reload'),
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: _load,
+          ),
+        ],
+      ),
+      body: SafeArea(child: body),
+    );
+  }
+}
+
+/// Một dòng diff tô theo loại.
+class IdeDiffLine extends StatelessWidget {
+  const IdeDiffLine({required this.line, super.key});
+
+  final String line;
+
+  @override
+  Widget build(BuildContext context) {
+    final kind = ideDiffLineKind(line);
+    final (bg, fg) = switch (kind) {
+      IdeDiffLineKind.add => (
+        WebTuiColors.accentGreen.withValues(alpha: 0.16),
+        WebTuiColors.textPrimary,
+      ),
+      IdeDiffLineKind.remove => (
+        WebTuiColors.danger.withValues(alpha: 0.14),
+        WebTuiColors.textPrimary,
+      ),
+      IdeDiffLineKind.hunk => (WebTuiColors.primarySoft, WebTuiColors.primary),
+      IdeDiffLineKind.header => (
+        WebTuiColors.backgroundMuted,
+        WebTuiColors.textSecondary,
+      ),
+      IdeDiffLineKind.context => (Colors.transparent, WebTuiColors.textPrimary),
+    };
+    return Semantics(
+      label: switch (kind) {
+        IdeDiffLineKind.add => tr('Thêm: $line', 'Added: $line'),
+        IdeDiffLineKind.remove => tr('Xoá: $line', 'Removed: $line'),
+        _ => line,
+      },
+      excludeSemantics: true,
+      child: Container(
+        width: double.infinity,
+        color: bg,
+        padding: const EdgeInsets.symmetric(
+          horizontal: WebTuiSpacing.md,
+          vertical: 1,
+        ),
+        child: Text(
+          line.isEmpty ? ' ' : line,
+          style: ideCodeStyle().copyWith(
+            color: fg,
+            fontWeight: kind == IdeDiffLineKind.header
+                ? FontWeight.w600
+                : FontWeight.w400,
+          ),
+        ),
+      ),
+    );
+  }
+}
