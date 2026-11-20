@@ -26,6 +26,7 @@ import '../../../../l10n/app_strings.dart';
 import '../../../approvals/application/approval_notification_actions.dart';
 import '../../../approvals/presentation/controllers/approval_list_controller.dart';
 import '../../../auth/application/session_termination.dart';
+import '../../../auth/presentation/controllers/auth_flow_providers.dart';
 import '../../../auth/presentation/controllers/device_approval_controllers.dart';
 import '../../../auth/presentation/controllers/legal_acceptance_controller.dart';
 import '../../../auth/presentation/screens/device_approval_review_screen.dart';
@@ -122,6 +123,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
   String? _quickReplyWorkspaceId;
   String? _approvalActionWorkspaceId;
   bool _syncInFlight = false;
+  bool _loggingOut = false;
   bool _incomingCallPollInFlight = false;
 
   /// Đã mời bật thông báo trong lượt mở app này (mỗi lượt mời tối đa một lần).
@@ -432,20 +434,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
                       onQrLoginTap: organization?.capabilities.qrLogin == true
                           ? () => context.push('/qr-login')
                           : null,
-                      onLogoutTap: () async {
-                        try {
-                          await ref
-                              .read(pushNotificationServiceProvider)
-                              .unregister();
-                        } on Object {
-                          // Logout must still clear the local session when push cleanup fails.
-                        }
-                        await ref.read(logoutUseCaseProvider).execute();
-                        ref.invalidate(authAccessTokenProvider);
-                        if (context.mounted) {
-                          context.go('/login');
-                        }
-                      },
+                      onLogoutTap: _confirmAndLogout,
                       onNotificationChanged: (value) {
                         setState(() => _notificationEnabled = value);
                       },
@@ -1748,6 +1737,42 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     unawaited(context.push(deviceApprovalReviewLocation(id)));
   }
 
+  /// Hỏi xác nhận rồi đăng xuất; chạm nhiều lần chỉ chạy một lần.
+  Future<void> _confirmAndLogout() async {
+    if (_loggingOut) return;
+    _loggingOut = true;
+    try {
+      final confirmed = await showWebTuiConfirmDialog(
+        context,
+        title: tr('Đăng xuất?', 'Log out?'),
+        message: tr(
+          'Bạn sẽ cần đăng nhập lại để tiếp tục dùng ứng dụng.',
+          'You will need to sign in again to keep using the app.',
+        ),
+        confirmLabel: tr('Đăng xuất', 'Log out'),
+        cancelLabel: tr('Huỷ', 'Cancel'),
+        destructive: true,
+      );
+      if (!confirmed || !mounted) return;
+      await ref.read(sessionTerminationCoordinatorProvider).runVoluntaryLogout(
+        () async {
+          try {
+            await ref.read(pushNotificationServiceProvider).unregister();
+          } on Object {
+            // Logout must still clear the local session when push cleanup fails.
+          }
+          await ref.read(logoutUseCaseProvider).execute();
+        },
+      );
+      // Tự đăng xuất không phải phiên hết hạn: không để lại băng cảnh báo.
+      ref.read(loginNoticeProvider.notifier).state = null;
+      ref.invalidate(authAccessTokenProvider);
+      if (mounted) context.go('/login');
+    } finally {
+      _loggingOut = false;
+    }
+  }
+
   void _listenIncomingCalls(String workspaceId) {
     unawaited(_incomingCallRealtimeSubscription?.cancel());
     _incomingCallRealtimeSubscription = ref
@@ -2379,6 +2404,9 @@ class _IncomingCallDialogState extends State<_IncomingCallDialog> {
   final CallTonePlayer _ringtone = CallTonePlayer.ringtone();
   Timer? _timer;
   int _remainingSeconds = 30;
+
+  /// Số nhịp 1 giây đã chạy, để thưa lượt hỏi máy chủ.
+  int _ticks = 0;
   bool _checking = false;
   bool _silenced = false;
 
@@ -2397,11 +2425,16 @@ class _IncomingCallDialogState extends State<_IncomingCallDialog> {
       if (!mounted || _closed) {
         return;
       }
+      _ticks += 1;
       setState(() => _remainingSeconds -= 1);
       if (!_silenced && _remainingSeconds % 2 == 0 && _remainingSeconds > 0) {
         unawaited(HapticFeedback.vibrate());
       }
-      unawaited(_checkCall());
+      // Đếm ngược / rung mỗi giây; hỏi máy chủ thưa hơn (huỷ, đã nghe ở máy
+      // khác vẫn đến ngay qua realtime → [dismissSignal]).
+      if (CallStatePolling.incomingDialogShouldCheck(_ticks)) {
+        unawaited(_checkCall());
+      }
       if (_remainingSeconds <= 0) {
         _close(_IncomingCallDialogResult.timedOut);
       }

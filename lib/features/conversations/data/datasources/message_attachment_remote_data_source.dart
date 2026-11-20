@@ -321,6 +321,16 @@ String _acceptHeader(String? mimeType) {
 MessageAttachment _attachmentFromMap(
   JsonMap map, {
   required String fallbackWorkspaceId,
+}) => messageAttachmentFromJson(map, fallbackWorkspaceId: fallbackWorkspaceId);
+
+/// Đọc một phần tử tệp đính kèm đúng dạng của
+/// `GET .../messages/{id}/attachments`. Danh sách tin / thread / tìm kiếm kèm
+/// khoá `attachments` cùng dạng thì dùng chung hàm này ([fallbackMessageId]:
+/// mã tin chứa phần tử, khi phần tử thiếu `message_id`).
+MessageAttachment messageAttachmentFromJson(
+  JsonMap map, {
+  required String fallbackWorkspaceId,
+  String fallbackMessageId = '',
 }) {
   final fileMap = jsonMap(field(map, const ['file']));
   final workspaceId = stringField(map, const [
@@ -332,7 +342,10 @@ MessageAttachment _attachmentFromMap(
     'file_id',
     'fileId',
   ], fallback: file.id);
-  final messageId = stringField(map, const ['message_id', 'messageId']);
+  final messageId = stringField(map, const [
+    'message_id',
+    'messageId',
+  ], fallback: fallbackMessageId);
   return MessageAttachment(
     id: stringField(map, const ['id'], fallback: '$messageId:$fileId'),
     workspaceId: workspaceId,

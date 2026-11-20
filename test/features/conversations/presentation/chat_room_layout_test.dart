@@ -397,7 +397,67 @@ void main() {
 
       expect(find.text('13:42 · Đã xem'), findsOneWidget);
       expect(find.byKey(const Key('chat_message_seen_icon')), findsOneWidget);
-      expect(find.byKey(const Key('chat_message_status_line')), findsOneWidget);
+      // Tin đầu cùng cụm với tin hai (cách 2 phút): không có dòng giờ.
+      expect(find.textContaining('13:40'), findsNothing);
+      expect(find.text('13:50 · Đã gửi'), findsOneWidget);
+    });
+
+    testWidgets('chỉ tin cuối của cụm hiện giờ, tin giữa cụm thì không', (
+      tester,
+    ) async {
+      await pumpChatRoom(
+        tester,
+        messages: [
+          harnessText('a', 'một', mine: false, at: harnessTime(13, 40)),
+          harnessText('b', 'hai', mine: false, at: harnessTime(13, 41)),
+          harnessText('c', 'ba', mine: false, at: harnessTime(13, 42)),
+          harnessText('d', 'bốn', mine: true, at: harnessTime(13, 43)),
+        ],
+      );
+
+      expect(find.text('13:42'), findsOneWidget);
+      expect(find.text('13:40'), findsNothing);
+      expect(find.text('13:41'), findsNothing);
+      expect(find.text('13:43 · Đã gửi'), findsOneWidget);
+      expect(
+        find.byKey(const Key('chat_message_status_line')),
+        findsNWidgets(2),
+      );
+    });
+
+    testWidgets('chat 1-1: "Đã gửi" chỉ dưới tin cuối của mình', (
+      tester,
+    ) async {
+      await pumpChatRoom(
+        tester,
+        messages: [
+          harnessText('a', 'cụm một', mine: true, at: harnessTime(9, 0)),
+          harnessText('b', 'trả lời', mine: false, at: harnessTime(9, 5)),
+          harnessText('c', 'cụm hai', mine: true, at: harnessTime(9, 10)),
+        ],
+      );
+
+      // Cụm cũ của mình chỉ có giờ; tin cuối có thêm "Đã gửi".
+      expect(find.text('09:00'), findsOneWidget);
+      expect(find.text('09:05'), findsOneWidget);
+      expect(find.text('09:10 · Đã gửi'), findsOneWidget);
+      expect(find.textContaining('Đã gửi'), findsOneWidget);
+    });
+
+    testWidgets('nhóm: tin cuối của mình chỉ có giờ, không "Đã gửi"', (
+      tester,
+    ) async {
+      await pumpChatRoom(
+        tester,
+        directChat: false,
+        showSenderNames: true,
+        messages: [
+          harnessText('a', 'một', mine: true, at: harnessTime(13, 40)),
+        ],
+      );
+
+      expect(find.text('13:40'), findsOneWidget);
+      expect(find.textContaining('Đã gửi'), findsNothing);
     });
 
     testWidgets('không có seenMessageId (nhóm / bot): không hiện Đã xem', (

@@ -43,6 +43,8 @@ final class LocalAppSettingsRepository implements AppSettingsRepository {
       soundVolume: normalizeAppSoundVolume(
         _number(map['soundVolume']) ?? appSoundVolumeDefault,
       ),
+      // Bản cũ chưa lưu: mặc định bật.
+      autoDownloadMediaOnCellular: map['autoDownloadMediaOnCellular'] != false,
     );
   }
 
@@ -63,6 +65,7 @@ final class LocalAppSettingsRepository implements AppSettingsRepository {
         'cameraEnabledOnJoin': settings.cameraEnabledOnJoin,
         'textScale': settings.textScale,
         'soundVolume': settings.soundVolume,
+        'autoDownloadMediaOnCellular': settings.autoDownloadMediaOnCellular,
       }),
     );
   }

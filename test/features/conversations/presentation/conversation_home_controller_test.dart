@@ -232,8 +232,9 @@ void main() {
         (item) => item.channelId == 'group-1',
       );
       expect(group.unreadCount, 2);
-      // Nhóm giữ mô tả ở dòng phụ.
-      expect(group.preview, 'Tin nhắn mới');
+      // Nhóm: dòng phụ là tin mới nhất; chưa biết tên người gửi (chưa tải
+      // thành viên) thì chỉ nội dung.
+      expect(group.preview, 'Chào');
       expect(
         controller.state.channels
             .firstWhere((item) => item.channelId == 'public-not-joined')
@@ -247,6 +248,63 @@ void main() {
       // Không tải lại gì từ máy chủ.
       expect(repository.channelLoads, channelLoads);
       expect(repository.contactLoads, contactLoads);
+    },
+  );
+
+  test(
+    'tin mới ở nhóm: dòng phụ "Tên: nội dung", tin mình "Bạn: ..."',
+    () async {
+      final repository = _FakeConversationRepository(
+        channels: [
+          _summary(id: 'g', channelId: 'g', kind: ConversationKind.channel),
+        ],
+        members: const [
+          ContactSummary(
+            userId: 'u-2',
+            displayName: 'Bình',
+            username: 'binh',
+            email: 'binh@example.com',
+            status: 'active',
+          ),
+        ],
+      );
+      final realtime = _FakeRealtimeRepository();
+      final controller = _controller(repository, realtime: realtime);
+      addTearDown(controller.dispose);
+      await controller.load();
+
+      String preview() => controller.state.channels
+          .firstWhere((item) => item.channelId == 'g')
+          .preview;
+
+      realtime.emitMessage(
+        'g',
+        id: 'a',
+        body: 'Họp lúc 3 giờ',
+        at: DateTime.utc(2026, 11, 16, 9),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(preview(), 'Bình: Họp lúc 3 giờ');
+
+      realtime.emitMessage(
+        'g',
+        id: 'b',
+        senderId: 'me',
+        body: 'Ok',
+        at: DateTime.utc(2026, 11, 16, 9, 1),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(preview(), 'Bạn: Ok');
+
+      realtime.emitMessage(
+        'g',
+        id: 'c',
+        body: 'bí mật',
+        isSecret: true,
+        at: DateTime.utc(2026, 11, 16, 9, 2),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(preview(), 'Tin nhắn bí mật');
     },
   );
 
@@ -631,6 +689,7 @@ final class _FakeRealtimeRepository implements ConversationRealtimeRepository {
     String senderId = 'u-2',
     String body = 'Chào',
     bool isSecret = false,
+    DateTime? at,
   }) {
     _events.add(
       ConversationRealtimeEvent(
@@ -643,7 +702,7 @@ final class _FakeRealtimeRepository implements ConversationRealtimeRepository {
           channelId: channelId,
           kind: 'text',
           body: body,
-          createdAt: DateTime.utc(2026, 11, 16, 9),
+          createdAt: at ?? DateTime.utc(2026, 11, 16, 9),
           senderId: senderId,
           isSecret: isSecret,
         ),
@@ -784,10 +843,12 @@ final class _FakeConversationRepository implements ConversationRepository {
   _FakeConversationRepository({
     this.conversations = const [],
     this.channels = const [],
+    this.members = const [],
   });
 
   List<ConversationSummary> conversations;
   List<ConversationSummary> channels;
+  List<ContactSummary> members;
   int channelLoads = 0;
   int contactLoads = 0;
 
@@ -823,7 +884,7 @@ final class _FakeConversationRepository implements ConversationRepository {
   Future<Result<List<ContactSummary>>> listWorkspaceMembers({
     required String workspaceId,
   }) async {
-    return const Success([]);
+    return Success(members);
   }
 
   @override

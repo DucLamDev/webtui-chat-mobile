@@ -19,11 +19,26 @@ import '../../domain/entities/app_settings.dart';
 import '../../domain/entities/mobile_release_policy.dart';
 import '../controllers/app_settings_controller.dart';
 
-class AppSettingsScreen extends ConsumerWidget {
+class AppSettingsScreen extends ConsumerStatefulWidget {
   const AppSettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AppSettingsScreen> createState() => _AppSettingsScreenState();
+}
+
+class _AppSettingsScreenState extends ConsumerState<AppSettingsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Mỗi lần mở màn: tính lại dung lượng kho tệp trên máy.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(appSettingsControllerProvider.notifier).measureMediaCache();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final strings = context.strings;
     final state = ref.watch(appSettingsControllerProvider);
     final controller = ref.read(appSettingsControllerProvider.notifier);
@@ -227,6 +242,46 @@ class AppSettingsScreen extends ConsumerWidget {
               ],
             ),
             _SettingsSection(
+              label: tr('Dung lượng và tải tự động', 'Storage and downloads'),
+              children: [
+                _MediaCacheSizeRow(
+                  state: state,
+                  onRetry: controller.measureMediaCache,
+                ),
+                WebTuiSettingRow(
+                  key: const ValueKey('app-settings-clear-media-cache'),
+                  title: tr('Xóa bộ nhớ đệm', 'Clear cache'),
+                  icon: WebTuiIcons.clearCache,
+                  trailing: SettingsActionButton(
+                    label: state.isClearingMediaCache
+                        ? tr('Đang xóa…', 'Clearing…')
+                        : strings.delete,
+                    onPressed: state.isClearingMediaCache
+                        ? null
+                        : () => _clearMediaCache(context, controller),
+                  ),
+                ),
+                WebTuiSettingRow(
+                  key: const ValueKey('app-settings-auto-download-cellular'),
+                  title: tr('Tự tải ảnh khi dùng 4G', 'Auto-load photos on 4G'),
+                  subtitle: tr(
+                    'Khi dùng dữ liệu di động. Tắt thì chạm vào ảnh mới tải.',
+                    'On mobile data. When off, tap a photo to load it.',
+                  ),
+                  icon: WebTuiIcons.download,
+                  trailing: WebTuiToggle(
+                    value: settings.autoDownloadMediaOnCellular,
+                    onChanged: (value) {
+                      controller.update(
+                        settings.copyWith(autoDownloadMediaOnCellular: value),
+                        workspaceId: workspaceId,
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+            _SettingsSection(
               label: strings.sectionOfflineData,
               children: [
                 WebTuiSettingRow(
@@ -288,6 +343,104 @@ class AppSettingsScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Hỏi xác nhận rồi xoá kho tệp trên máy của tài khoản; báo kết quả.
+Future<void> _clearMediaCache(
+  BuildContext context,
+  AppSettingsController controller,
+) async {
+  final confirmed = await showWebTuiConfirmDialog(
+    context,
+    title: tr('Xóa bộ nhớ đệm?', 'Clear cache?'),
+    message: tr(
+      'Ảnh, video, tin thoại và tệp đã tải về máy sẽ bị xóa, khi mở lại sẽ '
+          'tải lại từ máy chủ. Tin nhắn và tài khoản vẫn giữ nguyên.',
+      'Downloaded photos, videos, voice messages and files will be removed '
+          'from this device and downloaded again when opened. Your messages '
+          'and account stay as they are.',
+    ),
+    confirmLabel: tr('Xóa', 'Clear'),
+    destructive: true,
+    icon: WebTuiIcons.clearCache,
+  );
+  if (!confirmed || !context.mounted) return;
+  final messenger = ScaffoldMessenger.of(context);
+  final cleared = await controller.clearMediaCache();
+  messenger.showSnackBar(
+    SnackBar(
+      content: Text(
+        cleared
+            ? tr('Đã xóa bộ nhớ đệm', 'Cache cleared')
+            : tr(
+                'Không xóa được bộ nhớ đệm. Thử lại sau.',
+                'Couldn\'t clear the cache. Try again later.',
+              ),
+      ),
+    ),
+  );
+}
+
+/// Dòng "Dung lượng lưu trên máy": đang tính / đang xoá thì vòng xoay, lỗi
+/// thì báo và chạm để tính lại.
+class _MediaCacheSizeRow extends StatelessWidget {
+  const _MediaCacheSizeRow({required this.state, required this.onRetry});
+
+  final AppSettingsState state;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final busy = state.isMeasuringMediaCache || state.isClearingMediaCache;
+    final error = state.mediaCacheErrorMessage;
+    final bytes = state.mediaCacheBytes;
+    return WebTuiSettingRow(
+      key: const ValueKey('app-settings-media-cache-size'),
+      title: tr('Dung lượng lưu trên máy', 'Storage on this device'),
+      subtitle:
+          error ??
+          tr(
+            'Ảnh, video, tin thoại và tệp đã tải',
+            'Downloaded photos, videos, voice and files',
+          ),
+      icon: error == null ? WebTuiIcons.storage : WebTuiIcons.warning,
+      value: busy
+          ? null
+          : bytes == null
+          ? (error == null ? null : '—')
+          : formatStorageBytes(bytes),
+      trailing: busy
+          ? SizedBox.square(
+              key: const ValueKey('app-settings-media-cache-busy'),
+              dimension: 20,
+              child: Semantics(
+                label: state.isClearingMediaCache
+                    ? tr('Đang xóa', 'Clearing')
+                    : tr('Đang tính dung lượng', 'Calculating storage'),
+                child: const CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          : null,
+      showChevron: false,
+      onTap: busy ? null : onRetry,
+    );
+  }
+}
+
+/// Dung lượng dễ đọc: "0 B", "512 KB", "12,3 MB", "1,2 GB" (tiếng Việt dùng
+/// dấu phẩy thập phân).
+String formatStorageBytes(int bytes) {
+  const units = ['B', 'KB', 'MB', 'GB'];
+  var value = bytes < 0 ? 0.0 : bytes.toDouble();
+  var unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  final text = unit == 0 || value >= 100
+      ? value.round().toString()
+      : value.toStringAsFixed(1);
+  return '${tr(text.replaceAll('.', ','), text)} ${units[unit]}';
 }
 
 Future<void> _requestNotificationPermission(

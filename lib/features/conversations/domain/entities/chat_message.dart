@@ -18,6 +18,7 @@ final class ChatMessage {
     this.mentions = const [],
     this.reactions = const [],
     this.attachments = const [],
+    this.attachmentsIncluded = false,
     this.metadata = const {},
     this.isSecret = false,
     this.expiresAt,
@@ -40,6 +41,11 @@ final class ChatMessage {
   final List<String> mentions;
   final List<MessageReactionSummary> reactions;
   final List<MessageAttachment> attachments;
+
+  /// Máy chủ đã gửi kèm danh sách tệp ([attachments], có thể rỗng) cùng tin:
+  /// đã biết đủ tệp, không phải hỏi riêng `.../messages/{id}/attachments`.
+  /// `false` với máy chủ cũ (danh sách tin không kèm tệp).
+  final bool attachmentsIncluded;
   final Map<String, Object?> metadata;
   final bool isSecret;
   final DateTime? expiresAt;
@@ -125,6 +131,7 @@ final class ChatMessage {
     List<String>? mentions,
     List<MessageReactionSummary>? reactions,
     List<MessageAttachment>? attachments,
+    bool? attachmentsIncluded,
     Map<String, Object?>? metadata,
     bool? isPinned,
     bool? isMine,
@@ -145,6 +152,7 @@ final class ChatMessage {
       mentions: mentions ?? this.mentions,
       reactions: reactions ?? this.reactions,
       attachments: attachments ?? this.attachments,
+      attachmentsIncluded: attachmentsIncluded ?? this.attachmentsIncluded,
       metadata: metadata ?? this.metadata,
       isSecret: isSecret,
       expiresAt: expiresAt,
