@@ -3,6 +3,16 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.59.0 · 20/11/2026
+### Tính năng
+- Tab **Thêm** của IDE trên app có **Màn hình app** (xem app đang chạy thử trên máy IDE, 1 khung mỗi giây, chọn máy và
+  nền tối, chỉ xem) và **Studio video** (danh sách video theo trạng thái, xem các cảnh của kịch bản, xem / tải video đã
+  xuất).
+- An toàn: khung ảnh từ IDE được kiểm định dạng và kích thước trước khi vẽ; huỷ vân tay khi mở màn hình app không còn
+  làm nút kẹt ở "Đang mở…".
+- Chọn dự án không làm video trong Studio video thì báo gọn "Không có video" thay vì báo lỗi và mời thử lại; lời lỗi
+  chạy app quá dài được cắt ngắn.
+
 ## 1.58.0 · 20/11/2026
 ### Tính năng
 - Tab **Thêm** của IDE trên app có thêm các mục (mục nào IDE công ty chưa mở cho điện thoại thì không hiện):
