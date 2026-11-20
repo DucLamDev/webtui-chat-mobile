@@ -159,16 +159,18 @@ class ToolSectionTitle extends StatelessWidget {
   );
 }
 
-/// Nút nhỏ vùng bấm ≥ 44.
+/// Nút nhỏ trong thẻ như nút IDE web: nhìn cao 36, vùng bấm vẫn ≥ 48 nhờ
+/// `tapTargetSize.padded`.
 ButtonStyle ideToolsBtn({Color? color}) => OutlinedButton.styleFrom(
-  minimumSize: const Size(44, 44),
+  minimumSize: const Size(44, 36),
   padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.md),
   foregroundColor: color,
+  side: color == null ? null : BorderSide(color: color.withValues(alpha: 0.5)),
   tapTargetSize: MaterialTapTargetSize.padded,
 );
 
 ButtonStyle ideToolsFilledBtn() => FilledButton.styleFrom(
-  minimumSize: const Size(44, 44),
+  minimumSize: const Size(44, 36),
   padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.md),
   tapTargetSize: MaterialTapTargetSize.padded,
 );
@@ -223,6 +225,29 @@ class ToolStat extends StatelessWidget {
         ],
       ),
     ),
+  );
+}
+
+/// Lưới ô số liệu như hàng thẻ số IDE web: 3 cột (màn hẹp hoặc chữ to: 2 cột),
+/// thay vì mỗi ô một hàng ngang hết màn.
+class ToolStatGrid extends StatelessWidget {
+  const ToolStatGrid({required this.children, super.key});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, c) {
+      const gap = WebTuiSpacing.sm;
+      final scale = MediaQuery.textScalerOf(context).scale(1);
+      final cols = c.maxWidth / scale >= 300 ? 3 : 2;
+      final w = ((c.maxWidth - gap * (cols - 1)) / cols).floorToDouble();
+      return Wrap(
+        spacing: gap,
+        runSpacing: gap,
+        children: [for (final s in children) SizedBox(width: w, child: s)],
+      );
+    },
   );
 }
 

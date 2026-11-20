@@ -200,7 +200,7 @@ class _ReportBodyState extends ConsumerState<_ReportBody> {
           )
         else if (r == null && !_running)
           SizedBox(
-            height: 260,
+            height: 180,
             child: WebTuiEmptyState(
               title: tr('Chưa có báo cáo', 'No report yet'),
               message: tr(

@@ -625,6 +625,13 @@ class _MachineViewState extends ConsumerState<_MachineView> {
                     unawaited(_loadHist());
                   },
                 ),
+            ],
+          ),
+          // Khoảng thời gian một hàng, chỉ số một hàng (không lẫn vào nhau).
+          Wrap(
+            spacing: WebTuiSpacing.sm,
+            runSpacing: WebTuiSpacing.xs,
+            children: [
               for (final (i, n) in [
                 (0, 'CPU'),
                 (1, 'RAM'),

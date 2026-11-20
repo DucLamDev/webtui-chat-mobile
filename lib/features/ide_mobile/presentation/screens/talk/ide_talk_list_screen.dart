@@ -64,7 +64,7 @@ class _IdeTalkListScreenState extends ConsumerState<IdeTalkListScreen> {
           ? FloatingActionButton.extended(
               key: const Key('talk_new'),
               onPressed: _create,
-              icon: const Icon(Icons.add_comment_outlined),
+              icon: const Icon(Icons.add_comment_outlined, size: 18),
               label: Text(tr('Chat mới', 'New chat')),
             )
           : null,
