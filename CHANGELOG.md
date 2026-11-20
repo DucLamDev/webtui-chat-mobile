@@ -3,6 +3,20 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.57.0 · 20/11/2026
+### Tính năng
+- IDE trên app có tab **Thêm** (mục nào IDE công ty chưa mở cho điện thoại thì không hiện):
+  - **Việc cần làm**: việc của tôi / theo dự án, lọc theo trạng thái, giao việc (chọn người nhận, hạn theo ngày), đổi
+    trạng thái kèm ghi chú, sửa, xoá (cần vân tay), xem gợi ý AI, chuyển việc cho AI làm;
+  - **Nhật ký AI**, **Nhật ký thao tác** (lọc loại, tìm, tải thêm, giờ theo máy);
+  - **Ghi chú dự án**: xem, sửa, tạo; nếu người khác vừa sửa thì báo và giữ nguyên chữ đang gõ; phiên bản cũ và khôi
+    phục; sơ đồ chỉ sửa trên máy tính;
+  - **Báo cáo** của tôi theo dự án, **Kiến trúc** (sơ đồ, rủi ro, lỗi / cảnh báo), **Changelog nền tảng**.
+- Bấm thông báo "Có việc mới" của IDE mở thẳng việc đó.
+- An toàn: "Giao cho AI" đặt cả tên lẫn chi tiết việc trong khối trích dẫn, ghi rõ ai viết, bỏ ký tự ẩn, để phiên AI
+  không làm theo chữ trong việc như lệnh; tên việc / ghi chú có ký tự đảo chiều chữ thì hiện rõ; khôi phục ghi chú không
+  gửi trùng khi bấm hai lần. Chữ hệ thống cỡ lớn thì tab Thêm hiện thành danh sách một cột.
+
 ## 1.56.0 · 20/11/2026
 ### Tính năng
 - IDE trên app có tab **Dự án** (cần IDE công ty mở chức năng này cho điện thoại; trước đó dùng cổng IDE giả):
