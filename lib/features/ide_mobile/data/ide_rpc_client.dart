@@ -254,6 +254,7 @@ final class IdeRpcClient {
             error: IdeException.fromCode(
               map['code'] is String ? map['code'] as String : null,
               map['message'] is String ? map['message'] as String : null,
+              hint: map['hint'] is String ? map['hint'] as String : null,
             ),
           );
         }

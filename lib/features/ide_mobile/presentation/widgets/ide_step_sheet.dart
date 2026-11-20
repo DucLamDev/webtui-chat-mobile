@@ -7,6 +7,7 @@ import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../application/ide_step_up.dart';
+import '../../domain/ide_visible_text.dart';
 
 /// Màn đặt presenter hộp vân tay khi mở và trả lại cái trước đó khi đóng
 /// (chỉ khi presenter hiện tại vẫn là của màn này).
@@ -67,20 +68,41 @@ Future<bool> showIdeStepSheet(
             ),
           ),
           const SizedBox(height: WebTuiSpacing.md),
-          Text(
-            summary.summary.isEmpty ? summary.op : summary.summary,
-            style: WebTuiTypography.bodyMedium.copyWith(
-              color: WebTuiColors.textPrimary,
+          // Lời tóm tắt do IDE gửi: lọc ký tự ẩn / đảo chiều, cắt ngắn, cuộn
+          // trong khung thấp để không che dòng do app tự ghi bên dưới.
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.25,
+            ),
+            child: SingleChildScrollView(
+              child: Text(
+                ideStepSummaryText(summary),
+                style: WebTuiTypography.bodyMedium.copyWith(
+                  color: WebTuiColors.textPrimary,
+                ),
+              ),
             ),
           ),
-          // Tên thao tác lấy từ yêu cầu của chính app (phần được ký), không
-          // chỉ lời tóm tắt do IDE gửi.
+          // Tên thao tác và đối tượng lấy từ yêu cầu của chính app (phần được
+          // ký), không chỉ lời tóm tắt do IDE gửi.
           if (summary.summary.isNotEmpty) ...[
             const SizedBox(height: WebTuiSpacing.xs),
             Text(
               tr(
                 'Thao tác: ${ideStepOpLabel(summary.op)}',
                 'Action: ${ideStepOpLabelEn(summary.op)}',
+              ),
+              style: WebTuiTypography.bodySmall.copyWith(
+                color: WebTuiColors.textSecondary,
+              ),
+            ),
+          ],
+          if (summary.target.isNotEmpty) ...[
+            const SizedBox(height: WebTuiSpacing.xs),
+            Text(
+              tr(
+                'Đối tượng: ${ideStepClip(ideVisibleText(summary.target), 200)}',
+                'Target: ${ideStepClip(ideVisibleText(summary.target), 200)}',
               ),
               style: WebTuiTypography.bodySmall.copyWith(
                 color: WebTuiColors.textSecondary,
@@ -112,12 +134,47 @@ Future<bool> showIdeStepSheet(
   return accepted ?? false;
 }
 
+/// Chữ chính của hộp: lời IDE (đã lọc, ≤ 500 ký tự) hoặc mã thao tác.
+/// Giữ xuống dòng thật (lời nhiều dòng), các ký tự ẩn khác hiện thành mã.
+String ideStepSummaryText(IdeStepSummary s) => s.summary.isEmpty
+    ? s.op
+    : ideStepClip(
+        s.summary
+            .replaceAll('\r\n', '\n')
+            .split('\n')
+            .map(ideVisibleText)
+            .join('\n'),
+        500,
+      );
+
+/// Cắt theo số ký tự (rune) để không cắt đôi ký tự ghép.
+String ideStepClip(String s, int max) {
+  final r = s.runes;
+  return r.length <= max ? s : '${String.fromCharCodes(r.take(max))}…';
+}
+
 /// Tên dễ hiểu của thao tác cần vân tay; thao tác lạ thì giữ nguyên mã để người
 /// dùng vẫn thấy đúng thứ app sắp ký.
 String ideStepOpLabel(String op) => switch (op) {
   'ai.answer' => 'trả lời yêu cầu duyệt của AI',
   'files.purge' => 'xoá hẳn tệp trong thùng rác',
   'files.trash_purge' => 'dọn sạch thùng rác',
+  'skills.install' => 'cài skill (ghi đè bản đang có)',
+  'skills.update' => 'cập nhật skill (ghi đè bản đang có)',
+  'skills.remove' => 'gỡ skill khỏi dự án',
+  'skills.agent_install' => 'cài AI Agent (ghi đè bản đang có)',
+  'skills.agent_update' => 'cập nhật AI Agent (ghi đè bản đang có)',
+  'skills.agent_remove' => 'gỡ AI Agent khỏi dự án',
+  'demo.enable' => 'bật web demo công khai',
+  'demo.set' => 'đổi web demo thành công khai',
+  'demo.disable' => 'tắt web demo',
+  'demo.db_show' => 'xem mật khẩu database',
+  'demo.db_drop' => 'xoá database demo',
+  'servers.add' => 'thêm máy chủ',
+  'servers.edit' => 'đổi thông tin đăng nhập máy chủ',
+  'servers.remove' => 'gỡ máy chủ',
+  'talk.share' => 'chia sẻ cuộc chat (mọi nhân viên đã đăng nhập mở được)',
+  'devices.revoke' => 'gỡ điện thoại khác khỏi IDE',
   _ => op,
 };
 
@@ -125,5 +182,21 @@ String ideStepOpLabelEn(String op) => switch (op) {
   'ai.answer' => 'answer the AI approval request',
   'files.purge' => 'permanently delete a trashed file',
   'files.trash_purge' => 'empty the trash',
+  'skills.install' => 'install skill (overwrite existing)',
+  'skills.update' => 'update skill (overwrite existing)',
+  'skills.remove' => 'remove skill from the project',
+  'skills.agent_install' => 'install AI agent (overwrite existing)',
+  'skills.agent_update' => 'update AI agent (overwrite existing)',
+  'skills.agent_remove' => 'remove AI agent from the project',
+  'demo.enable' => 'turn on a public demo site',
+  'demo.set' => 'make the demo site public',
+  'demo.disable' => 'turn off the demo site',
+  'demo.db_show' => 'view the database password',
+  'demo.db_drop' => 'delete the demo database',
+  'servers.add' => 'add a server',
+  'servers.edit' => 'change server login details',
+  'servers.remove' => 'remove a server',
+  'talk.share' => 'share chat (any signed-in employee can open it)',
+  'devices.revoke' => 'remove another phone from the IDE',
   _ => op,
 };

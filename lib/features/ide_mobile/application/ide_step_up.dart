@@ -8,10 +8,47 @@ import '../domain/ide_errors.dart';
 
 /// Bảng tóm tắt hiện cho người dùng trước khi ký.
 final class IdeStepSummary {
-  const IdeStepSummary({required this.summary, required this.op});
+  const IdeStepSummary({
+    required this.summary,
+    required this.op,
+    this.target = '',
+  });
 
+  /// Lời tóm tắt do IDE gửi (không tin: phải lọc trước khi hiện).
   final String summary;
   final String op;
+
+  /// Đối tượng của thao tác, lấy từ tham số app gửi (phần được ký).
+  final String target;
+}
+
+/// Khoá tham số chỉ đối tượng thao tác, theo thứ tự ưu tiên.
+const _targetKeys = ['name', 'device_id', 'project', 'server', 'path', 'id'];
+
+/// Thao tác tệp: đối tượng là đường dẫn bị tác động (không phải tên mới).
+const _fileTargetKeys = ['path', 'root', 'id'];
+
+/// Đối tượng thao tác từ tham số của chính app (vd tên máy chủ, mã điện thoại).
+/// Đổi tên / chuyển / chép tệp thì ghi cả đích: `nguồn → đích`.
+String ideStepTarget(Object? args, [String op = '']) {
+  if (args is! Map) return '';
+  String pick(List<String> keys) {
+    for (final k in keys) {
+      final v = args[k];
+      if (v is String && v.trim().isNotEmpty) return v.trim();
+    }
+    return '';
+  }
+
+  if (!op.startsWith('files.')) return pick(_targetKeys);
+  final source = pick(_fileTargetKeys);
+  final dest = switch (op) {
+    'files.rename' => pick(const ['name']),
+    'files.move' || 'files.copy' => pick(const ['dest_dir']),
+    _ => '',
+  };
+  if (dest.isEmpty) return source;
+  return source.isEmpty ? dest : '$source → $dest';
 }
 
 /// Hiện bảng tóm tắt, trả `true` nếu người dùng bấm xác nhận.
@@ -48,7 +85,11 @@ final class IdeStepUp {
 
   Future<String?> _confirmNow(IdeStepRequest request) async {
     final accepted = await _present(
-      IdeStepSummary(summary: request.summary, op: request.op),
+      IdeStepSummary(
+        summary: request.summary,
+        op: request.op,
+        target: ideStepTarget(request.args, request.op),
+      ),
     );
     if (!accepted) return null;
     final String text;
