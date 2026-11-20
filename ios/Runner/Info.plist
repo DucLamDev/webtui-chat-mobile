@@ -40,9 +40,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>WebTUI Chat dùng microphone cho cuộc gọi và để ghi, gửi tin nhắn thoại khi bạn yêu cầu, và để nói bằng giọng với AI trong mục IDE.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>WebTUI Chat dùng nhận dạng giọng nói để chuyển lời bạn nói thành chữ khi bạn ra lệnh cho AI trong mục IDE.</string>
+	<string>WebTUI Chat dùng microphone cho cuộc gọi và để ghi, gửi tin nhắn thoại khi bạn yêu cầu.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>WebTUI Chat dùng camera cho cuộc gọi video, để chụp ảnh bạn chọn gửi vào cuộc trò chuyện hoặc đính kèm vào ghi chú My Note, và để quét mã QR gắn điện thoại với IDE.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
