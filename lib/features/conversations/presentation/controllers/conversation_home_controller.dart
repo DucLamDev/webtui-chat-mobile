@@ -7,6 +7,7 @@ import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/result/result.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../profile/presentation/controllers/profile_controller.dart';
+import '../../application/channel_last_message_preview.dart';
 import '../../application/use_cases/channel_use_cases.dart';
 import '../../application/use_cases/load_conversation_home_use_case.dart';
 import '../../application/use_cases/open_direct_conversation_use_case.dart';
@@ -554,11 +555,7 @@ final class ConversationHomeController
             : null,
         updatedAt: newer ? at : null,
         lastMessageAt: newer ? at : null,
-        // Nhóm hiện mô tả nhóm ở dòng phụ (không phải tin cuối); chat 1-1
-        // hiện tin cuối như máy chủ trả về.
-        preview: newer && item.kind != ConversationKind.channel
-            ? _realtimePreview(message)
-            : null,
+        preview: newer ? _realtimePreviewFor(item, message, me) : null,
       );
     }
 
@@ -569,6 +566,43 @@ final class ConversationHomeController
         _unreadMessageIds.remove(_unreadMessageIds.keys.first);
       }
     }
+  }
+
+  /// Dòng xem trước sau tin mới. Chat 1-1 / bot thông báo: nội dung tin. Nhóm:
+  /// "Tên: nội dung" như máy chủ trả khi tải danh sách; tên tra trong thành
+  /// viên tổ chức / danh bạ đã tải, chưa biết tên thì chỉ nội dung (lần tải
+  /// danh sách sau máy chủ trả đủ tên).
+  String? _realtimePreviewFor(
+    ConversationSummary item,
+    ChatMessage message,
+    String? me,
+  ) {
+    if (item.kind != ConversationKind.channel || item.noticeBot) {
+      return _realtimePreview(message);
+    }
+    final senderId = message.senderId?.trim() ?? '';
+    return groupLastMessagePreview(
+      kind: message.kind,
+      body: message.body,
+      senderId: senderId,
+      senderName: _memberName(senderId),
+      currentUserId: me,
+      isMine: message.isMine,
+      secret: message.isSecret,
+      hasAttachments: message.attachments.isNotEmpty,
+    );
+  }
+
+  String? _memberName(String userId) {
+    if (userId.isEmpty) return null;
+    for (final people in [state.workspaceMembers, state.contacts]) {
+      for (final person in people) {
+        if (person.userId.trim() != userId) continue;
+        final name = person.displayName.trim();
+        if (name.isNotEmpty) return name;
+      }
+    }
+    return null;
   }
 
   /// Tin vừa được cộng chưa đọc bị thu hồi / hết hạn: trừ lại (máy chủ không

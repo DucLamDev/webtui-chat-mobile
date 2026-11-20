@@ -62,6 +62,24 @@ final class ScopedAttachmentFileStore {
     );
   }
 
+  /// Thư mục kho đệm lâu dài của cả tài khoản (mọi [cacheDirectoryFor] của
+  /// tài khoản nằm trong đây): Thiết lập dùng để tính dung lượng / xoá kho.
+  Future<Directory> accountCacheDirectoryFor({
+    required InstanceScope instanceScope,
+    required String accountKey,
+  }) async {
+    final root = await getTemporaryDirectory();
+    return Directory(
+      path.join(
+        root.path,
+        scopedMediaCacheAccountDirectoryRelativePath(
+          instanceScope: instanceScope,
+          accountKey: accountKey,
+        ),
+      ),
+    );
+  }
+
   /// Tệp trong kho đệm lâu dài cho một [key] (thường là địa chỉ tải): tên là
   /// mã băm, không lộ khoá; giữ đuôi an toàn của [originalName] để app khác
   /// mở được.
@@ -181,6 +199,21 @@ String scopedMediaCacheDirectoryRelativePath({
   required String purpose,
 }) {
   final normalizedPurpose = _normalizedPurpose(purpose);
+  return path.join(
+    scopedMediaCacheAccountDirectoryRelativePath(
+      instanceScope: instanceScope,
+      accountKey: accountKey,
+    ),
+    normalizedPurpose,
+  );
+}
+
+/// `webtui-attachments-v2/<máy chủ>/cache/<tài khoản>`: mọi loại tệp trong kho
+/// đệm lâu dài của một tài khoản (ảnh, video, ghi âm, tệp, ảnh đại diện...).
+String scopedMediaCacheAccountDirectoryRelativePath({
+  required InstanceScope instanceScope,
+  required String accountKey,
+}) {
   final normalizedAccount = accountKey.trim();
   if (normalizedAccount.isEmpty || normalizedAccount.length > 256) {
     throw ArgumentError.value(
@@ -198,7 +231,6 @@ String scopedMediaCacheDirectoryRelativePath({
           utf8.encode('${instanceScope.storageId}\u0000$normalizedAccount'),
         )
         .toString(),
-    normalizedPurpose,
   );
 }
 

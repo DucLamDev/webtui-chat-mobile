@@ -31,6 +31,27 @@ void main() {
     expect(settings.languageCode, 'en');
   });
 
+  test('tự tải ảnh khi dùng 4G: mặc định bật, lưu được khi tắt', () async {
+    expect(const AppSettings().autoDownloadMediaOnCellular, isTrue);
+    await database.putKeyValue(
+      scope: 'app_settings',
+      key: 'current',
+      value: jsonEncode({'theme': 'light'}),
+    );
+    expect((await repository.read()).autoDownloadMediaOnCellular, isTrue);
+
+    await repository.save(
+      const AppSettings(textScale: 1.15, autoDownloadMediaOnCellular: false),
+    );
+    final settings = await repository.read();
+    expect(settings.autoDownloadMediaOnCellular, isFalse);
+    expect(settings.textScale, 1.15);
+    expect(
+      settings.copyWith(textScale: 1).autoDownloadMediaOnCellular,
+      isFalse,
+    );
+  });
+
   test('dữ liệu bản cũ chưa có hai trường: dùng mặc định', () async {
     await database.putKeyValue(
       scope: 'app_settings',
