@@ -3,13 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_errors.dart';
 import '../../../domain/ide_visible_text.dart';
+import '../ide_wb.dart';
 
 /// Chữ lỗi cho thanh báo: ưu tiên `message` tiếng Việt của IDE.
 String ideProjectErrorText(Object error) {
@@ -120,10 +119,7 @@ Future<bool> ideOpenHttpsLink(
     messenger.showSnackBar(
       SnackBar(
         content: Text(
-          tr(
-            'Chỉ mở được liên kết https.',
-            'Only https links can be opened.',
-          ),
+          tr('Chỉ mở được liên kết https.', 'Only https links can be opened.'),
         ),
       ),
     );
@@ -203,25 +199,29 @@ class IdeProjectButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = const Size(44, 44);
+    // Gọn như nút IDE web nhưng vẫn cao 44 cho dễ bấm.
+    const size = Size(44, 44);
+    const pad = EdgeInsets.symmetric(horizontal: 14);
     if (primary) {
       return FilledButton.icon(
         onPressed: onPressed,
-        icon: Icon(icon, size: 18),
+        icon: Icon(icon, size: 16),
         label: Text(label),
         style: FilledButton.styleFrom(
           minimumSize: size,
-          backgroundColor: danger ? WebTuiColors.danger : null,
+          padding: pad,
+          backgroundColor: danger ? IdeWb.danger : null,
         ),
       );
     }
     return OutlinedButton.icon(
       onPressed: onPressed,
-      icon: Icon(icon, size: 18),
+      icon: Icon(icon, size: 16),
       label: Text(label),
       style: OutlinedButton.styleFrom(
         minimumSize: size,
-        foregroundColor: danger ? WebTuiColors.danger : null,
+        padding: pad,
+        foregroundColor: danger ? IdeWb.danger : null,
       ),
     );
   }
@@ -250,10 +250,10 @@ class IdeProjectCard extends StatelessWidget {
         WebTuiSpacing.md,
       ),
       child: Material(
-        color: WebTuiColors.surface,
+        color: IdeWb.bg,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(WebTuiRadii.md),
-          side: BorderSide(color: WebTuiColors.border),
+          side: BorderSide(color: IdeWb.border),
         ),
         child: Padding(
           padding: const EdgeInsets.all(WebTuiSpacing.md),
@@ -268,8 +268,8 @@ class IdeProjectCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           title!,
-                          style: WebTuiTypography.titleMedium.copyWith(
-                            color: WebTuiColors.textPrimary,
+                          style: IdeType.titleMedium.copyWith(
+                            color: IdeWb.textStrong,
                           ),
                         ),
                       ),
@@ -305,9 +305,7 @@ class IdeProgressLine extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: WebTuiTypography.bodyMedium.copyWith(
-              color: WebTuiColors.textSecondary,
-            ),
+            style: IdeType.bodyMedium.copyWith(color: IdeWb.text),
           ),
         ),
       ],

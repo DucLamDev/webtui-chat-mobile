@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../app/providers/foundation_providers.dart';
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
@@ -14,6 +13,7 @@ import '../../../domain/ide_errors.dart';
 import '../../../domain/ide_project.dart';
 import '../../controllers/ide_project_controllers.dart';
 import '../../widgets/ide_step_sheet.dart';
+import '../../widgets/ide_wb.dart';
 
 /// Câu dễ hiểu cho lỗi; ưu tiên `message` tiếng Việt của IDE.
 String ideMoreErrorText(Object error) {
@@ -220,8 +220,8 @@ class IdeProjectBar extends StatelessWidget {
                         ? Icons.radio_button_checked_rounded
                         : Icons.radio_button_unchecked_rounded,
                     color: p.name == current.name
-                        ? WebTuiColors.primary
-                        : WebTuiColors.textMuted,
+                        ? IdeWb.accentInk
+                        : IdeWb.text2,
                   ),
                   title: Text(p.title),
                   subtitle: p.branch.isEmpty ? null : Text(p.branch),
@@ -253,25 +253,21 @@ class IdeProjectBar extends StatelessWidget {
               vertical: WebTuiSpacing.sm,
             ),
             decoration: BoxDecoration(
-              color: WebTuiColors.surface,
+              color: IdeWb.bg,
               borderRadius: BorderRadius.circular(WebTuiRadii.md),
-              border: Border.all(color: WebTuiColors.border),
+              border: Border.all(color: IdeWb.border),
             ),
             child: Row(
               children: [
-                Icon(
-                  Icons.folder_outlined,
-                  size: 20,
-                  color: WebTuiColors.textSecondary,
-                ),
+                Icon(Icons.folder_outlined, size: 20, color: IdeWb.text),
                 const SizedBox(width: WebTuiSpacing.sm),
                 Expanded(
                   child: Text(
                     current.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: WebTuiTypography.titleMedium.copyWith(
-                      color: WebTuiColors.textPrimary,
+                    style: IdeType.titleMedium.copyWith(
+                      color: IdeWb.textStrong,
                     ),
                   ),
                 ),
@@ -279,16 +275,11 @@ class IdeProjectBar extends StatelessWidget {
                   const SizedBox(width: WebTuiSpacing.sm),
                   Text(
                     current.branch,
-                    style: WebTuiTypography.bodySmall.copyWith(
-                      color: WebTuiColors.textMuted,
-                    ),
+                    style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
                   ),
                 ],
                 if (projects.length > 1)
-                  Icon(
-                    Icons.expand_more_rounded,
-                    color: WebTuiColors.textMuted,
-                  ),
+                  Icon(Icons.expand_more_rounded, color: IdeWb.text2),
               ],
             ),
           ),
@@ -427,7 +418,7 @@ class _IdeMorePageState extends ConsumerState<IdeMorePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: WebTuiColors.page,
+      backgroundColor: IdeWb.bg,
       appBar: AppBar(
         title: Text(widget.title),
         actions: widget.actions,
@@ -454,11 +445,11 @@ class IdeCard extends StatelessWidget {
       child: child,
     );
     return Material(
-      color: WebTuiColors.surface,
+      color: IdeWb.bg,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(WebTuiRadii.md),
-        side: BorderSide(color: WebTuiColors.border),
+        side: BorderSide(color: IdeWb.border),
       ),
       child: SizedBox(
         width: double.infinity,
@@ -485,7 +476,7 @@ class IdeTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = color ?? WebTuiColors.textSecondary;
+    final c = color ?? IdeWb.text;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(

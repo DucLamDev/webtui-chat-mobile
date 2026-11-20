@@ -329,7 +329,10 @@ void main() {
     await _tap(tester, 'ide_deploy_pull');
     await tester.tap(find.byKey(const Key('ide_pull_all')));
     await pumpFor(tester);
-    expect(find.textContaining('bị thay bằng bản trên máy chủ'), findsOneWidget);
+    expect(
+      find.textContaining('bị thay bằng bản trên máy chủ'),
+      findsOneWidget,
+    );
     expect(find.textContaining('3 tệp đang thay đổi'), findsOneWidget);
     await tester.tap(find.text('Huỷ').last);
     await pumpFor(tester);

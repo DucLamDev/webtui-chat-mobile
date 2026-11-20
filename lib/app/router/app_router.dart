@@ -18,6 +18,8 @@ import '../../features/conversations/presentation/screens/chat_room_screen.dart'
 import '../../features/customer_tickets/presentation/screens/customer_ticket_detail_screen.dart';
 import '../../features/customer_tickets/presentation/screens/customer_ticket_list_screen.dart';
 import '../../features/home/presentation/screens/home_shell_screen.dart';
+import '../../features/ide_mobile/presentation/controllers/ide_controllers.dart'
+    show IdeAiSessionItem;
 import '../../features/ide_mobile/presentation/screens/ide_ai_chat_screen.dart';
 import '../../features/ide_mobile/presentation/screens/ide_job_screen.dart';
 import '../../features/ide_mobile/presentation/screens/ide_pair_screen.dart';
@@ -295,7 +297,13 @@ final appRouterProvider = Provider<GoRouter>((_) {
         path: '/ide/ai/:key',
         name: 'ide-ai',
         builder: (context, state) => IdeAccessGate(
-          child: IdeAiChatScreen(sessionKey: state.pathParameters['key'] ?? ''),
+          child: IdeAiChatScreen(
+            sessionKey: state.pathParameters['key'] ?? '',
+            info: switch (state.extra) {
+              final IdeAiSessionItem item => item,
+              _ => null,
+            },
+          ),
         ),
       ),
       GoRoute(

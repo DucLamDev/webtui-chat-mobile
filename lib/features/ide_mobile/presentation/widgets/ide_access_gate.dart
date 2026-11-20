@@ -6,6 +6,7 @@ import '../../../../app/providers/foundation_providers.dart';
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../domain/ide_device_security.dart';
+import 'ide_wb.dart';
 
 /// Hỏi vân tay / khoá màn hình khi vào `/ide*`; nhớ 5 phút sau khi app ra nền.
 class IdeAccessGate extends ConsumerStatefulWidget {
@@ -82,38 +83,41 @@ class _IdeAccessGateState extends ConsumerState<IdeAccessGate>
 
   @override
   Widget build(BuildContext context) {
-    return switch (_gate) {
-      _Gate.open => widget.child,
-      _Gate.asking => Scaffold(
-        body: WebTuiLoadingState(
-          message: tr('Đang xác nhận...', 'Confirming...'),
-        ),
-      ),
-      _Gate.noLock => Scaffold(
-        appBar: AppBar(),
-        body: WebTuiEmptyState(
-          title: tr('Chưa đặt khoá màn hình', 'No screen lock'),
-          message: tr(
-            'Hãy đặt khoá màn hình cho điện thoại để dùng IDE',
-            'Set a screen lock on this phone to use the IDE',
+    // Mọi màn IDE (và bảng trượt / hộp thoại mở từ đó) theo chủ đề IDE web.
+    return IdeWbTheme(
+      child: switch (_gate) {
+        _Gate.open => widget.child,
+        _Gate.asking => Scaffold(
+          body: WebTuiLoadingState(
+            message: tr('Đang xác nhận...', 'Confirming...'),
           ),
-          icon: Icons.lock_outline_rounded,
         ),
-      ),
-      _Gate.failed => Scaffold(
-        appBar: AppBar(),
-        body: WebTuiErrorState(
-          title: tr('Không xác nhận được', 'Could not confirm'),
-          message: tr(
-            'Thiết bị chưa sẵn sàng xác thực. Thử lại sau.',
-            'The device is not ready to authenticate. Try again later.',
+        _Gate.noLock => Scaffold(
+          appBar: AppBar(),
+          body: WebTuiEmptyState(
+            title: tr('Chưa đặt khoá màn hình', 'No screen lock'),
+            message: tr(
+              'Hãy đặt khoá màn hình cho điện thoại để dùng IDE',
+              'Set a screen lock on this phone to use the IDE',
+            ),
+            icon: Icons.lock_outline_rounded,
           ),
-          onRetry: () {
-            setState(() => _gate = _Gate.asking);
-            _ask();
-          },
         ),
-      ),
-    };
+        _Gate.failed => Scaffold(
+          appBar: AppBar(),
+          body: WebTuiErrorState(
+            title: tr('Không xác nhận được', 'Could not confirm'),
+            message: tr(
+              'Thiết bị chưa sẵn sàng xác thực. Thử lại sau.',
+              'The device is not ready to authenticate. Try again later.',
+            ),
+            onRetry: () {
+              setState(() => _gate = _Gate.asking);
+              _ask();
+            },
+          ),
+        ),
+      },
+    );
   }
 }

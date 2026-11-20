@@ -3,15 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_more_time.dart';
 import '../../../domain/ide_task_models.dart';
 import '../../../domain/ide_visible_text.dart';
 import '../../controllers/ide_more_controllers.dart';
 import '../../controllers/ide_project_controllers.dart';
+import '../../widgets/ide_wb.dart';
 import 'ide_more_common.dart';
 import 'ide_task_form.dart';
 
@@ -22,9 +21,9 @@ String ideTaskStatusLabel(String status) => switch (status) {
 };
 
 Color ideTaskStatusColor(String status) => switch (status) {
-  'doing' => WebTuiColors.primary,
-  'done' => WebTuiColors.accentGreen,
-  _ => WebTuiColors.textSecondary,
+  'doing' => IdeWb.accentInk,
+  'done' => IdeWb.ok,
+  _ => IdeWb.text,
 };
 
 /// Việc cần làm: của tôi hoặc theo dự án, lọc trạng thái, thêm việc.
@@ -228,9 +227,9 @@ class IdeTaskCard extends StatelessWidget {
     final due = task.due;
     final state = ideDueState(due, DateTime.now(), done: task.isDone);
     final dueColor = switch (state) {
-      IdeDueState.overdue => WebTuiColors.danger,
-      IdeDueState.today || IdeDueState.soon => WebTuiColors.accentAmber,
-      _ => WebTuiColors.textMuted,
+      IdeDueState.overdue => IdeWb.danger,
+      IdeDueState.today || IdeDueState.soon => IdeWb.warn,
+      _ => IdeWb.text2,
     };
     return IdeCard(
       key: Key('ide_task_${task.id}'),
@@ -242,8 +241,8 @@ class IdeTaskCard extends StatelessWidget {
             ideVisibleText(task.title),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: WebTuiTypography.titleMedium.copyWith(
-              color: WebTuiColors.textPrimary,
+            style: IdeType.titleMedium.copyWith(
+              color: IdeWb.textStrong,
               decoration: task.isDone ? TextDecoration.lineThrough : null,
             ),
           ),
@@ -272,9 +271,7 @@ class IdeTaskCard extends StatelessWidget {
                     if (showProject && task.project.isNotEmpty)
                       ideVisibleText(task.project),
                   ].join(' · '),
-                  style: WebTuiTypography.bodySmall.copyWith(
-                    color: WebTuiColors.textSecondary,
-                  ),
+                  style: IdeType.bodySmall.copyWith(color: IdeWb.text),
                 ),
             ],
           ),

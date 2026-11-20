@@ -6,9 +6,7 @@ import 'package:pdfx/pdfx.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../application/ide_download_service.dart';
 import '../../../application/ide_files_service.dart';
@@ -21,6 +19,7 @@ import '../../widgets/files/ide_file_job_dialog.dart';
 import '../../widgets/files/ide_file_transfer.dart';
 import '../../widgets/files/ide_files_ui.dart';
 import '../../widgets/files/ide_image_viewer.dart';
+import '../../widgets/ide_wb.dart';
 import '../../widgets/markdown/ide_markdown.dart';
 import 'ide_diff_screen.dart';
 import 'ide_file_editor_screen.dart';
@@ -199,7 +198,8 @@ class _IdeFileViewerScreenState extends ConsumerState<IdeFileViewerScreen> {
 
   Future<void> _edit() async {
     final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
+      IdePageRoute<bool>(
+        dark: true,
         builder: (_) => IdeFileEditorScreen(
           root: widget.root,
           path: widget.path,
@@ -279,7 +279,8 @@ class _IdeFileViewerScreenState extends ConsumerState<IdeFileViewerScreen> {
       case 'diff':
         unawaited(
           Navigator.of(context).push(
-            MaterialPageRoute<void>(
+            IdePageRoute<void>(
+              dark: true,
               builder: (_) =>
                   IdeDiffScreen(root: widget.root, path: widget.path),
             ),
@@ -378,7 +379,7 @@ class _IdeFileViewerScreenState extends ConsumerState<IdeFileViewerScreen> {
             Icon(
               Icons.insert_drive_file_outlined,
               size: 48,
-              color: WebTuiColors.textMuted,
+              color: IdeWbPalette.of(context).text2,
             ),
             const SizedBox(height: WebTuiSpacing.md),
             Text(
@@ -389,7 +390,7 @@ class _IdeFileViewerScreenState extends ConsumerState<IdeFileViewerScreen> {
                     )
                   : tr('Tệp lớn hơn 3 MB', 'File is larger than 3 MB'),
               textAlign: TextAlign.center,
-              style: WebTuiTypography.titleMedium,
+              style: IdeType.titleMedium,
             ),
             const SizedBox(height: WebTuiSpacing.sm),
             Text(
@@ -398,8 +399,8 @@ class _IdeFileViewerScreenState extends ConsumerState<IdeFileViewerScreen> {
                 'You can download it to your phone.',
               ),
               textAlign: TextAlign.center,
-              style: WebTuiTypography.bodyMedium.copyWith(
-                color: WebTuiColors.textSecondary,
+              style: IdeType.bodyMedium.copyWith(
+                color: IdeWbPalette.of(context).text,
               ),
             ),
             const SizedBox(height: WebTuiSpacing.lg),

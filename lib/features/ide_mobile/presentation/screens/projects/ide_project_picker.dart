@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_project.dart';
+import '../../widgets/ide_wb.dart';
 
 /// Nhóm hiển thị của một dự án: dự án riêng tách khỏi ba kiểu còn lại.
 enum IdeProjectGroup { git, vps, local, my }
@@ -119,14 +118,14 @@ class _PickerSheetState extends State<_PickerSheet> {
                                 ? null
                                 : Text(
                                     p.branch,
-                                    style: WebTuiTypography.bodySmall.copyWith(
-                                      color: WebTuiColors.textMuted,
+                                    style: IdeType.bodySmall.copyWith(
+                                      color: IdeWb.text2,
                                     ),
                                   ),
                             trailing: p.name == widget.currentName
                                 ? Icon(
                                     Icons.check_rounded,
-                                    color: WebTuiColors.primary,
+                                    color: IdeWb.accentInk,
                                   )
                                 : null,
                             onTap: () => Navigator.of(context).pop(p),

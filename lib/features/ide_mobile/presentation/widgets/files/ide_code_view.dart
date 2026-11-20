@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
+import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../application/ide_highlighter.dart';
+import '../ide_wb.dart';
 
 const ideCodeFontSize = 13.0;
 const ideCodeLineHeight = 1.5;
 
 const _mono = TextStyle(
-  fontFamily: 'monospace',
-  fontFamilyFallback: ['Menlo', 'Roboto Mono', 'Courier'],
+  fontFamily: WebTuiTypography.monoFamily,
+  fontFamilyFallback: WebTuiTypography.monoFallback,
   fontSize: ideCodeFontSize,
   height: ideCodeLineHeight,
   // Ghi rõ: ô sửa gộp kiểu chữ của theme (có giãn chữ), làm chữ trong trình sửa
@@ -18,19 +19,21 @@ const _mono = TextStyle(
   wordSpacing: 0,
 );
 
-/// Kiểu chữ mã (màu chữ theo giao diện hiện tại).
-TextStyle ideCodeStyle() => _mono.copyWith(color: WebTuiColors.textPrimary);
+/// Kiểu chữ mã, màu chữ theo bảng màu IDE của màn (màn sửa / xem tệp luôn tối).
+TextStyle ideCodeStyle(BuildContext context) =>
+    _mono.copyWith(color: IdeWbPalette.of(context).textStrong);
 
 /// Ép mọi dòng cao bằng nhau để cột số dòng luôn thẳng hàng với chữ.
 const ideCodeStrut = StrutStyle(
-  fontFamily: 'monospace',
-  fontFamilyFallback: ['Menlo', 'Roboto Mono', 'Courier'],
+  fontFamily: WebTuiTypography.monoFamily,
+  fontFamilyFallback: WebTuiTypography.monoFallback,
   fontSize: ideCodeFontSize,
   height: ideCodeLineHeight,
   forceStrutHeight: true,
 );
 
-bool ideIsDarkNow() => WebTuiColors.brightness == Brightness.dark;
+/// Màn đang dùng bảng màu tối (để chọn bộ màu tô mã).
+bool ideIsDark(BuildContext context) => IdeWbPalette.of(context).isDark;
 
 /// Chiều cao một dòng đã nhân cỡ chữ người dùng chọn.
 double ideCodeLineExtent(BuildContext context) =>
@@ -39,7 +42,7 @@ double ideCodeLineExtent(BuildContext context) =>
 /// Bề rộng một ký tự (chữ đơn cách).
 double ideCodeCharWidth(BuildContext context) {
   final p = TextPainter(
-    text: TextSpan(text: '0000000000', style: ideCodeStyle()),
+    text: TextSpan(text: '0000000000', style: ideCodeStyle(context)),
     textDirection: TextDirection.ltr,
     textScaler: MediaQuery.textScalerOf(context),
   )..layout();
@@ -64,6 +67,7 @@ class IdeLineNumbers extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final width = ideLineNumbersWidth(context, lines);
+    final p = IdeWbPalette.of(context);
     final buf = StringBuffer();
     for (var i = 1; i <= lines; i++) {
       if (i > 1) buf.write('\n');
@@ -73,7 +77,7 @@ class IdeLineNumbers extends StatelessWidget {
       child: Container(
         width: width,
         padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.md),
-        color: WebTuiColors.backgroundMuted,
+        color: p.chip,
         child: Text(
           buf.toString(),
           textAlign: TextAlign.right,
@@ -82,7 +86,7 @@ class IdeLineNumbers extends StatelessWidget {
           softWrap: false,
           overflow: TextOverflow.visible,
           strutStyle: ideCodeStrut,
-          style: ideCodeStyle().copyWith(color: WebTuiColors.textMuted),
+          style: ideCodeStyle(context).copyWith(color: p.text2),
         ),
       ),
     );
@@ -134,14 +138,14 @@ class _IdeCodeViewState extends State<IdeCodeView> {
 
   @override
   Widget build(BuildContext context) {
-    final style = ideCodeStyle();
+    final style = ideCodeStyle(context);
     final extent = ideCodeLineExtent(context);
     final span =
         IdeHighlighter.highlight(
           widget.text,
           widget.language,
           style: style,
-          dark: ideIsDarkNow(),
+          dark: ideIsDark(context),
         ) ??
         TextSpan(text: widget.text, style: style);
     final lines = '\n'.allMatches(widget.text).length + 1;
@@ -159,7 +163,7 @@ class _IdeCodeViewState extends State<IdeCodeView> {
                 right: 0,
                 top: (hit - 1) * extent + WebTuiSpacing.sm,
                 height: extent,
-                child: ColoredBox(color: WebTuiColors.primarySoft),
+                child: ColoredBox(color: IdeWbPalette.of(context).accentSoft),
               ),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,

@@ -144,6 +144,11 @@ final class WebTuiColors {
 
   static Brightness get brightness => _brightness;
 
+  /// Bảng màu áp dụng ở [context]: bảng riêng của khu vực (gắn vào chủ đề bằng
+  /// [WebTuiPaletteScope], ví dụ IDE) hoặc bảng chung của app.
+  static WebTuiPalette of(BuildContext context) =>
+      Theme.of(context).extension<WebTuiPaletteScope>()?.palette ?? _palette;
+
   static void apply(Brightness brightness) {
     _brightness = brightness;
     _palette = brightness == Brightness.dark
@@ -177,4 +182,21 @@ final class WebTuiColors {
   static Color get hairline => _palette.hairline;
   static Color get primaryFill => _palette.primaryFill;
   static Color get badge => _palette.badge;
+}
+
+/// Gắn một bảng màu riêng cho một khu vực (ví dụ IDE tím kiểu IDE web) vào chủ
+/// đề; widget chung đọc bằng [WebTuiColors.of] nên tự đổi theo.
+@immutable
+class WebTuiPaletteScope extends ThemeExtension<WebTuiPaletteScope> {
+  const WebTuiPaletteScope(this.palette);
+
+  final WebTuiPalette palette;
+
+  @override
+  WebTuiPaletteScope copyWith({WebTuiPalette? palette}) =>
+      WebTuiPaletteScope(palette ?? this.palette);
+
+  @override
+  WebTuiPaletteScope lerp(WebTuiPaletteScope? other, double t) =>
+      other == null || t < 0.5 ? this : other;
 }

@@ -7,13 +7,13 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:xterm/xterm.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../application/ide_term_controller.dart';
 import '../../../domain/ide_term.dart';
 import '../../controllers/ide_term_controllers.dart';
+import '../../widgets/ide_wb.dart';
 import '../../widgets/terminal/ide_term_extra_keys.dart';
 import '../../widgets/terminal/ide_term_pinch.dart';
 import '../../widgets/terminal/ide_term_theme.dart';
@@ -109,8 +109,8 @@ class _State extends ConsumerState<IdeTerminalScreen> {
     final provider = ideTermControllerProvider(widget.target);
     final snap = ref.watch(provider);
     final c = ref.read(provider.notifier);
-    final brightness = Theme.of(context).brightness;
-    final theme = ideTermTheme(brightness);
+    // Terminal luôn tối như IDE web, dù máy đang sáng.
+    final theme = ideTermTheme(Brightness.dark);
     final title = snap.name.isNotEmpty
         ? snap.name
         : (widget.title.isNotEmpty ? widget.title : 'Terminal');
@@ -159,34 +159,37 @@ class _State extends ConsumerState<IdeTerminalScreen> {
       _ => _terminal(snap, c, theme),
     };
 
-    return Scaffold(
-      backgroundColor: theme.background,
-      appBar: AppBar(
-        title: Text(title, overflow: TextOverflow.ellipsis),
-        surfaceTintColor: Colors.transparent,
-        actions: [
-          if (snap.link == IdeTermLink.live ||
-              snap.link == IdeTermLink.exited) ...[
-            AnimatedBuilder(
-              animation: _view,
-              builder: (_, _) => IconButton(
-                key: const Key('term_copy'),
-                tooltip: tr('Sao chép', 'Copy'),
-                onPressed: _view.selection == null ? null : () => _copy(c),
-                icon: const Icon(Icons.copy_rounded),
+    return IdeWbTheme(
+      dark: true,
+      child: Scaffold(
+        backgroundColor: theme.background,
+        appBar: AppBar(
+          title: Text(title, overflow: TextOverflow.ellipsis),
+          surfaceTintColor: Colors.transparent,
+          actions: [
+            if (snap.link == IdeTermLink.live ||
+                snap.link == IdeTermLink.exited) ...[
+              AnimatedBuilder(
+                animation: _view,
+                builder: (_, _) => IconButton(
+                  key: const Key('term_copy'),
+                  tooltip: tr('Sao chép', 'Copy'),
+                  onPressed: _view.selection == null ? null : () => _copy(c),
+                  icon: const Icon(Icons.copy_rounded),
+                ),
               ),
-            ),
-            if (snap.isLive)
-              IconButton(
-                key: const Key('term_paste'),
-                tooltip: tr('Dán', 'Paste'),
-                onPressed: () => _paste(c),
-                icon: const Icon(Icons.content_paste_rounded),
-              ),
+              if (snap.isLive)
+                IconButton(
+                  key: const Key('term_paste'),
+                  tooltip: tr('Dán', 'Paste'),
+                  onPressed: () => _paste(c),
+                  icon: const Icon(Icons.content_paste_rounded),
+                ),
+            ],
           ],
-        ],
+        ),
+        body: SafeArea(child: body),
       ),
-      body: SafeArea(child: body),
     );
   }
 
@@ -211,7 +214,11 @@ class _State extends ConsumerState<IdeTerminalScreen> {
               controller: _view,
               focusNode: _focus,
               theme: theme,
-              textStyle: TerminalStyle(fontSize: _font),
+              textStyle: TerminalStyle(
+                fontSize: _font,
+                fontFamily: WebTuiTypography.monoFamily,
+                fontFamilyFallback: WebTuiTypography.monoFallback,
+              ),
               autofocus: true,
               deleteDetection: true,
               shortcuts: _shortcuts,
@@ -242,10 +249,11 @@ class _Banner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = IdeWbPalette.of(context);
     final (String? text, Color color, bool retry) = switch (snap.link) {
       IdeTermLink.connecting => (
         tr('Đang kết nối...', 'Connecting...'),
-        WebTuiColors.accentAmber,
+        p.warn,
         false,
       ),
       IdeTermLink.lost => (
@@ -253,7 +261,7 @@ class _Banner extends StatelessWidget {
           'Mất kết nối. Phiên vẫn chạy trên máy tính.',
           'Disconnected. The session keeps running on the computer.',
         ),
-        WebTuiColors.danger,
+        p.danger,
         true,
       ),
       IdeTermLink.exited => (
@@ -261,14 +269,14 @@ class _Banner extends StatelessWidget {
           'Phiên đã kết thúc (mã ${snap.exitCode ?? 0})',
           'Session ended (code ${snap.exitCode ?? 0})',
         ),
-        WebTuiColors.textSecondary,
+        p.text,
         false,
       ),
-      _ => (null, WebTuiColors.textMuted, false),
+      _ => (null, p.text2, false),
     };
     if (text == null) return const SizedBox.shrink();
     return Material(
-      color: WebTuiColors.surface,
+      color: p.bg,
       child: Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: WebTuiSpacing.lg,
@@ -282,9 +290,7 @@ class _Banner extends StatelessWidget {
               child: Text(
                 text,
                 key: const Key('term_banner'),
-                style: WebTuiTypography.bodySmall.copyWith(
-                  color: WebTuiColors.textPrimary,
-                ),
+                style: IdeType.bodySmall.copyWith(color: p.textStrong),
               ),
             ),
             if (retry)
@@ -310,8 +316,9 @@ class _Notice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = IdeWbPalette.of(context);
     return ColoredBox(
-      color: WebTuiColors.background,
+      color: p.bg,
       child: WebTuiEmptyState(
         key: const Key('term_notice'),
         title: title,

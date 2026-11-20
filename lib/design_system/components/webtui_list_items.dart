@@ -83,8 +83,8 @@ class WebTuiConversationListItem extends StatelessWidget {
         : webTuiChannelTone(avatarIcon!);
     final row = Material(
       color: selected
-          ? WebTuiColors.primarySoft.withValues(alpha: 0.74)
-          : WebTuiColors.page,
+          ? WebTuiColors.of(context).primarySoft.withValues(alpha: 0.74)
+          : WebTuiColors.of(context).page,
       child: InkWell(
         onTap: onTap,
         onLongPress: onLongPress,
@@ -99,7 +99,7 @@ class WebTuiConversationListItem extends StatelessWidget {
                   bottom: 10,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: WebTuiColors.primary,
+                      color: WebTuiColors.of(context).primary,
                       borderRadius: BorderRadius.only(
                         topRight: Radius.circular(WebTuiRadii.xs),
                         bottomRight: Radius.circular(WebTuiRadii.xs),
@@ -152,7 +152,9 @@ class WebTuiConversationListItem extends StatelessWidget {
                                           overflow: TextOverflow.ellipsis,
                                           style: WebTuiTypography.titleMedium
                                               .copyWith(
-                                                color: WebTuiColors.textPrimary,
+                                                color: WebTuiColors.of(
+                                                  context,
+                                                ).textPrimary,
                                                 fontSize: 16.5,
                                                 letterSpacing: -0.1,
                                                 fontWeight: unread
@@ -170,7 +172,9 @@ class WebTuiConversationListItem extends StatelessWidget {
                                         Icon(
                                           WebTuiIcons.bellOffFilled,
                                           size: 15,
-                                          color: WebTuiColors.textMuted,
+                                          color: WebTuiColors.of(
+                                            context,
+                                          ).textMuted,
                                         ),
                                       ],
                                     ],
@@ -182,7 +186,7 @@ class WebTuiConversationListItem extends StatelessWidget {
                                     Icon(
                                       WebTuiIcons.pinFilled,
                                       size: 15,
-                                      color: WebTuiColors.textMuted,
+                                      color: WebTuiColors.of(context).textMuted,
                                     ),
                                     const SizedBox(width: 4),
                                   ],
@@ -193,8 +197,8 @@ class WebTuiConversationListItem extends StatelessWidget {
                                     style: WebTuiTypography.bodySmall.copyWith(
                                       fontSize: 13,
                                       color: unread
-                                          ? WebTuiColors.primary
-                                          : WebTuiColors.textMuted,
+                                          ? WebTuiColors.of(context).primary
+                                          : WebTuiColors.of(context).textMuted,
                                       fontWeight: unread
                                           ? FontWeight.w700
                                           : FontWeight.w400,
@@ -217,8 +221,10 @@ class WebTuiConversationListItem extends StatelessWidget {
                                       fontSize: 14.5,
                                       height: 1.35,
                                       color: unread
-                                          ? WebTuiColors.textPrimary
-                                          : WebTuiColors.textSecondary,
+                                          ? WebTuiColors.of(context).textPrimary
+                                          : WebTuiColors.of(
+                                              context,
+                                            ).textSecondary,
                                       fontWeight: unread
                                           ? FontWeight.w700
                                           : FontWeight.w400,
@@ -269,7 +275,7 @@ class _InlineBadge extends StatelessWidget {
     final dark = WebTuiColors.brightness == Brightness.dark;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: WebTuiColors.primarySoft,
+        color: WebTuiColors.of(context).primarySoft,
         borderRadius: BorderRadius.circular(4),
       ),
       child: Padding(
@@ -312,7 +318,7 @@ class WebTuiChannelBotListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: WebTuiColors.page,
+      color: WebTuiColors.of(context).page,
       child: InkWell(
         onTap: onTap,
         child: SizedBox(
@@ -333,7 +339,7 @@ class WebTuiChannelBotListItem extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: WebTuiTypography.bodyMedium.copyWith(
-                          color: WebTuiColors.textPrimary,
+                          color: WebTuiColors.of(context).textPrimary,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -344,8 +350,8 @@ class WebTuiChannelBotListItem extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: WebTuiTypography.bodySmall.copyWith(
                           color: unreadCount > 0
-                              ? WebTuiColors.textPrimary
-                              : WebTuiColors.textMuted,
+                              ? WebTuiColors.of(context).textPrimary
+                              : WebTuiColors.of(context).textMuted,
                           fontWeight: unreadCount > 0 ? FontWeight.w700 : null,
                         ),
                       ),
@@ -364,7 +370,10 @@ class WebTuiChannelBotListItem extends StatelessWidget {
                     ),
                   )
                 else
-                  Icon(WebTuiIcons.forward, color: WebTuiColors.textMuted),
+                  Icon(
+                    WebTuiIcons.forward,
+                    color: WebTuiColors.of(context).textMuted,
+                  ),
               ],
             ),
           ),
@@ -393,7 +402,7 @@ class WebTuiSectionLabel extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: WebTuiTypography.labelSmall.copyWith(
-          color: WebTuiColors.textMuted,
+          color: WebTuiColors.of(context).textMuted,
           fontSize: 13,
           fontWeight: FontWeight.w500,
         ),
@@ -417,7 +426,7 @@ class WebTuiListSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: WebTuiColors.page,
+      color: WebTuiColors.of(context).page,
       child: Column(
         children: [
           for (var index = 0; index < children.length; index++) ...[
@@ -444,7 +453,7 @@ class WebTuiHairline extends StatelessWidget {
       child: SizedBox(
         height: 0.5,
         width: double.infinity,
-        child: ColoredBox(color: WebTuiColors.hairline),
+        child: ColoredBox(color: WebTuiColors.of(context).hairline),
       ),
     );
   }
@@ -579,7 +588,7 @@ class _LazySurfaceItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: WebTuiColors.page,
+      color: WebTuiColors.of(context).page,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../application/ide_talk_controller.dart';
@@ -11,6 +10,7 @@ import '../../../application/ide_talk_service.dart';
 import '../../../domain/ide_visible_text.dart';
 import '../../widgets/ai/ide_ai_commands.dart';
 import '../../widgets/files/ide_file_card.dart' show ideFormatSize;
+import '../../widgets/ide_wb.dart';
 import 'ide_talk_providers.dart';
 
 IdeTalkAttachment ideTalkAttachmentOf(IdePickedFile f) => IdeTalkAttachment(
@@ -120,7 +120,7 @@ class _IdeTalkComposerState extends ConsumerState<IdeTalkComposer> {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: WebTuiColors.surface,
+      color: IdeWb.bg,
       elevation: 0,
       child: SafeArea(
         top: false,
@@ -223,7 +223,7 @@ class _IdeTalkComposerState extends ConsumerState<IdeTalkComposer> {
                       ),
                       icon: Icon(
                         Icons.stop_circle_outlined,
-                        color: WebTuiColors.danger,
+                        color: IdeWb.danger,
                       ),
                       onPressed: widget.onStop,
                     ),

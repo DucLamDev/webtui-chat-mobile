@@ -5,15 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../application/ide_avatar_encoder.dart';
 import '../../../domain/ide_more_time.dart';
 import '../../../domain/ide_profile_models.dart';
 import '../../../domain/ide_visible_text.dart';
 import '../../controllers/ide_controllers.dart';
+import '../../widgets/ide_wb.dart';
 import '../more/ide_more_common.dart';
 import 'ide_profile_usage.dart';
 import 'ide_profile_widgets.dart';
@@ -157,7 +156,7 @@ class _IdeProfileScreenState extends ConsumerState<IdeProfileScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontWeight: FontWeight.w600,
-              color: WebTuiColors.textPrimary,
+              color: IdeWb.textStrong,
             ),
           ),
         ],
@@ -373,11 +372,11 @@ class _Header extends StatelessWidget {
                 height: 72,
                 child: avatar == null
                     ? ColoredBox(
-                        color: WebTuiColors.chipBackground,
+                        color: IdeWb.chip,
                         child: Icon(
                           Icons.person_rounded,
                           size: 40,
-                          color: WebTuiColors.textMuted,
+                          color: IdeWb.text2,
                         ),
                       )
                     : Image.memory(
@@ -401,17 +400,15 @@ class _Header extends StatelessWidget {
                     ideVisibleText(p.displayName),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: WebTuiTypography.titleMedium.copyWith(
-                      color: WebTuiColors.textPrimary,
+                    style: IdeType.titleMedium.copyWith(
+                      color: IdeWb.textStrong,
                     ),
                   ),
                   if (p.email != null && p.email!.isNotEmpty)
                     Text(
                       ideVisibleText(p.email!),
                       overflow: TextOverflow.ellipsis,
-                      style: WebTuiTypography.bodySmall.copyWith(
-                        color: WebTuiColors.textSecondary,
-                      ),
+                      style: IdeType.bodySmall.copyWith(color: IdeWb.text),
                     ),
                   if (p.admin)
                     Padding(

@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_more_time.dart';
 import '../../../domain/ide_tools_models.dart';
 import '../../../domain/ide_visible_text.dart';
+import '../../widgets/ide_wb.dart';
 import '../more/ide_more_common.dart';
 import 'ide_tools_common.dart';
 
@@ -155,7 +154,7 @@ class _AgentsView extends StatelessWidget {
                     ToolStat(
                       tr('Lỗi', 'Errors'),
                       '${o.totals.errors}',
-                      color: o.totals.errors > 0 ? WebTuiColors.danger : null,
+                      color: o.totals.errors > 0 ? IdeWb.danger : null,
                     ),
                   ],
                 ),
@@ -186,13 +185,13 @@ class _AgentsView extends StatelessWidget {
 String _when(DateTime? t) => t == null ? ideToolsDash : ideFormatDateTime(t);
 
 (String, Color) _health(String h) => switch (h) {
-  'ok' => (tr('Tốt', 'OK'), WebTuiColors.accentGreen),
-  'warn' => (tr('Cảnh báo', 'Warning'), WebTuiColors.accentAmber),
-  'error' => (tr('Lỗi', 'Error'), WebTuiColors.danger),
-  'stale' => (tr('Trễ lịch', 'Stale'), WebTuiColors.accentAmber),
-  'running' => (tr('Đang chạy', 'Running'), WebTuiColors.primary),
-  'skipped' => (tr('Bỏ qua', 'Skipped'), WebTuiColors.textSecondary),
-  _ => (tr('Chưa chạy', 'Never ran'), WebTuiColors.textSecondary),
+  'ok' => (tr('Tốt', 'OK'), IdeWb.ok),
+  'warn' => (tr('Cảnh báo', 'Warning'), IdeWb.warn),
+  'error' => (tr('Lỗi', 'Error'), IdeWb.danger),
+  'stale' => (tr('Trễ lịch', 'Stale'), IdeWb.warn),
+  'running' => (tr('Đang chạy', 'Running'), IdeWb.accentInk),
+  'skipped' => (tr('Bỏ qua', 'Skipped'), IdeWb.text),
+  _ => (tr('Chưa chạy', 'Never ran'), IdeWb.text),
 };
 
 class _SchedCard extends StatelessWidget {
@@ -217,9 +216,7 @@ class _SchedCard extends StatelessWidget {
               children: [
                 Text(
                   ideVisibleText(agent.name),
-                  style: WebTuiTypography.titleMedium.copyWith(
-                    color: WebTuiColors.textPrimary,
-                  ),
+                  style: IdeType.titleMedium.copyWith(color: IdeWb.textStrong),
                 ),
                 IdeTag(h.$1, color: h.$2),
                 if (!agent.enabled) IdeTag(tr('Tắt', 'Off')),
@@ -230,9 +227,7 @@ class _SchedCard extends StatelessWidget {
                 ideVisibleText(agent.description),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
-                style: WebTuiTypography.bodySmall.copyWith(
-                  color: WebTuiColors.textSecondary,
-                ),
+                style: IdeType.bodySmall.copyWith(color: IdeWb.text),
               ),
             if (agent.schedule.isNotEmpty)
               ToolInfoRow(
@@ -245,16 +240,12 @@ class _SchedCard extends StatelessWidget {
                 ideVisibleText(agent.lastSummary),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
-                style: WebTuiTypography.bodySmall.copyWith(
-                  color: WebTuiColors.textMuted,
-                ),
+                style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
               ),
             for (final p in agent.problems)
               Text(
                 '! ${ideVisibleText(p)}',
-                style: WebTuiTypography.bodySmall.copyWith(
-                  color: WebTuiColors.danger,
-                ),
+                style: IdeType.bodySmall.copyWith(color: IdeWb.danger),
               ),
           ],
         ),
@@ -286,16 +277,14 @@ class _AgentCard extends StatelessWidget {
               children: [
                 Text(
                   ideVisibleText(agent.name),
-                  style: WebTuiTypography.titleMedium.copyWith(
-                    color: WebTuiColors.textPrimary,
-                  ),
+                  style: IdeType.titleMedium.copyWith(color: IdeWb.textStrong),
                 ),
                 if (agent.scope.isNotEmpty) IdeTag(ideVisibleText(agent.scope)),
                 if (agent.model.isNotEmpty) IdeTag(ideVisibleText(agent.model)),
                 if (a.running > 0)
                   IdeTag(
                     tr('Đang chạy ${a.running}', 'Running ${a.running}'),
-                    color: WebTuiColors.primary,
+                    color: IdeWb.accentInk,
                   ),
                 if (agent.checkErrors > 0)
                   IdeTag(
@@ -303,7 +292,7 @@ class _AgentCard extends StatelessWidget {
                       '${agent.checkErrors} lỗi cấu hình',
                       '${agent.checkErrors} config errors',
                     ),
-                    color: WebTuiColors.danger,
+                    color: IdeWb.danger,
                   ),
                 if (agent.checkWarnings > 0)
                   IdeTag(
@@ -311,7 +300,7 @@ class _AgentCard extends StatelessWidget {
                       '${agent.checkWarnings} cảnh báo',
                       '${agent.checkWarnings} warnings',
                     ),
-                    color: WebTuiColors.accentAmber,
+                    color: IdeWb.warn,
                   ),
               ],
             ),
@@ -322,9 +311,7 @@ class _AgentCard extends StatelessWidget {
                   ideVisibleText(agent.description),
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: WebTuiTypography.bodySmall.copyWith(
-                    color: WebTuiColors.textSecondary,
-                  ),
+                  style: IdeType.bodySmall.copyWith(color: IdeWb.text),
                 ),
               ),
             const SizedBox(height: WebTuiSpacing.xs),
@@ -370,15 +357,15 @@ class _RunTile extends StatelessWidget {
               children: [
                 Text(
                   ideVisibleText(run.agent),
-                  style: WebTuiTypography.bodyMedium.copyWith(
-                    color: WebTuiColors.textPrimary,
+                  style: IdeType.bodyMedium.copyWith(
+                    color: IdeWb.textStrong,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 if (run.status.isNotEmpty)
                   IdeTag(
                     ideVisibleText(run.status),
-                    color: bad ? WebTuiColors.danger : null,
+                    color: bad ? IdeWb.danger : null,
                   ),
               ],
             ),
@@ -387,15 +374,11 @@ class _RunTile extends StatelessWidget {
                 ideVisibleText(run.desc),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: WebTuiTypography.bodySmall.copyWith(
-                  color: WebTuiColors.textSecondary,
-                ),
+                style: IdeType.bodySmall.copyWith(color: IdeWb.text),
               ),
             Text(
               '${_when(run.at)} · ${ideToolsMs(run.ms)} · ${run.tools} ${tr('lệnh', 'tools')}',
-              style: WebTuiTypography.bodySmall.copyWith(
-                color: WebTuiColors.textMuted,
-              ),
+              style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
             ),
           ],
         ),

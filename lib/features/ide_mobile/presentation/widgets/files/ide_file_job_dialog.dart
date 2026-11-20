@@ -4,13 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../application/ide_files_service.dart';
 import '../../../domain/ide_errors.dart';
 import '../../controllers/ide_files_controllers.dart';
+import '../ide_wb.dart';
 import 'ide_files_ui.dart';
 
 /// Hộp theo dõi một việc nền của tệp (nén zip, đổi Office ra PDF, lấy từ liên
@@ -105,9 +104,7 @@ class _JobDialogState extends ConsumerState<_JobDialog> {
       content: error != null
           ? Text(
               ideFilesErrorText(error),
-              style: WebTuiTypography.bodyMedium.copyWith(
-                color: WebTuiColors.danger,
-              ),
+              style: IdeType.bodyMedium.copyWith(color: IdeWb.danger),
             )
           : Row(
               children: [
@@ -123,7 +120,7 @@ class _JobDialogState extends ConsumerState<_JobDialog> {
                       'Đang chạy trên máy tính...',
                       'Running on your computer...',
                     ),
-                    style: WebTuiTypography.bodyMedium,
+                    style: IdeType.bodyMedium,
                   ),
                 ),
               ],

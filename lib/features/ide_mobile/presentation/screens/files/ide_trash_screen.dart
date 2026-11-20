@@ -5,15 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../app/providers/foundation_providers.dart';
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_file_models.dart';
 import '../../controllers/ide_files_controllers.dart';
 import '../../widgets/files/ide_file_card.dart' show ideFormatSize;
 import '../../widgets/files/ide_files_ui.dart';
 import '../../widgets/ide_step_sheet.dart';
+import '../../widgets/ide_wb.dart';
 
 /// Thùng rác của dự án: khôi phục, xoá hẳn một mục, dọn hết. Xoá hẳn là thao
 /// tác nhạy cảm: IDE đòi xác nhận vân tay (`need_step`), app còn hỏi lại.
@@ -168,7 +167,7 @@ class _IdeTrashScreenState extends ConsumerState<IdeTrashScreen> {
               onPressed: _busy ? null : _purgeAll,
               child: Text(
                 tr('Dọn hết', 'Empty'),
-                style: TextStyle(color: WebTuiColors.danger),
+                style: TextStyle(color: IdeWb.danger),
               ),
             ),
         ],
@@ -195,7 +194,7 @@ class _IdeTrashScreenState extends ConsumerState<IdeTrashScreen> {
         children: [
           Icon(
             it.isDir ? Icons.folder_rounded : Icons.insert_drive_file_outlined,
-            color: WebTuiColors.textSecondary,
+            color: IdeWb.text,
           ),
           const SizedBox(width: WebTuiSpacing.md),
           Expanded(
@@ -206,7 +205,7 @@ class _IdeTrashScreenState extends ConsumerState<IdeTrashScreen> {
                   it.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: WebTuiTypography.bodyMedium.copyWith(
+                  style: IdeType.bodyMedium.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -218,9 +217,7 @@ class _IdeTrashScreenState extends ConsumerState<IdeTrashScreen> {
                   ].where((e) => e.isNotEmpty).join(' · '),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: WebTuiTypography.bodySmall.copyWith(
-                    color: WebTuiColors.textMuted,
-                  ),
+                  style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
                 ),
               ],
             ),
@@ -229,17 +226,14 @@ class _IdeTrashScreenState extends ConsumerState<IdeTrashScreen> {
             key: Key('ide_trash_restore_${it.id}'),
             tooltip: tr('Khôi phục', 'Restore'),
             constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-            icon: Icon(Icons.restore_rounded, color: WebTuiColors.primary),
+            icon: Icon(Icons.restore_rounded, color: IdeWb.accentInk),
             onPressed: _busy ? null : () => unawaited(_restore(it)),
           ),
           IconButton(
             key: Key('ide_trash_purge_${it.id}'),
             tooltip: tr('Xoá hẳn', 'Delete forever'),
             constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-            icon: Icon(
-              Icons.delete_forever_outlined,
-              color: WebTuiColors.danger,
-            ),
+            icon: Icon(Icons.delete_forever_outlined, color: IdeWb.danger),
             onPressed: _busy ? null : () => unawaited(_purge(it)),
           ),
         ],

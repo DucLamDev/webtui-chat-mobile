@@ -5,9 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../app/providers/foundation_providers.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../application/ide_devices_service.dart';
 import '../../../application/ide_servers_service.dart';
@@ -15,6 +13,7 @@ import '../../../application/ide_tools_service.dart';
 import '../../../domain/ide_errors.dart';
 import '../../../domain/ide_visible_text.dart';
 import '../../controllers/ide_controllers.dart';
+import '../../widgets/ide_wb.dart';
 import '../more/ide_more_common.dart';
 
 final ideToolsServiceProvider = Provider<IdeToolsService>(
@@ -151,9 +150,7 @@ class ToolSectionTitle extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: WebTuiTypography.titleMedium.copyWith(
-              color: WebTuiColors.textPrimary,
-            ),
+            style: IdeType.titleMedium.copyWith(color: IdeWb.textStrong),
           ),
         ),
         ?trailing,
@@ -189,17 +186,10 @@ class ToolInfoRow extends StatelessWidget {
     child: Wrap(
       crossAxisAlignment: WrapCrossAlignment.start,
       children: [
-        Text(
-          '$label: ',
-          style: WebTuiTypography.bodySmall.copyWith(
-            color: WebTuiColors.textMuted,
-          ),
-        ),
+        Text('$label: ', style: IdeType.bodySmall.copyWith(color: IdeWb.text2)),
         Text(
           ideVisibleText(value),
-          style: WebTuiTypography.bodySmall.copyWith(
-            color: WebTuiColors.textPrimary,
-          ),
+          style: IdeType.bodySmall.copyWith(color: IdeWb.textStrong),
         ),
       ],
     ),
@@ -225,16 +215,11 @@ class ToolStat extends StatelessWidget {
         children: [
           Text(
             value,
-            style: WebTuiTypography.titleMedium.copyWith(
-              color: color ?? WebTuiColors.textPrimary,
+            style: IdeType.titleMedium.copyWith(
+              color: color ?? IdeWb.textStrong,
             ),
           ),
-          Text(
-            label,
-            style: WebTuiTypography.bodySmall.copyWith(
-              color: WebTuiColors.textMuted,
-            ),
-          ),
+          Text(label, style: IdeType.bodySmall.copyWith(color: IdeWb.text2)),
         ],
       ),
     ),

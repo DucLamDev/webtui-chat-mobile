@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../app/providers/foundation_providers.dart';
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
@@ -13,6 +12,7 @@ import '../../../domain/ide_term.dart';
 import '../../controllers/ide_controllers.dart';
 import '../../screens/terminal/ide_terminal_tab.dart';
 import '../ai/ide_new_session_sheet.dart';
+import '../ide_wb.dart';
 
 Future<void> showIdeTermNewSheet(BuildContext context, WidgetRef ref) {
   // Tab có thể bị đóng khi bảng còn mở: mở màn bằng ref của tab.
@@ -234,9 +234,7 @@ class _State extends ConsumerState<IdeTermNewSheet> {
     padding: const EdgeInsets.only(bottom: WebTuiSpacing.xs),
     child: Text(
       s,
-      style: WebTuiTypography.labelSmall.copyWith(
-        color: WebTuiColors.textSecondary,
-      ),
+      style: WebTuiTypography.labelSmall.copyWith(color: IdeWb.text),
     ),
   );
 }

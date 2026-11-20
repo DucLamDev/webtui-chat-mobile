@@ -148,6 +148,11 @@ flutter:
     - family: PhosphorDuotone
       fonts:
         - asset: assets/fonts/phosphor-duotone.ttf
+    # Phông mã (OFL, assets/fonts/jetbrains_mono_license.txt): mã, terminal,
+    # đường dẫn, mã commit trong IDE. Chữ thường vẫn dùng phông hệ thống.
+    - family: JetBrainsMono
+      fonts:
+        - asset: assets/fonts/jetbrains-mono.ttf
 
   # To add assets to your application, add an assets section, like this:
   # assets:

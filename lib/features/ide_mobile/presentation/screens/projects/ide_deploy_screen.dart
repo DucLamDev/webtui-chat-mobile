@@ -6,9 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../../app/providers/foundation_providers.dart';
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_deploy.dart';
 import '../../../domain/ide_errors.dart';
@@ -17,6 +15,7 @@ import '../../controllers/ide_controllers.dart';
 import '../../controllers/ide_project_controllers.dart';
 import '../../controllers/ide_project_ops_controllers.dart';
 import '../../widgets/ide_step_sheet.dart';
+import '../../widgets/ide_wb.dart';
 import '../../widgets/projects/ide_preview_view.dart';
 import '../../widgets/projects/ide_project_ui.dart';
 import 'ide_deploy_history_sheet.dart';
@@ -452,9 +451,7 @@ class _DeployState extends ConsumerState<IdeDeployScreen> {
             child: Text(
               '${tr('Máy đích', 'Target')}: ${p.targets.first.title}',
               key: const Key('ide_deploy_target_single'),
-              style: WebTuiTypography.bodyMedium.copyWith(
-                color: WebTuiColors.textPrimary,
-              ),
+              style: IdeType.bodyMedium.copyWith(color: IdeWb.textStrong),
             ),
           ),
         IdeProjectCard(
@@ -500,9 +497,7 @@ class _DeployState extends ConsumerState<IdeDeployScreen> {
                   child: Text(
                     ideDeployBlockText(block) ?? '',
                     key: const Key('ide_deploy_block'),
-                    style: WebTuiTypography.bodySmall.copyWith(
-                      color: WebTuiColors.textMuted,
-                    ),
+                    style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
                   ),
                 ),
             ],
@@ -522,17 +517,13 @@ class _DeployState extends ConsumerState<IdeDeployScreen> {
                   Text(
                     _runResult!.message,
                     key: const Key('ide_deploy_ok'),
-                    style: WebTuiTypography.bodyMedium.copyWith(
-                      color: WebTuiColors.accentGreen,
-                    ),
+                    style: IdeType.bodyMedium.copyWith(color: IdeWb.ok),
                   )
                 else
                   Text(
                     _runFailure,
                     key: const Key('ide_deploy_failed'),
-                    style: WebTuiTypography.bodyMedium.copyWith(
-                      color: WebTuiColors.danger,
-                    ),
+                    style: IdeType.bodyMedium.copyWith(color: IdeWb.danger),
                   ),
                 if (_runJob.isNotEmpty)
                   TextButton(
@@ -572,9 +563,7 @@ class _DeployState extends ConsumerState<IdeDeployScreen> {
                           .toList()
                           .reversed
                           .join('\n'),
-                      style: WebTuiTypography.bodySmall.copyWith(
-                        color: WebTuiColors.textMuted,
-                      ),
+                      style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
                     ),
                   ),
               ],
@@ -589,9 +578,7 @@ class _DeployState extends ConsumerState<IdeDeployScreen> {
                 Text(
                   _failure,
                   key: const Key('ide_preview_failed'),
-                  style: WebTuiTypography.bodyMedium.copyWith(
-                    color: WebTuiColors.danger,
-                  ),
+                  style: IdeType.bodyMedium.copyWith(color: IdeWb.danger),
                 ),
                 Row(
                   children: [
@@ -631,9 +618,7 @@ class _DeployState extends ConsumerState<IdeDeployScreen> {
               ),
               key: const Key('ide_deploy_idle'),
               textAlign: TextAlign.center,
-              style: WebTuiTypography.bodyMedium.copyWith(
-                color: WebTuiColors.textSecondary,
-              ),
+              style: IdeType.bodyMedium.copyWith(color: IdeWb.text),
             ),
           ),
       ],

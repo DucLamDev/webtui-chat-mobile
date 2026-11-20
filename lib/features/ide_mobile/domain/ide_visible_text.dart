@@ -7,7 +7,10 @@ String ideVisibleText(String raw) {
   if (!_bad.hasMatch(raw)) return raw;
   return raw.replaceAllMapped(_bad, (m) {
     final c = m[0]!;
-    if (c == '\n' || c == '\r' || c == '\u2028' || c == '\u2029' ||
+    if (c == '\n' ||
+        c == '\r' ||
+        c == '\u2028' ||
+        c == '\u2029' ||
         c == '\u0085') {
       return '⏎';
     }

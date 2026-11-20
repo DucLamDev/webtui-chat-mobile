@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../design_system/components/webtui_dialogs.dart';
 import '../../../../design_system/components/webtui_states.dart';
-import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
@@ -19,10 +18,12 @@ import '../widgets/ai/ide_ai_composer.dart';
 import '../widgets/ai/ide_ai_json.dart';
 import '../widgets/ai/ide_ai_message_tile.dart';
 import '../widgets/ai/ide_ai_panels.dart';
+import '../widgets/ai/ide_ai_workbar.dart';
 import '../widgets/ai/ide_approval_sheet.dart';
 import '../widgets/ai/ide_session_settings_sheet.dart';
 import '../widgets/files/ide_file_card.dart';
 import '../widgets/ide_step_sheet.dart';
+import '../widgets/ide_wb.dart';
 
 /// Màn trò chuyện với AI (Claude / Codex) trong một phiên IDE.
 class IdeAiChatScreen extends ConsumerStatefulWidget {
@@ -31,6 +32,7 @@ class IdeAiChatScreen extends ConsumerStatefulWidget {
     this.picker,
     this.autoOpenApprovals = true,
     this.initialText = '',
+    this.info,
     super.key,
   }) : target = IdeAiOpenTarget.existing(sessionKey);
 
@@ -42,13 +44,18 @@ class IdeAiChatScreen extends ConsumerStatefulWidget {
     this.autoOpenApprovals = true,
     this.initialText = '',
     super.key,
-  }) : target = IdeAiOpenTarget.create(
+  }) : info = null,
+       target = IdeAiOpenTarget.create(
          kind: kind,
          root: root,
          worktree: worktree ?? '',
        );
 
   final IdeAiOpenTarget target;
+
+  /// Tên, loại AI, dự án của phiên (có khi mở từ danh sách phiên) để đầu
+  /// trang hiện ngay; mở từ thông báo thì null.
+  final IdeAiSessionItem? info;
 
   /// Chữ điền sẵn vào ô soạn (vd `@đường-dẫn ` từ màn Tệp).
   final String initialText;
@@ -70,6 +77,7 @@ class _IdeAiChatScreenState extends ConsumerState<IdeAiChatScreen> {
   bool _approvalOpen = false;
   int _lastApprovals = 0;
   bool _stick = true;
+  bool _showDown = false;
   int _lastCount = -1;
   String? _root;
 
@@ -85,6 +93,8 @@ class _IdeAiChatScreenState extends ConsumerState<IdeAiChatScreen> {
     _scroll.addListener(() {
       if (!_scroll.hasClients) return;
       _stick = _scroll.position.maxScrollExtent - _scroll.offset < 80;
+      final down = _scroll.position.maxScrollExtent - _scroll.offset > 400;
+      if (down != _showDown) setState(() => _showDown = down);
     });
     _lease = IdeStepPresenterLease(ref.read(ideStepPresenterProvider.notifier));
     final connection = ref.read(ideConnectionProvider);
@@ -322,7 +332,7 @@ class _IdeAiChatScreenState extends ConsumerState<IdeAiChatScreen> {
   }
 
   Widget _noRoot(BuildContext context) => Scaffold(
-    backgroundColor: WebTuiColors.chatBackground,
+    backgroundColor: IdeWb.bg,
     appBar: AppBar(
       title: Text(tr('Phiên mới', 'New session')),
       leading: IconButton(
@@ -384,159 +394,350 @@ class _IdeAiChatScreenState extends ConsumerState<IdeAiChatScreen> {
     }
     final approvals = view.approvals.length + (view.planPending ? 1 : 0);
     return Scaffold(
-      backgroundColor: WebTuiColors.chatBackground,
+      backgroundColor: IdeWb.bg,
       appBar: _header(context, snap),
-      body: Column(
-        children: [
-          if (snap.link == IdeAiLink.reconnecting ||
-              (snap.link == IdeAiLink.connecting && snap.hasState))
-            IdeAiBanner(
-              icon: Icons.sync_rounded,
-              text: tr('Đang kết nối lại…', 'Reconnecting…'),
-            ),
-          if (snap.hasRoleFrame && !snap.role.control)
-            IdeAiBanner(
-              key: const Key('ide_ai_view_only'),
-              icon: Icons.visibility_outlined,
-              text: tr('Chỉ xem', 'View only'),
-              action: tr('Điều khiển từ đây', 'Control from here'),
-              onAction: c.claim,
-            ),
-          if (view.stall is Map)
-            IdeAiBanner(
-              key: const Key('ide_ai_stall'),
-              icon: Icons.hourglass_bottom_rounded,
-              tone: WebTuiColors.accentAmber,
-              text: tr(
-                'AI có vẻ đang kẹt${aiStr(aiMap(view.stall)['tool']).isEmpty ? '' : ' (${aiStr(aiMap(view.stall)['tool'])})'}.',
-                'The AI seems stuck.',
+      // Đo chiều cao thật của vùng nội dung (đã trừ bàn phím) để ô gõ giãn có
+      // giới hạn, không đẩy tràn khi bàn phím mở.
+      body: LayoutBuilder(
+        builder: (context, box) => Column(
+          children: [
+            if (snap.link == IdeAiLink.reconnecting ||
+                (snap.link == IdeAiLink.connecting && snap.hasState))
+              IdeAiBanner(
+                icon: Icons.sync_rounded,
+                text: tr('Đang kết nối lại…', 'Reconnecting…'),
               ),
-              action: snap.canControl ? tr('Chạy lại', 'Retry') : null,
-              onAction: () {
-                final since = aiMap(view.stall)['since'];
-                c.restart(since is num ? since : null);
-              },
-            ),
-          if (view.suggestion.isNotEmpty && snap.canControl)
-            IdeAiBanner(
-              key: const Key('ide_ai_suggestion'),
-              icon: Icons.lightbulb_outline_rounded,
-              text: view.suggestion,
-              action: tr('Gửi', 'Send'),
-              onAction: () => c.send(view.suggestion),
-            ),
-          IdeAiPlanPanel(plan: view.plan),
-          Expanded(child: _body(snap, c)),
-          IdeAiQueuePanel(
-            queue: view.queue,
-            paused: view.queuePaused,
-            canControl: snap.canControl,
-            onRemove: c.unqueue,
-            onSendNow: c.sendNow,
-            onRun: c.queueRun,
-          ),
-          if (approvals > 0)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                WebTuiSpacing.md,
-                WebTuiSpacing.xs,
-                WebTuiSpacing.md,
-                0,
+            if (snap.hasRoleFrame && !snap.role.control)
+              IdeAiBanner(
+                key: const Key('ide_ai_view_only'),
+                icon: Icons.visibility_outlined,
+                text: tr('Chỉ xem', 'View only'),
+                action: tr('Điều khiển từ đây', 'Control from here'),
+                onAction: c.claim,
               ),
-              child: FilledButton.icon(
-                key: const Key('ide_ai_open_approvals'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(48),
-                  backgroundColor: WebTuiColors.accentAmber,
+            if (view.stall is Map)
+              IdeAiBanner(
+                key: const Key('ide_ai_stall'),
+                icon: Icons.hourglass_bottom_rounded,
+                tone: IdeWb.warn,
+                text: tr(
+                  'AI có vẻ đang kẹt${aiStr(aiMap(view.stall)['tool']).isEmpty ? '' : ' (${aiStr(aiMap(view.stall)['tool'])})'}.',
+                  'The AI seems stuck.',
                 ),
-                onPressed: _openApprovals,
-                icon: const Icon(Icons.gpp_maybe_outlined),
-                label: Text(
-                  tr('Cần duyệt ($approvals)', 'Needs approval ($approvals)'),
-                ),
+                action: snap.canControl ? tr('Chạy lại', 'Retry') : null,
+                onAction: () {
+                  final since = aiMap(view.stall)['since'];
+                  c.restart(since is num ? since : null);
+                },
+              ),
+            if (view.suggestion.isNotEmpty && snap.canControl)
+              IdeAiBanner(
+                key: const Key('ide_ai_suggestion'),
+                icon: Icons.lightbulb_outline_rounded,
+                text: view.suggestion,
+                action: tr('Gửi', 'Send'),
+                onAction: () => c.send(view.suggestion),
+              ),
+            Expanded(
+              child: Stack(
+                children: [
+                  Positioned.fill(child: _body(snap, c)),
+                  if (_showDown)
+                    Positioned(
+                      right: WebTuiSpacing.md,
+                      bottom: WebTuiSpacing.sm,
+                      child: _downButton(),
+                    ),
+                ],
               ),
             ),
-          IdeAiComposer(
-            initialText: widget.initialText,
-            canControl: snap.canControl && snap.link != IdeAiLink.closed,
-            busy: view.busy,
-            commands: view.commands,
-            changedPaths: [
-              for (final ch in view.changes)
-                if (aiStr(ch['path']).isNotEmpty) aiStr(ch['path']),
-            ],
-            findFiles: _findFiles,
-            upload: _upload,
-            picker: widget.picker,
-            onSend: (text, attachments) {
-              final id = c.send(text, attachments: attachments);
-              if (id == null) {
-                _say(
-                  tr(
-                    'Chưa kết nối, thử lại sau giây lát.',
-                    'Not connected yet.',
+            IdeAiQueuePanel(
+              queue: view.queue,
+              paused: view.queuePaused,
+              canControl: snap.canControl,
+              onRemove: c.unqueue,
+              onSendNow: c.sendNow,
+              onRun: c.queueRun,
+            ),
+            if (approvals > 0)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  WebTuiSpacing.md,
+                  WebTuiSpacing.xs,
+                  WebTuiSpacing.md,
+                  0,
+                ),
+                child: FilledButton.icon(
+                  key: const Key('ide_ai_open_approvals'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                    backgroundColor: IdeWb.warn,
                   ),
-                );
-              }
-              _stick = true;
-            },
-            onStop: c.interrupt,
-          ),
-        ],
+                  onPressed: _openApprovals,
+                  icon: const Icon(Icons.gpp_maybe_outlined),
+                  label: Text(
+                    tr('Cần duyệt ($approvals)', 'Needs approval ($approvals)'),
+                  ),
+                ),
+              ),
+            IdeAiComposer(
+              top: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  IdeAiWorkbar(
+                    busy: view.busy,
+                    waiting: approvals > 0,
+                    startedAt: view.startedAt,
+                    finishedAt: view.finishedAt,
+                    tokens: ideAiTurnTokens(view.usage),
+                  ),
+                  IdeAiPlanPanel(plan: view.plan),
+                ],
+              ),
+              tools: _tools(snap),
+              initialText: widget.initialText,
+              canControl: snap.canControl && snap.link != IdeAiLink.closed,
+              busy: view.busy,
+              commands: view.commands,
+              changedPaths: [
+                for (final ch in view.changes)
+                  if (aiStr(ch['path']).isNotEmpty) aiStr(ch['path']),
+              ],
+              findFiles: _findFiles,
+              upload: _upload,
+              picker: widget.picker,
+              onSend: (text, attachments) {
+                final id = c.send(text, attachments: attachments);
+                if (id == null) {
+                  _say(
+                    tr(
+                      'Chưa kết nối, thử lại sau giây lát.',
+                      'Not connected yet.',
+                    ),
+                  );
+                }
+                _stick = true;
+              },
+              onStop: c.interrupt,
+              maxInputHeight: box.maxHeight * 0.35,
+            ),
+          ],
+        ),
       ),
     );
   }
 
+  void _openSettings() => showIdeSessionSettings(
+    context,
+    target: _target,
+    onJumpToMessage: _jumpTo,
+  );
+
+  /// Chip hàng dưới thẻ ô nhập (như IDE web): mô hình, % ngữ cảnh, chế độ.
+  /// Chạm chip nào cũng mở Cài đặt phiên để đổi.
+  List<Widget> _tools(IdeAiSnapshot snap) {
+    final view = snap.view;
+    final model = aiStr(view.settings['model']);
+    final perms = aiMap(view.settings['permissions']);
+    final pct = ideAiContextPercent(view.context);
+    final mode = ideAiModeLabel(
+      aiStr(perms['mode']),
+      team: perms['team'] == true,
+    );
+    final modelLabel = model.isEmpty
+        ? tr('Mặc định', 'Default')
+        : _modelName(model);
+    return [
+      IdeAiChip(
+        key: const Key('ide_ai_model_chip'),
+        label: modelLabel,
+        semantics: tr(
+          'Model: $modelLabel. Chạm để đổi',
+          'Model: $modelLabel. Tap to change',
+        ),
+        onTap: _openSettings,
+      ),
+      if (pct != null)
+        IdeAiChip(
+          key: const Key('ide_ai_context_chip'),
+          label: '$pct%',
+          leading: IdeAiContextBar(percent: pct),
+          semantics: tr('Đã dùng $pct% ngữ cảnh', '$pct% of context used'),
+          onTap: _openSettings,
+        ),
+      IdeAiChip(
+        key: const Key('ide_ai_mode_chip'),
+        label: mode,
+        icon: Icons.bolt_rounded,
+        accent: true,
+        semantics: tr(
+          'Chế độ: $mode. Chạm để đổi',
+          'Mode: $mode. Tap to change',
+        ),
+        onTap: _openSettings,
+      ),
+    ];
+  }
+
+  /// "claude-opus-5-5" → "Opus 5.5"; tên lạ giữ nguyên.
+  static String _modelName(String id) {
+    final m = RegExp(r'^claude-([a-z]+)-(\d+)-(\d+)').firstMatch(id);
+    if (m == null) return id;
+    final n = m.group(1)!;
+    return '${n[0].toUpperCase()}${n.substring(1)} ${m.group(2)}.${m.group(3)}';
+  }
+
+  Widget _downButton() => Material(
+    color: IdeWb.bar,
+    shape: CircleBorder(side: BorderSide(color: IdeWb.borderStrong)),
+    elevation: 2,
+    child: IconButton(
+      key: const Key('ide_ai_scroll_down'),
+      tooltip: tr('Xuống tin mới nhất', 'Jump to latest'),
+      color: IdeWb.text,
+      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+      onPressed: () {
+        _stick = true;
+        _scroll.animateTo(
+          _scroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      },
+      icon: const Icon(Icons.arrow_downward_rounded, size: 20),
+    ),
+  );
+
+  /// Thanh phiên như tab phiên của IDE web: biểu tượng AI, tên phiên + dự án,
+  /// trạng thái (chấm màu), nút ⋯.
   PreferredSizeWidget _header(BuildContext context, IdeAiSnapshot snap) {
     final view = snap.view;
-    final kind = _target.kind;
-    final project = _target.root.isEmpty ? '' : aiBaseName(_target.root);
-    final model = aiStr(view.settings['model']);
-    final status = view.approvals.isNotEmpty || view.planPending
-        ? tr('Chờ bạn duyệt', 'Waiting for you')
+    final info = widget.info;
+    final kind = info != null && info.kind.isNotEmpty
+        ? info.kind
+        : _target.kind;
+    final project = info != null && info.project.isNotEmpty
+        ? info.project
+        : _target.root.isEmpty
+        ? ''
+        : aiBaseName(_target.root);
+    final topic = info?.title.trim() ?? '';
+    final waiting = view.approvals.isNotEmpty || view.planPending;
+    final (status, dot) = snap.link == IdeAiLink.closed
+        ? (tr('Đã đóng', 'Closed'), IdeWb.text2)
+        : waiting
+        ? (tr('Chờ bạn duyệt', 'Waiting for you'), IdeWb.warn)
         : view.busy
-        ? tr('Đang chạy', 'Running')
-        : tr('Sẵn sàng', 'Ready');
-    final title = [
-      if (project.isNotEmpty) project,
-      if (kind.isNotEmpty) (kind == 'codex' ? 'Codex' : 'Claude'),
-    ].join(' · ');
-    return AppBar(
-      titleSpacing: 0,
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title.isEmpty ? tr('Phiên AI', 'AI session') : title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: WebTuiTypography.titleMedium.copyWith(
-              color: WebTuiColors.textPrimary,
+        ? (tr('Đang chạy', 'Running'), IdeWb.accentInk)
+        : (tr('Sẵn sàng', 'Ready'), IdeWb.ok);
+    final name = kind == 'codex' ? 'Codex' : 'Claude';
+    // Cao theo cỡ chữ máy: tiêu đề + dòng trạng thái + lề, tối thiểu 52.
+    final scaler = MediaQuery.textScalerOf(context);
+    final textH = scaler.scale(14) * 1.3 + 1 + scaler.scale(11) * 1.2;
+    final barH = textH + 12 > 52 ? (textH + 12).ceilToDouble() : 52.0;
+    return PreferredSize(
+      preferredSize: Size.fromHeight(barH),
+      child: Material(
+        color: IdeWb.bar,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: IdeWb.border)),
+          ),
+          child: SafeArea(
+            bottom: false,
+            child: SizedBox(
+              height: barH,
+              child: Row(
+                children: [
+                  IconButton(
+                    key: const Key('ide_ai_back'),
+                    tooltip: tr('Quay lại', 'Back'),
+                    color: IdeWb.text,
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
+                    onPressed: () => Navigator.of(context).canPop()
+                        ? Navigator.of(context).pop()
+                        : _leave(),
+                    icon: const Icon(Icons.arrow_back_rounded, size: 22),
+                  ),
+                  _AgentMark(codex: kind == 'codex'),
+                  const SizedBox(width: WebTuiSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          topic.isNotEmpty
+                              ? topic
+                              : project.isEmpty
+                              ? name
+                              : '$name · $project',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: IdeType.titleMedium.copyWith(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: IdeWb.textStrong,
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Row(
+                          children: [
+                            Container(
+                              width: 7,
+                              height: 7,
+                              decoration: BoxDecoration(
+                                color: dot,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                // Đã có tên phiên ở trên thì dòng dưới ghi
+                                // thêm loại AI và dự án.
+                                topic.isEmpty
+                                    ? status
+                                    : [
+                                        status,
+                                        name,
+                                        if (project.isNotEmpty) project,
+                                      ].join(' · '),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: WebTuiTypography.labelSmall.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                  color: IdeWb.text2,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    key: const Key('ide_ai_more'),
+                    tooltip: tr('Cài đặt phiên', 'Session settings'),
+                    color: IdeWb.text,
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
+                    onPressed: _openSettings,
+                    icon: const Icon(Icons.more_horiz_rounded),
+                  ),
+                  const SizedBox(width: WebTuiSpacing.xs),
+                ],
+              ),
             ),
           ),
-          Text(
-            [if (model.isNotEmpty) model, status].join(' · '),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: WebTuiTypography.bodySmall.copyWith(
-              color: WebTuiColors.textMuted,
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        IconButton(
-          key: const Key('ide_ai_more'),
-          tooltip: tr('Cài đặt phiên', 'Session settings'),
-          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-          onPressed: () => showIdeSessionSettings(
-            context,
-            target: _target,
-            onJumpToMessage: _jumpTo,
-          ),
-          icon: const Icon(Icons.more_horiz_rounded),
         ),
-      ],
+      ),
     );
   }
 
@@ -641,7 +842,7 @@ class _ActivityGroupState extends State<_ActivityGroup> {
               children: [
                 Icon(
                   open ? Icons.expand_less_rounded : Icons.expand_more_rounded,
-                  color: WebTuiColors.textMuted,
+                  color: IdeWb.text2,
                 ),
                 Text(
                   tr(
@@ -649,7 +850,7 @@ class _ActivityGroupState extends State<_ActivityGroup> {
                     'Actions (${widget.items.length})',
                   ),
                   style: WebTuiTypography.labelSmall.copyWith(
-                    color: WebTuiColors.textMuted,
+                    color: IdeWb.text2,
                   ),
                 ),
               ],
@@ -663,6 +864,32 @@ class _ActivityGroupState extends State<_ActivityGroup> {
               item: item,
             ),
       ],
+    );
+  }
+}
+
+/// Dấu của trợ lý: ✳ cam cho Claude, ◎ cho Codex (như tab phiên IDE web).
+class _AgentMark extends StatelessWidget {
+  const _AgentMark({required this.codex});
+
+  final bool codex;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = codex ? IdeWb.codex : IdeWb.claude;
+    return Container(
+      width: 30,
+      height: 30,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(
+        codex ? Icons.blur_circular_rounded : Icons.emergency_rounded,
+        size: 17,
+        color: color,
+      ),
     );
   }
 }

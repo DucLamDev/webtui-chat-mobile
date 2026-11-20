@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_insight_models.dart';
 import '../../controllers/ide_more_controllers.dart';
+import '../../widgets/ide_wb.dart';
 import '../../widgets/markdown/ide_markdown.dart';
 import 'ide_more_common.dart';
 
@@ -45,9 +44,7 @@ class IdeChangelogScreen extends ConsumerWidget {
                     padding: const EdgeInsets.only(bottom: WebTuiSpacing.sm),
                     child: Text(
                       '${tr('Phiên bản hiện tại', 'Current version')}: ${log.version}',
-                      style: WebTuiTypography.bodySmall.copyWith(
-                        color: WebTuiColors.textMuted,
-                      ),
+                      style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
                     ),
                   ),
                 for (var i = 0; i < log.items.length; i++)
@@ -76,11 +73,11 @@ class _Entry extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: WebTuiColors.surface,
+      color: IdeWb.bg,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: WebTuiColors.border),
+        side: BorderSide(color: IdeWb.border),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -100,9 +97,7 @@ class _Entry extends StatelessWidget {
           expandedCrossAxisAlignment: CrossAxisAlignment.start,
           title: Text(
             item.title.isEmpty ? item.version : item.title,
-            style: WebTuiTypography.titleMedium.copyWith(
-              color: WebTuiColors.textPrimary,
-            ),
+            style: IdeType.titleMedium.copyWith(color: IdeWb.textStrong),
           ),
           subtitle: Text(
             [item.version, if (item.date.isNotEmpty) item.date].join(' · '),

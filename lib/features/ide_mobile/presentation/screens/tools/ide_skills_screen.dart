@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_errors.dart';
 import '../../../domain/ide_tools_models.dart';
 import '../../../domain/ide_visible_text.dart';
+import '../../widgets/ide_wb.dart';
 import '../more/ide_more_common.dart';
 import 'ide_tools_common.dart';
 
@@ -236,9 +235,7 @@ class _CatalogListState extends ConsumerState<_CatalogList> {
                     'Bạn chỉ xem được, không thêm / gỡ ở dự án này.',
                     'View only: you cannot add or remove here.',
                   ),
-                  style: WebTuiTypography.bodySmall.copyWith(
-                    color: WebTuiColors.textSecondary,
-                  ),
+                  style: IdeType.bodySmall.copyWith(color: IdeWb.text),
                 ),
               ),
             ),
@@ -307,16 +304,13 @@ class _EntryCard extends StatelessWidget {
   final VoidCallback? onRemove;
 
   (String, Color)? get _state => switch (entry.state) {
-    'current' => (tr('Mới nhất', 'Up to date'), WebTuiColors.accentGreen),
-    'outdated' => (
-      tr('Có bản mới', 'Update available'),
-      WebTuiColors.accentAmber,
-    ),
-    'modified' => (tr('Đã sửa', 'Modified'), WebTuiColors.accentAmber),
-    'local' => (tr('Riêng dự án', 'Project only'), WebTuiColors.textSecondary),
+    'current' => (tr('Mới nhất', 'Up to date'), IdeWb.ok),
+    'outdated' => (tr('Có bản mới', 'Update available'), IdeWb.warn),
+    'modified' => (tr('Đã sửa', 'Modified'), IdeWb.warn),
+    'local' => (tr('Riêng dự án', 'Project only'), IdeWb.text),
     'missing-library' => (
       tr('Không còn trong thư viện', 'Not in library'),
-      WebTuiColors.danger,
+      IdeWb.danger,
     ),
     _ => null,
   };
@@ -343,9 +337,7 @@ class _EntryCard extends StatelessWidget {
               children: [
                 Text(
                   ideVisibleText(entry.name),
-                  style: WebTuiTypography.titleMedium.copyWith(
-                    color: WebTuiColors.textPrimary,
-                  ),
+                  style: IdeType.titleMedium.copyWith(color: IdeWb.textStrong),
                 ),
                 if (entry.kind != 'skill')
                   IdeTag(
@@ -362,9 +354,7 @@ class _EntryCard extends StatelessWidget {
                   ideVisibleText(entry.description),
                   maxLines: 4,
                   overflow: TextOverflow.ellipsis,
-                  style: WebTuiTypography.bodySmall.copyWith(
-                    color: WebTuiColors.textSecondary,
-                  ),
+                  style: IdeType.bodySmall.copyWith(color: IdeWb.text),
                 ),
               ),
             if (onInstall != null || onUpdate != null || onRemove != null)
@@ -391,7 +381,7 @@ class _EntryCard extends StatelessWidget {
                     if (onRemove != null)
                       OutlinedButton(
                         key: Key('ide_tool_remove_${entry.name}'),
-                        style: ideToolsBtn(color: WebTuiColors.danger),
+                        style: ideToolsBtn(color: IdeWb.danger),
                         onPressed: busy ? null : onRemove,
                         child: Text(tr('Gỡ', 'Remove')),
                       ),
@@ -419,15 +409,11 @@ Future<void> _showIntro(
             children: [
               Text(
                 title,
-                style: WebTuiTypography.titleMedium.copyWith(
-                  color: WebTuiColors.textPrimary,
-                ),
+                style: IdeType.titleMedium.copyWith(color: IdeWb.textStrong),
               ),
               Text(
                 ideVisibleText(text),
-                style: WebTuiTypography.bodyMedium.copyWith(
-                  color: WebTuiColors.textSecondary,
-                ),
+                style: IdeType.bodyMedium.copyWith(color: IdeWb.text),
               ),
             ],
           ),
@@ -455,9 +441,7 @@ Future<void> _showIntro(
             children: [
               Text(
                 ideVisibleText(intro.title.isEmpty ? e.name : intro.title),
-                style: WebTuiTypography.titleLarge.copyWith(
-                  color: WebTuiColors.textPrimary,
-                ),
+                style: IdeType.titleLarge.copyWith(color: IdeWb.textStrong),
               ),
               block(tr('Làm gì', 'What it does'), intro.summary),
               block(tr('Dùng khi', 'Use when'), intro.when),

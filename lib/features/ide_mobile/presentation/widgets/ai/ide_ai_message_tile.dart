@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../files/ide_file_card.dart';
+import '../ide_wb.dart';
 import '../markdown/ide_markdown.dart';
 import 'ide_ai_json.dart';
 
@@ -47,7 +46,7 @@ class IdeAiMessageTile extends StatelessWidget {
     if (!highlighted) return body;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: WebTuiColors.primarySoft,
+        color: IdeWb.accentSoft,
         borderRadius: BorderRadius.circular(WebTuiRadii.md),
       ),
       child: body,
@@ -69,12 +68,16 @@ class IdeAiMessageTile extends StatelessWidget {
           constraints: BoxConstraints(
             maxWidth: MediaQuery.sizeOf(context).width * 0.86,
           ),
-          margin: const EdgeInsets.symmetric(vertical: WebTuiSpacing.xs),
-          padding: const EdgeInsets.all(WebTuiSpacing.md),
+          margin: const EdgeInsets.symmetric(vertical: WebTuiSpacing.sm),
+          padding: const EdgeInsets.symmetric(
+            horizontal: WebTuiSpacing.md,
+            vertical: WebTuiSpacing.sm + 2,
+          ),
+          // Như tin của bạn trên IDE web: thẻ xám viền mảnh, không bong bóng màu.
           decoration: BoxDecoration(
-            color: WebTuiColors.messageOutgoing,
-            border: Border.all(color: WebTuiColors.messageOutgoingBorder),
-            borderRadius: BorderRadius.circular(WebTuiRadii.lg),
+            color: IdeWb.chip,
+            border: Border.all(color: IdeWb.border),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -92,8 +95,10 @@ class IdeAiMessageTile extends StatelessWidget {
               if (text.isNotEmpty)
                 Text(
                   text,
-                  style: WebTuiTypography.bodyMedium.copyWith(
-                    color: WebTuiColors.textPrimary,
+                  style: IdeType.bodyMedium.copyWith(
+                    fontSize: IdeType.chat,
+                    height: 1.45,
+                    color: IdeWb.textStrong,
                   ),
                 ),
             ],
@@ -135,9 +140,7 @@ class IdeAiMessageTile extends StatelessWidget {
           Text(
             text,
             textAlign: TextAlign.center,
-            style: WebTuiTypography.bodySmall.copyWith(
-              color: WebTuiColors.textMuted,
-            ),
+            style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
           ),
           if (canRedo && onRedo != null)
             TextButton(
@@ -153,7 +156,7 @@ class IdeAiMessageTile extends StatelessWidget {
   Future<void> _userMenu(BuildContext context, String id, String text) async {
     final choice = await showModalBottomSheet<String>(
       context: context,
-      backgroundColor: WebTuiColors.surface,
+      backgroundColor: IdeWb.bg,
       showDragHandle: true,
       builder: (sheet) => SafeArea(
         child: Column(

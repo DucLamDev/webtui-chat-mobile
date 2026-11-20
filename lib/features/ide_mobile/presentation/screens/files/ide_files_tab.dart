@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
@@ -22,6 +21,7 @@ import '../../widgets/files/ide_file_card.dart' show ideFormatSize;
 import '../../widgets/files/ide_file_job_dialog.dart';
 import '../../widgets/files/ide_file_transfer.dart';
 import '../../widgets/files/ide_files_ui.dart';
+import '../../widgets/ide_wb.dart';
 import 'ide_diff_screen.dart';
 import 'ide_file_viewer_screen.dart';
 import 'ide_files_search_screen.dart';
@@ -189,7 +189,8 @@ class _IdeFilesTabState extends ConsumerState<IdeFilesTab> {
     }
     unawaited(
       Navigator.of(context).push(
-        MaterialPageRoute<void>(
+        IdePageRoute<void>(
+          dark: true,
           builder: (_) =>
               IdeFileViewerScreen(root: _root, path: e.path, size: e.size),
         ),
@@ -695,11 +696,11 @@ class _IdeFilesTabState extends ConsumerState<IdeFilesTab> {
     if (p != null && mounted) _pickProject(p);
   }
 
-  void _push(Widget screen) {
+  void _push(Widget screen, {bool dark = false}) {
     unawaited(
       Navigator.of(
         context,
-      ).push(MaterialPageRoute<void>(builder: (_) => screen)).then((_) {
+      ).push(IdePageRoute<void>(dark: dark, builder: (_) => screen)).then((_) {
         if (mounted) unawaited(_load());
       }),
     );
@@ -769,132 +770,214 @@ class _IdeFilesTabState extends ConsumerState<IdeFilesTab> {
       if (p.root == loc.root) cur = p;
     }
     final crumbs = ideBreadcrumbs(loc.root, loc.dir, rootLabel: cur?.name);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            WebTuiSpacing.lg,
-            WebTuiSpacing.xs,
-            WebTuiSpacing.xs,
-            0,
+    const btn = BoxConstraints(minWidth: 48, minHeight: 48);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: IdeWb.border)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              WebTuiSpacing.sm,
+              WebTuiSpacing.xs,
+              WebTuiSpacing.xs,
+              0,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _projectButton(
+                    cur?.name ?? ideBaseName(loc.root),
+                    many: projects.length > 1,
+                  ),
+                ),
+                IconButton(
+                  key: const Key('ide_files_search'),
+                  tooltip: tr('Tìm', 'Search'),
+                  constraints: btn,
+                  icon: const Icon(Icons.search_rounded),
+                  onPressed: () => _push(IdeFilesSearchScreen(root: loc.root)),
+                ),
+                if (cur?.git ?? true)
+                  IconButton(
+                    key: const Key('ide_files_changes'),
+                    tooltip: tr('Thay đổi git', 'Git changes'),
+                    constraints: btn,
+                    icon: const Icon(Icons.difference_outlined),
+                    onPressed: () =>
+                        _push(IdeDiffScreen(root: loc.root), dark: true),
+                  ),
+                PopupMenuButton<String>(
+                  key: const Key('ide_files_menu'),
+                  tooltip: tr('Thêm', 'More'),
+                  constraints: const BoxConstraints(minWidth: 200),
+                  icon: const Icon(Icons.more_horiz_rounded),
+                  onSelected: (v) => v == 'trash'
+                      ? _push(IdeTrashScreen(root: loc.root))
+                      : unawaited(_sortMenu()),
+                  itemBuilder: (_) => [
+                    PopupMenuItem(
+                      key: const Key('ide_files_sort'),
+                      value: 'sort',
+                      child: _menuRow(
+                        Icons.tune_rounded,
+                        tr('Sắp xếp và hiển thị', 'Sort and show'),
+                      ),
+                    ),
+                    PopupMenuItem(
+                      key: const Key('ide_files_trash'),
+                      value: 'trash',
+                      child: _menuRow(
+                        Icons.delete_outline_rounded,
+                        tr('Thùng rác', 'Trash'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
+          // Ở gốc dự án thì không cần thanh đường dẫn (tên dự án đã ở trên).
+          if (crumbs.length > 1)
+            SizedBox(
+              height: 44,
+              child: ListView.separated(
+                key: const Key('ide_breadcrumbs'),
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: WebTuiSpacing.md,
+                ),
+                itemCount: crumbs.length,
+                separatorBuilder: (_, _) => Icon(
+                  Icons.chevron_right_rounded,
+                  size: 16,
+                  color: IdeWb.text2,
+                ),
+                itemBuilder: (_, i) {
+                  final (label, path) = crumbs[i];
+                  return _crumb(
+                    label,
+                    root: i == 0,
+                    last: i == crumbs.length - 1,
+                    onTap: () => _goTo(path),
+                  );
+                },
+              ),
+            )
+          else
+            const SizedBox(height: WebTuiSpacing.xs),
+        ],
+      ),
+    );
+  }
+
+  /// Nút chọn dự án: ô biểu tượng màu + tên đậm + mũi tên khi có nhiều dự án.
+  Widget _projectButton(String name, {required bool many}) {
+    return InkWell(
+      key: const Key('ide_project_picker'),
+      onTap: many ? _projectMenu : null,
+      borderRadius: BorderRadius.circular(WebTuiRadii.md),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 48),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.sm),
           child: Row(
             children: [
-              Expanded(
-                child: InkWell(
-                  key: const Key('ide_project_picker'),
-                  onTap: projects.length > 1 ? _projectMenu : null,
-                  borderRadius: BorderRadius.circular(WebTuiRadii.md),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(minHeight: 48),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.folder_special_outlined,
-                          size: 20,
-                          color: WebTuiColors.primary,
-                        ),
-                        const SizedBox(width: WebTuiSpacing.sm),
-                        Flexible(
-                          child: Text(
-                            cur?.name ?? ideBaseName(loc.root),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: WebTuiTypography.titleMedium.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        if (projects.length > 1)
-                          const Icon(Icons.arrow_drop_down_rounded),
-                      ],
-                    ),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: IdeWb.accentSoft,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(
+                  Icons.folder_rounded,
+                  size: 18,
+                  color: IdeWb.accentInk,
+                ),
+              ),
+              const SizedBox(width: WebTuiSpacing.sm + 2),
+              Flexible(
+                child: Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: IdeType.titleMedium.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
-              IconButton(
-                key: const Key('ide_files_search'),
-                tooltip: tr('Tìm', 'Search'),
-                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-                icon: const Icon(Icons.search_rounded),
-                onPressed: () => _push(IdeFilesSearchScreen(root: loc.root)),
-              ),
-              if (cur?.git ?? true)
-                IconButton(
-                  key: const Key('ide_files_changes'),
-                  tooltip: tr('Thay đổi git', 'Git changes'),
-                  constraints: const BoxConstraints(
-                    minWidth: 48,
-                    minHeight: 48,
+              if (many)
+                Padding(
+                  padding: const EdgeInsets.only(left: WebTuiSpacing.xxs),
+                  child: Icon(
+                    Icons.unfold_more_rounded,
+                    size: 18,
+                    color: IdeWb.text2,
                   ),
-                  icon: const Icon(Icons.difference_outlined),
-                  onPressed: () => _push(IdeDiffScreen(root: loc.root)),
                 ),
-              IconButton(
-                key: const Key('ide_files_trash'),
-                tooltip: tr('Thùng rác', 'Trash'),
-                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-                icon: const Icon(Icons.delete_outline_rounded),
-                onPressed: () => _push(IdeTrashScreen(root: loc.root)),
-              ),
-              IconButton(
-                key: const Key('ide_files_sort'),
-                tooltip: tr('Sắp xếp', 'Sort'),
-                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-                icon: const Icon(Icons.tune_rounded),
-                onPressed: _sortMenu,
-              ),
             ],
           ),
         ),
-        SizedBox(
-          height: 44,
-          child: ListView.separated(
-            key: const Key('ide_breadcrumbs'),
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.md),
-            itemCount: crumbs.length,
-            separatorBuilder: (_, _) => Icon(
-              Icons.chevron_right_rounded,
-              size: 18,
-              color: WebTuiColors.textMuted,
+      ),
+    );
+  }
+
+  Widget _menuRow(IconData icon, String text) => Row(
+    children: [
+      Icon(icon, size: 20, color: IdeWb.text),
+      const SizedBox(width: WebTuiSpacing.md),
+      Text(text, style: IdeType.bodyMedium),
+    ],
+  );
+
+  /// Một chặng đường dẫn: viên thuốc chữ mono; chặng cuối tô nền nhạt.
+  /// Gốc chỉ hiện biểu tượng nhà (tên dự án đã ở nút chọn dự án phía trên).
+  Widget _crumb(
+    String label, {
+    required bool root,
+    required bool last,
+    required VoidCallback onTap,
+  }) {
+    final color = last ? IdeWb.accentInk : IdeWb.text;
+    return Semantics(
+      button: !last,
+      label: root ? tr('Gốc dự án $label', 'Project root $label') : label,
+      excludeSemantics: true,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(WebTuiRadii.md),
+        onTap: last ? null : onTap,
+        child: Center(
+          child: Container(
+            height: 30,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: last ? IdeWb.accentSoft : null,
+              borderRadius: BorderRadius.circular(8),
             ),
-            itemBuilder: (_, i) {
-              final (label, path) = crumbs[i];
-              final last = i == crumbs.length - 1;
-              return InkWell(
-                borderRadius: BorderRadius.circular(WebTuiRadii.md),
-                onTap: last ? null : () => _goTo(path),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: WebTuiSpacing.sm,
-                  ),
-                  child: Center(
-                    child: Text(
-                      i == 0 ? '⌂ $label' : label,
-                      style: WebTuiTypography.bodyMedium.copyWith(
-                        color: last
-                            ? WebTuiColors.textPrimary
-                            : WebTuiColors.primary,
-                        fontWeight: last ? FontWeight.w700 : FontWeight.w500,
-                      ),
+            child: root
+                ? Icon(Icons.home_rounded, size: 17, color: color)
+                : Text(
+                    label,
+                    style: WebTuiTypography.mono(
+                      size: 13,
+                      weight: last ? FontWeight.w600 : FontWeight.w500,
+                      color: color,
                     ),
                   ),
-                ),
-              );
-            },
           ),
         ),
-        const WebTuiHairline(),
-      ],
+      ),
     );
   }
 
   Widget _clipBar(IdeFileClip clip) {
     final into = clip.isDir && ideIsInside(clip.path, _dir);
     return Container(
-      color: WebTuiColors.primarySoft,
+      color: IdeWb.accentSoft,
       padding: const EdgeInsets.symmetric(
         horizontal: WebTuiSpacing.lg,
         vertical: WebTuiSpacing.xs,
@@ -908,7 +991,7 @@ class _IdeFilesTabState extends ConsumerState<IdeFilesTab> {
                   : tr('Đã chép: ${clip.name}', 'Copied: ${clip.name}'),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: WebTuiTypography.bodyMedium,
+              style: IdeType.bodyMedium,
             ),
           ),
           TextButton(
@@ -982,29 +1065,61 @@ class _IdeFilesTabState extends ConsumerState<IdeFilesTab> {
         ),
       );
     }
+    // Danh sách trong một thẻ bo góc (kiểu Files / Working Copy). Đệm dưới
+    // 96 để nút + nổi không che nút ⋮ của hàng cuối.
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView.separated(
+      child: CustomScrollView(
         key: const Key('ide_files_list'),
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: 88),
-        itemCount: items.length,
-        separatorBuilder: (_, _) => const WebTuiHairline(),
-        itemBuilder: (_, i) => _row(items[i]),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+              WebTuiSpacing.md,
+              WebTuiSpacing.md,
+              WebTuiSpacing.md,
+              96,
+            ),
+            sliver: DecoratedSliver(
+              decoration: BoxDecoration(
+                color: IdeWb.bg,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: IdeWb.border),
+              ),
+              sliver: SliverList.separated(
+                itemCount: items.length,
+                separatorBuilder: (_, _) => Divider(
+                  height: 1,
+                  thickness: 1,
+                  indent: 54,
+                  color: IdeWb.border,
+                ),
+                itemBuilder: (_, i) => _row(
+                  items[i],
+                  radius: BorderRadius.vertical(
+                    top: Radius.circular(i == 0 ? 14 : 0),
+                    bottom: Radius.circular(i == items.length - 1 ? 14 : 0),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _row(IdeFileEntry e) {
+  Widget _row(IdeFileEntry e, {BorderRadius? radius}) {
     final sub = <String>[
       if (e.secret)
         tr('Chỉ mở trên máy tính', 'Only opens on your computer')
       else ...[
         if (!e.isDir) ideFormatSize(e.size),
-        ideFormatDate(e.mtime),
+        ideShortDate(e.mtime),
       ],
     ].where((s) => s.isNotEmpty).join(' · ');
     final gitLabel = ideGitLabel(e.git);
+    final tint = ideEntryTint(e);
     return Semantics(
       label: [
         e.isDir ? tr('Thư mục', 'Folder') : tr('Tệp', 'File'),
@@ -1015,95 +1130,105 @@ class _IdeFilesTabState extends ConsumerState<IdeFilesTab> {
       excludeSemantics: true,
       onTap: () => _open(e),
       onLongPress: () => _actions(e),
-      child: InkWell(
-        key: Key('ide_entry_${e.name}'),
-        onTap: () => _open(e),
-        onLongPress: () => unawaited(_actions(e)),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 60),
-          child: Padding(
-            padding: const EdgeInsets.only(left: WebTuiSpacing.lg),
-            child: Row(
-              children: [
-                Icon(
-                  ideEntryIcon(e),
-                  color: e.isDir
-                      ? WebTuiColors.primary
-                      : WebTuiColors.textSecondary,
-                ),
-                const SizedBox(width: WebTuiSpacing.md),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: WebTuiSpacing.sm,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          e.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: WebTuiTypography.bodyMedium.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: e.isHidden
-                                ? WebTuiColors.textSecondary
-                                : WebTuiColors.textPrimary,
-                          ),
-                        ),
-                        if (sub.isNotEmpty)
-                          Text(
-                            sub,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: WebTuiTypography.bodySmall.copyWith(
-                              color: WebTuiColors.textMuted,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-                if (e.git.isNotEmpty)
+      // Material trong suốt để hiệu ứng chạm vẽ trên nền thẻ.
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          key: Key('ide_entry_${e.name}'),
+          borderRadius: radius,
+          onTap: () => _open(e),
+          onLongPress: () => unawaited(_actions(e)),
+          child: ConstrainedBox(
+            // Một dòng gọn như cây tệp IDE web: xem được nhiều tệp một lúc.
+            constraints: const BoxConstraints(minHeight: 44),
+            child: Padding(
+              padding: const EdgeInsets.only(left: WebTuiSpacing.md),
+              child: Row(
+                children: [
                   Container(
-                    key: Key('ide_git_${e.name}'),
-                    width: 22,
-                    height: 22,
-                    alignment: Alignment.center,
+                    width: 28,
+                    height: 28,
                     decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: ideGitColor(e.git).withValues(alpha: 0.18),
-                      border: Border.all(color: ideGitColor(e.git)),
+                      color: tint.withValues(alpha: 0.13),
+                      borderRadius: BorderRadius.circular(7),
                     ),
-                    child: Text(
-                      e.git,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: WebTuiColors.textPrimary,
+                    child: Icon(ideEntryIcon(e), size: 16, color: tint),
+                  ),
+                  const SizedBox(width: WebTuiSpacing.sm + 2),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Text(
+                        e.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: IdeType.bodyMedium.copyWith(
+                          color: e.isHidden ? IdeWb.text : IdeWb.textStrong,
+                        ),
                       ),
                     ),
                   ),
-                if (e.secret)
-                  Padding(
-                    padding: const EdgeInsets.only(left: WebTuiSpacing.xs),
-                    child: Icon(
-                      Icons.lock_rounded,
-                      size: 18,
-                      color: WebTuiColors.textMuted,
+                  if (sub.isNotEmpty)
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 150),
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: WebTuiSpacing.sm),
+                        child: Text(
+                          sub,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: IdeType.bodySmall.copyWith(
+                            fontSize: 11.5,
+                            color: IdeWb.text2,
+                          ),
+                        ),
+                      ),
                     ),
+                  if (e.git.isNotEmpty)
+                    Container(
+                      key: Key('ide_git_${e.name}'),
+                      width: 22,
+                      height: 22,
+                      margin: const EdgeInsets.only(left: WebTuiSpacing.xs),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: ideGitColor(e.git).withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        e.git,
+                        style: WebTuiTypography.mono(
+                          size: 12,
+                          weight: FontWeight.w700,
+                          color: IdeWb.textStrong,
+                        ),
+                      ),
+                    ),
+                  if (e.secret)
+                    Padding(
+                      padding: const EdgeInsets.only(left: WebTuiSpacing.xs),
+                      child: Icon(
+                        Icons.lock_rounded,
+                        size: 18,
+                        color: IdeWb.text2,
+                      ),
+                    ),
+                  IconButton(
+                    key: Key('ide_more_${e.name}'),
+                    tooltip: tr('Thao tác', 'Actions'),
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
+                    icon: Icon(
+                      Icons.more_horiz_rounded,
+                      size: 20,
+                      color: IdeWb.text2,
+                    ),
+                    onPressed: () => unawaited(_actions(e)),
                   ),
-                IconButton(
-                  key: Key('ide_more_${e.name}'),
-                  tooltip: tr('Thao tác', 'Actions'),
-                  constraints: const BoxConstraints(
-                    minWidth: 48,
-                    minHeight: 48,
-                  ),
-                  icon: const Icon(Icons.more_vert_rounded),
-                  onPressed: () => unawaited(_actions(e)),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

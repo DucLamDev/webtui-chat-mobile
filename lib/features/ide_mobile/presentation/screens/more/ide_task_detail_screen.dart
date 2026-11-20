@@ -5,15 +5,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_more_time.dart';
 import '../../../domain/ide_task_models.dart';
 import '../../../domain/ide_visible_text.dart';
 import '../../controllers/ide_more_controllers.dart';
 import '../../controllers/ide_project_controllers.dart';
+import '../../widgets/ide_wb.dart';
 import '../../widgets/markdown/ide_markdown.dart';
 import '../ide_ai_chat_screen.dart';
 import 'ide_more_common.dart';
@@ -250,7 +249,7 @@ class _IdeTaskDetailScreenState extends ConsumerState<IdeTaskDetailScreen> {
       return;
     }
     await Navigator.of(context).push<void>(
-      MaterialPageRoute(
+      IdePageRoute(
         builder: (_) => IdeAiChatScreen.newSession(
           kind: 'claude',
           root: root.first,
@@ -297,18 +296,14 @@ class _IdeTaskDetailScreenState extends ConsumerState<IdeTaskDetailScreen> {
   Widget _content(IdeTask t) {
     final state = ideDueState(t.due, DateTime.now(), done: t.isDone);
     final sug = t.suggestion;
-    final muted = WebTuiTypography.bodySmall.copyWith(
-      color: WebTuiColors.textMuted,
-    );
+    final muted = IdeType.bodySmall.copyWith(color: IdeWb.text2);
     return ListView(
       padding: const EdgeInsets.all(WebTuiSpacing.lg),
       children: [
         Text(
           ideVisibleText(t.title),
           key: const Key('ide_task_title_text'),
-          style: WebTuiTypography.titleLarge.copyWith(
-            color: WebTuiColors.textPrimary,
-          ),
+          style: IdeType.titleLarge.copyWith(color: IdeWb.textStrong),
         ),
         const SizedBox(height: WebTuiSpacing.sm),
         Text(
@@ -332,9 +327,7 @@ class _IdeTaskDetailScreenState extends ConsumerState<IdeTaskDetailScreen> {
               '${tr('Cập nhật', 'Updated')} ${ideFormatDateTime(t.updated!)}',
           ].join(' · '),
           style: muted.copyWith(
-            color: state == IdeDueState.overdue
-                ? WebTuiColors.danger
-                : WebTuiColors.textMuted,
+            color: state == IdeDueState.overdue ? IdeWb.danger : IdeWb.text2,
           ),
         ),
         const SizedBox(height: WebTuiSpacing.md),
@@ -382,15 +375,13 @@ class _IdeTaskDetailScreenState extends ConsumerState<IdeTaskDetailScreen> {
               Icon(
                 Icons.auto_awesome_rounded,
                 size: 18,
-                color: WebTuiColors.primary,
+                color: IdeWb.accentInk,
               ),
               const SizedBox(width: WebTuiSpacing.sm),
               Expanded(
                 child: Text(
                   tr('Gợi ý của AI', 'AI suggestion'),
-                  style: WebTuiTypography.titleMedium.copyWith(
-                    color: WebTuiColors.textPrimary,
-                  ),
+                  style: IdeType.titleMedium.copyWith(color: IdeWb.textStrong),
                 ),
               ),
             ],
@@ -423,9 +414,7 @@ class _IdeTaskDetailScreenState extends ConsumerState<IdeTaskDetailScreen> {
               sug!.error.isEmpty
                   ? tr('AI chưa gợi ý được.', 'The AI could not suggest.')
                   : sug.error,
-              style: WebTuiTypography.bodyMedium.copyWith(
-                color: WebTuiColors.danger,
-              ),
+              style: IdeType.bodyMedium.copyWith(color: IdeWb.danger),
             )
           else if (_gaveUp)
             Text(
@@ -442,9 +431,7 @@ class _IdeTaskDetailScreenState extends ConsumerState<IdeTaskDetailScreen> {
                       'Ask the AI how to approach this task.',
                     )
                   : '',
-              style: WebTuiTypography.bodySmall.copyWith(
-                color: WebTuiColors.textMuted,
-              ),
+              style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
             ),
           if (!_waiting && !(sug?.pending ?? false))
             TextButton.icon(

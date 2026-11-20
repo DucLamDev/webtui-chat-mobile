@@ -4,15 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_deploy.dart';
 import '../../../domain/ide_project.dart';
 import '../../../domain/ide_project_info.dart';
 import '../../controllers/ide_project_ops_controllers.dart';
 import '../../controllers/ide_term_controllers.dart';
+import '../../widgets/ide_wb.dart';
 import '../../widgets/projects/ide_project_ui.dart';
 
 EdgeInsets _pad(BuildContext context) => EdgeInsets.fromLTRB(
@@ -29,9 +28,7 @@ Widget _inlineError(String? text) => text == null
         child: Text(
           text,
           key: const Key('ide_sheet_error'),
-          style: WebTuiTypography.bodySmall.copyWith(
-            color: WebTuiColors.danger,
-          ),
+          style: IdeType.bodySmall.copyWith(color: IdeWb.danger),
         ),
       );
 
@@ -404,12 +401,9 @@ class _ToGitState extends ConsumerState<IdeToGitSheet> {
   }
 
   (IconData, Color) _levelView(IdeCheckLevel l) => switch (l) {
-    IdeCheckLevel.ok => (Icons.check_circle_rounded, WebTuiColors.accentGreen),
-    IdeCheckLevel.warn => (
-      Icons.warning_amber_rounded,
-      WebTuiColors.accentAmber,
-    ),
-    IdeCheckLevel.bad => (Icons.cancel_rounded, WebTuiColors.danger),
+    IdeCheckLevel.ok => (Icons.check_circle_rounded, IdeWb.ok),
+    IdeCheckLevel.warn => (Icons.warning_amber_rounded, IdeWb.warn),
+    IdeCheckLevel.bad => (Icons.cancel_rounded, IdeWb.danger),
   };
 
   @override
@@ -458,23 +452,23 @@ class _ToGitState extends ConsumerState<IdeToGitSheet> {
                       children: [
                         Text(
                           r.name,
-                          style: WebTuiTypography.bodyMedium.copyWith(
+                          style: IdeType.bodyMedium.copyWith(
                             fontWeight: FontWeight.w600,
-                            color: WebTuiColors.textPrimary,
+                            color: IdeWb.textStrong,
                           ),
                         ),
                         if (r.detail.isNotEmpty)
                           Text(
                             r.detail,
-                            style: WebTuiTypography.bodySmall.copyWith(
-                              color: WebTuiColors.textSecondary,
+                            style: IdeType.bodySmall.copyWith(
+                              color: IdeWb.text,
                             ),
                           ),
                         if (r.fix.isNotEmpty && r.level != IdeCheckLevel.ok)
                           Text(
                             tr('Cách sửa: ', 'Fix: ') + r.fix,
-                            style: WebTuiTypography.bodySmall.copyWith(
-                              color: WebTuiColors.textMuted,
+                            style: IdeType.bodySmall.copyWith(
+                              color: IdeWb.text2,
                             ),
                           ),
                       ],
@@ -491,9 +485,7 @@ class _ToGitState extends ConsumerState<IdeToGitSheet> {
                 'Some checks failed: fix them and check again.',
               ),
               key: const Key('ide_to_git_blocked'),
-              style: WebTuiTypography.bodySmall.copyWith(
-                color: WebTuiColors.danger,
-              ),
+              style: IdeType.bodySmall.copyWith(color: IdeWb.danger),
             ),
           _inlineError(_error),
           const SizedBox(height: WebTuiSpacing.sm),
@@ -710,9 +702,7 @@ class _MyTargetState extends ConsumerState<IdeMyTargetSheet> {
               child: Text(
                 tr('Chưa đặt máy đích.', 'No target set yet.'),
                 key: const Key('ide_target_none'),
-                style: WebTuiTypography.bodyMedium.copyWith(
-                  color: WebTuiColors.textSecondary,
-                ),
+                style: IdeType.bodyMedium.copyWith(color: IdeWb.text),
               ),
             )
           else
@@ -722,9 +712,7 @@ class _MyTargetState extends ConsumerState<IdeMyTargetSheet> {
                 '${_target!.ref} · ${_target!.path}'
                 '${_target!.last.isEmpty ? '' : '\n${tr('Lần cuối', 'Last')}: ${_target!.last}'}',
                 key: const Key('ide_target_current'),
-                style: WebTuiTypography.bodyMedium.copyWith(
-                  color: WebTuiColors.textPrimary,
-                ),
+                style: IdeType.bodyMedium.copyWith(color: IdeWb.textStrong),
               ),
             ),
           if (servers.isLoading)
@@ -738,9 +726,7 @@ class _MyTargetState extends ConsumerState<IdeMyTargetSheet> {
                 'No private server to choose yet.',
               ),
               key: const Key('ide_target_no_hosts'),
-              style: WebTuiTypography.bodySmall.copyWith(
-                color: WebTuiColors.textMuted,
-              ),
+              style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
             )
           else
             DropdownButtonFormField<String>(
@@ -1007,18 +993,14 @@ class _VpsRequestState extends ConsumerState<IdeVpsRequestSheet> {
             const SizedBox(height: WebTuiSpacing.lg),
             Text(
               tr('Yêu cầu của dự án này', 'Requests for this project'),
-              style: WebTuiTypography.titleMedium.copyWith(
-                color: WebTuiColors.textPrimary,
-              ),
+              style: IdeType.titleMedium.copyWith(color: IdeWb.textStrong),
             ),
             const SizedBox(height: WebTuiSpacing.sm),
             if (_listError != null)
               Text(
                 ideProjectErrorText(_listError!),
                 key: const Key('ide_vps_list_error'),
-                style: WebTuiTypography.bodySmall.copyWith(
-                  color: WebTuiColors.danger,
-                ),
+                style: IdeType.bodySmall.copyWith(color: IdeWb.danger),
               )
             else if (_requests == null)
               IdeProgressLine(text: tr('Đang tải...', 'Loading...'))
@@ -1026,9 +1008,7 @@ class _VpsRequestState extends ConsumerState<IdeVpsRequestSheet> {
               Text(
                 tr('Chưa có yêu cầu nào.', 'No requests yet.'),
                 key: const Key('ide_vps_list_empty'),
-                style: WebTuiTypography.bodySmall.copyWith(
-                  color: WebTuiColors.textMuted,
-                ),
+                style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
               )
             else
               for (final r in mine)
@@ -1044,9 +1024,9 @@ class _VpsRequestState extends ConsumerState<IdeVpsRequestSheet> {
                   trailing: WebTuiStatusPill(
                     label: _statusLabel(r.status),
                     color: switch (r.status) {
-                      'approved' => WebTuiColors.accentGreen,
-                      'rejected' => WebTuiColors.danger,
-                      _ => WebTuiColors.accentAmber,
+                      'approved' => IdeWb.ok,
+                      'rejected' => IdeWb.danger,
+                      _ => IdeWb.warn,
                     },
                   ),
                 ),

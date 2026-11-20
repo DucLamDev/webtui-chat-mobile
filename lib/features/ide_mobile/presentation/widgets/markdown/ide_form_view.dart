@@ -2,11 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
+import '../ide_wb.dart';
 import 'ide_blocks_model.dart';
 
 /// Biểu mẫu đã gửi trong phiên chạy này ("mã tin:thứ tự"), để vẽ lại tin giữa
@@ -133,9 +132,9 @@ class _IdeFormViewState extends State<IdeFormView> {
       margin: const EdgeInsets.symmetric(vertical: WebTuiSpacing.sm),
       padding: const EdgeInsets.all(WebTuiSpacing.md),
       decoration: BoxDecoration(
-        color: WebTuiColors.surface,
+        color: IdeWbPalette.of(context).bg,
         borderRadius: BorderRadius.circular(WebTuiRadii.md),
-        border: Border.all(color: WebTuiColors.border),
+        border: Border.all(color: IdeWbPalette.of(context).border),
       ),
       // Material trong suốt để ListTile (ô chọn) không bị khung nền che hiệu ứng.
       child: Material(
@@ -150,8 +149,8 @@ class _IdeFormViewState extends State<IdeFormView> {
                   padding: const EdgeInsets.only(bottom: WebTuiSpacing.sm),
                   child: Text(
                     spec.title,
-                    style: WebTuiTypography.titleMedium.copyWith(
-                      color: WebTuiColors.textPrimary,
+                    style: IdeType.titleMedium.copyWith(
+                      color: IdeWbPalette.of(context).textStrong,
                     ),
                   ),
                 ),
@@ -165,10 +164,10 @@ class _IdeFormViewState extends State<IdeFormView> {
                   Expanded(
                     child: Text(
                       status,
-                      style: WebTuiTypography.bodySmall.copyWith(
+                      style: IdeType.bodySmall.copyWith(
                         color: _failed || _empty != null
-                            ? WebTuiColors.danger
-                            : WebTuiColors.textMuted,
+                            ? IdeWbPalette.of(context).danger
+                            : IdeWbPalette.of(context).text2,
                       ),
                     ),
                   ),

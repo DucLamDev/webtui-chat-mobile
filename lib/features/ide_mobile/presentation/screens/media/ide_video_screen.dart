@@ -5,10 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../application/ide_download_service.dart';
 import '../../../application/ide_media_service.dart';
@@ -17,6 +15,7 @@ import '../../../domain/ide_media_models.dart';
 import '../../../domain/ide_visible_text.dart';
 import '../../controllers/ide_project_controllers.dart';
 import '../../widgets/files/ide_image_viewer.dart';
+import '../../widgets/ide_wb.dart';
 import '../more/ide_more_common.dart';
 import 'ide_media_common.dart';
 import 'ide_video_list_screen.dart' show ideVideoStateTag;
@@ -157,16 +156,16 @@ class _VideoBodyState extends ConsumerState<_VideoBody> {
     if (f == null || !mounted) return;
     await Navigator.of(
       context,
-    ).push<void>(MaterialPageRoute(builder: (_) => IdeImageViewer(file: f)));
+    ).push<void>(IdePageRoute(builder: (_) => IdeImageViewer(file: f)));
   }
 
   /// [idx] là vị trí trong danh sách (khoá riêng): `n` từ IDE chỉ để hiển thị.
   Future<void> _thumb(int idx, IdeVideoScene s) async {
     final have = _thumbs[idx];
     if (have != null) {
-      await Navigator.of(context).push<void>(
-        MaterialPageRoute(builder: (_) => IdeImageViewer(file: have)),
-      );
+      await Navigator.of(
+        context,
+      ).push<void>(IdePageRoute(builder: (_) => IdeImageViewer(file: have)));
       return;
     }
     final f = await _fetch('scene$idx', s.image, ideVideoImageMaxBytes);
@@ -177,9 +176,9 @@ class _VideoBodyState extends ConsumerState<_VideoBody> {
   Future<void> _play(String key, String? rel) async {
     final f = await _fetch(key, rel, ideVideoFileMaxBytes);
     if (f == null || !mounted) return;
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute(builder: (_) => _VideoPlayerScreen(file: f)),
-    );
+    await Navigator.of(
+      context,
+    ).push<void>(IdePageRoute(builder: (_) => _VideoPlayerScreen(file: f)));
   }
 
   @override
@@ -187,9 +186,7 @@ class _VideoBodyState extends ConsumerState<_VideoBody> {
     final d = widget.data.detail;
     final v = d.video;
     final (label, color) = ideVideoStateTag(v.state);
-    final muted = WebTuiTypography.bodySmall.copyWith(
-      color: WebTuiColors.textMuted,
-    );
+    final muted = IdeType.bodySmall.copyWith(color: IdeWb.text2);
     Widget action(
       String key,
       String text,
@@ -231,7 +228,7 @@ class _VideoBodyState extends ConsumerState<_VideoBody> {
                 child: Text(
                   ideVisibleText(v.title),
                   key: const Key('ide_video_title'),
-                  style: WebTuiTypography.titleLarge,
+                  style: IdeType.titleLarge,
                 ),
               ),
               const SizedBox(width: WebTuiSpacing.sm),
@@ -253,9 +250,7 @@ class _VideoBodyState extends ConsumerState<_VideoBody> {
               child: Text(
                 ideVisibleText(d.error),
                 key: const Key('ide_video_error'),
-                style: WebTuiTypography.bodySmall.copyWith(
-                  color: WebTuiColors.danger,
-                ),
+                style: IdeType.bodySmall.copyWith(color: IdeWb.danger),
               ),
             ),
           const SizedBox(height: WebTuiSpacing.md),
@@ -288,7 +283,7 @@ class _VideoBodyState extends ConsumerState<_VideoBody> {
             ],
           ),
           const SizedBox(height: WebTuiSpacing.lg),
-          Text(tr('Các cảnh', 'Scenes'), style: WebTuiTypography.titleMedium),
+          Text(tr('Các cảnh', 'Scenes'), style: IdeType.titleMedium),
           const SizedBox(height: WebTuiSpacing.sm),
           if (d.scenes.isEmpty)
             Padding(
@@ -339,24 +334,16 @@ class _SceneCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final muted = WebTuiTypography.bodySmall.copyWith(
-      color: WebTuiColors.textMuted,
-    );
+    final muted = IdeType.bodySmall.copyWith(color: IdeWb.text2);
     return IdeCard(
       key: Key('ide_scene_${scene.n}'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '${tr('Cảnh', 'Scene')} ${scene.n}',
-            style: WebTuiTypography.titleMedium,
-          ),
+          Text('${tr('Cảnh', 'Scene')} ${scene.n}', style: IdeType.titleMedium),
           if (scene.text.isNotEmpty) ...[
             const SizedBox(height: WebTuiSpacing.xs),
-            Text(
-              ideVisibleText(scene.text),
-              style: WebTuiTypography.bodyMedium,
-            ),
+            Text(ideVisibleText(scene.text), style: IdeType.bodyMedium),
           ],
           if (scene.caption.isNotEmpty) ...[
             const SizedBox(height: WebTuiSpacing.xs),

@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../design_system/components/webtui_components.dart';
-import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
@@ -16,6 +15,7 @@ import '../../domain/ide_ready.dart';
 import '../../domain/ide_term.dart';
 import '../controllers/ide_controllers.dart';
 import '../widgets/ide_step_sheet.dart';
+import '../widgets/ide_wb.dart';
 import 'files/ide_files_tab.dart';
 import 'ide_ai_sessions_tab.dart';
 import 'more/ide_more_tab.dart';
@@ -140,30 +140,26 @@ class _IdeScreenState extends ConsumerState<IdeScreen>
       );
     }
 
+    final phase = enabled && credentials.valueOrNull != null
+        ? (status?.phase ?? IdeLinkPhase.connecting)
+        : null;
+    final ready = phase == IdeLinkPhase.ready;
+    // Bố cục như IDE web: thanh biểu tượng trên (đổi chức năng), vùng làm việc
+    // ở giữa, thanh trạng thái dưới (kết nối, phiên bản IDE).
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          tooltip: tr('Quay lại', 'Back'),
-          onPressed: () => context.canPop() ? context.pop() : context.go('/'),
-          icon: const Icon(Icons.arrow_back_rounded),
-        ),
-        title: const Text('IDE'),
-        surfaceTintColor: Colors.transparent,
+      backgroundColor: IdeWb.bg,
+      body: Column(
+        children: [
+          _ActivityBar(
+            tabs: ready && tabs.length > 1 ? tabs : const [],
+            current: _tab,
+            onBack: () => context.canPop() ? context.pop() : context.go('/'),
+            onSelect: (t) => setState(() => _tab = t),
+          ),
+          Expanded(child: SafeArea(top: false, bottom: false, child: body)),
+          _StatusBar(phase: phase, version: status?.ready?.ideVersion ?? ''),
+        ],
       ),
-      body: SafeArea(child: body),
-      bottomNavigationBar: tabs.length < 2
-          ? null
-          : NavigationBar(
-              selectedIndex: tabs.indexOf(_tab).clamp(0, tabs.length - 1),
-              onDestinationSelected: (i) => setState(() => _tab = tabs[i]),
-              destinations: [
-                for (final t in tabs)
-                  NavigationDestination(
-                    icon: Icon(_tabIcon(t)),
-                    label: _tabLabel(t),
-                  ),
-              ],
-            ),
     );
   }
 
@@ -247,21 +243,16 @@ class _IdeScreenState extends ConsumerState<IdeScreen>
             : tr('Đang kết nối IDE...', 'Connecting to the IDE...'),
       ),
     };
-    return Column(
-      children: [
-        _StatusBar(phase: phase),
-        Expanded(child: content),
-      ],
-    );
+    return content;
   }
 }
 
 IconData _tabIcon(IdeTab t) => switch (t) {
-  IdeTab.ai => Icons.auto_awesome_rounded,
-  IdeTab.files => Icons.folder_outlined,
+  IdeTab.ai => Icons.chat_bubble_outline_rounded,
+  IdeTab.files => Icons.folder_open_outlined,
   IdeTab.terminal => Icons.terminal_rounded,
   IdeTab.projects => Icons.account_tree_outlined,
-  IdeTab.more => Icons.more_horiz_rounded,
+  IdeTab.more => Icons.apps_rounded,
 };
 
 String _tabLabel(IdeTab t) => switch (t) {
@@ -272,45 +263,224 @@ String _tabLabel(IdeTab t) => switch (t) {
   IdeTab.more => tr('Thêm', 'More'),
 };
 
-class _StatusBar extends StatelessWidget {
-  const _StatusBar({required this.phase});
+/// Thanh biểu tượng trên cùng (như thanh hoạt động của IDE web): nút quay lại
+/// rồi một biểu tượng cho mỗi chức năng; mục đang mở có gạch tím dưới chân.
+class _ActivityBar extends StatelessWidget {
+  const _ActivityBar({
+    required this.tabs,
+    required this.current,
+    required this.onBack,
+    required this.onSelect,
+  });
 
-  final IdeLinkPhase phase;
+  final List<IdeTab> tabs;
+  final IdeTab current;
+  final VoidCallback onBack;
+  final ValueChanged<IdeTab> onSelect;
 
   @override
   Widget build(BuildContext context) {
-    final (label, color) = switch (phase) {
+    return Material(
+      color: IdeWb.bar,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: IdeWb.border)),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: SizedBox(
+            height: 48,
+            child: Row(
+              children: [
+                IconButton(
+                  key: const Key('ide_back'),
+                  tooltip: tr('Quay lại', 'Back'),
+                  onPressed: onBack,
+                  color: IdeWb.text,
+                  icon: const Icon(Icons.arrow_back_rounded, size: 22),
+                ),
+                if (tabs.isEmpty)
+                  Text(
+                    'IDE',
+                    style: IdeType.titleMedium.copyWith(
+                      color: IdeWb.textStrong,
+                    ),
+                  ),
+                for (final t in tabs)
+                  Expanded(
+                    child: _ActivityButton(
+                      tab: t,
+                      selected: t == current,
+                      onTap: () => onSelect(t),
+                    ),
+                  ),
+                if (tabs.isNotEmpty) const SizedBox(width: WebTuiSpacing.xs),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActivityButton extends StatelessWidget {
+  const _ActivityButton({
+    required this.tab,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IdeTab tab;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = _tabLabel(tab);
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      excludeSemantics: true,
+      child: Tooltip(
+        message: label,
+        child: InkWell(
+          key: Key('ide_tab_${tab.name}'),
+          onTap: onTap,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Icon(
+                _tabIcon(tab),
+                size: 22,
+                color: selected ? IdeWb.textStrong : IdeWb.text2,
+              ),
+              Positioned(
+                left: 10,
+                right: 10,
+                bottom: 0,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  height: 2,
+                  decoration: BoxDecoration(
+                    color: selected ? IdeWb.accentInk : Colors.transparent,
+                    borderRadius: BorderRadius.circular(1),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Thanh trạng thái dưới cùng (như IDE web): ô tím trạng thái kết nối bên
+/// trái, phiên bản IDE và ngôn ngữ bên phải.
+class _StatusBar extends StatelessWidget {
+  const _StatusBar({required this.phase, required this.version});
+
+  /// null: chưa gắn máy / IDE chưa bật.
+  final IdeLinkPhase? phase;
+  final String version;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = phase;
+    final (label, dot) = switch (p) {
+      null => (tr('Chưa kết nối', 'Not connected'), Colors.white70),
       IdeLinkPhase.ready => (
-        tr('Đã kết nối IDE', 'Connected to the IDE'),
-        WebTuiColors.accentGreen,
+        tr('Đã kết nối', 'Connected'),
+        const Color(0xFF7EE2A8),
       ),
       IdeLinkPhase.offline => (
         tr('IDE ngoại tuyến', 'IDE offline'),
-        WebTuiColors.accentAmber,
+        const Color(0xFFFFD27A),
       ),
-      IdeLinkPhase.revoked => (tr('Đã bị gỡ', 'Removed'), WebTuiColors.danger),
+      IdeLinkPhase.revoked => (
+        tr('Đã bị gỡ', 'Removed'),
+        const Color(0xFFFF9C9C),
+      ),
       IdeLinkPhase.reconnecting => (
         tr('Đang nối lại', 'Reconnecting'),
-        WebTuiColors.accentAmber,
+        const Color(0xFFFFD27A),
       ),
-      _ => (tr('Đang kết nối', 'Connecting'), WebTuiColors.textMuted),
+      _ => (tr('Đang kết nối', 'Connecting'), Colors.white70),
     };
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: WebTuiSpacing.lg,
-        vertical: WebTuiSpacing.sm,
+    final style = WebTuiTypography.labelSmall.copyWith(
+      fontWeight: FontWeight.w500,
+      color: IdeWb.text,
+      height: 1.2,
+    );
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: IdeWb.bar,
+        border: Border(top: BorderSide(color: IdeWb.border)),
       ),
-      child: Row(
-        children: [
-          Icon(Icons.circle, size: 10, color: color),
-          const SizedBox(width: WebTuiSpacing.sm),
-          Text(
-            label,
-            style: WebTuiTypography.bodySmall.copyWith(
-              color: WebTuiColors.textSecondary,
-            ),
+      child: SafeArea(
+        top: false,
+        // Lề ngang: trên điện thoại góc màn hình bo tròn, sát mép sẽ bị cắt.
+        minimum: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.md),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            children: [
+              Semantics(
+                key: const Key('ide_link_status'),
+                label: tr('Trạng thái IDE: $label', 'IDE status: $label'),
+                excludeSemantics: true,
+                child: Container(
+                  // Tối thiểu 20, chữ máy to thì cao theo chữ.
+                  constraints: const BoxConstraints(minHeight: 20),
+                  decoration: BoxDecoration(
+                    color: IdeWb.accent,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: WebTuiSpacing.sm,
+                  ),
+                  alignment: Alignment.center,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: dot,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        label,
+                        maxLines: 1,
+                        style: style.copyWith(color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const Spacer(),
+              if (version.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: WebTuiSpacing.sm,
+                  ),
+                  child: Text(
+                    'IDE v$version',
+                    maxLines: 1,
+                    style: style.copyWith(
+                      fontFamily: WebTuiTypography.monoFamily,
+                    ),
+                  ),
+                ),
+              Text(tr('VI', 'EN'), style: style),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -337,20 +507,18 @@ class _Message extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 40, color: WebTuiColors.textMuted),
+            Icon(icon, size: 40, color: IdeWb.text2),
             const SizedBox(height: WebTuiSpacing.md),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: WebTuiTypography.titleMedium,
+              style: IdeType.titleMedium,
             ),
             const SizedBox(height: WebTuiSpacing.sm),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: WebTuiTypography.bodyMedium.copyWith(
-                color: WebTuiColors.textSecondary,
-              ),
+              style: IdeType.bodyMedium.copyWith(color: IdeWb.text),
             ),
             if (action != null) ...[
               const SizedBox(height: WebTuiSpacing.lg),

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../application/ide_talk_service.dart';
 import '../../../domain/ide_talk_models.dart';
 import '../../../domain/ide_visible_text.dart';
+import '../../widgets/ide_wb.dart';
 import '../more/ide_more_common.dart';
 import 'ide_talk_providers.dart';
 
@@ -134,9 +134,7 @@ class _IdeTalkNewSheetState extends ConsumerState<IdeTalkNewSheet> {
             children: [
               Text(
                 tr('Chat mới', 'New chat'),
-                style: WebTuiTypography.titleMedium.copyWith(
-                  color: WebTuiColors.textPrimary,
-                ),
+                style: IdeType.titleMedium.copyWith(color: IdeWb.textStrong),
               ),
               const SizedBox(height: WebTuiSpacing.md),
               TextField(
@@ -162,9 +160,7 @@ class _IdeTalkNewSheetState extends ConsumerState<IdeTalkNewSheet> {
                             'Chưa tải được danh sách mô hình, sẽ dùng mặc định.',
                             'Could not load models; the default will be used.',
                           ),
-                          style: WebTuiTypography.bodySmall.copyWith(
-                            color: WebTuiColors.textSecondary,
-                          ),
+                          style: IdeType.bodySmall.copyWith(color: IdeWb.text),
                         ),
                       ),
                       TextButton(
@@ -209,7 +205,7 @@ class _IdeTalkNewSheetState extends ConsumerState<IdeTalkNewSheet> {
                     Text(
                       tr('Mức suy nghĩ', 'Effort'),
                       style: WebTuiTypography.labelSmall.copyWith(
-                        color: WebTuiColors.textSecondary,
+                        color: IdeWb.text,
                       ),
                     ),
                     Wrap(
@@ -229,7 +225,7 @@ class _IdeTalkNewSheetState extends ConsumerState<IdeTalkNewSheet> {
               ],
               if (_error != null) ...[
                 const SizedBox(height: WebTuiSpacing.sm),
-                Text(_error!, style: TextStyle(color: WebTuiColors.danger)),
+                Text(_error!, style: TextStyle(color: IdeWb.danger)),
               ],
               const SizedBox(height: WebTuiSpacing.md),
               FilledButton(

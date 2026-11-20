@@ -3,14 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../domain/ide_demo_models.dart';
 import '../../../domain/ide_more_time.dart';
 import '../../../domain/ide_project.dart';
 import '../../../domain/ide_visible_text.dart';
+import '../../widgets/ide_wb.dart';
 import '../more/ide_more_common.dart';
 import 'ide_demo_dialogs.dart';
 import 'ide_tools_common.dart';
@@ -207,9 +206,7 @@ class _DemoViewState extends ConsumerState<_DemoView> {
     final canDbShow = st.hasDb && has('demo.db_show');
     final canDbDrop = manage && st.my && st.hasDb && has('demo.db_drop');
     final canLog = has('demo.log');
-    final muted = WebTuiTypography.bodySmall.copyWith(
-      color: WebTuiColors.textMuted,
-    );
+    final muted = IdeType.bodySmall.copyWith(color: IdeWb.text2);
     return RefreshIndicator(
       onRefresh: widget.reload,
       child: ListView(
@@ -233,21 +230,16 @@ class _DemoViewState extends ConsumerState<_DemoView> {
                   children: [
                     Text(
                       tr('Web demo', 'Web demo'),
-                      style: WebTuiTypography.titleMedium.copyWith(
-                        color: WebTuiColors.textPrimary,
+                      style: IdeType.titleMedium.copyWith(
+                        color: IdeWb.textStrong,
                       ),
                     ),
                     IdeTag(
                       enabled ? tr('Đang bật', 'On') : tr('Đang tắt', 'Off'),
-                      color: enabled
-                          ? WebTuiColors.accentGreen
-                          : WebTuiColors.textSecondary,
+                      color: enabled ? IdeWb.ok : IdeWb.text,
                     ),
                     if (enabled && st.public)
-                      IdeTag(
-                        tr('Công khai', 'Public'),
-                        color: WebTuiColors.accentAmber,
-                      ),
+                      IdeTag(tr('Công khai', 'Public'), color: IdeWb.warn),
                   ],
                 ),
                 if (!manage)
@@ -294,9 +286,7 @@ class _DemoViewState extends ConsumerState<_DemoView> {
                 if (st.syncError.isNotEmpty)
                   Text(
                     '! ${ideVisibleText(st.syncError)}',
-                    style: WebTuiTypography.bodySmall.copyWith(
-                      color: WebTuiColors.danger,
-                    ),
+                    style: IdeType.bodySmall.copyWith(color: IdeWb.danger),
                   ),
                 if (st.my && st.limitMax != null && st.limitUsed != null)
                   ToolInfoRow(
@@ -343,7 +333,7 @@ class _DemoViewState extends ConsumerState<_DemoView> {
                         if (canDisable)
                           OutlinedButton(
                             key: const Key('ide_demo_disable'),
-                            style: ideToolsBtn(color: WebTuiColors.danger),
+                            style: ideToolsBtn(color: IdeWb.danger),
                             onPressed: _busy ? null : _disable,
                             child: Text(tr('Tắt', 'Turn off')),
                           ),
@@ -365,15 +355,13 @@ class _DemoViewState extends ConsumerState<_DemoView> {
                   children: [
                     Text(
                       tr('Database', 'Database'),
-                      style: WebTuiTypography.titleMedium.copyWith(
-                        color: WebTuiColors.textPrimary,
+                      style: IdeType.titleMedium.copyWith(
+                        color: IdeWb.textStrong,
                       ),
                     ),
                     IdeTag(
                       st.hasDb ? tr('Đã có', 'Exists') : tr('Chưa có', 'None'),
-                      color: st.hasDb
-                          ? WebTuiColors.accentGreen
-                          : WebTuiColors.textSecondary,
+                      color: st.hasDb ? IdeWb.ok : IdeWb.text,
                     ),
                   ],
                 ),
@@ -405,7 +393,7 @@ class _DemoViewState extends ConsumerState<_DemoView> {
                         if (canDbDrop)
                           OutlinedButton(
                             key: const Key('ide_demo_db_drop'),
-                            style: ideToolsBtn(color: WebTuiColors.danger),
+                            style: ideToolsBtn(color: IdeWb.danger),
                             onPressed: _busy ? null : _dbDrop,
                             child: Text(tr('Xoá database', 'Delete database')),
                           ),

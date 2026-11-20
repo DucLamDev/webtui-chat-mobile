@@ -5,6 +5,7 @@ import 'package:webtui_chat/app/providers/foundation_providers.dart';
 import 'package:webtui_chat/design_system/theme/webtui_theme.dart';
 import 'package:webtui_chat/design_system/tokens/webtui_colors.dart';
 import 'package:webtui_chat/features/ide_mobile/presentation/controllers/ide_ai_controllers.dart';
+import 'package:webtui_chat/features/ide_mobile/presentation/controllers/ide_controllers.dart';
 import 'package:webtui_chat/features/ide_mobile/presentation/screens/ide_ai_chat_screen.dart';
 
 import 'ai_session_controller_test.dart' show Rig, stateFrame;
@@ -16,6 +17,7 @@ void main() {
     bool withState = true,
     Map<String, Object?>? extra,
     Map<String, Object?>? role,
+    IdeAiSessionItem? info,
   }) async {
     final rig = Rig();
     WebTuiColors.apply(brightness);
@@ -31,7 +33,11 @@ void main() {
           theme: brightness == Brightness.dark
               ? WebTuiTheme.dark()
               : WebTuiTheme.light(),
-          home: IdeAiChatScreen(sessionKey: 'k1', autoOpenApprovals: false),
+          home: IdeAiChatScreen(
+            sessionKey: 'k1',
+            autoOpenApprovals: false,
+            info: info,
+          ),
         ),
       ),
     );
@@ -71,6 +77,46 @@ void main() {
     });
   }
 
+  testWidgets('đầu trang: tên phiên, trạng thái · loại AI · dự án; chip', (
+    tester,
+  ) async {
+    final rig = await open(
+      tester,
+      info: const IdeAiSessionItem(
+        key: 'k1',
+        kind: 'codex',
+        project: 'chat-hub',
+        worktree: '',
+        title: 'Sửa lỗi cuộc gọi',
+        status: 'running',
+      ),
+      extra: {
+        'messages': messages,
+        'settings': {
+          'model': 'claude-opus-5-5',
+          'permissions': {'mode': 'auto'},
+        },
+        'context': {'used': 32000, 'window': 200000},
+      },
+    );
+    expect(find.text('Sửa lỗi cuộc gọi'), findsOneWidget);
+    expect(find.text('Sẵn sàng · Codex · chat-hub'), findsOneWidget);
+    expect(find.text('Opus 5.5'), findsOneWidget);
+    expect(find.text('16%'), findsOneWidget);
+    expect(find.text('Tự làm (không hỏi)'), findsOneWidget);
+    await close(tester, rig);
+  });
+
+  testWidgets('mở thẳng (từ thông báo, không có tên phiên) thì ghi loại AI', (
+    tester,
+  ) async {
+    final rig = await open(tester, extra: {'messages': messages});
+    expect(find.text('Claude'), findsOneWidget);
+    expect(find.text('Sẵn sàng'), findsOneWidget);
+    expect(find.text('Mặc định'), findsOneWidget);
+    await close(tester, rig);
+  });
+
   testWidgets('chưa có state thì hiện đang mở phiên', (tester) async {
     final rig = await open(tester, withState: false);
     expect(find.text('Đang mở phiên…'), findsOneWidget);
@@ -80,6 +126,30 @@ void main() {
   testWidgets('phiên rỗng hiện trạng thái rỗng', (tester) async {
     final rig = await open(tester);
     expect(find.text('Chưa có tin nhắn'), findsOneWidget);
+    await close(tester, rig);
+  });
+
+  testWidgets('ô gõ: cao sẵn 3 dòng, gõ nhiều thì giãn có giới hạn và cuộn', (
+    tester,
+  ) async {
+    final rig = await open(tester);
+    final input = find.byKey(const Key('ide_ai_input'));
+    final empty = tester.getSize(input).height;
+    // 3 dòng chữ 15 × 1,4 + lề: không còn là ô một dòng.
+    expect(empty, greaterThan(3 * 15 * 1.4));
+    await tester.enterText(input, List.filled(8, 'dòng').join('\n'));
+    await tester.pump();
+    final grown = tester.getSize(input).height;
+    expect(grown, greaterThan(empty));
+    await tester.enterText(input, List.filled(200, 'dòng').join('\n'));
+    await tester.pump();
+    final full = tester.getSize(input).height;
+    final screen =
+        tester.view.physicalSize.height / tester.view.devicePixelRatio;
+    expect(full, lessThanOrEqualTo(screen * 0.45 + 0.5));
+    // Nội dung dài hơn ô: cuộn được bên trong.
+    final scroll = tester.widget<TextField>(input).scrollController!.position;
+    expect(scroll.maxScrollExtent, greaterThan(0));
     await close(tester, rig);
   });
 

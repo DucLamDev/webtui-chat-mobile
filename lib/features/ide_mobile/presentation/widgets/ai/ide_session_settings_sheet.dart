@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../design_system/components/webtui_dialogs.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../application/ide_ai_session_controller.dart';
 import '../../controllers/ide_ai_controllers.dart';
+import '../ide_wb.dart';
 import 'ide_ai_json.dart';
 import 'ide_approval_sheet.dart' show IdeDiffView;
 
@@ -91,9 +91,7 @@ class IdeSessionSettingsSheet extends ConsumerWidget {
                     'Chỉ xem: hãy điều khiển từ đây để đổi cài đặt.',
                     'View only: take control to change settings.',
                   ),
-                  style: WebTuiTypography.bodySmall.copyWith(
-                    color: WebTuiColors.textMuted,
-                  ),
+                  style: IdeType.bodySmall.copyWith(color: IdeWb.text2),
                 ),
               ),
             _label(tr('Model', 'Model')),
@@ -289,9 +287,7 @@ class IdeSessionSettingsSheet extends ConsumerWidget {
     ),
     child: Text(
       t,
-      style: WebTuiTypography.labelSmall.copyWith(
-        color: WebTuiColors.textMuted,
-      ),
+      style: WebTuiTypography.labelSmall.copyWith(color: IdeWb.text2),
     ),
   );
 
@@ -546,9 +542,9 @@ class IdeSessionSettingsSheet extends ConsumerWidget {
               WebTuiSheetHeader(title: tr('Nhật ký việc nền', 'Task log')),
               SelectableText(
                 text,
-                style: WebTuiTypography.bodySmall.copyWith(
-                  fontFamily: 'monospace',
-                  color: WebTuiColors.textPrimary,
+                style: IdeType.bodySmall.copyWith(
+                  fontFamily: WebTuiTypography.monoFamily,
+                  color: IdeWb.textStrong,
                 ),
               ),
             ],
@@ -584,9 +580,7 @@ class IdeSessionSettingsSheet extends ConsumerWidget {
                 children: [
                   Text(
                     '${aiStr(ch['path'])}  +${aiInt(ch['added'])} -${aiInt(ch['removed'])}',
-                    style: WebTuiTypography.bodyMedium.copyWith(
-                      color: WebTuiColors.textPrimary,
-                    ),
+                    style: IdeType.bodyMedium.copyWith(color: IdeWb.textStrong),
                   ),
                   if (aiStr(ch['diff']).isNotEmpty)
                     IdeDiffView(diff: aiStr(ch['diff'])),

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
+import '../ide_wb.dart';
 import 'ide_ai_json.dart';
 
 IconData ideActivityIcon(String kind) => switch (kind) {
@@ -47,11 +47,9 @@ class _IdeAiActivityCardState extends State<IdeAiActivityCard> {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: WebTuiSpacing.xxs),
       decoration: BoxDecoration(
-        color: WebTuiColors.surface,
+        color: IdeWb.bg,
         border: Border.all(
-          color: failed
-              ? WebTuiColors.danger.withValues(alpha: 0.5)
-              : WebTuiColors.border,
+          color: failed ? IdeWb.danger.withValues(alpha: 0.5) : IdeWb.border,
         ),
         borderRadius: BorderRadius.circular(WebTuiRadii.md),
       ),
@@ -71,19 +69,15 @@ class _IdeAiActivityCardState extends State<IdeAiActivityCard> {
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      ideActivityIcon(kind),
-                      size: 18,
-                      color: WebTuiColors.textSecondary,
-                    ),
+                    Icon(ideActivityIcon(kind), size: 18, color: IdeWb.text),
                     const SizedBox(width: WebTuiSpacing.sm),
                     Expanded(
                       child: Text(
                         title.isEmpty ? tr('Thao tác', 'Action') : title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: WebTuiTypography.bodyMedium.copyWith(
-                          color: WebTuiColors.textPrimary,
+                        style: IdeType.bodyMedium.copyWith(
+                          color: IdeWb.textStrong,
                         ),
                       ),
                     ),
@@ -93,7 +87,7 @@ class _IdeAiActivityCardState extends State<IdeAiActivityCard> {
                         child: Text(
                           '+$add',
                           style: WebTuiTypography.labelSmall.copyWith(
-                            color: WebTuiColors.accentGreen,
+                            color: IdeWb.ok,
                           ),
                         ),
                       ),
@@ -103,7 +97,7 @@ class _IdeAiActivityCardState extends State<IdeAiActivityCard> {
                         child: Text(
                           '−$del',
                           style: WebTuiTypography.labelSmall.copyWith(
-                            color: WebTuiColors.danger,
+                            color: IdeWb.danger,
                           ),
                         ),
                       ),
@@ -114,7 +108,7 @@ class _IdeAiActivityCardState extends State<IdeAiActivityCard> {
                           ? Icons.expand_less_rounded
                           : Icons.expand_more_rounded,
                       size: 20,
-                      color: WebTuiColors.textMuted,
+                      color: IdeWb.text2,
                     ),
                   ],
                 ),
@@ -139,9 +133,9 @@ class _IdeAiActivityCardState extends State<IdeAiActivityCard> {
                       if (cmd.isEmpty && text.isEmpty)
                         tr('(chưa có chi tiết)', '(no details yet)'),
                     ].join('\n\n'),
-                    style: WebTuiTypography.bodySmall.copyWith(
-                      fontFamily: 'monospace',
-                      color: WebTuiColors.textSecondary,
+                    style: IdeType.bodySmall.copyWith(
+                      fontFamily: WebTuiTypography.monoFamily,
+                      color: IdeWb.text,
                     ),
                   ),
                 ),
@@ -162,26 +156,18 @@ class _StatusIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (status) {
       case 'completed':
-        return Icon(
-          Icons.check_circle_rounded,
-          size: 18,
-          color: WebTuiColors.accentGreen,
-        );
+        return Icon(Icons.check_circle_rounded, size: 18, color: IdeWb.ok);
       case 'failed':
-        return Icon(Icons.error_rounded, size: 18, color: WebTuiColors.danger);
+        return Icon(Icons.error_rounded, size: 18, color: IdeWb.danger);
       case 'declined':
-        return Icon(
-          Icons.block_rounded,
-          size: 18,
-          color: WebTuiColors.textMuted,
-        );
+        return Icon(Icons.block_rounded, size: 18, color: IdeWb.text2);
       default:
         return SizedBox(
           width: 16,
           height: 16,
           child: CircularProgressIndicator(
             strokeWidth: 2,
-            color: WebTuiColors.primary,
+            color: IdeWb.accentInk,
           ),
         );
     }

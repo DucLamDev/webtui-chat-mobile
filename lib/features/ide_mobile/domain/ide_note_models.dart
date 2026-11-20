@@ -65,7 +65,8 @@ final class IdeNoteList {
     if (data is! Map) return const IdeNoteList();
     final notes = data['notes'];
     final deleted = data['deleted'];
-    int n(Object? v, int d) => v is num && v.isFinite && v > 0 ? ideSafeInt(v, d) : d;
+    int n(Object? v, int d) =>
+        v is num && v.isFinite && v > 0 ? ideSafeInt(v, d) : d;
     return IdeNoteList(
       notes: [
         if (notes is List)

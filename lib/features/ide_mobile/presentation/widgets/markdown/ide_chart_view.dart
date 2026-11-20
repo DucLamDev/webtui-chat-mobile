@@ -2,11 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
+import '../ide_wb.dart';
 import 'ide_blocks_model.dart';
 
 /// 8 màu phân loại theo thứ tự cố định (sáng / tối), cùng ý bảng `cb-c0–7` của
@@ -32,8 +31,9 @@ const _darkPalette = <Color>[
   Color(0xFF9AA3B8),
 ];
 
-List<Color> ideChartPalette() =>
-    WebTuiColors.brightness == Brightness.dark ? _darkPalette : _lightPalette;
+/// [dark]: bảng màu của màn đang vẽ (mặc định theo máy).
+List<Color> ideChartPalette({bool? dark}) =>
+    (dark ?? IdeWbPalette.current.isDark) ? _darkPalette : _lightPalette;
 
 String ideFormatNumber(double? v, String unit) {
   if (v == null) return '–';
@@ -76,7 +76,7 @@ class _IdeChartViewState extends State<IdeChartView> {
   @override
   Widget build(BuildContext context) {
     final spec = widget.spec.collapsedPie;
-    final palette = ideChartPalette();
+    final palette = ideChartPalette(dark: IdeWbPalette.of(context).isDark);
     final pie = spec.type == IdeChartType.pie;
     final legendNames = pie
         ? spec.labels
@@ -90,9 +90,9 @@ class _IdeChartViewState extends State<IdeChartView> {
       margin: const EdgeInsets.symmetric(vertical: WebTuiSpacing.sm),
       padding: const EdgeInsets.all(WebTuiSpacing.md),
       decoration: BoxDecoration(
-        color: WebTuiColors.surface,
+        color: IdeWbPalette.of(context).bg,
         borderRadius: BorderRadius.circular(WebTuiRadii.md),
-        border: Border.all(color: WebTuiColors.border),
+        border: Border.all(color: IdeWbPalette.of(context).border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -102,8 +102,8 @@ class _IdeChartViewState extends State<IdeChartView> {
               padding: const EdgeInsets.only(bottom: WebTuiSpacing.sm),
               child: Text(
                 spec.title,
-                style: WebTuiTypography.titleMedium.copyWith(
-                  color: WebTuiColors.textPrimary,
+                style: IdeType.titleMedium.copyWith(
+                  color: IdeWbPalette.of(context).textStrong,
                 ),
               ),
             ),
@@ -116,12 +116,12 @@ class _IdeChartViewState extends State<IdeChartView> {
               width: double.infinity,
               child: CustomPaint(
                 painter: pie
-                    ? _PiePainter(spec, palette, WebTuiColors.surface)
+                    ? _PiePainter(spec, palette, IdeWbPalette.of(context).bg)
                     : _AxisPainter(
                         spec,
                         palette,
-                        grid: WebTuiColors.hairline,
-                        text: WebTuiColors.textMuted,
+                        grid: IdeWbPalette.of(context).border,
+                        text: IdeWbPalette.of(context).text2,
                       ),
               ),
             ),
@@ -152,8 +152,8 @@ class _IdeChartViewState extends State<IdeChartView> {
                             : legendNames[i].isEmpty
                             ? '${tr('Chuỗi', 'Series')} ${i + 1}'
                             : legendNames[i],
-                        style: WebTuiTypography.bodySmall.copyWith(
-                          color: WebTuiColors.textSecondary,
+                        style: IdeType.bodySmall.copyWith(
+                          color: IdeWbPalette.of(context).text,
                         ),
                       ),
                     ),
@@ -190,8 +190,8 @@ class _DataTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = WebTuiTypography.bodySmall.copyWith(
-      color: WebTuiColors.textPrimary,
+    final style = IdeType.bodySmall.copyWith(
+      color: IdeWbPalette.of(context).textStrong,
     );
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,

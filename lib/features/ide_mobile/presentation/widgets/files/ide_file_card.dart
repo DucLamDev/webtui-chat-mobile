@@ -4,12 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../application/ide_download_service.dart';
+import '../ide_wb.dart';
 import 'ide_image_viewer.dart';
 
 final _pathRe = RegExp(
@@ -82,7 +81,7 @@ class _IdeFileCardState extends ConsumerState<IdeFileCard> {
       });
       if (ideIsImageName(f.name)) {
         await Navigator.of(context).push(
-          MaterialPageRoute<void>(
+          IdePageRoute<void>(
             fullscreenDialog: true,
             builder: (_) => IdeImageViewer(file: f),
           ),
@@ -151,15 +150,15 @@ class _IdeFileCardState extends ConsumerState<IdeFileCard> {
     return Container(
       padding: const EdgeInsets.all(WebTuiSpacing.sm),
       decoration: BoxDecoration(
-        color: WebTuiColors.surface,
+        color: IdeWb.bg,
         borderRadius: BorderRadius.circular(WebTuiRadii.md),
-        border: Border.all(color: WebTuiColors.border),
+        border: Border.all(color: IdeWb.border),
       ),
       child: Row(
         children: [
           Icon(
             image ? Icons.image_outlined : Icons.insert_drive_file_outlined,
-            color: WebTuiColors.primary,
+            color: IdeWb.accentInk,
           ),
           const SizedBox(width: WebTuiSpacing.sm),
           Expanded(
@@ -170,9 +169,9 @@ class _IdeFileCardState extends ConsumerState<IdeFileCard> {
                   _name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: WebTuiTypography.bodyMedium.copyWith(
+                  style: IdeType.bodyMedium.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: WebTuiColors.textPrimary,
+                    color: IdeWb.textStrong,
                   ),
                 ),
                 if (dl != null)
@@ -189,10 +188,8 @@ class _IdeFileCardState extends ConsumerState<IdeFileCard> {
                     sub,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: WebTuiTypography.bodySmall.copyWith(
-                      color: _error != null
-                          ? WebTuiColors.danger
-                          : WebTuiColors.textMuted,
+                    style: IdeType.bodySmall.copyWith(
+                      color: _error != null ? IdeWb.danger : IdeWb.text2,
                     ),
                   ),
               ],

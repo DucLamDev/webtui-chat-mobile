@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../../design_system/components/webtui_components.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../screens/ide_ai_chat_screen.dart';
+import '../ide_wb.dart';
 
 /// "Hỏi AI về tệp này": chọn Claude / Codex rồi mở phiên mới trong dự án
 /// [root] với ô soạn điền sẵn `@<đường dẫn> `.
@@ -39,7 +40,7 @@ Future<void> ideAskAiAboutPath(
   );
   if (kind == null || !context.mounted) return;
   await Navigator.of(context).push(
-    MaterialPageRoute<void>(
+    IdePageRoute<void>(
       builder: (_) => IdeAiChatScreen.newSession(
         kind: kind,
         root: root,

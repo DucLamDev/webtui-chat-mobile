@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../l10n/app_strings.dart';
+import '../ide_wb.dart';
 
 /// Nút micro: đọc giọng nói tiếng Việt, chuyển thành chữ gửi về [onText]
 /// (khi người dùng nói xong, một lần). Máy không hỗ trợ / từ chối quyền thì chỉ
@@ -107,10 +107,10 @@ class _IdeVoiceButtonState extends State<IdeVoiceButton> {
       icon: Icon(
         _listening ? Icons.mic_rounded : Icons.mic_none_rounded,
         color: _listening
-            ? WebTuiColors.danger
+            ? IdeWb.danger
             : _unsupported
-            ? WebTuiColors.textMuted
-            : WebTuiColors.textSecondary,
+            ? IdeWb.text2
+            : IdeWb.text,
       ),
     );
   }

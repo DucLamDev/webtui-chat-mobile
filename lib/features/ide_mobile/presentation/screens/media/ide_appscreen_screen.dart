@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../design_system/components/webtui_components.dart';
-import '../../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../../design_system/tokens/webtui_radii.dart';
 import '../../../../../design_system/tokens/webtui_spacing.dart';
-import '../../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../../l10n/app_strings.dart';
 import '../../../application/ide_appscreen_controller.dart';
 import '../../../application/ide_media_service.dart';
@@ -16,6 +14,7 @@ import '../../../domain/ide_project.dart';
 import '../../../domain/ide_visible_text.dart';
 import '../../controllers/ide_controllers.dart';
 import '../../controllers/ide_project_ops_controllers.dart';
+import '../../widgets/ide_wb.dart';
 import '../more/ide_more_common.dart';
 import 'ide_media_common.dart';
 
@@ -169,9 +168,7 @@ class _AppBodyState extends ConsumerState<_AppBody>
     final canRun = ideMediaHasOp(ref, 'appscreen.run');
     final canStop = ideMediaHasOp(ref, 'appscreen.stop');
     final s = _c.session;
-    final muted = WebTuiTypography.bodySmall.copyWith(
-      color: WebTuiColors.textMuted,
-    );
+    final muted = IdeType.bodySmall.copyWith(color: IdeWb.text2);
     final lines = _c.log;
     final progress = _c.running
         ? IdeCard(
@@ -181,7 +178,7 @@ class _AppBodyState extends ConsumerState<_AppBody>
               children: [
                 Text(
                   tr('Đang mở màn hình app…', 'Opening the app screen…'),
-                  style: WebTuiTypography.titleMedium,
+                  style: IdeType.titleMedium,
                 ),
                 const SizedBox(height: WebTuiSpacing.sm),
                 const LinearProgressIndicator(),
@@ -203,9 +200,7 @@ class _AppBodyState extends ConsumerState<_AppBody>
             child: Text(
               ideVisibleText(_c.runError!),
               key: const Key('ide_app_run_error'),
-              style: WebTuiTypography.bodySmall.copyWith(
-                color: WebTuiColors.danger,
-              ),
+              style: IdeType.bodySmall.copyWith(color: IdeWb.danger),
             ),
           );
     if (s == null) {
@@ -219,7 +214,7 @@ class _AppBodyState extends ConsumerState<_AppBody>
               children: [
                 Text(
                   tr('Chưa mở màn hình app', 'The app screen is not open'),
-                  style: WebTuiTypography.titleMedium,
+                  style: IdeType.titleMedium,
                 ),
                 const SizedBox(height: WebTuiSpacing.xs),
                 Text(
@@ -284,19 +279,17 @@ class _AppBodyState extends ConsumerState<_AppBody>
                 _c.building
                     ? tr('Đang dựng…', 'Building…')
                     : tr('Đang chạy', 'Running'),
-                color: _c.building
-                    ? WebTuiColors.accentAmber
-                    : WebTuiColors.accentGreen,
+                color: _c.building ? IdeWb.warn : IdeWb.ok,
               ),
               Text(
                 ideVisibleText(device ?? (s.device.isEmpty ? '—' : s.device)),
                 key: const Key('ide_app_device'),
-                style: WebTuiTypography.bodyMedium,
+                style: IdeType.bodyMedium,
               ),
               if (_c.frameFailing)
                 IdeTag(
                   tr('Mất kết nối, đang thử lại', 'Offline, retrying'),
-                  color: WebTuiColors.danger,
+                  color: IdeWb.danger,
                 ),
             ],
           ),
@@ -320,7 +313,7 @@ class _AppBodyState extends ConsumerState<_AppBody>
                     key: const Key('ide_app_stop'),
                     style: TextButton.styleFrom(
                       minimumSize: const Size(44, 44),
-                      foregroundColor: WebTuiColors.danger,
+                      foregroundColor: IdeWb.danger,
                     ),
                     onPressed: _c.running || _c.stopping ? null : _confirmStop,
                     child: Text(tr('Dừng', 'Stop')),
@@ -393,7 +386,7 @@ class _SetupFormState extends State<_SetupForm> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (widget.status.devices.isNotEmpty) ...[
-            Text(tr('Loại máy', 'Device'), style: WebTuiTypography.titleMedium),
+            Text(tr('Loại máy', 'Device'), style: IdeType.titleMedium),
             const SizedBox(height: WebTuiSpacing.sm),
             Wrap(
               spacing: WebTuiSpacing.sm,
@@ -447,9 +440,9 @@ class _FrameView extends StatelessWidget {
     return Container(
       key: const Key('ide_app_frame'),
       decoration: BoxDecoration(
-        color: WebTuiColors.surface,
+        color: IdeWb.bg,
         borderRadius: BorderRadius.circular(WebTuiRadii.md),
-        border: Border.all(color: WebTuiColors.border),
+        border: Border.all(color: IdeWb.border),
       ),
       clipBehavior: Clip.antiAlias,
       child: f == null
@@ -458,9 +451,7 @@ class _FrameView extends StatelessWidget {
                 building
                     ? tr('Đang dựng…', 'Building…')
                     : tr('Đang chờ khung hình…', 'Waiting for a frame…'),
-                style: WebTuiTypography.bodyMedium.copyWith(
-                  color: WebTuiColors.textMuted,
-                ),
+                style: IdeType.bodyMedium.copyWith(color: IdeWb.text2),
               ),
             )
           : Semantics(
