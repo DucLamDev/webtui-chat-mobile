@@ -159,6 +159,7 @@ final class LoginState {
     this.requiresDeviceApproval = false,
     this.emailVerification,
     this.mfaChallenge,
+    this.mfaIdentifier,
   });
 
   final AuthFormMode mode;
@@ -202,6 +203,10 @@ final class LoginState {
 
   /// Tài khoản bật xác thực hai lớp: giao diện mở màn nhập mã.
   final LoginMfaChallenge? mfaChallenge;
+
+  /// Email / username vừa nhập của lượt [mfaChallenge] (để hiện trên màn nhập
+  /// mã); null khi lượt đến từ SSO.
+  final String? mfaIdentifier;
 
   bool get isLogin => mode == AuthFormMode.login;
 
@@ -263,6 +268,7 @@ final class LoginState {
     EmailVerificationTicket? emailVerification,
     bool clearEmailVerification = false,
     LoginMfaChallenge? mfaChallenge,
+    String? mfaIdentifier,
     bool clearMfaChallenge = false,
   }) {
     return LoginState(
@@ -276,6 +282,9 @@ final class LoginState {
       mfaChallenge: clearMfaChallenge
           ? null
           : mfaChallenge ?? this.mfaChallenge,
+      mfaIdentifier: clearMfaChallenge
+          ? null
+          : mfaIdentifier ?? this.mfaIdentifier,
       mode: mode ?? this.mode,
       displayName: displayName ?? this.displayName,
       email: email ?? this.email,
@@ -435,13 +444,17 @@ final class LoginController extends StateNotifier<LoginState> {
     final challenge = loginMfaChallengeOf(failure);
     if (challenge == null) return false;
     if (identifier != null) unawaited(_rememberLoginIdentifier(identifier));
-    state = state.copyWith(
-      isLoading: false,
-      succeeded: false,
-      clearError: true,
-      clearOidcLoading: true,
-      mfaChallenge: challenge,
-    );
+    final shownIdentifier = identifier?.trim() ?? '';
+    state = state
+        .copyWith(clearMfaChallenge: true)
+        .copyWith(
+          isLoading: false,
+          succeeded: false,
+          clearError: true,
+          clearOidcLoading: true,
+          mfaChallenge: challenge,
+          mfaIdentifier: shownIdentifier.isEmpty ? null : shownIdentifier,
+        );
     return true;
   }
 

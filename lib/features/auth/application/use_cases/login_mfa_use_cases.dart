@@ -54,12 +54,12 @@ String loginMfaFailureMessage(Failure failure) {
     final left = loginMfaAttemptsLeft(failure);
     return left == null || left <= 0
         ? tr(
-            'Mã xác thực không đúng hoặc đã được dùng.',
-            'The verification code is incorrect or was already used.',
+            'Mã không đúng hoặc đã dùng.',
+            'The code is incorrect or was already used.',
           )
         : tr(
-            'Mã xác thực không đúng hoặc đã được dùng. Còn $left lần thử.',
-            'The verification code is incorrect or was already used. $left attempts left.',
+            'Mã không đúng hoặc đã dùng. Còn $left lần thử.',
+            'The code is incorrect or was already used. $left attempts left.',
           );
   }
   if (failure.hasCode(LoginMfaErrorCode.challengeExpired)) {
@@ -112,6 +112,47 @@ bool loginMfaCodeReady(LoginMfaMethod method, String code) {
       code.replaceAll('-', '').length >= 10 && code.length <= 32,
     LoginMfaMethod.passkey => false,
   };
+}
+
+/// Cách nhập mã mở sẵn khi vào bước xác thực: ứng dụng xác thực nếu có, không
+/// thì mã khôi phục; tài khoản chỉ có passkey thì null.
+LoginMfaMethod? defaultLoginMfaMethod(LoginMfaChallenge challenge) =>
+    challenge.usableMethods.firstOrNull;
+
+/// Mọi cách xác thực của tài khoản, theo thứ tự hiện trong danh sách chọn
+/// (gồm cả passkey dù ứng dụng chưa dùng được).
+List<LoginMfaMethod> loginMfaMethodChoices(LoginMfaChallenge challenge) => [
+  for (final method in LoginMfaMethod.values)
+    if (challenge.methods.contains(method)) method,
+];
+
+/// Chỉ nhắc thời hạn khi lượt xác thực còn dưới một phút.
+const loginMfaCountdownThresholdSeconds = 60;
+
+bool shouldShowLoginMfaCountdown(int secondsLeft) =>
+    secondsLeft > 0 && secondsLeft < loginMfaCountdownThresholdSeconds;
+
+final _digitSeparator = RegExp(r'(?<=\d)[\s\-\u2010-\u2015.·]+(?=\d)');
+final _digitRun = RegExp(r'\d+');
+
+/// Lấy mã 6 số từ chữ người dùng gõ hoặc dán: bỏ dấu cách / gạch giữa các chữ
+/// số (`123 456`, `123-456`); dán cả câu có đúng một dãy 6 số thì lấy dãy đó.
+String extractLoginTotpCode(String raw) {
+  final compact = raw.replaceAll(_digitSeparator, '');
+  final runs = [for (final match in _digitRun.allMatches(compact)) match[0]!];
+  final sixDigitRuns = runs.where((run) => run.length == 6).toList();
+  if (runs.length > 1 && sixDigitRuns.length == 1) return sixDigitRuns.single;
+  final digits = runs.join();
+  return digits.length > 6 ? digits.substring(0, 6) : digits;
+}
+
+/// Định dạng mã khôi phục khi gõ: chữ in hoa, tự chèn gạch sau 5 ký tự
+/// (`XXXXX-XXXXX`), tối đa 10 ký tự chữ / số.
+String formatRecoveryCodeInput(String raw) {
+  final chars = raw.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+  final limited = chars.length > 10 ? chars.substring(0, 10) : chars;
+  if (limited.length <= 5) return limited;
+  return '${limited.substring(0, 5)}-${limited.substring(5)}';
 }
 
 /// Gửi mã của bước xác thực hai lớp; đúng thì lưu phiên theo đúng máy chủ và

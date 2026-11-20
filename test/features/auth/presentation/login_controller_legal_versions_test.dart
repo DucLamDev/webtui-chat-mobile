@@ -203,11 +203,14 @@ void main() {
     await controller.submit();
 
     expect(identical(controller.state.mfaChallenge, challenge), isTrue);
+    // Màn nhập mã hiện đúng tài khoản vừa nhập.
+    expect(controller.state.mfaIdentifier, 'lam');
     expect(controller.state.errorMessage, isNull);
     expect(controller.state.isLoading, isFalse);
     expect(controller.state.succeeded, isFalse);
     controller.clearMfaChallenge();
     expect(controller.state.mfaChallenge, isNull);
+    expect(controller.state.mfaIdentifier, isNull);
   });
 }
 

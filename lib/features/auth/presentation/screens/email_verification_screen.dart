@@ -89,6 +89,8 @@ class _EmailVerificationScreenState
       }
       final challenge = next.mfaChallenge;
       if (challenge != null && previous?.mfaChallenge == null) {
+        ref.read(pendingLoginMfaIdentifierProvider.notifier).state =
+            ticket.emailHint;
         ref.read(pendingLoginMfaChallengeProvider.notifier).state = challenge;
         context.go(loginMfaPath);
       }

@@ -6,8 +6,9 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
 ## 1.51.0 · 19/11/2026
 ### Tính năng
 - Đăng nhập trên điện thoại hỗ trợ xác thực hai lớp: sau mật khẩu, đăng nhập bằng tài khoản công ty (SSO) hoặc mã email,
-  nhập mã 6 số từ ứng dụng xác thực hoặc mã khôi phục; báo số lần thử còn lại, hết hạn thì quay lại đăng nhập. Tài khoản
-  chỉ bật passkey được hướng dẫn đăng nhập trên web (app chưa hỗ trợ passkey). Cần cho máy chủ chat bản mới (bắt buộc
+  màn mới hiện rõ tài khoản đang đăng nhập, ô mã chia 6 ô (dán được cả mã, đủ 6 số tự xác minh), "Thử cách khác" để dùng
+  mã khôi phục; báo số lần thử còn lại, chỉ đếm giờ ở phút cuối, hết hạn thì mời đăng nhập lại. Tài khoản chỉ bật passkey
+  được hướng dẫn mở trang đăng nhập trên trình duyệt (app chưa hỗ trợ passkey). Cần cho máy chủ chat bản mới (bắt buộc
   bước hai khi đăng nhập).
 - Xoá tài khoản phải xác thực lại trước khi xoá; tắt xác thực hai lớp phải nhập mã xác thực.
 - Đăng nhập SSO bỏ dở quá 10 phút sẽ tự huỷ, cần bấm đăng nhập lại.

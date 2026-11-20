@@ -23,6 +23,7 @@ final class LoginMfaState {
     this.code = '',
     this.isSubmitting = false,
     this.errorMessage,
+    this.failureCode,
     this.mustRestart = false,
     this.session,
   });
@@ -35,6 +36,10 @@ final class LoginMfaState {
   final String code;
   final bool isSubmitting;
   final String? errorMessage;
+
+  /// Mã lỗi của lần gửi gần nhất (để giao diện chọn cách báo), đi cùng
+  /// [errorMessage].
+  final String? failureCode;
 
   /// Lượt hết hạn / bị huỷ: chỉ còn quay lại bước mật khẩu.
   final bool mustRestart;
@@ -63,6 +68,7 @@ final class LoginMfaState {
     String? code,
     bool? isSubmitting,
     String? errorMessage,
+    String? failureCode,
     bool clearError = false,
     bool? mustRestart,
     AuthSession? session,
@@ -73,6 +79,7 @@ final class LoginMfaState {
       code: code ?? this.code,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
+      failureCode: clearError ? null : failureCode ?? this.failureCode,
       mustRestart: mustRestart ?? this.mustRestart,
       session: session ?? this.session,
     );
@@ -89,9 +96,7 @@ final class LoginMfaController extends StateNotifier<LoginMfaState> {
        super(
          LoginMfaState(
            challenge: challenge,
-           method: challenge == null || challenge.usableMethods.isEmpty
-               ? null
-               : challenge.usableMethods.first,
+           method: challenge == null ? null : defaultLoginMfaMethod(challenge),
          ),
        );
 
@@ -152,6 +157,7 @@ final class LoginMfaController extends StateNotifier<LoginMfaState> {
           isSubmitting: false,
           code: '',
           errorMessage: loginMfaFailureMessage(failure),
+          failureCode: failure.code,
           mustRestart: _mustRestart(failure),
         );
     }

@@ -24,3 +24,7 @@ final loginPrefillProvider = StateProvider<LoginPrefill?>((_) => null);
 final pendingLoginMfaChallengeProvider = StateProvider<LoginMfaChallenge?>(
   (_) => null,
 );
+
+/// Email / username của lượt chờ [pendingLoginMfaChallengeProvider], chỉ để
+/// hiện trên màn nhập mã. null khi không biết (đăng nhập SSO).
+final pendingLoginMfaIdentifierProvider = StateProvider<String?>((_) => null);

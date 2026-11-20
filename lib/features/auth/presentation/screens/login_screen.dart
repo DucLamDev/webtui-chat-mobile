@@ -59,6 +59,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final challenge = next.mfaChallenge;
       if (challenge != null && previous?.mfaChallenge != challenge) {
         ref.read(loginControllerProvider.notifier).clearMfaChallenge();
+        ref.read(pendingLoginMfaIdentifierProvider.notifier).state =
+            next.mfaIdentifier;
         ref.read(pendingLoginMfaChallengeProvider.notifier).state = challenge;
         widget.onMfaRequired?.call();
       }

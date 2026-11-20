@@ -207,6 +207,84 @@ void main() {
       isNull,
     );
   });
+
+  group('màn nhập mã', () {
+    test('dán mã có dấu cách / gạch / cả câu vẫn lấy đúng 6 số', () {
+      expect(extractLoginTotpCode('123 456'), '123456');
+      expect(extractLoginTotpCode('123-456'), '123456');
+      expect(extractLoginTotpCode(' 12 34 56 '), '123456');
+      expect(
+        extractLoginTotpCode('Mã của bạn: 482 913. Hết hạn sau 30 giây'),
+        '482913',
+      );
+      expect(extractLoginTotpCode('12a3'), '123');
+      expect(extractLoginTotpCode('12345678'), '123456');
+      expect(extractLoginTotpCode(''), '');
+    });
+
+    test('mã khôi phục viết hoa và tự chèn gạch sau 5 ký tự', () {
+      expect(formatRecoveryCodeInput('ab3k9'), 'AB3K9');
+      expect(formatRecoveryCodeInput('ab3k9q'), 'AB3K9-Q');
+      expect(formatRecoveryCodeInput('ab3k9 q7x2m'), 'AB3K9-Q7X2M');
+      expect(formatRecoveryCodeInput('AB3K9-Q7X2M-EXTRA'), 'AB3K9-Q7X2M');
+      expect(formatRecoveryCodeInput('--'), '');
+    });
+
+    test('chỉ nhắc thời hạn khi còn dưới một phút', () {
+      expect(shouldShowLoginMfaCountdown(300), isFalse);
+      expect(shouldShowLoginMfaCountdown(60), isFalse);
+      expect(shouldShowLoginMfaCountdown(59), isTrue);
+      expect(shouldShowLoginMfaCountdown(1), isTrue);
+      expect(shouldShowLoginMfaCountdown(0), isFalse);
+    });
+
+    test('cách mặc định: ứng dụng xác thực, không có thì mã khôi phục', () {
+      expect(
+        defaultLoginMfaMethod(
+          _challenge(
+            methods: const [LoginMfaMethod.recoveryCode, LoginMfaMethod.totp],
+          ),
+        ),
+        LoginMfaMethod.totp,
+      );
+      expect(
+        defaultLoginMfaMethod(
+          _challenge(
+            methods: const [
+              LoginMfaMethod.passkey,
+              LoginMfaMethod.recoveryCode,
+            ],
+          ),
+        ),
+        LoginMfaMethod.recoveryCode,
+      );
+      expect(
+        defaultLoginMfaMethod(
+          _challenge(methods: const [LoginMfaMethod.passkey]),
+        ),
+        isNull,
+      );
+    });
+
+    test('danh sách chọn cách theo thứ tự cố định, gồm cả passkey', () {
+      expect(
+        loginMfaMethodChoices(
+          _challenge(
+            methods: const [
+              LoginMfaMethod.passkey,
+              LoginMfaMethod.recoveryCode,
+              LoginMfaMethod.totp,
+            ],
+          ),
+        ),
+        [
+          LoginMfaMethod.totp,
+          LoginMfaMethod.recoveryCode,
+          LoginMfaMethod.passkey,
+        ],
+      );
+    });
+  });
 }
 
 final class _FakeLoginMfaRepository implements LoginMfaRepository {
