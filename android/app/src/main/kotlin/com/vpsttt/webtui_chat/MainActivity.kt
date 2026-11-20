@@ -71,6 +71,7 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+        DownloadsChannel(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
         videoCompressChannel?.dispose()
         videoCompressChannel = VideoCompressChannel(
             applicationContext,

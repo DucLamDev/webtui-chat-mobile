@@ -19,6 +19,9 @@ final class _PairTransport implements ApiTransport {
   Map<String, Object?>? posted;
   int pollCount = 0;
   int postStatus = 200;
+  String? postCode;
+  final deleted = <String>[];
+  int deleteStatus = 200;
 
   Response<T> _res<T>(String path, Object? data, [int status = 200]) =>
       Response<T>(
@@ -42,7 +45,9 @@ final class _PairTransport implements ApiTransport {
           requestOptions: RequestOptions(path: path),
           statusCode: postStatus,
           data: {
-            'error': {'code': postStatus == 503 ? 'IDE_OFFLINE' : 'X'},
+            'error': {
+              'code': postCode ?? (postStatus == 503 ? 'IDE_OFFLINE' : 'X'),
+            },
           },
         ),
         type: DioExceptionType.badResponse,
@@ -97,7 +102,22 @@ final class _PairTransport implements ApiTransport {
     Object? data,
     Map<String, dynamic>? queryParameters,
     Options? options,
-  }) => throw UnimplementedError();
+  }) async {
+    deleted.add(path);
+    if (deleteStatus != 200) {
+      throw DioException(
+        requestOptions: RequestOptions(path: path),
+        response: Response(
+          requestOptions: RequestOptions(path: path),
+          statusCode: deleteStatus,
+        ),
+        type: DioExceptionType.badResponse,
+      );
+    }
+    return _res(path, {
+      'data': {'removed': true},
+    });
+  }
 }
 
 void main() {
@@ -134,15 +154,17 @@ void main() {
     late FakeIdeSecurity security;
     final code = IdePairCode.tryParse('webtui-ide-pair:v1:$_uuid:$_code')!;
 
-    IdePairingService service(_PairTransport t) => IdePairingService(
-      api: IdePairApi(t),
-      keys: IdeDeviceKeyStore(store),
-      security: security,
-      currentUserId: () async => 'u_1',
-      serverScopeId: 'srv',
-      pollEvery: Duration.zero,
-      maxWait: const Duration(seconds: 2),
-    );
+    IdePairingService service(_PairTransport t, {String? chatId}) =>
+        IdePairingService(
+          chatDeviceId: chatId == null ? null : () async => chatId,
+          api: IdePairApi(t),
+          keys: IdeDeviceKeyStore(store),
+          security: security,
+          currentUserId: () async => 'u_1',
+          serverScopeId: 'srv',
+          pollEvery: Duration.zero,
+          maxWait: const Duration(seconds: 2),
+        );
 
     setUp(() {
       store = MemorySecureStore();
@@ -265,6 +287,62 @@ void main() {
       ).pair(code: code, deviceName: 'x');
       expect(out, IdePairOutcome.failed);
       expect(security.deleted, security.created);
+    });
+
+    test('gửi chat_device_id; push_linked=false được ghi lại', () async {
+      final t = _PairTransport([
+        {'status': 'ok', 'device_id': 'd_abcdefgh', 'push_linked': false},
+      ]);
+      final s = service(t, chatId: 'dev-123');
+      expect(await s.pair(code: code, deviceName: 'x'), IdePairOutcome.ok);
+      expect(t.posted!['chat_device_id'], 'dev-123');
+      expect(s.lastPushLinked, isFalse);
+    });
+
+    test('không có mã thiết bị push thì không gửi chat_device_id', () async {
+      final t = _PairTransport([
+        {'status': 'ok', 'device_id': 'd_abcdefgh', 'push_linked': true},
+      ]);
+      final s = service(t);
+      await s.pair(code: code, deviceName: 'x');
+      expect(t.posted!.containsKey('chat_device_id'), isFalse);
+      expect(s.lastPushLinked, isTrue);
+    });
+
+    test('503 RATE_LIMIT_UNAVAILABLE là busy, không phải offline', () async {
+      final t = _PairTransport([])
+        ..postStatus = 503
+        ..postCode = 'RATE_LIMIT_UNAVAILABLE';
+      expect(
+        await service(t).pair(code: code, deviceName: 'x'),
+        IdePairOutcome.busy,
+      );
+    });
+
+    test(
+      'removeThisDevice gọi DELETE rồi xoá bản ghi; lỗi mạng vẫn xoá',
+      () async {
+        for (final status in [200, 404, 500]) {
+          store = MemorySecureStore();
+          security = FakeIdeSecurity();
+          await service(
+            _PairTransport([
+              {'status': 'ok', 'device_id': 'd_abcdefgh'},
+            ]),
+          ).pair(code: code, deviceName: 'x');
+          final t = _PairTransport([])..deleteStatus = status;
+          await service(t).removeThisDevice();
+          expect(t.deleted, ['/api/v1/ide/pair/devices/d_abcdefgh']);
+          expect(store.values, isEmpty, reason: '$status');
+          expect(security.deleted, security.created);
+        }
+      },
+    );
+
+    test('removeThisDevice không có bản ghi thì không gọi máy chủ', () async {
+      final t = _PairTransport([]);
+      await service(t).removeThisDevice();
+      expect(t.deleted, isEmpty);
     });
 
     test('IDE gỡ máy: chỉ xoá khi bản ghi còn là máy đó', () async {

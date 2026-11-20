@@ -8,13 +8,17 @@ import '../../../core/network/api_transport.dart';
 enum IdePairRemoteStatus { pending, ok, rejected, expired, invalid }
 
 final class IdePairPoll {
-  const IdePairPoll(this.status, {this.deviceId});
+  const IdePairPoll(this.status, {this.deviceId, this.pushLinked});
 
   final IdePairRemoteStatus status;
   final String? deviceId;
+
+  /// Chỉ có khi `ok`: máy IDE đã nối với thiết bị chat để đẩy thông báo.
+  /// `null` = máy chủ cũ không báo.
+  final bool? pushLinked;
 }
 
-enum IdePairErrorKind { offline, rateLimited, invalid, other }
+enum IdePairErrorKind { offline, rateLimited, busy, invalid, other }
 
 final class IdePairException implements Exception {
   const IdePairException(this.kind, [this.failure, this.notFound = false]);
@@ -42,6 +46,7 @@ final class IdePairApi {
     required String pubkey,
     required String stepPubkey,
     required String deviceName,
+    String? chatDeviceId,
   }) async {
     final response = await _guard(
       () => _api.post<Object>(
@@ -51,6 +56,8 @@ final class IdePairApi {
           'pubkey': pubkey,
           'step_pubkey': stepPubkey,
           'device_name': deviceName,
+          if (chatDeviceId != null && chatDeviceId.isNotEmpty)
+            'chat_device_id': chatDeviceId,
         },
       ),
     );
@@ -85,7 +92,24 @@ final class IdePairApi {
       _ => IdePairRemoteStatus.pending,
     };
     final device = data['device_id'];
-    return IdePairPoll(status, deviceId: device is String ? device : null);
+    final push = data['push_linked'];
+    return IdePairPoll(
+      status,
+      deviceId: device is String ? device : null,
+      pushLinked: push is bool ? push : null,
+    );
+  }
+
+  /// `DELETE /ide/pair/devices/{id}`: gỡ máy IDE của chính người dùng khỏi máy
+  /// chủ. Lỗi mạng / 404 / lỗi khác đều bỏ qua (không chặn việc gỡ ở máy).
+  Future<void> removeDevice(String ideDeviceId) async {
+    try {
+      await _api.delete<Object>(
+        '$_base/pair/devices/${Uri.encodeComponent(ideDeviceId)}',
+      );
+    } on Object {
+      return;
+    }
   }
 
   /// `GET /ide/status`: IDE đang nối vào máy chủ chat hay không.
@@ -100,7 +124,9 @@ final class IdePairApi {
     } on DioException catch (error) {
       final failure = mapDioExceptionToFailure(error);
       final status = error.response?.statusCode ?? 0;
-      final kind = failure.hasCode('IDE_OFFLINE') || status == 503
+      final kind = failure.hasCode('RATE_LIMIT_UNAVAILABLE')
+          ? IdePairErrorKind.busy
+          : failure.hasCode('IDE_OFFLINE') || status == 503
           ? IdePairErrorKind.offline
           : status == 429
           ? IdePairErrorKind.rateLimited

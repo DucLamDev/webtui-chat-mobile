@@ -35,6 +35,10 @@ String idePairOutcomeText(IdePairOutcome outcome) => switch (outcome) {
     'Thử quá nhiều lần. Hãy chờ một lúc rồi quét lại.',
     'Too many attempts. Wait a moment and scan again.',
   ),
+  IdePairOutcome.busy => tr(
+    'Máy chủ đang bận, thử lại sau.',
+    'The server is busy. Try again later.',
+  ),
   IdePairOutcome.timedOut => tr(
     'Hết thời gian chờ. Hãy bấm Xác nhận trên IDE ngay sau khi quét.',
     'Timed out. Press Confirm in the IDE right after scanning.',
@@ -74,6 +78,7 @@ class _IdePairScreenState extends ConsumerState<IdePairScreen> {
   final _name = TextEditingController(text: tr('Điện thoại', 'Phone'));
   _Step _step = _Step.scan;
   bool _waiting = false;
+  bool _noPush = false;
   String _error = '';
   bool _cancelled = false;
 
@@ -119,6 +124,7 @@ class _IdePairScreenState extends ConsumerState<IdePairScreen> {
     setState(() {
       _step = _Step.wait;
       _waiting = false;
+      _noPush = false;
     });
     final outcome = await ref
         .read(idePairingServiceProvider)
@@ -133,7 +139,10 @@ class _IdePairScreenState extends ConsumerState<IdePairScreen> {
     if (!mounted) return;
     if (outcome == IdePairOutcome.ok) {
       ref.invalidate(ideCredentialsProvider);
-      setState(() => _step = _Step.done);
+      setState(() {
+        _noPush = ref.read(idePairingServiceProvider).lastPushLinked == false;
+        _step = _Step.done;
+      });
     } else {
       setState(() {
         _step = _Step.error;
@@ -176,10 +185,13 @@ class _IdePairScreenState extends ConsumerState<IdePairScreen> {
       _Step.done => _centered(
         icon: Icons.verified_rounded,
         title: tr('Bước 3: đã gắn máy', 'Step 3: paired'),
-        message: tr(
-          'Điện thoại đã được gắn với IDE.',
-          'This phone is now paired with the IDE.',
-        ),
+        message: _noPush
+            ? '${tr('Điện thoại đã được gắn với IDE.', 'This phone is now paired with the IDE.')}\n'
+                  '${tr('Chưa bật thông báo IDE trên máy này — bật thông báo rồi gắn lại.', 'IDE notifications are not enabled on this phone. Turn notifications on, then pair again.')}'
+            : tr(
+                'Điện thoại đã được gắn với IDE.',
+                'This phone is now paired with the IDE.',
+              ),
         extra: [
           FilledButton(
             onPressed: () =>

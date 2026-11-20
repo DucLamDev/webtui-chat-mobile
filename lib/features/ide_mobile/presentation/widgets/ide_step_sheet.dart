@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
@@ -6,6 +7,37 @@ import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../application/ide_step_up.dart';
+
+/// Màn đặt presenter hộp vân tay khi mở và trả lại cái trước đó khi đóng
+/// (chỉ khi presenter hiện tại vẫn là của màn này).
+final class IdeStepPresenterLease {
+  IdeStepPresenterLease(this._notifier);
+
+  final StateController<IdeStepPresenter?> _notifier;
+  IdeStepPresenter? _previous;
+  IdeStepPresenter? _mine;
+
+  void acquire(BuildContext context, bool Function() mounted) {
+    _previous = _notifier.state;
+    _mine = (summary) =>
+        mounted() ? showIdeStepSheet(context, summary) : Future.value(false);
+    _notifier.state = _mine;
+  }
+
+  void release() {
+    final mine = _mine;
+    final previous = _previous;
+    _mine = null;
+    // Đang dỡ cây widget: không đổi provider ngay (Riverpod báo lỗi).
+    Future.microtask(() {
+      try {
+        if (identical(_notifier.state, mine)) _notifier.state = previous;
+      } on StateError {
+        // Kho provider đã đóng cùng ứng dụng / test.
+      }
+    });
+  }
+}
 
 /// Bảng tóm tắt thao tác nhạy cảm trước khi ký bằng vân tay.
 Future<bool> showIdeStepSheet(
@@ -15,11 +47,13 @@ Future<bool> showIdeStepSheet(
   final accepted = await showWebTuiSheet<bool>(
     context: context,
     builder: (sheetContext) => Padding(
-      padding: const EdgeInsets.fromLTRB(
+      // Bảng dưới chỉ tránh tai thỏ phía trên: tự chừa thanh vuốt về màn hình
+      // chính để nút Xác nhận không dính mép dưới.
+      padding: EdgeInsets.fromLTRB(
         WebTuiSpacing.lg,
         0,
         WebTuiSpacing.lg,
-        WebTuiSpacing.lg,
+        WebTuiSpacing.lg + MediaQuery.viewPaddingOf(sheetContext).bottom,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -44,7 +78,10 @@ Future<bool> showIdeStepSheet(
           if (summary.summary.isNotEmpty) ...[
             const SizedBox(height: WebTuiSpacing.xs),
             Text(
-              tr('Thao tác: ${summary.op}', 'Action: ${summary.op}'),
+              tr(
+                'Thao tác: ${ideStepOpLabel(summary.op)}',
+                'Action: ${ideStepOpLabelEn(summary.op)}',
+              ),
               style: WebTuiTypography.bodySmall.copyWith(
                 color: WebTuiColors.textSecondary,
               ),
@@ -74,3 +111,19 @@ Future<bool> showIdeStepSheet(
   );
   return accepted ?? false;
 }
+
+/// Tên dễ hiểu của thao tác cần vân tay; thao tác lạ thì giữ nguyên mã để người
+/// dùng vẫn thấy đúng thứ app sắp ký.
+String ideStepOpLabel(String op) => switch (op) {
+  'ai.answer' => 'trả lời yêu cầu duyệt của AI',
+  'files.purge' => 'xoá hẳn tệp trong thùng rác',
+  'files.trash_purge' => 'dọn sạch thùng rác',
+  _ => op,
+};
+
+String ideStepOpLabelEn(String op) => switch (op) {
+  'ai.answer' => 'answer the AI approval request',
+  'files.purge' => 'permanently delete a trashed file',
+  'files.trash_purge' => 'empty the trash',
+  _ => op,
+};

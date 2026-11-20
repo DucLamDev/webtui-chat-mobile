@@ -18,7 +18,8 @@ import '../../features/conversations/presentation/screens/chat_room_screen.dart'
 import '../../features/customer_tickets/presentation/screens/customer_ticket_detail_screen.dart';
 import '../../features/customer_tickets/presentation/screens/customer_ticket_list_screen.dart';
 import '../../features/home/presentation/screens/home_shell_screen.dart';
-import '../../features/ide_mobile/presentation/screens/ide_coming_soon_screen.dart';
+import '../../features/ide_mobile/presentation/screens/ide_ai_chat_screen.dart';
+import '../../features/ide_mobile/presentation/screens/ide_job_screen.dart';
 import '../../features/ide_mobile/presentation/screens/ide_pair_screen.dart';
 import '../../features/ide_mobile/presentation/screens/ide_screen.dart';
 import '../../features/ide_mobile/presentation/widgets/ide_access_gate.dart';
@@ -258,7 +259,7 @@ final appRouterProvider = Provider<GoRouter>((_) {
           initialFolderId: state.uri.queryParameters['folderId'],
         ),
       ),
-      // IDE: cổng vân tay bọc mọi màn; /ide/ai/:key và /ide/jobs/:id chờ GĐ sau.
+      // IDE: cổng vân tay bọc mọi màn; /ide/jobs/:id chờ màn tiến trình.
       GoRoute(
         path: '/ide',
         name: 'ide',
@@ -270,18 +271,33 @@ final appRouterProvider = Provider<GoRouter>((_) {
         builder: (context, state) =>
             const IdeAccessGate(child: IdePairScreen()),
       ),
+      // Phiên mới đặt TRƯỚC `:key` để "new" không bị nuốt làm mã phiên.
+      GoRoute(
+        path: '/ide/ai/new',
+        name: 'ide-ai-new',
+        builder: (context, state) {
+          final q = state.uri.queryParameters;
+          return IdeAccessGate(
+            child: IdeAiChatScreen.newSession(
+              kind: q['kind'] == 'codex' ? 'codex' : 'claude',
+              root: q['root'] ?? '',
+              worktree: q['worktree'],
+            ),
+          );
+        },
+      ),
       GoRoute(
         path: '/ide/ai/:key',
         name: 'ide-ai',
         builder: (context, state) => IdeAccessGate(
-          child: IdeComingSoonScreen(title: tr('Phiên AI', 'AI session')),
+          child: IdeAiChatScreen(sessionKey: state.pathParameters['key'] ?? ''),
         ),
       ),
       GoRoute(
         path: '/ide/jobs/:id',
         name: 'ide-job',
         builder: (context, state) => IdeAccessGate(
-          child: IdeComingSoonScreen(title: tr('Tiến trình', 'Job')),
+          child: IdeJobScreen(jobId: state.pathParameters['id'] ?? ''),
         ),
       ),
       // Tab Công việc: màn con (việc của tôi, lịch họp, tệp, lối tắt).

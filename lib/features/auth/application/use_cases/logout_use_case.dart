@@ -10,7 +10,9 @@ final class LogoutUseCase {
     required AuthRepository authRepository,
     required AuthTokenRepository tokenRepository,
     required SessionStateRepository sessionStateRepository,
-  }) : _authRepository = authRepository,
+    Future<void> Function()? beforeSignOut,
+  }) : _beforeSignOut = beforeSignOut,
+       _authRepository = authRepository,
        _tokenRepository = tokenRepository,
        _sessionStateRepository = sessionStateRepository;
 
@@ -18,8 +20,16 @@ final class LogoutUseCase {
   final AuthTokenRepository _tokenRepository;
   final SessionStateRepository _sessionStateRepository;
 
+  /// Việc dọn phía máy chủ cần token còn dùng được (lỗi bị bỏ qua).
+  final Future<void> Function()? _beforeSignOut;
+
   Future<Result<void>> execute() async {
     try {
+      try {
+        await _beforeSignOut?.call();
+      } on Object {
+        // Không chặn đăng xuất.
+      }
       final cleanupGuard = await _sessionStateRepository
           .captureActiveSessionGuard();
       final guard = await _tokenRepository.captureMutationGuard();
