@@ -108,6 +108,35 @@ void main() {
   });
 
   test(
+    'webtui://chat trần (nút "Về giao diện chat" của trang quản trị) chỉ đưa app lên, không chuyển màn',
+    () async {
+      final navigations = <String>[];
+      Uri? callback;
+      final coordinator = AppDeepLinkCoordinator(
+        loadAccessToken: () async => 'access-token',
+        loadActiveInstance: () => _publisherInstance,
+        navigate: navigations.add,
+        handleOidcCallback: (uri) async => callback = uri,
+      );
+
+      for (final value in const ['webtui://chat', 'webtui://chat/']) {
+        expect(
+          parseAppDeepLink(
+            Uri.parse(value),
+            activeInstance: _publisherInstance,
+          ),
+          isNull,
+        );
+        await coordinator.handle(Uri.parse(value));
+      }
+
+      expect(navigations, isEmpty);
+      expect(callback, isNull);
+      expect(coordinator.pendingLocation, isNull);
+    },
+  );
+
+  test(
     'OIDC callback remains routed to the auth controller boundary',
     () async {
       Uri? callback;

@@ -130,6 +130,8 @@ abstract final class WebTuiIcons {
   static const IconData volume = PhosphorRegular.speakerHigh;
   static const IconData textSize = PhosphorRegular.textAa;
   static const IconData advancedSettings = PhosphorRegular.slidersHorizontal;
+  // Trang quản trị (lưới 4 ô như Bảng điều khiển của trang quản trị).
+  static const IconData adminPanel = PhosphorRegular.squaresFour;
   static const IconData logout = PhosphorRegular.signOut;
 
   // Bảo mật / xác thực.

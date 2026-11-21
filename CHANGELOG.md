@@ -3,6 +3,15 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.63.0 · 21/11/2026
+### Tính năng
+- Cài đặt: thêm dòng "Trang quản trị" cho chủ sở hữu và quản trị workspace
+  Dòng nằm ngay dưới "Workspace". Bấm vào thì trang quản trị của máy chủ đang dùng mở trong trình duyệt, không cần
+  tự gõ địa chỉ /admin. Trên trang quản trị có nút "Về giao diện chat" để mở lại app. Thành viên thường không thấy
+  dòng này. Trang quản trị vẫn tự kiểm quyền và đăng nhập riêng, lần đầu mở cần đăng nhập trong trình duyệt.
+  App đọc địa chỉ trang quản trị từ máy chủ (chỉ nhận địa chỉ cùng tên miền). Máy chủ không báo thì app dùng
+  `<máy chủ>/admin/`.
+
 ## 1.62.0 · 20/11/2026
 ### IDE trên app: hoàn thiện phần còn thiếu
 - **Kết nối**: phiên đăng nhập app vừa hết hạn thì app tự làm mới rồi nối lại IDE một lần, không bắt đăng nhập lại.
