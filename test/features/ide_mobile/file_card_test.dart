@@ -99,11 +99,16 @@ void main() {
       env.rpc,
       saver: saver,
       tempDir: () async => dir,
+      // Lưu ra ngoài app đang tắt ở đợt đầu; test này kiểm đường lưu khi bật.
+      allowSave: true,
     );
     WebTuiColors.apply(Brightness.light);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [ideDownloadServiceProvider.overrideWithValue(service)],
+        overrides: [
+          ideDownloadServiceProvider.overrideWithValue(service),
+          ideSaveToDeviceProvider.overrideWithValue(true),
+        ],
         child: MaterialApp(
           theme: WebTuiTheme.light(),
           home: const Scaffold(
@@ -173,6 +178,35 @@ void main() {
     expect(dir.listSync(), isEmpty);
   });
 
+  testWidgets('mặc định chưa lưu tệp ra ngoài app: thẻ không có nút tải về', (
+    tester,
+  ) async {
+    WebTuiColors.apply(Brightness.light);
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: WebTuiTheme.light(),
+          home: const Scaffold(
+            body: IdeFileCard(path: '/a/bao-cao.pdf', size: 2048),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('bao-cao.pdf'), findsOneWidget);
+    expect(find.byTooltip('Tải về'), findsNothing);
+    expect(find.text('2.0 KB · Mở tệp này trên máy tính.'), findsOneWidget);
+    // Ảnh vẫn xem được trong app.
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: WebTuiTheme.light(),
+          home: const Scaffold(body: IdeFileCard(path: '/a/anh.png')),
+        ),
+      ),
+    );
+    expect(find.byTooltip('Xem ảnh'), findsOneWidget);
+  });
+
   testWidgets('IDE gửi quá dung lượng đã khai thì dừng và xoá tệp dở', (
     tester,
   ) async {
@@ -236,11 +270,15 @@ void main() {
       env.rpc,
       saver: _Saver(),
       tempDir: () async => dir,
+      allowSave: true,
     );
     WebTuiColors.apply(Brightness.light);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [ideDownloadServiceProvider.overrideWithValue(service)],
+        overrides: [
+          ideDownloadServiceProvider.overrideWithValue(service),
+          ideSaveToDeviceProvider.overrideWithValue(true),
+        ],
         child: MaterialApp(
           theme: WebTuiTheme.light(),
           home: const Scaffold(body: IdeFileCard(path: '/a/b.zip')),

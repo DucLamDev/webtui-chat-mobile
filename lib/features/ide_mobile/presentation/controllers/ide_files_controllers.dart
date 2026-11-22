@@ -13,8 +13,9 @@ final ideFilesServiceProvider = Provider<IdeFilesService>(
 final ideFileProjectsProvider = FutureProvider<List<IdeProjectItem>>((
   ref,
 ) async {
+  // Client mới (đổi phiên / xoá bộ nhớ IDE) thì tải lại từ đầu.
   final data = await ref
-      .read(ideRpcClientProvider)
+      .watch(ideRpcClientProvider)
       .call('projects.list', const {});
   return parseIdeProjects(data);
 });
@@ -34,7 +35,10 @@ final class IdeFileClip {
   final bool isDir;
 }
 
-final ideFilesClipboardProvider = StateProvider<IdeFileClip?>((_) => null);
+final ideFilesClipboardProvider = StateProvider<IdeFileClip?>((ref) {
+  ref.watch(ideRpcClientProvider); // client mới theo mỗi phiên / lần xoá bộ nhớ
+  return null;
+});
 
 /// Dự án + thư mục đang xem, giữ khi đổi tab.
 final class IdeFilesLocation {
@@ -43,7 +47,10 @@ final class IdeFilesLocation {
   final String dir;
 }
 
-final ideFilesLocationProvider = StateProvider<IdeFilesLocation?>((_) => null);
+final ideFilesLocationProvider = StateProvider<IdeFilesLocation?>((ref) {
+  ref.watch(ideRpcClientProvider); // client mới theo mỗi phiên / lần xoá bộ nhớ
+  return null;
+});
 
 enum IdeFileSort { name, date, size }
 

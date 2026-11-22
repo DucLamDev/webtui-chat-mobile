@@ -242,6 +242,14 @@ final class IdeConnection {
       await closeAll(keepRpc: false);
       return;
     }
+    if (reason == ideNotAllowedReason) {
+      // Cổng chưa mở cho điện thoại: thử lại vẫn bị từ chối, chờ người dùng.
+      _wanted = false;
+      _retryTimer?.cancel();
+      _retryTimer = null;
+      _set(IdeLinkStatus(IdeLinkPhase.idle, reason: reason));
+      return;
+    }
     if (!_wanted) return;
     final delay =
         backoff[_attempt < backoff.length ? _attempt : backoff.length - 1];
@@ -311,7 +319,8 @@ final class IdeConnection {
       channel.done.then((close) {
         _extra.remove(channel);
         _extraKind.remove(channel);
-        if (close.refused) {
+        // IDE bị tắt trên máy chủ: dừng cả đường rpc, không nối lại.
+        if (close.refused || close.disabled) {
           unawaited(_handleFailure(close.reason, deviceId: channel.deviceId));
         }
       }),
@@ -357,6 +366,16 @@ final class IdeConnection {
     if (!_wanted && _status.phase != IdeLinkPhase.revoked) {
       start();
     }
+  }
+
+  /// Dừng hẳn mọi stream và không tự nối lại (máy chủ chặn IDE).
+  Future<void> stop() async {
+    if (_disposed) return;
+    _idleTimer?.cancel();
+    _idleTimer = null;
+    _graceTimer?.cancel();
+    _graceTimer = null;
+    await _stopAll();
   }
 
   Future<void> _stopAll() async {

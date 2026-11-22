@@ -35,20 +35,21 @@ class IdeImageViewer extends ConsumerWidget {
           onPressed: () => Navigator.of(context).maybePop(),
         ),
         actions: [
-          IconButton(
-            tooltip: tr('Lưu ảnh', 'Save image'),
-            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-            icon: const Icon(Icons.save_alt_rounded),
-            onPressed: () async {
-              final messenger = ScaffoldMessenger.of(context);
-              final note = await ref
-                  .read(ideDownloadServiceProvider)
-                  .save(file);
-              if (note != null) {
-                messenger.showSnackBar(SnackBar(content: Text(note)));
-              }
-            },
-          ),
+          if (ref.watch(ideSaveToDeviceProvider))
+            IconButton(
+              tooltip: tr('Lưu ảnh', 'Save image'),
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+              icon: const Icon(Icons.save_alt_rounded),
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                final note = await ref
+                    .read(ideDownloadServiceProvider)
+                    .save(file);
+                if (note != null) {
+                  messenger.showSnackBar(SnackBar(content: Text(note)));
+                }
+              },
+            ),
         ],
       ),
       body: InteractiveViewer(

@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'self_hosted_server_uri.dart' show loopbackDevServerAllowed;
+
 /// Streams an HTTP response to a private file without ever following a
 /// redirect. Authentication may only be attached to the exact URI selected by
 /// the caller; a 3xx response is rejected before its Location is contacted.
@@ -262,6 +264,8 @@ void _validateRequest({
 bool redirectSafeHttpUriAllowed(Uri uri) {
   if (uri.scheme == 'https') return true;
   if (uri.scheme != 'http') return false;
+  // Bản phát hành không tải qua http thường, kể cả tới máy chủ thử trên máy.
+  if (!loopbackDevServerAllowed) return false;
   final host = uri.host.toLowerCase();
   return host == 'localhost' || host == '127.0.0.1' || host == '::1';
 }

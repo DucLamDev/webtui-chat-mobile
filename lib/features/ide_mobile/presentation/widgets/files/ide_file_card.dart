@@ -146,7 +146,13 @@ class _IdeFileCardState extends ConsumerState<IdeFileCard> {
     final dl = _dl;
     final image = ideIsImageName(_name);
     final size = ideFormatSize(_file?.size ?? widget.size);
-    final sub = _error ?? _note ?? size;
+    // Đợt đầu chưa lưu tệp IDE ra ngoài app: chỉ xem được ảnh trong app.
+    final canSave = ref.watch(ideSaveToDeviceProvider);
+    final viewOnlyNote = !image && !canSave
+        ? tr('Mở tệp này trên máy tính.', 'Open this file on your computer.')
+        : null;
+    final info = [size, ?viewOnlyNote].where((t) => t.isNotEmpty).join(' · ');
+    final sub = _error ?? _note ?? info;
     return Container(
       padding: const EdgeInsets.all(WebTuiSpacing.sm),
       decoration: BoxDecoration(
@@ -202,7 +208,7 @@ class _IdeFileCardState extends ConsumerState<IdeFileCard> {
               icon: const Icon(Icons.close_rounded),
               onPressed: dl.cancel,
             )
-          else
+          else if (image || canSave)
             IconButton(
               tooltip: _file != null
                   ? tr('Lưu lại', 'Save again')

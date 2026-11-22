@@ -10,11 +10,15 @@ import android.os.Build
 import android.os.CancellationSignal
 import android.os.SystemClock
 import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyInfo
 import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
+import android.security.keystore.StrongBoxUnavailableException
 import android.util.Base64
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.security.KeyFactory
+import java.security.KeyPair
 import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.PrivateKey
@@ -25,7 +29,9 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * Khoá màn hình / vân tay cho mục IDE (kênh `webtui/biometric`):
  *  - authenticateDeviceOwner: mở mục IDE;
- *  - createStepKey / signWithStepKey: khoá xác nhận P-256 trong Keystore, mỗi lần ký phải xác nhận.
+ *  - createStepKey / signWithStepKey: khoá xác nhận P-256 trong phần cứng an toàn (StrongBox,
+ *    không có thì TEE), mỗi lần ký phải xác nhận bằng sinh trắc học mức mạnh (không nhận mật
+ *    mã máy); thêm / xoá sinh trắc học thì khoá mất hiệu lực (`key_invalid`).
  * Dùng BiometricPrompt của framework (không cần androidx), nên giữ nguyên FlutterActivity.
  */
 class IdeDeviceSecurity(private val activity: Activity) {
@@ -37,6 +43,8 @@ class IdeDeviceSecurity(private val activity: Activity) {
         private const val AUTHENTICATORS =
             BiometricManager.Authenticators.BIOMETRIC_STRONG or
                 BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        // Khoá xác nhận: chỉ sinh trắc học mức mạnh.
+        private const val STEP_AUTHENTICATORS = BiometricManager.Authenticators.BIOMETRIC_STRONG
     }
 
     private var credentialResult: MethodChannel.Result? = null
@@ -199,40 +207,101 @@ class IdeDeviceSecurity(private val activity: Activity) {
             result.error("notEnrolled", "no secure lock screen", null)
             return
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val manager = activity.getSystemService(BiometricManager::class.java)
+            when (manager?.canAuthenticate(STEP_AUTHENTICATORS)) {
+                BiometricManager.BIOMETRIC_SUCCESS -> Unit
+                BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
+                    result.error("biometricRequired", "no strong biometric enrolled", null)
+                    return
+                }
+                BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> {
+                    result.error("unsupported", "no strong biometric hardware", null)
+                    return
+                }
+                else -> {
+                    result.error("unavailable", "biometric not ready", null)
+                    return
+                }
+            }
+        }
         try {
             val store = KeyStore.getInstance(KEYSTORE).apply { load(null) }
             if (store.containsAlias(alias)) store.deleteEntry(alias)
-            val builder = KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_SIGN)
-                .setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1"))
-                .setDigests(KeyProperties.DIGEST_SHA256)
-                .setUserAuthenticationRequired(true)
-                .setInvalidatedByBiometricEnrollment(false)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                builder.setUserAuthenticationParameters(
-                    0,
-                    KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL
-                )
-            }
-            val generator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, KEYSTORE)
             val pair = try {
-                generator.initialize(builder.build())
-                generator.generateKeyPair()
+                // StrongBox trước; máy không có (hoặc từ chối) thì lùi về TEE.
+                try {
+                    generateStepKey(alias, strongBox = true)
+                } catch (e: StrongBoxUnavailableException) {
+                    if (store.containsAlias(alias)) store.deleteEntry(alias)
+                    generateStepKey(alias, strongBox = false)
+                }
             } catch (e: Exception) {
-                // API 28–29: khoá chỉ mở bằng sinh trắc học; máy chưa đăng ký vân tay / khuôn mặt
-                // thì Keystore từ chối (InvalidAlgorithmParameterException / IllegalStateException).
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R &&
-                    (e is java.security.InvalidAlgorithmParameterException || e is IllegalStateException)
-                ) {
+                // Máy chưa đăng ký sinh trắc học: Keystore từ chối tạo khoá gắn sinh trắc
+                // (InvalidAlgorithmParameterException / IllegalStateException).
+                if (e is java.security.InvalidAlgorithmParameterException || e is IllegalStateException) {
                     result.error("biometricRequired", "no biometric enrolled", null)
                     return
                 }
                 throw e
+            }
+            // Khoá phải nằm trong phần cứng an toàn và đúng chính sách; không thì xoá, báo lỗi.
+            if (!keyMeetsPolicy(pair.private as PrivateKey)) {
+                store.deleteEntry(alias)
+                result.error("unsupported", "key not in secure hardware", null)
+                return
             }
             // `encoded` của khoá công khai là SubjectPublicKeyInfo DER.
             result.success(Base64.encodeToString(pair.public.encoded, Base64.NO_WRAP))
         } catch (e: Exception) {
             result.error("unavailable", e.javaClass.simpleName, null)
         }
+    }
+
+    private fun generateStepKey(alias: String, strongBox: Boolean): KeyPair {
+        val builder = KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_SIGN)
+            .setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1"))
+            .setDigests(KeyProperties.DIGEST_SHA256)
+            .setUserAuthenticationRequired(true)
+            // Thêm / xoá sinh trắc học: khoá mất hiệu lực, phải gắn lại.
+            .setInvalidatedByBiometricEnrollment(true)
+            .setIsStrongBoxBacked(strongBox)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // Hỏi mỗi lần ký (thời hạn 0), chỉ sinh trắc học mức mạnh, không nhận mật mã máy.
+            builder.setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)
+        }
+        // API 28–29: không đặt thời hạn xác thực thì khoá chỉ mở bằng sinh trắc học qua
+        // CryptoObject, mỗi lần ký.
+        val generator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, KEYSTORE)
+        generator.initialize(builder.build())
+        return generator.generateKeyPair()
+    }
+
+    /** Khoá nằm trong phần cứng an toàn (TEE / StrongBox), ký mỗi lần phải xác thực, mất hiệu lực khi
+     *  đổi sinh trắc học. Khoá tạo bởi bản cũ (nhận mật mã máy) cũng không đạt. */
+    private fun keyMeetsPolicy(key: PrivateKey): Boolean {
+        val info = try {
+            KeyFactory.getInstance(key.algorithm, KEYSTORE).getKeySpec(key, KeyInfo::class.java)
+        } catch (e: Exception) {
+            return false
+        }
+        val secureHardware = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            info.securityLevel == KeyProperties.SECURITY_LEVEL_TRUSTED_ENVIRONMENT ||
+                info.securityLevel == KeyProperties.SECURITY_LEVEL_STRONGBOX
+        } else {
+            @Suppress("DEPRECATION")
+            info.isInsideSecureHardware
+        }
+        if (!secureHardware || !info.isUserAuthenticationRequired) return false
+        if (!info.isInvalidatedByBiometricEnrollment) return false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (info.userAuthenticationType != KeyProperties.AUTH_BIOMETRIC_STRONG) return false
+            if (info.userAuthenticationValidityDurationSeconds > 0) return false
+        } else {
+            @Suppress("DEPRECATION")
+            if (info.userAuthenticationValidityDurationSeconds > 0) return false
+        }
+        return true
     }
 
     private fun signWithStepKey(
@@ -262,6 +331,12 @@ class IdeDeviceSecurity(private val activity: Activity) {
                 result.error("key_missing", "no key", null)
                 return
             }
+            // Khoá cũ (nhận cả mật mã máy, không mất hiệu lực khi đổi sinh trắc): coi như
+            // đã mất hiệu lực, phải gắn lại.
+            if (!keyMeetsPolicy(key)) {
+                result.error("key_invalid", "key policy outdated", null)
+                return
+            }
             Signature.getInstance("SHA256withECDSA").apply { initSign(key) }
         } catch (e: KeyPermanentlyInvalidatedException) {
             result.error("key_invalid", "key invalidated", null)
@@ -276,11 +351,10 @@ class IdeDeviceSecurity(private val activity: Activity) {
         }
         val builder = BiometricPrompt.Builder(activity).setTitle(title(reason))
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            builder.setAllowedAuthenticators(AUTHENTICATORS)
-        } else {
-            // Trước API 30 khoá gắn với CryptoObject chỉ mở được bằng sinh trắc học.
-            builder.setNegativeButton("Huỷ", activity.mainExecutor) { _, _ -> fail("cancelled") }
+            builder.setAllowedAuthenticators(STEP_AUTHENTICATORS)
         }
+        // Không nhận mật mã máy nên hộp cần nút Huỷ riêng.
+        builder.setNegativeButton("Huỷ", activity.mainExecutor) { _, _ -> fail("cancelled") }
         builder.build().authenticate(
             BiometricPrompt.CryptoObject(signature),
             CancellationSignal(),

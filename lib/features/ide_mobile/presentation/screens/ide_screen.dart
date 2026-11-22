@@ -11,6 +11,7 @@ import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../application/ide_access.dart';
 import '../../data/ide_connection.dart';
+import '../../domain/ide_errors.dart' show ideNotAllowedText;
 import '../../domain/ide_ready.dart';
 import '../../domain/ide_term.dart';
 import '../controllers/ide_controllers.dart';
@@ -92,7 +93,10 @@ class _IdeScreenState extends ConsumerState<IdeScreen>
     ref.listen(ideCredentialsProvider, (previous, next) {
       final now = next.valueOrNull?.deviceId;
       final before = previous?.valueOrNull?.deviceId;
-      if (now != null && now != before && mounted) {
+      // Gắn mới, hoặc bản gắn vừa bị xoá (khoá xác nhận mất hiệu lực): bỏ
+      // đường nối bằng khoá cũ.
+      final dropped = before != null && now == null && !next.isLoading;
+      if (((now != null && now != before) || dropped) && mounted) {
         unawaited(_connection.restartAfterPairing());
       }
     });
@@ -122,13 +126,19 @@ class _IdeScreenState extends ConsumerState<IdeScreen>
         ),
         data: (creds) {
           if (creds == null) {
+            final notice = ref.watch(ideRepairNoticeProvider);
             return _Message(
+              key: const Key('ide_not_paired'),
               icon: Icons.phonelink_setup_rounded,
-              title: tr('Chưa gắn máy', 'Phone not paired'),
-              message: tr(
-                'Gắn điện thoại với IDE trên máy tính bằng mã QR.',
-                'Pair this phone with the IDE on your computer using a QR code.',
-              ),
+              title: notice == null
+                  ? tr('Chưa gắn máy', 'Phone not paired')
+                  : tr('Cần gắn lại máy', 'Pair this phone again'),
+              message:
+                  notice ??
+                  tr(
+                    'Gắn điện thoại với IDE trên máy tính bằng mã QR.',
+                    'Pair this phone with the IDE on your computer using a QR code.',
+                  ),
               action: FilledButton(
                 onPressed: () => context.push('/ide/pair'),
                 child: Text(tr('Gắn máy', 'Pair')),
@@ -257,6 +267,12 @@ class _IdeScreenState extends ConsumerState<IdeScreen>
           onPressed: () => context.push('/ide/pair'),
           child: Text(tr('Gắn lại', 'Pair again')),
         ),
+      ),
+      IdeLinkPhase.idle when status?.reason == 'not_allowed' => _Message(
+        key: const Key('ide_link_not_allowed'),
+        icon: Icons.block_rounded,
+        title: tr('Chưa mở cho điện thoại', 'Not available on phones'),
+        message: ideNotAllowedText,
       ),
       IdeLinkPhase.idle when _sessionReasons.contains(status?.reason) =>
         _Message(

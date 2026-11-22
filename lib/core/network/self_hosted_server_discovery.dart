@@ -705,11 +705,7 @@ Uri _defaultWsUri(Uri server) {
   );
 }
 
-bool _isLocalHost(String host) {
-  return host == 'localhost' ||
-      host == '127.0.0.1' ||
-      host.endsWith('.localhost');
-}
+bool _isLocalHost(String host) => isLoopbackDevServerHost(host);
 
 Map<String, Object?> _jsonMap(Object? value) {
   if (value is! Map) {

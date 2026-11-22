@@ -10,6 +10,7 @@ import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../application/ide_ai_session_controller.dart';
 import '../../application/ide_download_service.dart' show ideSafeFileName;
+import '../../domain/ide_errors.dart' show ideNotAllowedText;
 import '../controllers/ide_ai_controllers.dart';
 import '../controllers/ide_controllers.dart';
 import '../widgets/ai/ide_ai_activity_card.dart';
@@ -178,6 +179,11 @@ class _IdeAiChatScreenState extends ConsumerState<IdeAiChatScreen> {
     'session_expired' || 'no_session' => tr(
       'Phiên đăng nhập đã hết hạn. Đăng nhập lại rồi thử lại.',
       'Your session has expired. Sign in again, then retry.',
+    ),
+    'not_allowed' => ideNotAllowedText,
+    'disabled' => tr(
+      'IDE đang tạm tắt trên máy chủ này.',
+      'The IDE is turned off on this server.',
     ),
     _ => tr('Phiên đã đóng.', 'The session has closed.'),
   };

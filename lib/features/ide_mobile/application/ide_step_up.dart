@@ -61,13 +61,18 @@ final class IdeStepUp {
     required IdeDeviceSecurity security,
     required IdeStepPresenter present,
     required String Function() alias,
+    Future<void> Function()? onKeyInvalidated,
   }) : _security = security,
        _present = present,
-       _alias = alias;
+       _alias = alias,
+       _onKeyInvalidated = onKeyInvalidated;
 
   final IdeDeviceSecurity _security;
   final IdeStepPresenter _present;
   final String Function() _alias;
+
+  /// Khoá xác nhận đã mất hiệu lực (`key_invalid`): xoá bản gắn đang dùng.
+  final Future<void> Function()? _onKeyInvalidated;
 
   /// Hàng chờ dùng chung mọi nguồn (RPC client, các phiên AI): mỗi lúc chỉ một
   /// bảng tóm tắt / hộp vân tay.
@@ -114,6 +119,14 @@ final class IdeStepUp {
       );
     } on StepKeyException catch (error) {
       if (error.cancelled) return null;
+      if (error.code == 'key_invalid') {
+        try {
+          await _onKeyInvalidated?.call();
+        } on Object {
+          // Vẫn báo cần gắn lại dù dọn bản gắn hỏng.
+        }
+        throw const IdeStepKeyInvalidated();
+      }
       throw const IdeStepFailed();
     }
   }

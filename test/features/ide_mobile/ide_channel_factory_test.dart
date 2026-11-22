@@ -428,6 +428,12 @@ void main() {
       expect(seen, isNotNull);
     });
 
+    test('HTTP 429 (giới hạn số lần nối): nối lại có giãn cách', () async {
+      final error = await failWith(429);
+      expect(error.reason, 'rate_limited');
+      expect(error.fatal, isFalse);
+    });
+
     test('HTTP 503 là ide_offline (nối lại có giãn cách)', () async {
       expect((await failWith(503)).reason, 'ide_offline');
     });

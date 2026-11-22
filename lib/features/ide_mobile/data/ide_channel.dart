@@ -41,7 +41,15 @@ const ideFatalReasons = {
   'wrong_user',
   'session_expired',
   'forbidden',
+  ideDisabledReason,
 };
+
+/// Máy chủ chat tắt IDE (công tắc tắt khẩn): đóng mọi stream, không nối lại.
+const ideDisabledReason = 'disabled';
+
+/// Cổng chưa mở loại stream / thao tác này cho điện thoại. Không tự nối lại
+/// (thử lại vẫn bị từ chối) nhưng không dừng các stream khác.
+const ideNotAllowedReason = 'not_allowed';
 
 /// Bắt tay thất bại hoặc IDE đóng ngay.
 final class IdeHandshakeException implements Exception {
@@ -61,6 +69,9 @@ final class IdeHandshakeException implements Exception {
   /// Nối lại cũng vô ích (khoá / phiên / quyền sai): dừng, chờ người dùng.
   bool get fatal => ideFatalReasons.contains(reason);
 
+  /// Cổng chưa mở cho điện thoại ([ideNotAllowedReason]): không thử lại.
+  bool get notAllowed => reason == ideNotAllowedReason;
+
   @override
   String toString() => 'IdeHandshakeException($reason)';
 }
@@ -77,6 +88,12 @@ final class IdeChannelClose {
 
   /// IDE gỡ máy hoặc từ chối khoá: không tự nối lại.
   bool get refused => revoked || reason == 'unauthorized';
+
+  /// Cổng chưa mở loại stream này cho điện thoại: không tự nối lại.
+  bool get notAllowed => reason == ideNotAllowedReason;
+
+  /// Máy chủ chat vừa tắt IDE: không tự nối lại.
+  bool get disabled => reason == ideDisabledReason;
 }
 
 typedef IdeSignAuth =

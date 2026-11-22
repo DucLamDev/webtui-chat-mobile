@@ -13,14 +13,14 @@ import 'ide_approval_sheet.dart' show IdeDiffView;
 
 const ideEffortLevels = ['low', 'medium', 'high', 'xhigh', 'max'];
 
-/// (mode, tên, mô tả); `team` = Đội AI (mode plan + team).
+/// (mode, tên, mô tả); `team` = Đội AI (mode plan + team). Không có `auto`:
+/// điện thoại không được bật chế độ đó ([ideAiPhoneBlockedModes]).
 const _modes = <(String, String, String)>[
   ('ask', 'Hỏi trước', 'Mỗi thao tác đều hỏi bạn.'),
   ('edits', 'Tự sửa tệp', 'Tự sửa tệp, chạy lệnh vẫn hỏi.'),
   ('custom', 'Tuỳ chỉnh', 'Theo danh sách công cụ / lệnh đã cho phép.'),
   ('plan', 'Lập kế hoạch', 'AI lập kế hoạch, bạn duyệt rồi mới làm.'),
   ('team', 'Đội AI', 'Lập kế hoạch rồi giao cả đội làm.'),
-  ('auto', 'Tự động', 'AI tự quyết định, ít hỏi.'),
   ('all', 'Cho phép hết', 'Không hỏi gì: chỉ dùng khi thật tin tưởng.'),
 ];
 
@@ -159,6 +159,19 @@ class IdeSessionSettingsSheet extends ConsumerWidget {
                   : null,
             ),
             _label(tr('Quyền của AI', 'AI permissions')),
+            // Phiên đang `auto` (đặt từ máy tính): hiện đúng, không chọn lại được.
+            if (modeKey == 'auto')
+              WebTuiSheetActionTile(
+                key: const Key('ide_set_mode_auto'),
+                icon: Icons.lock_outline_rounded,
+                title: tr('Tự động', 'Auto'),
+                subtitle: tr(
+                  'Đang bật từ máy tính. Điện thoại không bật được chế độ này.',
+                  'Turned on from the computer. Phones cannot turn this on.',
+                ),
+                selected: true,
+                onTap: null,
+              ),
             for (final m in _modes)
               WebTuiSheetActionTile(
                 key: Key('ide_set_mode_${m.$1}'),

@@ -531,7 +531,7 @@ class _IdeFilesTabState extends ConsumerState<IdeFilesTab> {
               _tile(ctx, 'copy', Icons.copy_rounded, tr('Sao chép', 'Copy')),
               _tile(ctx, 'cut', Icons.content_cut_rounded, tr('Cắt', 'Cut')),
             ],
-            if (!e.secret && !e.isDir)
+            if (!e.secret && !e.isDir && ref.read(ideSaveToDeviceProvider))
               _tile(
                 ctx,
                 'download',

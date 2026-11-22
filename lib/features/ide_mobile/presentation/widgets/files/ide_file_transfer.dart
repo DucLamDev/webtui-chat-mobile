@@ -53,6 +53,10 @@ Future<void> ideDownloadAndSave(
   String path, {
   String? name,
 }) async {
+  if (!ref.read(ideSaveToDeviceProvider)) {
+    ideSnack(context, ideSaveToDeviceDisabledText);
+    return;
+  }
   final f = await ideDownloadWithProgress(context, ref, path, name: name);
   if (f == null || !context.mounted) return;
   final service = ref.read(ideDownloadServiceProvider);

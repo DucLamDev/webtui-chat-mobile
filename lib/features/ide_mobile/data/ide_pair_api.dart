@@ -4,6 +4,7 @@ import '../../../core/error/error_mapper.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/network/api_response.dart';
 import '../../../core/network/api_transport.dart';
+import '../domain/ide_server_access.dart';
 
 enum IdePairRemoteStatus { pending, ok, rejected, expired, invalid }
 
@@ -18,7 +19,16 @@ final class IdePairPoll {
   final bool? pushLinked;
 }
 
-enum IdePairErrorKind { offline, rateLimited, busy, invalid, other }
+enum IdePairErrorKind {
+  offline,
+  rateLimited,
+  busy,
+  invalid,
+
+  /// HTTP 403 `IDE_ACCESS_DENIED`: máy chủ chat không cho tài khoản dùng IDE.
+  accessDenied,
+  other,
+}
 
 final class IdePairException implements Exception {
   const IdePairException(this.kind, [this.failure, this.notFound = false]);
@@ -28,6 +38,14 @@ final class IdePairException implements Exception {
 
   final IdePairErrorKind kind;
   final Failure? failure;
+
+  /// `details.reason` khi [kind] là `accessDenied` (`unavailable` nếu thiếu).
+  String get accessReason {
+    final reason = failure?.details['reason'];
+    return reason is String && reason.trim().isNotEmpty
+        ? reason.trim()
+        : 'unavailable';
+  }
 
   @override
   String toString() => 'IdePairException($kind)';
@@ -112,10 +130,21 @@ final class IdePairApi {
     }
   }
 
-  /// `GET /ide/status`: IDE đang nối vào máy chủ chat hay không.
-  Future<bool> isConnected() async {
-    final response = await _guard(() => _api.get<Object>('$_base/status'));
-    return jsonMap(envelopeData(response.data))['connected'] == true;
+  /// `GET /ide/status`: IDE đang nối vào máy chủ chat hay không, và (máy chủ
+  /// mới) IDE có bật / tài khoản có được dùng không.
+  Future<IdeServerStatus> status() async {
+    final Response<Object> response;
+    try {
+      response = await _guard(() => _api.get<Object>('$_base/status'));
+    } on IdePairException catch (error) {
+      // Máy chủ từ chối IDE ngay ở trạng thái (403 / 503 IDE_ACCESS_DENIED).
+      if (error.kind != IdePairErrorKind.accessDenied) rethrow;
+      return IdeServerStatus(
+        connected: false,
+        access: IdeServerAccess(allowed: false, reason: error.accessReason),
+      );
+    }
+    return IdeServerStatus.fromJson(jsonMap(envelopeData(response.data)));
   }
 
   Future<Response<T>> _guard<T>(Future<Response<T>> Function() call) async {
@@ -124,7 +153,10 @@ final class IdePairApi {
     } on DioException catch (error) {
       final failure = mapDioExceptionToFailure(error);
       final status = error.response?.statusCode ?? 0;
-      final kind = failure.hasCode('RATE_LIMIT_UNAVAILABLE')
+      // 403 (không đủ điều kiện) hoặc 503 (chưa kiểm được) kèm details.reason.
+      final kind = failure.hasCode(ideAccessDeniedCode)
+          ? IdePairErrorKind.accessDenied
+          : failure.hasCode('RATE_LIMIT_UNAVAILABLE')
           ? IdePairErrorKind.busy
           : failure.hasCode('IDE_OFFLINE') || status == 503
           ? IdePairErrorKind.offline
