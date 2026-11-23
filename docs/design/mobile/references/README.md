@@ -1,14 +1,15 @@
 # Mobile UI References
 
-Thư mục này lưu ảnh và ghi chú thiết kế bắt buộc cho mobile app Flutter của WebTui Chat.
+Thư mục này lưu ghi chú thiết kế bắt buộc cho mobile app Flutter của WebTui Chat.
 
-Ảnh reference chính:
+Mẫu giao diện chính (mô tả bằng chữ):
 
 ```text
-docs/design/mobile/references/webtui-mobile-zalo-reference.png
+docs/design/mobile/references/mobile-ui-reference.md
 ```
 
-Ảnh này là mẫu giao diện mobile đã chốt: phong cách Zalo-like, tích hợp Tin nhắn, Bạn bè, Kênh & Bot, Kênh và Cài đặt WebTui nâng cao.
+Mẫu giao diện mobile đã chốt: phong cách Zalo-like, tích hợp Tin nhắn, Bạn bè, Kênh & Bot, Kênh và Cài đặt WebTui nâng cao.
 
-Lưu ý: file ảnh gốc chưa được Codex copy tự động từ ảnh nhúng trong chat vì ảnh không xuất hiện dưới dạng path local trong workspace. Khi có file gốc, đặt đúng tên `webtui-mobile-zalo-reference.png` vào thư mục này để các lượt làm UI sau có thể mở trực tiếp.
-
+Ảnh mẫu cũ (`webtui-mobile-zalo-reference.png`, `design-mobile-app.png`) đã gỡ khỏi kho vì có họ tên, email và ảnh của
+người thật. Không đưa vào kho ảnh chụp có dữ liệu người thật; ảnh minh hoạ dùng dữ liệu giả. Ảnh chụp giao diện app hiện
+tại nằm ở `test/screenshots/`.
