@@ -13,20 +13,36 @@ import '../support/customer_ticket_fakes.dart';
 
 void main() {
   group('quyền vào ticket khách', () {
-    test('máy chủ nội bộ + bots + order.view thì xem được', () {
-      final access = CustomerTicketAccess.resolve(
-        discovery: _discovery(),
-        permissions: _permissions(['order.view']),
-      );
-      expect(access.serverSupported, isTrue);
-      expect(access.canView, isTrue);
-      expect(access.canReply, isFalse);
+    test(
+      'máy chủ nội bộ + bots + order.view + quyền nhân viên thì xem được',
+      () {
+        final billing = CustomerTicketAccess.resolve(
+          discovery: _discovery(),
+          permissions: _permissions(['order.view', 'order.billing']),
+        );
+        expect(billing.serverSupported, isTrue);
+        expect(billing.canView, isTrue);
+        expect(billing.canReply, isFalse);
 
-      final reply = CustomerTicketAccess.resolve(
+        final reply = CustomerTicketAccess.resolve(
+          discovery: _discovery(),
+          permissions: _permissions(['order.view', 'order.ticket_reply']),
+        );
+        expect(reply.canView, isTrue);
+        expect(reply.canReply, isTrue);
+      },
+    );
+
+    test('thành viên thường chỉ có order.view: không thấy mục ticket', () {
+      // Máy chủ (1.60.1) trả 403 cho danh sách / hội thoại ticket với người
+      // không có quyền nhân viên, nên ẩn mục thay vì mở ra báo không có quyền.
+      final member = CustomerTicketAccess.resolve(
         discovery: _discovery(),
-        permissions: _permissions(['order.view', 'order.ticket_reply']),
+        permissions: _permissions(['order.view', 'order.payment_request']),
       );
-      expect(reply.canReply, isTrue);
+      expect(member.serverSupported, isTrue);
+      expect(member.canView, isFalse);
+      expect(member.canReply, isFalse);
     });
 
     test('thiếu điều kiện nào cũng không vào được', () {
