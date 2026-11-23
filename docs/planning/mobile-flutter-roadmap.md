@@ -239,13 +239,8 @@ features/messages/
 
 ### 6.2. Reference UI bắt buộc
 
-Mobile app phải thiết kế dựa trên mẫu Zalo-like/WebTui mobile đã chốt. Ảnh reference chính đặt tại:
-
-```text
-docs/design/mobile/references/webtui-mobile-zalo-reference.png
-```
-
-Tài liệu phân tích reference đặt tại:
+Mobile app phải thiết kế dựa trên mẫu Zalo-like/WebTui mobile đã chốt (ảnh mẫu cũ đã gỡ khỏi kho vì có dữ liệu cá
+nhân). Tài liệu phân tích reference đặt tại:
 
 ```text
 docs/design/mobile/references/mobile-ui-reference.md
@@ -355,7 +350,7 @@ Acceptance cho planning thiết kế mobile:
 | M1.8 | Logging có redaction | M1.1 | Không log token/message/file path nhạy cảm | P0 |
 | M1.9 | Widget loading/empty/error/toast | M1.3 | Trạng thái dùng nhất quán toàn app | P0 |
 | M1.10 | CI nền | M1.1 | format/analyze/test/build APK chạy tự động | P0 |
-| M1.11 | Khóa mobile UI reference | Không | Ảnh mẫu nằm ở `docs/design/mobile/references/webtui-mobile-zalo-reference.png` và tài liệu phân tích reference được cập nhật | P0 |
+| M1.11 | Khóa mobile UI reference | Không | Tài liệu phân tích reference `docs/design/mobile/references/mobile-ui-reference.md` được cập nhật | P0 |
 | M1.12 | Khóa skill-routing thiết kế mobile | M1.11 | Prompt/UI planning chỉ dùng `brandkit`, `gpt-taste`, `imagegen-frontend-mobile`, `redesign-existing-projects` theo vai trò ở mục 6.3 | P0 |
 | M1.13 | Design tokens từ ảnh mẫu | M1.11 | Màu, typography, spacing, radius, shadow, list density, bottom tab và segmented control được ghi thành guideline | P0 |
 
@@ -640,7 +635,7 @@ Tạo `.github/workflows/mobile.yml` gồm:
 - [ ] Bản Production đầu có phạm vi quốc gia/khu vực và kế hoạch halt/unpublish;
       bản cập nhật sau có staged rollout, pause/rollback và monitoring crash/ANR.
 - [ ] Có tài liệu hỗ trợ đăng nhập, notification, microphone, cache và logout.
-- [ ] Các màn mobile P0 đã đối chiếu screenshot với `docs/design/mobile/references/webtui-mobile-zalo-reference.png`.
+- [ ] Các màn mobile P0 đã đối chiếu screenshot với `docs/design/mobile/references/mobile-ui-reference.md`.
 - [ ] Domain layer không import Flutter/Dio/Drift/Firebase/generated DTO.
 - [ ] DTO không xuất hiện trong widget, controller hoặc use case.
 - [ ] Mỗi feature P0 có repository interface, use case, mapper và test tối thiểu.

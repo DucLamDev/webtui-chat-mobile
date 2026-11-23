@@ -3,7 +3,7 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
-## 1.63.0 · 20/11/2026
+## 1.65.0 · 23/11/2026
 ### Tính năng
 - Đăng nhập trên điện thoại hỗ trợ xác thực hai lớp: sau mật khẩu, đăng nhập bằng tài khoản công ty (SSO) hoặc mã email,
   màn mới hiện rõ tài khoản đang đăng nhập, ô mã chia 6 ô (dán được cả mã, đủ 6 số tự xác minh), "Thử cách khác" để dùng
@@ -12,6 +12,35 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   bước hai khi đăng nhập).
 - Xoá tài khoản phải xác thực lại trước khi xoá; tắt xác thực hai lớp phải nhập mã xác thực.
 - Đăng nhập SSO bỏ dở quá 10 phút sẽ tự huỷ, cần bấm đăng nhập lại.
+
+## 1.64.0 · 23/11/2026
+### Phê duyệt: hiện nội dung đọc được của yêu cầu
+- Màn chi tiết của yêu cầu phê duyệt do bot / hệ thống khác gửi (vd bài mạng xã hội chờ duyệt) nay hiện nội dung đọc được,
+  thay cho dữ liệu dạng mã:
+  - chữ, chọn / chép được;
+  - ảnh, bấm để xem lớn;
+  - các ô thông tin;
+  - nút mở liên kết https bằng trình duyệt ngoài.
+- Danh sách phê duyệt hiện một dòng tóm tắt nội dung.
+- Yêu cầu đã huỷ hiện kèm lý do. Kết quả thực hiện hiện theo nhãn bên gửi (vd "Đã đăng", "Đăng lỗi: …").
+- Hiện email người đã duyệt / từ chối.
+- Máy chủ chưa gửi các trường mới thì màn hiện như trước.
+
+## 1.63.0 · 23/11/2026
+### Tính năng
+- Cài đặt: thêm dòng "Trang quản trị" cho chủ sở hữu và quản trị workspace
+  Dòng nằm ngay dưới "Workspace". Bấm vào thì trang quản trị của máy chủ đang dùng mở trong trình duyệt, không cần
+  tự gõ địa chỉ /admin. Trên trang quản trị có nút "Về giao diện chat" để mở lại app. Thành viên thường không thấy
+  dòng này. Trang quản trị vẫn tự kiểm quyền và đăng nhập riêng, lần đầu mở cần đăng nhập trong trình duyệt.
+  App đọc địa chỉ trang quản trị từ máy chủ (chỉ nhận địa chỉ cùng tên miền). Máy chủ không báo thì app dùng
+  `<máy chủ>/admin/`.
+
+## 1.62.1 · 21/11/2026
+### Tài liệu thiết kế: gỡ ảnh mẫu có dữ liệu cá nhân
+- Gỡ 2 ảnh mẫu giao diện trong `docs/design/mobile/references/`, vì trong ảnh có họ tên, email và ảnh của người thật.
+- Các tài liệu từng trỏ tới ảnh nay trỏ sang bản mô tả bằng chữ `mobile-ui-reference.md` (đủ bố cục, màu, kích thước).
+  Bỏ dòng dặn "thiếu ảnh thì dừng dựng giao diện", để các lượt làm giao diện sau không bị chặn.
+- Chỉ đổi tài liệu: mã, giao diện và tính năng của app giữ nguyên.
 
 ## 1.62.0 · 20/11/2026
 ### IDE trên app: hoàn thiện phần còn thiếu

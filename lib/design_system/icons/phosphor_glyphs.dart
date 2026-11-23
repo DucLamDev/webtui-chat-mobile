@@ -331,6 +331,10 @@ abstract final class PhosphorRegular {
     0xe436,
     fontFamily: 'PhosphorRegular',
   );
+  static const IconData squaresFour = IconData(
+    0xe464,
+    fontFamily: 'PhosphorRegular',
+  );
   static const IconData tag = IconData(0xe478, fontFamily: 'PhosphorRegular');
   static const IconData terminalWindow = IconData(
     0xeae8,
