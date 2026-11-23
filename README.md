@@ -203,8 +203,8 @@ bấm trong IDE ở mục **Màn hình app**. Bản Linux chỉ để chạy th�
 
 ## Reference UI
 
-Ảnh reference nằm tại
-`docs/design/mobile/references/webtui-mobile-zalo-reference.png`. Phase M1
+Mẫu giao diện đã chốt mô tả tại
+`docs/design/mobile/references/mobile-ui-reference.md`. Phase M1
 dựng shell và design tokens; Phase M2 thêm auth/session foundation và login
 entrypoint, chưa phụ thuộc backend/mock production trong widget test.
 

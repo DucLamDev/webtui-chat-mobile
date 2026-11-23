@@ -1,7 +1,7 @@
 # Kiểm tra design system mobile với reference
 
-Ảnh gốc trong monorepo:
-`../../docs/design/mobile/references/webtui-mobile-zalo-reference.png`
+Mẫu tham chiếu (mô tả bằng chữ; ảnh mẫu cũ đã gỡ khỏi kho vì có dữ liệu cá nhân):
+`docs/design/mobile/references/mobile-ui-reference.md`
 
 Screenshot Flutter đã tạo:
 

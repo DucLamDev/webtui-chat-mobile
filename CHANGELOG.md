@@ -3,7 +3,7 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
-## 1.63.0 · 21/11/2026
+## 1.63.0 · 23/11/2026
 ### Tính năng
 - Cài đặt: thêm dòng "Trang quản trị" cho chủ sở hữu và quản trị workspace
   Dòng nằm ngay dưới "Workspace". Bấm vào thì trang quản trị của máy chủ đang dùng mở trong trình duyệt, không cần
@@ -11,6 +11,13 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
   dòng này. Trang quản trị vẫn tự kiểm quyền và đăng nhập riêng, lần đầu mở cần đăng nhập trong trình duyệt.
   App đọc địa chỉ trang quản trị từ máy chủ (chỉ nhận địa chỉ cùng tên miền). Máy chủ không báo thì app dùng
   `<máy chủ>/admin/`.
+
+## 1.62.1 · 21/11/2026
+### Tài liệu thiết kế: gỡ ảnh mẫu có dữ liệu cá nhân
+- Gỡ 2 ảnh mẫu giao diện trong `docs/design/mobile/references/`, vì trong ảnh có họ tên, email và ảnh của người thật.
+- Các tài liệu từng trỏ tới ảnh nay trỏ sang bản mô tả bằng chữ `mobile-ui-reference.md` (đủ bố cục, màu, kích thước).
+  Bỏ dòng dặn "thiếu ảnh thì dừng dựng giao diện", để các lượt làm giao diện sau không bị chặn.
+- Chỉ đổi tài liệu: mã, giao diện và tính năng của app giữ nguyên.
 
 ## 1.62.0 · 20/11/2026
 ### IDE trên app: hoàn thiện phần còn thiếu
