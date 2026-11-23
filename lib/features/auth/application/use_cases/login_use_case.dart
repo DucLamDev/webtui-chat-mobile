@@ -5,6 +5,7 @@ import '../../domain/entities/auth_session.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/repositories/auth_token_repository.dart';
 import '../../domain/repositories/device_identity_repository.dart';
+import 'login_mfa_use_cases.dart';
 
 final class LoginCommand {
   const LoginCommand({
@@ -72,6 +73,16 @@ final class LoginUseCase {
         )) {
           throw StateError('Active instance changed during login.');
         }
+      }
+      if (result case FailureResult<AuthSession>(:final failure)) {
+        // Tài khoản bật xác thực hai lớp: chưa có token, chuyển sang bước nhập mã.
+        return FailureResult(
+          attachLoginMfaChallenge(
+            failure,
+            guard: guard,
+            remember: command.remember,
+          ),
+        );
       }
       return result;
     } on Object catch (error) {

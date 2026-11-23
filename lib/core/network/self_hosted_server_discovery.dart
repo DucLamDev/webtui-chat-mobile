@@ -19,6 +19,7 @@ final class SelfHostedServerDiscovery {
     required this.minimumSupportedMobileVersion,
     required this.capabilities,
     this.logoUrl,
+    this.adminBaseUri,
     this.zoneKind = '',
     this.privacyPolicy = const SelfHostedPrivacyPolicy(),
     this.sessionPolicy = const SessionPolicy(),
@@ -229,6 +230,10 @@ final class SelfHostedServerDiscovery {
         readReceipts: capabilities['read_receipts'] == true,
       ),
       logoUrl: logoUrl,
+      adminBaseUri: _sameOriginPageUriOrNull(
+        _text(runtime['admin_base_url']),
+        requestedServer,
+      ),
       zoneKind: _text(zone['kind']).toLowerCase(),
       privacyPolicy: SelfHostedPrivacyPolicy.fromJson(privacyPolicy),
       sessionPolicy: SessionPolicy.fromJson(
@@ -269,6 +274,11 @@ final class SelfHostedServerDiscovery {
   final String minimumSupportedMobileVersion;
   final SelfHostedCapabilities capabilities;
   final String? logoUrl;
+
+  /// Trang quản trị (`runtime.admin_base_url`). Chỉ nhận http / https cùng origin
+  /// với instance, không có query / fragment; khác thì null và app tự dùng
+  /// `<origin>/admin/` (xem admin_panel_access.dart).
+  final Uri? adminBaseUri;
 
   /// Chính sách riêng tư (khoá máy, tin bí mật); máy chủ cũ không trả thì dùng mặc định.
   final SelfHostedPrivacyPolicy privacyPolicy;
@@ -311,6 +321,7 @@ final class SelfHostedServerDiscovery {
         'runtime': {
           'api_base_url': apiBaseUri.toString(),
           'ws_base_url': wsBaseUri.toString(),
+          if (adminBaseUri != null) 'admin_base_url': adminBaseUri.toString(),
           'app_name': name,
           'logo_url': logoUrl,
           'api_contract_version': apiContractVersion,
@@ -666,6 +677,23 @@ Uri _httpRuntimeUri(String value, Uri requestedServer, String label) {
         '$label URL is not on the same origin as the instance.',
       ),
     );
+  }
+  return parsed;
+}
+
+/// Địa chỉ trang web của instance (vd. trang quản trị): http / https, cùng origin
+/// với instance, không có tài khoản / query / fragment. Sai thì null (trường tuỳ
+/// chọn, không làm hỏng discovery).
+Uri? _sameOriginPageUriOrNull(String value, Uri requestedServer) {
+  if (value.isEmpty) return null;
+  final parsed = Uri.tryParse(value);
+  if (parsed == null ||
+      (parsed.scheme != 'https' && parsed.scheme != 'http') ||
+      parsed.userInfo.isNotEmpty ||
+      parsed.hasQuery ||
+      parsed.hasFragment ||
+      !serverOriginsMatch(parsed, requestedServer)) {
+    return null;
   }
   return parsed;
 }

@@ -1,12 +1,9 @@
 # Reference UI Mobile WebTui
 
-## File ảnh bắt buộc
+## Ảnh mẫu
 
-```text
-docs/design/mobile/references/webtui-mobile-zalo-reference.png
-```
-
-Khi triển khai Flutter UI, phải mở ảnh này trước khi viết layout. Nếu file ảnh chưa tồn tại, dừng phần dựng UI và yêu cầu đặt ảnh gốc vào đúng path.
+Ảnh mẫu cũ đã gỡ khỏi kho vì có họ tên, email và ảnh của người thật; không đặt lại ảnh có dữ liệu người thật vào kho.
+Khi triển khai Flutter UI, bám theo các mục dưới đây và ảnh chụp giao diện hiện tại trong `test/screenshots/`.
 
 ## Hướng thiết kế đã chốt
 

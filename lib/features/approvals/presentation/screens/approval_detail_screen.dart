@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webtui_chat/l10n/app_strings.dart';
 
+import '../../../../app/providers/foundation_providers.dart';
 import '../../../../design_system/components/webtui_components.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
@@ -10,6 +11,7 @@ import '../../domain/entities/approval.dart';
 import '../controllers/approval_access_provider.dart';
 import '../controllers/approval_detail_controller.dart';
 import '../controllers/approval_list_controller.dart';
+import '../widgets/approval_content_view.dart';
 import '../widgets/approval_formatters.dart';
 import 'approval_list_screen.dart';
 
@@ -94,6 +96,8 @@ class _Body extends ConsumerWidget {
     return ApprovalDetailView(
       approval: approval,
       isSubmitting: state.isSubmitting,
+      onOpenLink: (uri) =>
+          ref.read(externalUrlLauncherProvider).open(uri.toString()),
       onDecide: (decision, comment) async {
         final ok = await controller.decide(decision, comment: comment);
         if (ok) {
@@ -111,11 +115,15 @@ class ApprovalDetailView extends StatefulWidget {
     required this.approval,
     required this.onDecide,
     this.isSubmitting = false,
+    this.onOpenLink,
     super.key,
   });
 
   final ApprovalRequest approval;
   final bool isSubmitting;
+
+  /// Mở liên kết của khối nội dung ở trình duyệt ngoài; `null` thì ẩn nút.
+  final ApprovalLinkOpener? onOpenLink;
   final Future<void> Function(ApprovalDecisionKind decision, String comment)
   onDecide;
 
@@ -185,7 +193,11 @@ class _ApprovalDetailViewState extends State<ApprovalDetailView> {
   @override
   Widget build(BuildContext context) {
     final approval = widget.approval;
-    final preview = approvalPayloadPreview(approval.payload);
+    final content = approval.content;
+    // Có khối nội dung thì không hiện dữ liệu dạng mã nữa.
+    final preview = content == null
+        ? approvalPayloadPreview(approval.payload)
+        : '';
     final canDecide = approval.canDecide && approval.isPending;
     return ListView(
       padding: const EdgeInsets.all(WebTuiSpacing.md),
@@ -202,6 +214,11 @@ class _ApprovalDetailViewState extends State<ApprovalDetailView> {
             ],
           ),
         ),
+        if (content != null) ...[
+          const SizedBox(height: WebTuiSpacing.md),
+          ApprovalContentView(content: content, onOpenLink: widget.onOpenLink),
+          const SizedBox(height: WebTuiSpacing.md),
+        ],
         _row(tr('Nguồn', 'Source'), approval.sourceLabel),
         _row(tr('Hành động', 'Action'), approval.action),
         if (approval.requestedBy != null)
@@ -245,8 +262,10 @@ class _ApprovalDetailViewState extends State<ApprovalDetailView> {
               ),
               subtitle: Text(
                 [
-                  vote.userId,
+                  vote.voterLabel,
                   if (vote.comment.isNotEmpty) vote.comment,
+                  if (vote.createdAt != null)
+                    formatApprovalTime(vote.createdAt!),
                 ].join(' · '),
               ),
             ),
