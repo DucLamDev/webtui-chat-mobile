@@ -244,10 +244,11 @@ class _IdeFileViewerScreenState extends ConsumerState<IdeFileViewerScreen> {
             tooltip: tr('Thêm', 'More'),
             onSelected: _onMenu,
             itemBuilder: (_) => [
-              PopupMenuItem(
-                value: 'download',
-                child: Text(tr('Tải về máy', 'Download')),
-              ),
+              if (ref.read(ideSaveToDeviceProvider))
+                PopupMenuItem(
+                  value: 'download',
+                  child: Text(tr('Tải về máy', 'Download')),
+                ),
               PopupMenuItem(
                 value: 'ai',
                 child: Text(tr('Hỏi AI về tệp này', 'Ask AI about this file')),
@@ -370,6 +371,7 @@ class _IdeFileViewerScreenState extends ConsumerState<IdeFileViewerScreen> {
   );
 
   Widget _downloadOnly() {
+    final canSave = ref.watch(ideSaveToDeviceProvider);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(WebTuiSpacing.xxl),
@@ -394,24 +396,31 @@ class _IdeFileViewerScreenState extends ConsumerState<IdeFileViewerScreen> {
             ),
             const SizedBox(height: WebTuiSpacing.sm),
             Text(
-              tr(
-                'Bạn có thể tải về máy.',
-                'You can download it to your phone.',
-              ),
+              canSave
+                  ? tr(
+                      'Bạn có thể tải về máy.',
+                      'You can download it to your phone.',
+                    )
+                  : tr(
+                      'Hãy mở tệp này trên máy tính.',
+                      'Open this file on your computer.',
+                    ),
               textAlign: TextAlign.center,
               style: IdeType.bodyMedium.copyWith(
                 color: IdeWbPalette.of(context).text,
               ),
             ),
-            const SizedBox(height: WebTuiSpacing.lg),
-            FilledButton.icon(
-              key: const Key('ide_download_only'),
-              style: FilledButton.styleFrom(minimumSize: const Size(48, 48)),
-              onPressed: () =>
-                  unawaited(ideDownloadAndSave(context, ref, widget.path)),
-              icon: const Icon(Icons.download_rounded),
-              label: Text(tr('Tải về', 'Download')),
-            ),
+            if (canSave) ...[
+              const SizedBox(height: WebTuiSpacing.lg),
+              FilledButton.icon(
+                key: const Key('ide_download_only'),
+                style: FilledButton.styleFrom(minimumSize: const Size(48, 48)),
+                onPressed: () =>
+                    unawaited(ideDownloadAndSave(context, ref, widget.path)),
+                icon: const Icon(Icons.download_rounded),
+                label: Text(tr('Tải về', 'Download')),
+              ),
+            ],
           ],
         ),
       ),

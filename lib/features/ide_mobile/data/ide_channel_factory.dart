@@ -131,6 +131,10 @@ final class IdeChannelFactory {
         if (status == 503) {
           throw IdeHandshakeException('ide_offline', deviceId: creds.deviceId);
         }
+        // Quá giới hạn số lần nối: nối lại có giãn cách (không dừng hẳn).
+        if (status == 429) {
+          throw IdeHandshakeException('rate_limited', deviceId: creds.deviceId);
+        }
         rethrow;
       }
     }

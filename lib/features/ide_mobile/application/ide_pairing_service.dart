@@ -18,6 +18,9 @@ enum IdePairOutcome {
   noLockScreen,
   biometricRequired,
   unsupported,
+
+  /// Máy chủ chat không cho tài khoản dùng IDE (HTTP 403 `IDE_ACCESS_DENIED`).
+  accessDenied,
   failed,
 }
 
@@ -33,6 +36,7 @@ final class IdePairingService {
     void Function()? onPaired,
     Future<String?> Function()? chatDeviceId,
     String? Function()? sessionToken,
+    void Function(String reason)? onAccessDenied,
     this.pollEvery = const Duration(seconds: 2),
     this.maxWait = const Duration(minutes: 2),
   }) : _api = api,
@@ -42,7 +46,8 @@ final class IdePairingService {
        _serverScopeId = serverScopeId,
        _onPaired = onPaired,
        _chatDeviceId = chatDeviceId,
-       _sessionToken = sessionToken;
+       _sessionToken = sessionToken,
+       _onAccessDenied = onAccessDenied;
 
   /// Mẫu mã máy IDE cấp (khớp máy chủ chat, header `X-IDE-Device`).
   static final devicePattern = RegExp(r'^d_[A-Za-z0-9_-]{8,64}$');
@@ -67,6 +72,9 @@ final class IdePairingService {
   /// Token phiên chat hiện tại: đổi giữa chừng (đăng xuất / người khác đăng
   /// nhập) thì không lưu kết quả gắn.
   final String? Function()? _sessionToken;
+
+  /// Máy chủ chat trả 403 `IDE_ACCESS_DENIED` kèm `details.reason`.
+  final void Function(String reason)? _onAccessDenied;
   final Duration pollEvery;
   final Duration maxWait;
 
@@ -219,6 +227,25 @@ final class IdePairingService {
     return IdePairOutcome.timedOut;
   }
 
+  /// Bản gắn của đúng người [chatUserId] trên máy chủ đang dùng. Bản gắn của
+  /// người khác hoặc máy chủ khác (đã đổi tài khoản) bị xoá hẳn cùng khoá xác
+  /// nhận, không chỉ ẩn đi.
+  Future<IdeDeviceCredentials?> loadCurrent(String chatUserId) async {
+    final stored = await _keys.loadAny();
+    if (stored == null) return null;
+    if (stored.chatUserId == chatUserId &&
+        stored.serverScope == _serverScopeId) {
+      return stored;
+    }
+    await _keys.clear();
+    await _deleteKey(stored.stepKeyAlias);
+    return null;
+  }
+
+  /// Khoá xác nhận của bản gắn đang dùng đã mất hiệu lực (sinh trắc học trên
+  /// máy thay đổi): bản gắn không ký được nữa nên xoá như khi gỡ máy.
+  Future<void> forgetInvalidatedKey() => removeThisDevice();
+
   /// IDE báo gỡ máy [deviceId]: xoá bản ghi và khoá xác nhận nếu bản ghi đang
   /// cất còn là máy đó (stream cũ đóng sau khi đã gắn lại thì giữ bản ghi mới).
   /// Trả `true` nếu đã xoá.
@@ -278,8 +305,16 @@ final class IdePairingService {
     }
   }
 
-  static IdePairOutcome _fromError(IdePairException error) =>
+  IdePairOutcome _fromError(IdePairException error) {
+    if (error.kind == IdePairErrorKind.accessDenied) {
+      _onAccessDenied?.call(error.accessReason);
+    }
+    return _outcomeOf(error);
+  }
+
+  static IdePairOutcome _outcomeOf(IdePairException error) =>
       switch (error.kind) {
+        IdePairErrorKind.accessDenied => IdePairOutcome.accessDenied,
         IdePairErrorKind.offline => IdePairOutcome.offline,
         IdePairErrorKind.rateLimited => IdePairOutcome.rateLimited,
         IdePairErrorKind.busy => IdePairOutcome.busy,

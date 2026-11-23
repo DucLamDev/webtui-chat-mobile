@@ -160,6 +160,16 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
     });
   }
 
+  /// Người khác (hoặc máy chủ khác) vừa đăng nhập: xoá hẳn bản gắn IDE và khoá
+  /// xác nhận của người trước, không đợi tới lúc mở mục IDE.
+  Future<void> _dropOtherAccountIdeBinding() async {
+    try {
+      await ref.read(ideCredentialsProvider.future);
+    } on Object {
+      // Chưa có máy chủ / không đọc được kho: lần mở IDE sau sẽ dọn.
+    }
+  }
+
   /// Phiên bị thu hồi / phải đăng nhập lại: dữ liệu cục bộ đã xoá, về màn
   /// đăng nhập kèm lời giải thích.
   void _onSessionEnded(SessionEndedNotice notice) {
@@ -204,6 +214,10 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
   Widget build(BuildContext context) {
     ref.listen<AsyncValue<String?>>(authAccessTokenProvider, (previous, next) {
       next.whenData((_) => _resumePendingLink());
+      final token = next.valueOrNull?.trim() ?? '';
+      if (token.isNotEmpty && token != previous?.valueOrNull?.trim()) {
+        unawaited(_dropOtherAccountIdeBinding());
+      }
     });
     ref.listen<AsyncValue<SessionEndedNotice>>(sessionEndedNoticesProvider, (
       _,

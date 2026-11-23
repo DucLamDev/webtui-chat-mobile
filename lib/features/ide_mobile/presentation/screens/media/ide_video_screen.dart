@@ -455,20 +455,21 @@ class _VideoPlayerState extends ConsumerState<_VideoPlayerScreen> {
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
-          IconButton(
-            tooltip: tr('Lưu về máy', 'Save to device'),
-            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-            icon: const Icon(Icons.save_alt_rounded),
-            onPressed: () async {
-              final messenger = ScaffoldMessenger.of(context);
-              final note = await ref
-                  .read(ideDownloadServiceProvider)
-                  .save(widget.file);
-              if (note != null) {
-                messenger.showSnackBar(SnackBar(content: Text(note)));
-              }
-            },
-          ),
+          if (ref.watch(ideSaveToDeviceProvider))
+            IconButton(
+              tooltip: tr('Lưu về máy', 'Save to device'),
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+              icon: const Icon(Icons.save_alt_rounded),
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                final note = await ref
+                    .read(ideDownloadServiceProvider)
+                    .save(widget.file);
+                if (note != null) {
+                  messenger.showSnackBar(SnackBar(content: Text(note)));
+                }
+              },
+            ),
         ],
       ),
       body: _failed

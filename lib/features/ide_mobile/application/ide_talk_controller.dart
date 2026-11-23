@@ -140,6 +140,10 @@ class IdeTalkController extends StateNotifier<IdeTalkState> {
       return;
     } on IdeHandshakeException catch (e) {
       if (_disposed || generation != _generation) return;
+      if (e.notAllowed) {
+        _notAllowed();
+        return;
+      }
       if (!e.fatal) {
         _lose();
         return;
@@ -168,7 +172,7 @@ class IdeTalkController extends StateNotifier<IdeTalkState> {
     _channel = channel;
     _lastFrame = _clock.elapsed;
     _sub = channel.frames.listen(_onFrame);
-    unawaited(channel.done.then((close) => _onClosed(channel)));
+    unawaited(channel.done.then((close) => _onClosed(channel, close)));
     _watchdog = Timer.periodic(idleCheckEvery, (_) => _checkIdle());
   }
 
@@ -188,10 +192,15 @@ class IdeTalkController extends StateNotifier<IdeTalkState> {
         _ => IdeTalkLink.failed,
       };
       unawaited(_stopChannel());
+      _retry?.cancel();
       _set(
         state.copyWith(
           link: link,
-          message: f['message'] is String ? f['message']! as String : '',
+          message: code == 'not_allowed'
+              ? ideNotAllowedText
+              : f['message'] is String
+              ? f['message']! as String
+              : '',
         ),
       );
       return;
@@ -250,11 +259,31 @@ class IdeTalkController extends StateNotifier<IdeTalkState> {
     }
   }
 
-  void _onClosed(IdeChannel channel) {
+  void _onClosed(IdeChannel channel, IdeChannelClose close) {
     if (!identical(_channel, channel)) return;
     unawaited(_stopChannel());
     if (_disposed || _paused) return;
+    if (close.notAllowed) {
+      _notAllowed();
+      return;
+    }
+    if (close.disabled) {
+      _retry?.cancel();
+      _set(
+        state.copyWith(
+          link: IdeTalkLink.failed,
+          message: 'IDE đang tạm tắt trên máy chủ này.',
+        ),
+      );
+      return;
+    }
     _lose();
+  }
+
+  /// Cổng chưa mở cho điện thoại: báo, không tự nối lại.
+  void _notAllowed() {
+    _retry?.cancel();
+    _set(state.copyWith(link: IdeTalkLink.failed, message: ideNotAllowedText));
   }
 
   void _lose() {

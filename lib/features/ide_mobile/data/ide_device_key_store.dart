@@ -15,7 +15,8 @@ final class IdeDeviceKeyStore {
   static final _ed25519 = Ed25519();
 
   /// Chỉ trả khoá khi khớp người và máy chủ đang dùng; khác thì coi như chưa
-  /// gắn (không xoá: đăng nhập lại đúng người vẫn dùng được).
+  /// gắn. Không tự xoá: việc xoá bản gắn của người cũ do
+  /// `IdePairingService.loadCurrent` làm (kèm khoá xác nhận trong chip).
   Future<IdeDeviceCredentials?> load({
     required String chatUserId,
     required String serverScope,

@@ -3,6 +3,31 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.65.1 · 23/11/2026
+### IDE trên app: siết bảo mật theo rà soát
+- **Khoá xác nhận thao tác quan trọng:**
+  - chỉ nhận vân tay / khuôn mặt mức mạnh, không nhận mật mã máy;
+  - mất hiệu lực khi máy thêm sinh trắc mới, khi đó app báo cần gắn lại máy với IDE;
+  - máy đã gắn từ bản trước phải gắn lại một lần.
+- **Che màn hình:** mọi màn IDE chặn chụp màn hình (Android) và che nội dung khi quay / chiếu màn hình (iOS).
+- **Ở nền quá 15 phút:** app xoá nội dung IDE khỏi bộ nhớ; mở lại thì nối lại và hỏi lại vân tay. Mốc 5 phút hỏi lại vân
+  tay giữ nguyên.
+- **Giới hạn trên điện thoại:**
+  - không chọn được chế độ quyền "Tự động" cho phiên AI;
+  - tab IDE chỉ có trên Android và iOS;
+  - thao tác máy IDE chưa mở cho điện thoại thì báo rõ, không tự thử lại.
+- **Đổi tài khoản / máy chủ:** xoá hẳn bản gắn và khoá IDE của tài khoản trước.
+- **Tệp:** tắt lưu tệp IDE ra ngoài app; tệp tạm xoá khi đóng màn xem.
+- **Bản phát hành:**
+  - không nhận địa chỉ máy chủ localhost;
+  - không ghi nhật ký gỡ lỗi;
+  - Android khai rõ cấu hình mạng: bản phát hành không dùng HTTP thường.
+- **Màn khoá IDE:** máy chủ báo IDE đang tắt, hoặc tài khoản chưa đủ điều kiện (xác thực 2 lớp, xác minh email), thì tab IDE
+  hiện màn khoá kèm lý do và không nối.
+- **CI và luật duyệt:**
+  - CI quét lỗ hổng thư viện: thư viện Dart có lỗi thì chặn, thư viện Gradle chỉ cảnh báo;
+  - thêm luật duyệt riêng cho repo.
+
 ## 1.65.0 · 23/11/2026
 ### Tính năng
 - Đăng nhập trên điện thoại hỗ trợ xác thực hai lớp: sau mật khẩu, đăng nhập bằng tài khoản công ty (SSO) hoặc mã email,

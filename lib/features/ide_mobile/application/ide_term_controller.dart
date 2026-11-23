@@ -192,7 +192,11 @@ class IdeTermController extends StateNotifier<IdeTermSnapshot> {
         _set(state.copyWith(link: IdeTermLink.exited, exitCode: code));
       case 'error':
         final code = f['code'] is String ? f['code']! as String : '';
-        final message = f['message'] is String ? f['message']! as String : '';
+        final message = code == 'not_allowed'
+            ? ideNotAllowedText
+            : f['message'] is String
+            ? f['message']! as String
+            : '';
         final link = switch (code) {
           'forbidden' => IdeTermLink.denied,
           'busy' => IdeTermLink.busy,

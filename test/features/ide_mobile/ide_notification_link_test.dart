@@ -96,4 +96,29 @@ void main() {
     expect(isSameIdeLocation('/ide/ai/abc', null), isFalse);
     expect(isSameIdeLocation('/conversations/1', '/conversations/1'), isFalse);
   });
+
+  test(
+    'thông báo IDE rút gọn (tiêu đề "IDE"): cả 4 dạng deep_link mở đúng',
+    () {
+      const links = {
+        'webtui://ide/ai/$_ai': '/ide/ai/$_ai',
+        'webtui://ide/jobs/$_job': '/ide/jobs/$_job',
+        'webtui://ide/tasks/0a1b2c3d4e': '/ide/tasks/0a1b2c3d4e',
+        'webtui://ide/mergeq': '/ide/mergeq',
+      };
+      for (final entry in links.entries) {
+        final routing = scopedNotificationRoutingData({
+          'instance_id': _instance,
+          'workspace_id': 'w1',
+          'tag': 'ide-1',
+          'title': 'IDE',
+          'body': 'Có cập nhật từ IDE',
+          'deep_link': entry.key,
+        });
+        expect(routing, isNotNull, reason: entry.key);
+        expect(routing!['deep_link'], entry.key);
+        expect(_loc(entry.key), entry.value, reason: entry.key);
+      }
+    },
+  );
 }

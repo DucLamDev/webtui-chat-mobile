@@ -235,4 +235,51 @@ void main() {
     expect(rig.socket.sentOfType('configure'), isEmpty);
     await close(tester, rig);
   });
+
+  testWidgets('không có lựa chọn "Tự động" khi phiên chưa ở chế độ đó', (
+    tester,
+  ) async {
+    final rig = await open(tester, extra: base);
+    expect(find.byKey(const Key('ide_set_mode_auto')), findsNothing);
+    expect(find.byKey(const Key('ide_set_mode_ask')), findsOneWidget);
+    await close(tester, rig);
+  });
+
+  testWidgets('phiên đang "Tự động" (đặt từ máy tính): hiện, không chọn được', (
+    tester,
+  ) async {
+    final rig = await open(
+      tester,
+      extra: {
+        ...base,
+        'settings': {
+          ...base['settings']! as Map<String, Object?>,
+          'permissions': {
+            'mode': 'auto',
+            'tools': <Object?>[],
+            'commands': <Object?>[],
+          },
+        },
+      },
+    );
+    final tile = find.byKey(const Key('ide_set_mode_auto'));
+    expect(tile, findsOneWidget);
+    expect(
+      find.text('Đang bật từ máy tính. Điện thoại không bật được chế độ này.'),
+      findsOneWidget,
+    );
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+    expect(rig.socket.sentOfType('configure'), isEmpty);
+    // Chọn chế độ khác vẫn được.
+    await tester.tap(find.byKey(const Key('ide_set_mode_ask')));
+    await tester.pump();
+    expect(
+      ((rig.socket.sentOfType('configure').single['settings']!
+              as Map)['permissions']
+          as Map)['mode'],
+      'ask',
+    );
+    await close(tester, rig);
+  });
 }

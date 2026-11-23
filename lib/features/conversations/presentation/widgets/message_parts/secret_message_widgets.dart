@@ -190,8 +190,9 @@ class _SecretMessageBubbleState extends ConsumerState<SecretMessageBubble> {
       setState(() => _error = result.failureOrNull!.message);
       return;
     }
+    // Có đếm: đóng tin bí mật không tắt chặn của màn khác đang giữ (vd IDE).
     const privacy = BackgroundPrivacyController();
-    await privacy.setSecureScreen(true);
+    await privacy.acquireSecureScreen();
     try {
       if (mounted && !_expired) {
         await showDialog<void>(
@@ -203,7 +204,7 @@ class _SecretMessageBubbleState extends ConsumerState<SecretMessageBubble> {
         );
       }
     } finally {
-      await privacy.setSecureScreen(false);
+      await privacy.releaseSecureScreen();
     }
   }
 

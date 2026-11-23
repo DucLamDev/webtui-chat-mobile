@@ -3,22 +3,30 @@ import 'dart:async';
 import '../domain/ide_device_security.dart';
 
 /// Hỏi vân tay / khoá màn hình khi vào mục IDE, nhớ tới khi app ở nền quá
-/// [grace] (5 phút).
+/// [grace] (5 phút). Ở nền quá [wipeAfter] (15 phút) thì còn gọi [onWipe] để
+/// xoá nội dung IDE trong bộ nhớ trước khi màn IDE hiện lại.
 ///
 /// Thời gian nền đo bằng đồng hồ native tính cả lúc máy ngủ và người dùng
 /// không chỉnh được ([IdeDeviceSecurity.uptimeMs]); giờ hệ thống chỉ dùng thêm
-/// (lùi giờ thì cũng khoá). Không đọc được đồng hồ thì coi như quá hạn.
+/// (lùi giờ thì cũng khoá). Không đọc được đồng hồ thì coi như quá cả hai hạn.
 final class IdeAccessController {
   IdeAccessController(
     this._security, {
     DateTime Function()? now,
     this.grace = const Duration(minutes: 5),
+    this.wipeAfter = const Duration(minutes: 15),
     this.authTimeout = const Duration(minutes: 3),
-  }) : _now = now ?? DateTime.now;
+    void Function()? onWipe,
+  }) : _now = now ?? DateTime.now,
+       _onWipe = onWipe;
 
   final IdeDeviceSecurity _security;
   final DateTime Function() _now;
   final Duration grace;
+
+  /// Ở nền lâu hơn mốc này thì xoá nội dung IDE trong bộ nhớ.
+  final Duration wipeAfter;
+  final void Function()? _onWipe;
 
   /// Hộp xác thực không trả lời sau thời gian này (Activity bị huỷ...) thì
   /// coi như lỗi, lần sau hỏi lại.
@@ -33,6 +41,9 @@ final class IdeAccessController {
 
   /// Đã mở và không đang kiểm thời gian nền.
   bool get unlocked => _unlocked && _resuming == null;
+
+  /// Đang kiểm thời gian ở nền sau khi app quay lại.
+  bool get resuming => _resuming != null;
 
   void onBackground() {
     if (_backgroundWall != null) return;
@@ -50,10 +61,16 @@ final class IdeAccessController {
     _backgroundWall = null;
     _backgroundUptime = null;
     if (wall == null || uptime == null) return Future.value(unlocked);
-    if (!_unlocked) return Future.value(false);
     final generation = _generation;
-    final check = _stillWithinGrace(wall, uptime).then((ok) {
-      if (generation == _generation && !ok) _unlocked = false;
+    final check = _backgroundGap(wall, uptime).then((gap) {
+      if (gap == null || gap > wipeAfter) {
+        // Bỏ cả lần xác thực đang dở: nội dung cũ đã bị xoá.
+        _generation++;
+        _unlocked = false;
+        _onWipe?.call();
+      } else if (generation == _generation && gap >= grace) {
+        _unlocked = false;
+      }
       _resuming = null;
       return unlocked;
     });
@@ -61,14 +78,17 @@ final class IdeAccessController {
     return check;
   }
 
-  Future<bool> _stillWithinGrace(DateTime wall, Future<int?> uptime) async {
+  /// Thời gian ở nền (lấy số lớn hơn giữa giờ hệ thống và đồng hồ máy);
+  /// `null` nếu không tin được (lùi giờ, không đọc được đồng hồ).
+  Future<Duration?> _backgroundGap(DateTime wall, Future<int?> uptime) async {
     final wallGap = _now().difference(wall);
-    if (wallGap.isNegative || wallGap >= grace) return false;
     final before = await uptime;
     final after = await _readUptime();
-    if (before == null || after == null) return false;
+    if (wallGap.isNegative || before == null || after == null) return null;
     final gap = after - before;
-    return gap >= 0 && gap < grace.inMilliseconds;
+    if (gap < 0) return null;
+    final uptimeGap = Duration(milliseconds: gap);
+    return uptimeGap > wallGap ? uptimeGap : wallGap;
   }
 
   Future<int?> _readUptime() async {

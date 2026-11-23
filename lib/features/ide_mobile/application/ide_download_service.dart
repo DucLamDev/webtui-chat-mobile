@@ -66,6 +66,17 @@ String ideMimeFor(String name) {
       'application/octet-stream';
 }
 
+/// Đợt đầu chưa cho lưu tệp IDE ra ngoài app (Tải về, bảng chia sẻ, mở bằng
+/// app khác): tệp chỉ nằm trong thư mục tạm để xem rồi bị xoá.
+const ideSaveToDeviceEnabled = false;
+
+/// Lời báo khi người dùng muốn lưu tệp IDE ra ngoài app.
+const ideSaveToDeviceDisabledText =
+    'Chưa lưu được tệp IDE ra ngoài app trên điện thoại.';
+
+/// Có cho lưu tệp IDE ra ngoài app không (test ghi đè được).
+final ideSaveToDeviceProvider = Provider<bool>((_) => ideSaveToDeviceEnabled);
+
 /// Trần cứng một lần tải: 2 GB (điện thoại không nên nhận hơn; chặn IDE gửi vô hạn).
 const ideDownloadMaxBytes = 2 * 1024 * 1024 * 1024;
 
@@ -200,8 +211,12 @@ class IdeDownloadService {
     this._rpc, {
     IdeFileSaver saver = const PlatformIdeFileSaver(),
     Future<Directory> Function()? tempDir,
+    this.allowSave = ideSaveToDeviceEnabled,
   }) : _saver = saver,
        _tempDir = tempDir ?? getTemporaryDirectory;
+
+  /// Cho lưu / chia sẻ tệp ra ngoài app ([ideSaveToDeviceEnabled]).
+  final bool allowSave;
 
   final IdeRpcClient _rpc;
   final IdeFileSaver _saver;
@@ -261,16 +276,21 @@ class IdeDownloadService {
     }
   }
 
-  /// Lưu / chia sẻ tệp đã tải; trả lời báo cho người dùng.
+  /// Lưu / chia sẻ tệp đã tải; trả lời báo cho người dùng. Chưa cho lưu ra
+  /// ngoài app thì không gọi gì, chỉ trả lời báo.
   Future<String?> save(
     IdeDownloadedFile f, {
     Future<bool> Function()? confirmOpen,
-  }) => _saver.save(f.file, f.name, f.mime, confirmOpen: confirmOpen);
+  }) async {
+    if (!allowSave) return ideSaveToDeviceDisabledText;
+    return _saver.save(f.file, f.name, f.mime, confirmOpen: confirmOpen);
+  }
 
   /// Xoá thư mục tạm `ide-dl-*` của một tệp đã tải (sau khi lưu / xem xong).
   Future<void> discard(IdeDownloadedFile f) async {
-    // iOS: bảng chia sẻ còn đọc tệp sau khi hiện; để hệ điều hành dọn thư mục tạm.
-    if (Platform.isIOS) return;
+    // iOS: bảng chia sẻ còn đọc tệp sau khi hiện; để hệ điều hành dọn thư mục
+    // tạm. Chưa cho lưu ra ngoài thì không có bảng chia sẻ: xoá ngay.
+    if (allowSave && Platform.isIOS) return;
     final dir = f.file.parent;
     if (dir.path.contains('ide-dl-')) await _cleanup(dir);
   }
@@ -343,5 +363,8 @@ class _FileSink implements IdeFileSink {
 }
 
 final ideDownloadServiceProvider = Provider<IdeDownloadService>(
-  (ref) => IdeDownloadService(ref.watch(ideRpcClientProvider)),
+  (ref) => IdeDownloadService(
+    ref.watch(ideRpcClientProvider),
+    allowSave: ref.watch(ideSaveToDeviceProvider),
+  ),
 );

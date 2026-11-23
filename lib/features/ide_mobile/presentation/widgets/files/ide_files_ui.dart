@@ -28,6 +28,8 @@ String ideFilesErrorText(Object error) => switch (error) {
   IdeBusy() => tr('IDE đang bận, thử lại sau.', 'The IDE is busy, try later.'),
   IdeTimeout() => tr('Quá hạn chờ, thử lại.', 'Timed out, try again.'),
   IdeBadRequest() => tr('Yêu cầu không hợp lệ.', 'Invalid request.'),
+  IdeStepKeyInvalidated(:final message) => message,
+  IdeNotAllowed(:final message) => message,
   IdeStepFailed() => tr(
     'Chưa xác nhận được bằng vân tay.',
     'Fingerprint confirmation failed.',

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 
+import '../core/logging/redacting_logger.dart';
 import '../core/network/self_hosted_server_discovery.dart';
 import '../core/network/self_hosted_server_discovery_client.dart';
 import '../core/notifications/native_incoming_call_service.dart';
@@ -20,6 +21,7 @@ import 'providers/foundation_providers.dart';
 
 Future<void> bootstrap({required AppFlavor flavor}) async {
   WidgetsFlutterBinding.ensureInitialized();
+  silenceDebugLogsInRelease();
   await ScopedLocalNotificationService.instance.initialize();
   await ScopedLocalNotificationService.instance.clearMessageNotifications(
     clearPendingTaps: false,

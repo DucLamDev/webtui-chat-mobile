@@ -923,6 +923,42 @@ enum IdeDeviceSecurity {
     result(FlutterError(code: code, message: code, details: nil))
   }
 
+  /// Dấu bộ sinh trắc học đang đăng ký lúc tạo khoá xác nhận (không bí mật).
+  /// Khác dấu hiện tại = đã thêm / xoá vân tay, khuôn mặt: khoá mất hiệu lực.
+  private static func domainStateKey(_ alias: String) -> String {
+    "ide_step_biometry_state_" + alias
+  }
+
+  private enum BiometryState {
+    /// Dấu bộ sinh trắc học đang đăng ký (`nil` nếu hệ thống không trả).
+    case current(Data?)
+    /// Chưa đặt mật mã máy.
+    case noPasscode
+    /// Chưa đăng ký sinh trắc học.
+    case notEnrolled
+    /// Máy không có sinh trắc học.
+    case noHardware
+    /// Tạm không dùng được (khoá vì sai nhiều lần...).
+    case unavailable
+  }
+
+  private static func biometryState() -> BiometryState {
+    let context = LAContext()
+    var error: NSError?
+    if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
+      if #available(iOS 18.0, *) {
+        return .current(context.domainState.biometry.stateHash)
+      }
+      return .current(context.evaluatedPolicyDomainState)
+    }
+    switch (error as? LAError)?.code {
+    case .passcodeNotSet: return .noPasscode
+    case .biometryNotEnrolled: return .notEnrolled
+    case .biometryNotAvailable: return .noHardware
+    default: return .unavailable
+    }
+  }
+
   /// Xoá khoá xác nhận (gắn lại thành công thì xoá khoá cũ, gắn hỏng thì xoá khoá mới).
   private static func deleteStepKey(alias: String?, result: @escaping FlutterResult) {
     guard let alias = alias, !alias.isEmpty, let tag = alias.data(using: .utf8) else {
@@ -936,6 +972,7 @@ enum IdeDeviceSecurity {
           kSecAttrApplicationTag as String: tag,
           kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
         ] as CFDictionary)
+      UserDefaults.standard.removeObject(forKey: domainStateKey(alias))
       DispatchQueue.main.async { result(nil) }
     }
   }
@@ -945,6 +982,24 @@ enum IdeDeviceSecurity {
       keyError("unavailable", result)
       return
     }
+    // Khoá chỉ mở bằng sinh trắc học đang đăng ký (không nhận mật mã máy): máy
+    // phải có mật mã và đã đăng ký Face ID / Touch ID.
+    let biometryAtCreation: Data
+    switch biometryState() {
+    case .current(let state?): biometryAtCreation = state
+    case .current(.none), .unavailable:
+      keyError("unavailable", result)
+      return
+    case .noPasscode:
+      keyError("notEnrolled", result)
+      return
+    case .notEnrolled:
+      keyError("biometricRequired", result)
+      return
+    case .noHardware:
+      keyError("unsupported", result)
+      return
+    }
     DispatchQueue.global(qos: .userInitiated).async {
       SecItemDelete(
         [
@@ -952,12 +1007,14 @@ enum IdeDeviceSecurity {
           kSecAttrApplicationTag as String: tag,
           kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
         ] as CFDictionary)
+      UserDefaults.standard.removeObject(forKey: domainStateKey(alias))
       var cfError: Unmanaged<CFError>?
       guard
         let access = SecAccessControlCreateWithFlags(
           kCFAllocatorDefault,
           kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
-          [.privateKeyUsage, .userPresence],
+          // Thêm / xoá sinh trắc học thì khoá mất hiệu lực.
+          [.privateKeyUsage, .biometryCurrentSet],
           &cfError
         )
       else {
@@ -985,6 +1042,7 @@ enum IdeDeviceSecurity {
         return
       }
       let spki = p256SpkiHeader + raw
+      UserDefaults.standard.set(biometryAtCreation, forKey: domainStateKey(alias))
       DispatchQueue.main.async { result(spki.base64EncodedString()) }
     }
   }
@@ -1001,6 +1059,23 @@ enum IdeDeviceSecurity {
     }
     // Hộp xác nhận chặn luồng gọi, nên ký ở luồng nền.
     DispatchQueue.global(qos: .userInitiated).async {
+      // Bộ sinh trắc học đã đổi từ lúc tạo khoá (hoặc khoá tạo bởi bản cũ, nhận
+      // cả mật mã máy): khoá không dùng được nữa, phải gắn lại.
+      guard let saved = UserDefaults.standard.data(forKey: domainStateKey(alias)) else {
+        DispatchQueue.main.async { keyError("key_invalid", result) }
+        return
+      }
+      switch biometryState() {
+      case .current(let now?) where now == saved:
+        break
+      case .current(.none), .unavailable:
+        DispatchQueue.main.async { keyError("unavailable", result) }
+        return
+      default:
+        // Đã thêm / xoá sinh trắc học (hoặc xoá hết): khoá mất hiệu lực.
+        DispatchQueue.main.async { keyError("key_invalid", result) }
+        return
+      }
       let context = LAContext()
       context.localizedReason = reason
       let query: [String: Any] = [
@@ -1031,7 +1106,10 @@ enum IdeDeviceSecurity {
             && (nsError?.code == LAError.userCancel.rawValue
               || nsError?.code == LAError.appCancel.rawValue
               || nsError?.code == LAError.systemCancel.rawValue))
-        DispatchQueue.main.async { keyError(cancelled ? "cancelled" : "unavailable", result) }
+        var changed = false
+        if !cancelled, case .current(let now?) = biometryState() { changed = now != saved }
+        let code = cancelled ? "cancelled" : changed ? "key_invalid" : "unavailable"
+        DispatchQueue.main.async { keyError(code, result) }
         return
       }
       // Chữ ký X9.62 đã là DER.

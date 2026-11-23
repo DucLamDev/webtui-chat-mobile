@@ -19,6 +19,8 @@ sealed class IdeException implements Exception {
       'unsupported' => IdeUnsupported(text),
       'step_required' => IdeStepRequired(text),
       'step_failed' => IdeStepFailed(text),
+      // Cổng chưa mở thao tác này cho điện thoại: lời cố định, không thử lại.
+      'not_allowed' => const IdeNotAllowed(),
       _ => IdeError(code ?? 'ide_error', text),
     };
   }
@@ -70,6 +72,26 @@ final class IdeStepRequired extends IdeException {
 
 final class IdeStepFailed extends IdeException {
   const IdeStepFailed([String message = '']) : super('step_failed', message);
+  const IdeStepFailed._(super.code, super.message);
+}
+
+/// Lời báo khi khoá xác nhận trong chip đã mất hiệu lực.
+const ideStepKeyInvalidatedText =
+    'Sinh trắc học trên máy đã thay đổi. Cần gắn lại máy với IDE.';
+
+/// Khoá xác nhận mất hiệu lực (thêm / xoá sinh trắc học trên máy): bản gắn
+/// không dùng được nữa, phải gắn lại.
+final class IdeStepKeyInvalidated extends IdeStepFailed {
+  const IdeStepKeyInvalidated()
+    : super._('step_key_invalid', ideStepKeyInvalidatedText);
+}
+
+/// Lời báo khi cổng trả `not_allowed`.
+const ideNotAllowedText = 'Thao tác này chưa được mở cho điện thoại.';
+
+/// Cổng chưa mở thao tác này cho điện thoại (`not_allowed`). Không tự thử lại.
+final class IdeNotAllowed extends IdeException {
+  const IdeNotAllowed() : super('not_allowed', ideNotAllowedText);
 }
 
 final class IdeError extends IdeException {

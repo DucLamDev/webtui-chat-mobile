@@ -146,6 +146,7 @@ import '../../features/ide_mobile/application/ide_access_controller.dart';
 import '../../features/ide_mobile/application/ide_pairing_service.dart';
 import '../../features/ide_mobile/application/ide_step_up.dart';
 import '../../features/ide_mobile/data/biometric_ide_device_security.dart';
+import '../../features/ide_mobile/data/ide_channel.dart' show ideDisabledReason;
 import '../../features/ide_mobile/data/ide_channel_factory.dart';
 import '../../features/ide_mobile/data/ide_connection.dart';
 import '../../features/ide_mobile/data/ide_device_key_store.dart';
@@ -153,7 +154,9 @@ import '../../features/ide_mobile/data/ide_pair_api.dart';
 import '../../features/ide_mobile/data/ide_rpc_client.dart';
 import '../../features/ide_mobile/domain/ide_device_credentials.dart';
 import '../../features/ide_mobile/domain/ide_device_security.dart';
+import '../../features/ide_mobile/domain/ide_errors.dart';
 import '../../features/ide_mobile/domain/ide_ready.dart';
+import '../../features/ide_mobile/domain/ide_server_access.dart';
 import '../../features/inbox/data/datasources/inbox_remote_data_source.dart';
 import '../../features/inbox/data/repositories/inbox_repository_impl.dart';
 import '../../features/inbox/data/repositories/web_socket_inbox_realtime_repository.dart';
@@ -1216,38 +1219,82 @@ final _ideSessionTokenProvider = Provider<String?>((ref) {
   return ref.watch(authAccessTokenProvider.select((v) => v.valueOrNull));
 });
 
+/// Tăng mỗi lần xoá nội dung IDE trong bộ nhớ (app ở nền quá lâu). Kết nối,
+/// client RPC và trạng thái IDE theo dõi giá trị này để dựng lại từ đầu.
+final ideMemoryEpochProvider = StateProvider<int>((_) => 0);
+
 /// Đổi phiên thì dựng bộ khoá mới (đã khoá): người sau phải xác thực lại.
 final ideAccessControllerProvider = Provider<IdeAccessController>((ref) {
   ref.watch(_ideSessionTokenProvider);
-  final controller = IdeAccessController(ref.watch(ideDeviceSecurityProvider));
+  final controller = IdeAccessController(
+    ref.watch(ideDeviceSecurityProvider),
+    onWipe: () => ref.read(ideMemoryEpochProvider.notifier).state++,
+  );
   ref.onDispose(controller.lock);
   return controller;
 });
 
+/// Lời báo vì sao bản gắn vừa bị xoá (vd khoá xác nhận mất hiệu lực); hiện ở
+/// màn "Chưa gắn máy", xoá khi gắn lại.
+final ideRepairNoticeProvider = StateProvider<String?>((ref) {
+  ref.watch(_ideSessionTokenProvider);
+  return null;
+});
+
 /// Khoá máy đã gắn của đúng người + máy chủ đang dùng; `null` = chưa gắn.
+/// Bản gắn của người / máy chủ khác bị xoá hẳn.
 final ideCredentialsProvider = FutureProvider<IdeDeviceCredentials?>((
   ref,
 ) async {
   final token = ref.watch(_ideSessionTokenProvider);
-  final serverScope = ref.watch(activeInstanceScopeProvider).storageId;
+  final pairing = ref.watch(idePairingServiceProvider);
   if (token == null || token.isEmpty) return null;
   final userId = await ref.read(resolveCurrentUserIdUseCaseProvider).execute();
   if (userId == null || userId.isEmpty) return null;
-  return ref
-      .read(ideDeviceKeyStoreProvider)
-      .load(chatUserId: userId, serverScope: serverScope);
+  return pairing.loadCurrent(userId);
+});
+
+/// Máy chủ chat trả 403 `IDE_ACCESS_DENIED` (lý do trong `details.reason`).
+final ideAccessDeniedReasonProvider = StateProvider<String?>((ref) {
+  ref.watch(_ideSessionTokenProvider);
+  return null;
+});
+
+/// `GET /ide/status`; `null` khi không đọc được (giữ hành vi cũ).
+final ideServerStatusProvider = FutureProvider.autoDispose<IdeServerStatus?>((
+  ref,
+) async {
+  ref.watch(_ideSessionTokenProvider);
+  try {
+    return await ref
+        .read(idePairApiProvider)
+        .status()
+        .timeout(const Duration(seconds: 10));
+  } on Object {
+    return null;
+  }
+});
+
+/// Lý do khoá tab IDE (máy chủ tắt IDE / tài khoản chưa đủ điều kiện);
+/// `null` = không khoá (kể cả máy chủ cũ không báo quyền).
+final ideAccessLockProvider = Provider.autoDispose<String?>((ref) {
+  final denied = ref.watch(ideAccessDeniedReasonProvider);
+  if (denied != null) return denied;
+  return ref.watch(ideServerStatusProvider).valueOrNull?.deniedReason;
 });
 
 /// Chức năng IDE báo ở `ready` gần nhất (tab nào hiện).
 final ideCapabilitiesProvider = StateProvider<IdeReady?>((ref) {
   ref.watch(_ideSessionTokenProvider);
+  ref.watch(ideMemoryEpochProvider);
   return null;
 });
 
 /// Màn IDE đặt hàm hiện bảng xác nhận (step-up); chưa đặt thì từ chối ký.
 final ideStepPresenterProvider = StateProvider<IdeStepPresenter?>((_) => null);
 
-final idePairingServiceProvider = Provider<IdePairingService>((ref) {
+final Provider<IdePairingService>
+idePairingServiceProvider = Provider<IdePairingService>((ref) {
   return IdePairingService(
     api: ref.watch(idePairApiProvider),
     keys: ref.watch(ideDeviceKeyStoreProvider),
@@ -1255,16 +1302,22 @@ final idePairingServiceProvider = Provider<IdePairingService>((ref) {
     currentUserId: () =>
         ref.read(resolveCurrentUserIdUseCaseProvider).execute(),
     serverScopeId: ref.watch(activeInstanceScopeProvider).storageId,
-    onPaired: () => ref.invalidate(ideCredentialsProvider),
+    onPaired: () {
+      ref.read(ideRepairNoticeProvider.notifier).state = null;
+      ref.invalidate(ideCredentialsProvider);
+    },
     chatDeviceId: () async =>
         (await ref.read(deviceIdentityRepositoryProvider).currentDevice()).id,
     sessionToken: () => ref.read(_ideSessionTokenProvider),
+    onAccessDenied: (reason) =>
+        ref.read(ideAccessDeniedReasonProvider.notifier).state = reason,
   );
 });
 
 /// Đổi phiên thì bỏ kết nối cũ (đóng mọi stream đã xác thực của người trước).
 final ideConnectionProvider = Provider<IdeConnection>((ref) {
   ref.watch(_ideSessionTokenProvider);
+  ref.watch(ideMemoryEpochProvider);
   final factory = IdeChannelFactory(
     wsBaseUri: ref.watch(activeServerWsUriProvider),
     serverScopeId: ref.watch(activeInstanceScopeProvider).storageId,
@@ -1294,6 +1347,17 @@ final ideConnectionProvider = Provider<IdeConnection>((ref) {
       ref.invalidate(ideCredentialsProvider);
     },
   );
+  // Máy chủ chat từ chối nối (403): hỏi lại `GET /ide/status` để biết lý do
+  // (máy chủ mới) và hiện màn khoá thay vì nối lại.
+  final statuses = connection.statuses.listen((status) {
+    if (status.phase != IdeLinkPhase.idle) return;
+    if (status.reason == 'forbidden') ref.invalidate(ideServerStatusProvider);
+    // Trạm tắt IDE (đóng stream lý do `disabled`): hiện màn khoá ngay.
+    if (status.reason == ideDisabledReason) {
+      ref.read(ideAccessDeniedReasonProvider.notifier).state = 'disabled';
+    }
+  });
+  ref.onDispose(statuses.cancel);
   ref.onDispose(connection.dispose);
   return connection;
 });
@@ -1307,6 +1371,13 @@ final ideStepUpProvider = Provider<IdeStepUp>((ref) {
     },
     alias: () =>
         ref.read(ideCredentialsProvider).valueOrNull?.stepKeyAlias ?? '',
+    onKeyInvalidated: () async {
+      await ref.read(idePairingServiceProvider).forgetInvalidatedKey();
+      ref.read(ideRepairNoticeProvider.notifier).state =
+          ideStepKeyInvalidatedText;
+      ref.read(ideCapabilitiesProvider.notifier).state = null;
+      ref.invalidate(ideCredentialsProvider);
+    },
   );
 });
 

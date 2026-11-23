@@ -1,23 +1,39 @@
 import 'dart:developer' as developer;
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 typedef LogSink = void Function(String message);
 
+/// Bản phát hành: `debugPrint` không in gì (không ra logcat / nhật ký máy).
+/// Gọi một lần lúc khởi động; [release] để test giả lập bản phát hành.
+void silenceDebugLogsInRelease({bool release = kReleaseMode}) {
+  if (!release) return;
+  debugPrint = (String? message, {int? wrapWidth}) {};
+}
+
+/// Nhật ký đã che token / mật khẩu / link mời. Bản phát hành không ghi gì
+/// ([release] để test giả lập bản phát hành).
 final class RedactingLogger {
-  RedactingLogger({LogSink? sink}) : _sink = sink ?? _defaultSink;
+  RedactingLogger({LogSink? sink, bool release = kReleaseMode})
+    : _sink = sink ?? _defaultSink,
+      _enabled = !release;
 
   final LogSink _sink;
+  final bool _enabled;
 
   void debug(String message, [Map<String, Object?> context = const {}]) {
+    if (!_enabled) return;
     _sink(_format('DEBUG', message, context));
   }
 
   void info(String message, [Map<String, Object?> context = const {}]) {
+    if (!_enabled) return;
     _sink(_format('INFO', message, context));
   }
 
   void warning(String message, [Map<String, Object?> context = const {}]) {
+    if (!_enabled) return;
     _sink(_format('WARN', message, context));
   }
 

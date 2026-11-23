@@ -235,7 +235,7 @@ class IdeAiSessionController extends StateNotifier<IdeAiSnapshot> {
       channel = await _connection.openStream(IdeStreamKind.ai, first);
     } on IdeHandshakeException catch (error) {
       if (_disposed || generation != _generation) return;
-      if (error.fatal) {
+      if (error.fatal || error.notAllowed) {
         _closeFor(error.reason);
       } else {
         _scheduleRetry();
@@ -277,7 +277,10 @@ class IdeAiSessionController extends StateNotifier<IdeAiSnapshot> {
     _sub = null;
     _failWaiters('Mất kết nối với IDE.');
     if (_disposed || close.reason == 'local') return;
-    if (close.refused || close.reason == 'session_revoked') {
+    if (close.refused ||
+        close.notAllowed ||
+        close.disabled ||
+        close.reason == 'session_revoked') {
       _closeFor(close.reason);
       return;
     }
@@ -390,7 +393,10 @@ class IdeAiSessionController extends StateNotifier<IdeAiSnapshot> {
   }
 
   void _onError(Map<String, Object?> frame) {
-    final message = frame['message'] is String
+    final notAllowed = frame['code'] == 'not_allowed';
+    final message = notAllowed
+        ? ideNotAllowedText
+        : frame['message'] is String
         ? frame['message']! as String
         : 'IDE báo lỗi.';
     final id = frame['id'] is String ? frame['id']! as String : null;
@@ -398,7 +404,13 @@ class IdeAiSessionController extends StateNotifier<IdeAiSnapshot> {
     // Lời chờ có mã trùng: báo lỗi cho nơi đang chờ, không hiện hai lần.
     for (final key in _waiters.keys.toList()) {
       if (id != null && key.endsWith(':$id')) {
-        _waiters.remove(key)!.completeError(IdeError('ide_error', message));
+        _waiters
+            .remove(key)!
+            .completeError(
+              notAllowed
+                  ? const IdeNotAllowed()
+                  : IdeError('ide_error', message),
+            );
         return;
       }
     }
@@ -549,9 +561,14 @@ class IdeAiSessionController extends StateNotifier<IdeAiSnapshot> {
   }
 
   /// Gửi một lệnh bảng mục 4. Luôn đặt `type`, không bao giờ `action`.
+  /// `configure` đổi `permissions.mode` sang chế độ điện thoại không được bật
+  /// ([ideAiPhoneBlockedModes]) thì bỏ khung.
   bool command(String type, [Map<String, Object?> fields = const {}]) {
     assert(sendableTypes.contains(type), 'Lệnh lạ: $type');
     if (!sendableTypes.contains(type) || fields.containsKey('action')) {
+      return false;
+    }
+    if (type == 'configure' && ideAiConfigureBlocked(fields['settings'])) {
       return false;
     }
     final frame = <String, Object?>{...fields, 'type': type};
@@ -762,4 +779,17 @@ final class IdeClientIdStore {
     await _store.write(SecureStoreKey.ideClientId, fresh);
     return _cached = fresh;
   }
+}
+
+/// Chế độ quyền AI điện thoại không được bật (chỉ đặt được từ máy tính).
+const ideAiPhoneBlockedModes = {'auto'};
+
+/// `settings` của `configure` có đổi `permissions.mode` sang chế độ bị chặn.
+bool ideAiConfigureBlocked(Object? settings) {
+  if (settings is! Map) return false;
+  final perms = settings['permissions'];
+  if (perms is! Map) return false;
+  final mode = perms['mode'];
+  return mode is String &&
+      ideAiPhoneBlockedModes.contains(mode.trim().toLowerCase());
 }

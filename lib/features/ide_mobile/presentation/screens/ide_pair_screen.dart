@@ -47,12 +47,19 @@ String idePairOutcomeText(IdePairOutcome outcome) => switch (outcome) {
     'Set a screen lock on this phone to use the IDE',
   ),
   IdePairOutcome.biometricRequired => tr(
-    'Máy này cần đăng ký vân tay hoặc khuôn mặt để dùng IDE.',
+    'Máy này cần đăng ký vân tay hoặc khuôn mặt (loại bảo mật mạnh) để dùng '
+        'IDE.',
     'Enrol a fingerprint or face on this phone to use the IDE.',
   ),
   IdePairOutcome.unsupported => tr(
-    'IDE cần Android 9 trở lên.',
-    'The IDE needs Android 9 or newer.',
+    'Máy này chưa đủ điều kiện dùng IDE: cần Android 9 trở lên và chip bảo '
+        'mật phần cứng.',
+    'This phone cannot use the IDE: it needs Android 9 or newer and a '
+        'hardware security chip.',
+  ),
+  IdePairOutcome.accessDenied => tr(
+    'Tài khoản này chưa được dùng IDE trên điện thoại.',
+    'This account cannot use the IDE on a phone yet.',
   ),
   IdePairOutcome.failed => tr(
     'Không gắn được máy. Hãy thử lại.',
