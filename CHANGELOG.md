@@ -3,6 +3,16 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.65.0 · 23/11/2026
+### Tính năng
+- Đăng nhập trên điện thoại hỗ trợ xác thực hai lớp: sau mật khẩu, đăng nhập bằng tài khoản công ty (SSO) hoặc mã email,
+  màn mới hiện rõ tài khoản đang đăng nhập, ô mã chia 6 ô (dán được cả mã, đủ 6 số tự xác minh), "Thử cách khác" để dùng
+  mã khôi phục; báo số lần thử còn lại, chỉ đếm giờ ở phút cuối, hết hạn thì mời đăng nhập lại. Tài khoản chỉ bật passkey
+  được hướng dẫn mở trang đăng nhập trên trình duyệt (app chưa hỗ trợ passkey). Cần cho máy chủ chat bản mới (bắt buộc
+  bước hai khi đăng nhập).
+- Xoá tài khoản phải xác thực lại trước khi xoá; tắt xác thực hai lớp phải nhập mã xác thực.
+- Đăng nhập SSO bỏ dở quá 10 phút sẽ tự huỷ, cần bấm đăng nhập lại.
+
 ## 1.64.0 · 23/11/2026
 ### Phê duyệt: hiện nội dung đọc được của yêu cầu
 - Màn chi tiết của yêu cầu phê duyệt do bot / hệ thống khác gửi (vd bài mạng xã hội chờ duyệt) nay hiện nội dung đọc được,

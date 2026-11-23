@@ -32,8 +32,9 @@ final class _Mfa implements MfaRepository {
 
 void main() {
   Future<({String? Function() result, _Mfa mfa})> open(
-    WidgetTester tester,
-  ) async {
+    WidgetTester tester, {
+    bool secondFactorOnly = false,
+  }) async {
     final mfa = _Mfa();
     String? result = 'chưa trả';
     await tester.pumpWidget(
@@ -48,6 +49,7 @@ void main() {
                   context,
                   ref,
                   reason: 'Xem tin bí mật trong tối đa 60 giây',
+                  secondFactorOnly: secondFactorOnly,
                 );
               },
               child: const Text('mở'),
@@ -160,4 +162,20 @@ void main() {
       await tester.pumpAndSettle();
     },
   );
+
+  testWidgets('chế độ yếu tố thứ hai không cho chọn mật khẩu', (tester) async {
+    final opened = await open(tester, secondFactorOnly: true);
+    expect(find.text('Mật khẩu'), findsNothing);
+    expect(find.text('Mã OTP'), findsOneWidget);
+    expect(find.text('Khôi phục'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).obscureText,
+      isFalse,
+    );
+    await tester.enterText(find.byType(TextField), '123456');
+    await tester.tap(find.byKey(const Key('reauth_confirm')));
+    await tester.pumpAndSettle();
+    expect(opened.mfa.calls, ['totp:123456']);
+    expect(opened.result(), 'proof');
+  });
 }

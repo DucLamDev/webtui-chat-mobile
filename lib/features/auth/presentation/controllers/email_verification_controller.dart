@@ -5,8 +5,10 @@ import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../application/use_cases/email_verification_use_cases.dart';
+import '../../application/use_cases/login_mfa_use_cases.dart';
 import '../../domain/entities/auth_session.dart';
 import '../../domain/entities/email_verification.dart';
+import '../../domain/entities/login_mfa.dart';
 
 final class EmailVerificationState {
   const EmailVerificationState({
@@ -19,6 +21,7 @@ final class EmailVerificationState {
     this.infoMessage,
     this.mustResend = false,
     this.verifiedSession,
+    this.mfaChallenge,
   });
 
   final EmailVerificationTicket ticket;
@@ -35,10 +38,14 @@ final class EmailVerificationState {
   /// Xác minh xong: phiên đăng nhập (có thể còn chờ duyệt thiết bị).
   final AuthSession? verifiedSession;
 
+  /// Email đã xác minh nhưng tài khoản bật xác thực hai lớp: mở bước nhập mã.
+  final LoginMfaChallenge? mfaChallenge;
+
   bool get canSubmit =>
       !isVerifying &&
       !mustResend &&
       verifiedSession == null &&
+      mfaChallenge == null &&
       RegExp(r'^\d{6}$').hasMatch(code);
 
   EmailVerificationState copyWith({
@@ -53,6 +60,7 @@ final class EmailVerificationState {
     bool clearInfo = false,
     bool? mustResend,
     AuthSession? verifiedSession,
+    LoginMfaChallenge? mfaChallenge,
   }) {
     return EmailVerificationState(
       ticket: ticket ?? this.ticket,
@@ -64,6 +72,7 @@ final class EmailVerificationState {
       infoMessage: clearInfo ? null : infoMessage ?? this.infoMessage,
       mustResend: mustResend ?? this.mustResend,
       verifiedSession: verifiedSession ?? this.verifiedSession,
+      mfaChallenge: mfaChallenge ?? this.mfaChallenge,
     );
   }
 }
@@ -127,6 +136,11 @@ final class EmailVerificationController
       case Success<AuthSession>(:final value):
         state = state.copyWith(isVerifying: false, verifiedSession: value);
       case FailureResult<AuthSession>(:final failure):
+        final challenge = loginMfaChallengeOf(failure);
+        if (challenge != null) {
+          state = state.copyWith(isVerifying: false, mfaChallenge: challenge);
+          return;
+        }
         final mustResend =
             failure.hasCode(EmailVerificationErrorCode.codeLocked) ||
             failure.hasCode(EmailVerificationErrorCode.codeExpired) ||

@@ -202,6 +202,19 @@ final class AuthRemoteDataSource {
     return _authSessionFromResponse(response.data);
   }
 
+  /// Bước hai của đăng nhập: phản hồi thành công y như `/auth/login`.
+  Future<AuthSession> completeLoginMfa({
+    required String mfaToken,
+    required String method,
+    required String code,
+  }) async {
+    final response = await _api.post<Object>(
+      '/api/v1/auth/login/mfa',
+      data: {'mfa_token': mfaToken, 'method': method, 'code': code},
+    );
+    return _authSessionFromResponse(response.data);
+  }
+
   Future<AuthSession> refresh(String refreshToken) async {
     final response = await _api.post<Object>(
       '/api/v1/auth/refresh',

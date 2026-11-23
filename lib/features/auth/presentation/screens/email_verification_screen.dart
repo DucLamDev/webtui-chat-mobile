@@ -14,8 +14,10 @@ import '../../../../l10n/app_strings.dart';
 import '../../../workspace/presentation/screens/workspace_selector_screen.dart';
 import '../../domain/entities/auth_session.dart';
 import '../../domain/entities/email_verification.dart';
+import '../controllers/auth_flow_providers.dart';
 import '../controllers/email_verification_controller.dart';
 import 'device_approval_pending_screen.dart';
+import 'login_mfa_screen.dart';
 
 const emailVerificationPath = '/verify-email';
 
@@ -84,6 +86,13 @@ class _EmailVerificationScreenState
       final session = next.verifiedSession;
       if (session != null && previous?.verifiedSession == null) {
         _onVerified(session);
+      }
+      final challenge = next.mfaChallenge;
+      if (challenge != null && previous?.mfaChallenge == null) {
+        ref.read(pendingLoginMfaIdentifierProvider.notifier).state =
+            ticket.emailHint;
+        ref.read(pendingLoginMfaChallengeProvider.notifier).state = challenge;
+        context.go(loginMfaPath);
       }
       if (next.code.isEmpty && _codeController.text.isNotEmpty) {
         _codeController.clear();

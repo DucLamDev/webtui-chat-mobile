@@ -6,6 +6,7 @@ import '../../domain/entities/email_verification.dart';
 import '../../domain/repositories/auth_token_repository.dart';
 import '../../domain/repositories/device_identity_repository.dart';
 import '../../domain/repositories/email_verification_repository.dart';
+import 'login_mfa_use_cases.dart';
 
 final _codePattern = RegExp(r'^\d{6}$');
 
@@ -60,6 +61,11 @@ final class VerifyEmailCodeUseCase {
         )) {
           throw StateError('Active instance changed during verification.');
         }
+      }
+      if (result case FailureResult<AuthSession>(:final failure)) {
+        return FailureResult(
+          attachLoginMfaChallenge(failure, guard: guard, remember: true),
+        );
       }
       return result;
     } on Object catch (error) {

@@ -25,10 +25,12 @@ void main() {
     final result = await useCase.execute(
       confirmation: ' delete ',
       ownershipSuccessorEmail: ' successor@example.com ',
+      reauthToken: ' reauth-1 ',
     );
 
     expect(result.isSuccess, isTrue);
     expect(account.confirmation, 'DELETE');
+    expect(account.reauthToken, 'reauth-1');
     expect(account.ownershipSuccessorEmail, 'successor@example.com');
     expect(session.resetCalls, 1);
     expect(appLock.disableCalls, 1);
@@ -53,7 +55,7 @@ void main() {
       appLockRepository: appLock,
     );
 
-    final result = await useCase.execute();
+    final result = await useCase.execute(reauthToken: 'reauth-1');
 
     expect(result.failureOrNull?.code, 'ACCOUNT_DELETE_FAILED');
     expect(session.resetCalls, 0);
@@ -79,11 +81,33 @@ void main() {
       appLockRepository: _FakeAppLockRepository(),
     );
 
-    final result = await useCase.execute();
+    final result = await useCase.execute(reauthToken: 'reauth-1');
 
     expect(result.failureOrNull?.kind, FailureKind.conflict);
     expect(result.failureOrNull?.message, serverMessage);
   });
+
+  test(
+    'without a re-authentication token the account is never deleted',
+    () async {
+      for (final token in const [null, '', '   ']) {
+        final account = _FakeAccountRepository(const Success(null));
+        final session = _FakeSessionStateRepository();
+        final useCase = DeleteAccountUseCase(
+          accountRepository: account,
+          tokenRepository: _FakeTokenRepository(),
+          sessionStateRepository: session,
+          appLockRepository: _FakeAppLockRepository(),
+        );
+
+        final result = await useCase.execute(reauthToken: token);
+
+        expect(result.failureOrNull?.code, 'REAUTH_REQUIRED');
+        expect(account.calls, 0);
+        expect(session.resetCalls, 0);
+      }
+    },
+  );
 
   test('rejects an ambiguous destructive confirmation locally', () async {
     final account = _FakeAccountRepository(const Success(null));
@@ -94,7 +118,10 @@ void main() {
       appLockRepository: _FakeAppLockRepository(),
     );
 
-    final result = await useCase.execute(confirmation: 'YES');
+    final result = await useCase.execute(
+      confirmation: 'YES',
+      reauthToken: 'reauth-1',
+    );
 
     expect(result.failureOrNull?.code, 'ACCOUNT_DELETE_CONFIRMATION_INVALID');
     expect(account.calls, 0);
@@ -121,7 +148,7 @@ void main() {
         appLockRepository: appLock,
       );
 
-      final pending = useCase.execute();
+      final pending = useCase.execute(reauthToken: 'reauth-1');
       await Future<void>.delayed(Duration.zero);
       const guardB = AuthTokenMutationGuard(
         instanceScopeId: 'scope-b',
@@ -154,13 +181,16 @@ final class _FakeAccountRepository implements AccountRepository {
   int calls = 0;
   String? confirmation;
   String? ownershipSuccessorEmail;
+  String? reauthToken;
 
   @override
   Future<Result<void>> deleteAccount({
     required String confirmation,
+    required String reauthToken,
     String? ownershipSuccessorEmail,
   }) async {
     calls += 1;
+    this.reauthToken = reauthToken;
     this.confirmation = confirmation;
     this.ownershipSuccessorEmail = ownershipSuccessorEmail;
     return resultFuture ?? result;

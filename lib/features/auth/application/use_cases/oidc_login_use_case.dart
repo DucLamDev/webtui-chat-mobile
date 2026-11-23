@@ -10,6 +10,7 @@ import '../../domain/repositories/auth_repository.dart';
 import '../../domain/repositories/auth_token_repository.dart';
 import '../../domain/repositories/device_identity_repository.dart';
 import '../oidc_pkce.dart';
+import 'login_mfa_use_cases.dart';
 
 final class OidcLoginUseCase {
   OidcLoginUseCase({
@@ -18,17 +19,23 @@ final class OidcLoginUseCase {
     required DeviceIdentityRepository deviceIdentityRepository,
     required Uri? Function() loadExpectedServerOrigin,
     Uuid uuid = const Uuid(),
+    DateTime Function()? clock,
   }) : _authRepository = authRepository,
        _tokenRepository = tokenRepository,
        _deviceIdentityRepository = deviceIdentityRepository,
        _loadExpectedServerOrigin = loadExpectedServerOrigin,
-       _uuid = uuid;
+       _uuid = uuid,
+       _clock = clock ?? DateTime.now;
+
+  /// Bằng thời hạn `state` OIDC của máy chủ: quá hạn thì bỏ verifier của lượt.
+  static const pendingAttemptTtl = Duration(minutes: 10);
 
   final AuthRepository _authRepository;
   final AuthTokenRepository _tokenRepository;
   final DeviceIdentityRepository _deviceIdentityRepository;
   final Uri? Function() _loadExpectedServerOrigin;
   final Uuid _uuid;
+  final DateTime Function() _clock;
   _PendingOidcAttempt? _pendingAttempt;
   int _attemptGeneration = 0;
 
@@ -108,6 +115,7 @@ final class OidcLoginUseCase {
           domain: normalizedDomain,
           guard: guard,
           codeVerifier: pkce.verifier,
+          expiresAt: _clock().toUtc().add(pendingAttemptTtl),
         );
       }
       return result;
@@ -171,6 +179,18 @@ final class OidcLoginUseCase {
     }
     _pendingAttempt = null;
     _attemptGeneration++;
+    if (!_clock().toUtc().isBefore(pending.expiresAt)) {
+      return FailureResult(
+        Failure(
+          kind: FailureKind.unauthorized,
+          code: 'OIDC_ATTEMPT_EXPIRED',
+          message: tr(
+            'Lượt đăng nhập SSO đã hết hạn. Vui lòng thử lại.',
+            'The SSO sign-in has expired. Please try again.',
+          ),
+        ),
+      );
+    }
     try {
       final guard = await _tokenRepository.captureMutationGuard();
       if (guard == null || guard != pending.guard) {
@@ -196,6 +216,11 @@ final class OidcLoginUseCase {
         )) {
           throw StateError('Active instance changed during OIDC completion.');
         }
+      }
+      if (result case FailureResult<AuthSession>(:final failure)) {
+        return FailureResult(
+          attachLoginMfaChallenge(failure, guard: guard, remember: remember),
+        );
       }
       return result;
     } on Object catch (error) {
@@ -231,6 +256,7 @@ final class _PendingOidcAttempt {
     required this.domain,
     required this.guard,
     required this.codeVerifier,
+    required this.expiresAt,
   });
 
   final String id;
@@ -239,6 +265,7 @@ final class _PendingOidcAttempt {
 
   /// Verifier PKCE của lượt này: chỉ giữ trong bộ nhớ, không ghi đĩa, không log.
   final String codeVerifier;
+  final DateTime expiresAt;
 }
 
 String _domainHost(String value) {
