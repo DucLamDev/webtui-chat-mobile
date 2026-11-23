@@ -3,6 +3,19 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.63.0 · 23/11/2026
+### Phê duyệt: hiện nội dung đọc được của yêu cầu
+- Màn chi tiết của yêu cầu phê duyệt do bot / hệ thống khác gửi (vd bài mạng xã hội chờ duyệt) nay hiện nội dung đọc được,
+  thay cho dữ liệu dạng mã:
+  - chữ, chọn / chép được;
+  - ảnh, bấm để xem lớn;
+  - các ô thông tin;
+  - nút mở liên kết https bằng trình duyệt ngoài.
+- Danh sách phê duyệt hiện một dòng tóm tắt nội dung.
+- Yêu cầu đã huỷ hiện kèm lý do. Kết quả thực hiện hiện theo nhãn bên gửi (vd "Đã đăng", "Đăng lỗi: …").
+- Hiện email người đã duyệt / từ chối.
+- Máy chủ chưa gửi các trường mới thì màn hiện như trước.
+
 ## 1.62.0 · 20/11/2026
 ### IDE trên app: hoàn thiện phần còn thiếu
 - **Kết nối**: phiên đăng nhập app vừa hết hạn thì app tự làm mới rồi nối lại IDE một lần, không bắt đăng nhập lại.
