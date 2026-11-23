@@ -205,37 +205,59 @@ class _ApprovalListBodyState extends ConsumerState<_ApprovalListBody>
             );
           }
           final item = state.items[index];
-          return Card(
-            key: Key('approval_item_${item.id}'),
-            child: ListTile(
-              title: Text(
-                item.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ApprovalStatusText(approval: item),
-                  Text(
-                    '${item.sourceLabel} · '
-                    '${item.approvalsCount}/${item.requiredApprovals} ${tr('phiếu', 'votes')}'
-                    '${item.expiresAt == null ? '' : ' · ${tr('hạn', 'due')} ${formatApprovalTime(item.expiresAt!)}'}',
-                  ),
-                ],
-              ),
-              trailing: item.canDecide && item.isPending
-                  ? const Icon(Icons.how_to_vote_outlined)
-                  : const Icon(Icons.chevron_right_rounded),
-              onTap: () => context.push(
-                approvalDetailLocation(
-                  approvalId: item.id,
-                  workspaceId: widget.workspaceId,
-                ),
+          return ApprovalListTile(
+            approval: item,
+            onTap: () => context.push(
+              approvalDetailLocation(
+                approvalId: item.id,
+                workspaceId: widget.workspaceId,
               ),
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Một dòng trong danh sách: tiêu đề, dòng đầu của nội dung (nếu có khối
+/// `display`), trạng thái và số phiếu.
+class ApprovalListTile extends StatelessWidget {
+  const ApprovalListTile({required this.approval, this.onTap, super.key});
+
+  final ApprovalRequest approval;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final item = approval;
+    final preview = item.content?.firstLine ?? '';
+    return Card(
+      key: Key('approval_item_${item.id}'),
+      child: ListTile(
+        title: Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (preview.isNotEmpty)
+              Text(
+                preview,
+                key: Key('approval_item_preview_${item.id}'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ApprovalStatusText(approval: item),
+            Text(
+              '${item.sourceLabel} · '
+              '${item.approvalsCount}/${item.requiredApprovals} ${tr('phiếu', 'votes')}'
+              '${item.expiresAt == null ? '' : ' · ${tr('hạn', 'due')} ${formatApprovalTime(item.expiresAt!)}'}',
+            ),
+          ],
+        ),
+        trailing: item.canDecide && item.isPending
+            ? const Icon(Icons.how_to_vote_outlined)
+            : const Icon(Icons.chevron_right_rounded),
+        onTap: onTap,
       ),
     );
   }
