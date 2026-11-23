@@ -19,6 +19,7 @@ final class SelfHostedServerDiscovery {
     required this.minimumSupportedMobileVersion,
     required this.capabilities,
     this.logoUrl,
+    this.adminBaseUri,
     this.zoneKind = '',
     this.privacyPolicy = const SelfHostedPrivacyPolicy(),
     this.sessionPolicy = const SessionPolicy(),
@@ -207,6 +208,8 @@ final class SelfHostedServerDiscovery {
         aiStreaming: capabilities['ai_streaming'] == true,
         transcription: capabilities['transcription'] == true,
         myNotes: capabilities['my_notes'] == true,
+        // IDE trên điện thoại (cổng IDE đã cấu hình); thiếu trường = tắt.
+        ide: capabilities['ide'] == true,
         secretMessages: capabilities['secret_messages'] == true,
         mfa: capabilities['mfa'] == true,
         // Lõi 5: phê duyệt chung; máy chủ cũ không trả → tắt.
@@ -227,6 +230,10 @@ final class SelfHostedServerDiscovery {
         readReceipts: capabilities['read_receipts'] == true,
       ),
       logoUrl: logoUrl,
+      adminBaseUri: _sameOriginPageUriOrNull(
+        _text(runtime['admin_base_url']),
+        requestedServer,
+      ),
       zoneKind: _text(zone['kind']).toLowerCase(),
       privacyPolicy: SelfHostedPrivacyPolicy.fromJson(privacyPolicy),
       sessionPolicy: SessionPolicy.fromJson(
@@ -267,6 +274,11 @@ final class SelfHostedServerDiscovery {
   final String minimumSupportedMobileVersion;
   final SelfHostedCapabilities capabilities;
   final String? logoUrl;
+
+  /// Trang quản trị (`runtime.admin_base_url`). Chỉ nhận http / https cùng origin
+  /// với instance, không có query / fragment; khác thì null và app tự dùng
+  /// `<origin>/admin/` (xem admin_panel_access.dart).
+  final Uri? adminBaseUri;
 
   /// Chính sách riêng tư (khoá máy, tin bí mật); máy chủ cũ không trả thì dùng mặc định.
   final SelfHostedPrivacyPolicy privacyPolicy;
@@ -309,6 +321,7 @@ final class SelfHostedServerDiscovery {
         'runtime': {
           'api_base_url': apiBaseUri.toString(),
           'ws_base_url': wsBaseUri.toString(),
+          if (adminBaseUri != null) 'admin_base_url': adminBaseUri.toString(),
           'app_name': name,
           'logo_url': logoUrl,
           'api_contract_version': apiContractVersion,
@@ -398,6 +411,7 @@ final class SelfHostedCapabilities {
     this.aiStreaming = false,
     this.transcription = false,
     this.myNotes = false,
+    this.ide = false,
     this.secretMessages = false,
     this.mfa = false,
     this.approvals = false,
@@ -438,6 +452,9 @@ final class SelfHostedCapabilities {
 
   /// Sổ ghi chú cá nhân My Note.
   final bool myNotes;
+
+  /// Mục IDE (cổng IDE đã cấu hình ở máy chủ chat).
+  final bool ide;
 
   /// Tin nhắn bí mật tự xoá.
   final bool secretMessages;
@@ -495,6 +512,7 @@ final class SelfHostedCapabilities {
       'ai_streaming': aiStreaming,
       'transcription': transcription,
       'my_notes': myNotes,
+      'ide': ide,
       'secret_messages': secretMessages,
       'mfa': mfa,
       'approvals': approvals,
@@ -663,6 +681,23 @@ Uri _httpRuntimeUri(String value, Uri requestedServer, String label) {
   return parsed;
 }
 
+/// Địa chỉ trang web của instance (vd. trang quản trị): http / https, cùng origin
+/// với instance, không có tài khoản / query / fragment. Sai thì null (trường tuỳ
+/// chọn, không làm hỏng discovery).
+Uri? _sameOriginPageUriOrNull(String value, Uri requestedServer) {
+  if (value.isEmpty) return null;
+  final parsed = Uri.tryParse(value);
+  if (parsed == null ||
+      (parsed.scheme != 'https' && parsed.scheme != 'http') ||
+      parsed.userInfo.isNotEmpty ||
+      parsed.hasQuery ||
+      parsed.hasFragment ||
+      !serverOriginsMatch(parsed, requestedServer)) {
+    return null;
+  }
+  return parsed;
+}
+
 Uri _wsRuntimeUri(String value, Uri requestedServer) {
   final parsed = parseSelfHostedWebSocketUri(value);
   final expectedScheme = requestedServer.scheme == 'https' ? 'wss' : 'ws';
@@ -698,11 +733,7 @@ Uri _defaultWsUri(Uri server) {
   );
 }
 
-bool _isLocalHost(String host) {
-  return host == 'localhost' ||
-      host == '127.0.0.1' ||
-      host.endsWith('.localhost');
-}
+bool _isLocalHost(String host) => isLoopbackDevServerHost(host);
 
 Map<String, Object?> _jsonMap(Object? value) {
   if (value is! Map) {

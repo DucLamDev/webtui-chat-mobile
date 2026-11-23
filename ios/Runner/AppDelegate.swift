@@ -142,6 +142,8 @@ import flutter_callkit_incoming
 
     FlutterMethodChannel(name: "webtui/biometric", binaryMessenger: messenger)
       .setMethodCallHandler { call, result in
+        // Mục IDE: mở mục bằng khoá máy + khoá xác nhận P-256 trong Secure Enclave.
+        if IdeDeviceSecurity.handle(call, result: result) { return }
         let context = LAContext()
         var policyError: NSError?
         let available = context.canEvaluatePolicy(
@@ -188,6 +190,36 @@ import flutter_callkit_incoming
           return
         }
         UIApplication.shared.open(url, options: [:]) { opened in result(opened) }
+      }
+
+    FlutterMethodChannel(name: "webtui/downloads", binaryMessenger: messenger)
+      .setMethodCallHandler { [weak self] call, result in
+        guard call.method == "shareFile",
+          let arguments = call.arguments as? [String: Any],
+          let path = arguments["path"] as? String
+        else {
+          result(FlutterMethodNotImplemented)
+          return
+        }
+        let url = URL(fileURLWithPath: path)
+        let allowedRoots = [
+          FileManager.default.temporaryDirectory,
+          FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first,
+        ].compactMap { $0?.resolvingSymlinksInPath().path }
+        let target = url.resolvingSymlinksInPath().path
+        guard allowedRoots.contains(where: { target.hasPrefix($0 + "/") }) else {
+          result(FlutterError(code: "BAD_PATH", message: "Tệp không nằm trong thư mục tạm của app.", details: nil))
+          return
+        }
+        let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        if let root = self?.window?.rootViewController {
+          controller.popoverPresentationController?.sourceView = root.view
+          controller.popoverPresentationController?.sourceRect = CGRect(
+            x: root.view.bounds.midX, y: root.view.bounds.maxY - 1, width: 1, height: 1)
+          root.present(controller, animated: true) { result(nil) }
+        } else {
+          result(FlutterError(code: "NO_UI", message: "Không có màn hình để chia sẻ.", details: nil))
+        }
       }
 
     FlutterMethodChannel(name: "webtui/privacy", binaryMessenger: messenger)
@@ -823,6 +855,265 @@ final class VideoCompressBridge {
           result(FlutterError(code: "OUTPUT_FAILED", message: error.localizedDescription, details: nil))
         }
       }
+    }
+  }
+}
+
+/// Khoá màn hình / Face ID cho mục IDE (kênh `webtui/biometric`).
+enum IdeDeviceSecurity {
+  // Phần đầu SubjectPublicKeyInfo của khoá công khai P-256 (26 byte), theo sau là điểm X9.63 65 byte.
+  private static let p256SpkiHeader = Data([
+    0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01,
+    0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07, 0x03, 0x42, 0x00,
+  ])
+
+  /// true nếu đã xử lý lệnh (là một trong các lệnh IDE).
+  static func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) -> Bool {
+    let arguments = call.arguments as? [String: Any]
+    switch call.method {
+    case "authenticateDeviceOwner":
+      authenticate(reason: arguments?["reason"] as? String ?? "Xác nhận để dùng IDE", result: result)
+    case "createStepKey":
+      createStepKey(alias: arguments?["alias"] as? String, result: result)
+    case "deleteStepKey":
+      deleteStepKey(alias: arguments?["alias"] as? String, result: result)
+    case "uptimeMs":
+      // CLOCK_MONOTONIC trên Darwin tính cả lúc máy ngủ, người dùng không chỉnh được.
+      result(NSNumber(value: clock_gettime_nsec_np(CLOCK_MONOTONIC) / 1_000_000))
+    case "signWithStepKey":
+      signWithStepKey(
+        alias: arguments?["alias"] as? String,
+        dataBase64: arguments?["data"] as? String,
+        reason: arguments?["reason"] as? String ?? "Xác nhận thao tác IDE",
+        result: result
+      )
+    default:
+      return false
+    }
+    return true
+  }
+
+  private static func authenticate(reason: String, result: @escaping FlutterResult) {
+    let context = LAContext()
+    var policyError: NSError?
+    guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &policyError) else {
+      let code = (policyError as? LAError)?.code
+      result(code == .passcodeNotSet ? "notEnrolled" : "unavailable")
+      return
+    }
+    context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, error in
+      DispatchQueue.main.async {
+        if success {
+          result("ok")
+          return
+        }
+        switch (error as? LAError)?.code {
+        case .userCancel, .appCancel, .systemCancel:
+          result("cancelled")
+        case .passcodeNotSet, .biometryNotEnrolled:
+          result("notEnrolled")
+        default:
+          result("unavailable")
+        }
+      }
+    }
+  }
+
+  private static func keyError(_ code: String, _ result: FlutterResult) {
+    result(FlutterError(code: code, message: code, details: nil))
+  }
+
+  /// Dấu bộ sinh trắc học đang đăng ký lúc tạo khoá xác nhận (không bí mật).
+  /// Khác dấu hiện tại = đã thêm / xoá vân tay, khuôn mặt: khoá mất hiệu lực.
+  private static func domainStateKey(_ alias: String) -> String {
+    "ide_step_biometry_state_" + alias
+  }
+
+  private enum BiometryState {
+    /// Dấu bộ sinh trắc học đang đăng ký (`nil` nếu hệ thống không trả).
+    case current(Data?)
+    /// Chưa đặt mật mã máy.
+    case noPasscode
+    /// Chưa đăng ký sinh trắc học.
+    case notEnrolled
+    /// Máy không có sinh trắc học.
+    case noHardware
+    /// Tạm không dùng được (khoá vì sai nhiều lần...).
+    case unavailable
+  }
+
+  private static func biometryState() -> BiometryState {
+    let context = LAContext()
+    var error: NSError?
+    if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
+      if #available(iOS 18.0, *) {
+        return .current(context.domainState.biometry.stateHash)
+      }
+      return .current(context.evaluatedPolicyDomainState)
+    }
+    switch (error as? LAError)?.code {
+    case .passcodeNotSet: return .noPasscode
+    case .biometryNotEnrolled: return .notEnrolled
+    case .biometryNotAvailable: return .noHardware
+    default: return .unavailable
+    }
+  }
+
+  /// Xoá khoá xác nhận (gắn lại thành công thì xoá khoá cũ, gắn hỏng thì xoá khoá mới).
+  private static func deleteStepKey(alias: String?, result: @escaping FlutterResult) {
+    guard let alias = alias, !alias.isEmpty, let tag = alias.data(using: .utf8) else {
+      keyError("unavailable", result)
+      return
+    }
+    DispatchQueue.global(qos: .utility).async {
+      SecItemDelete(
+        [
+          kSecClass as String: kSecClassKey,
+          kSecAttrApplicationTag as String: tag,
+          kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+        ] as CFDictionary)
+      UserDefaults.standard.removeObject(forKey: domainStateKey(alias))
+      DispatchQueue.main.async { result(nil) }
+    }
+  }
+
+  private static func createStepKey(alias: String?, result: @escaping FlutterResult) {
+    guard let alias = alias, !alias.isEmpty, let tag = alias.data(using: .utf8) else {
+      keyError("unavailable", result)
+      return
+    }
+    // Khoá chỉ mở bằng sinh trắc học đang đăng ký (không nhận mật mã máy): máy
+    // phải có mật mã và đã đăng ký Face ID / Touch ID.
+    let biometryAtCreation: Data
+    switch biometryState() {
+    case .current(let state?): biometryAtCreation = state
+    case .current(.none), .unavailable:
+      keyError("unavailable", result)
+      return
+    case .noPasscode:
+      keyError("notEnrolled", result)
+      return
+    case .notEnrolled:
+      keyError("biometricRequired", result)
+      return
+    case .noHardware:
+      keyError("unsupported", result)
+      return
+    }
+    DispatchQueue.global(qos: .userInitiated).async {
+      SecItemDelete(
+        [
+          kSecClass as String: kSecClassKey,
+          kSecAttrApplicationTag as String: tag,
+          kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+        ] as CFDictionary)
+      UserDefaults.standard.removeObject(forKey: domainStateKey(alias))
+      var cfError: Unmanaged<CFError>?
+      guard
+        let access = SecAccessControlCreateWithFlags(
+          kCFAllocatorDefault,
+          kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
+          // Thêm / xoá sinh trắc học thì khoá mất hiệu lực.
+          [.privateKeyUsage, .biometryCurrentSet],
+          &cfError
+        )
+      else {
+        DispatchQueue.main.async { keyError("notEnrolled", result) }
+        return
+      }
+      var attributes: [String: Any] = [
+        kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+        kSecAttrKeySizeInBits as String: 256,
+        kSecPrivateKeyAttrs as String: [
+          kSecAttrIsPermanent as String: true,
+          kSecAttrApplicationTag as String: tag,
+          kSecAttrAccessControl as String: access,
+        ],
+      ]
+      #if !targetEnvironment(simulator)
+        attributes[kSecAttrTokenID as String] = kSecAttrTokenIDSecureEnclave
+      #endif
+      guard
+        let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &cfError),
+        let publicKey = SecKeyCopyPublicKey(privateKey),
+        let raw = SecKeyCopyExternalRepresentation(publicKey, &cfError) as Data?
+      else {
+        DispatchQueue.main.async { keyError("unavailable", result) }
+        return
+      }
+      let spki = p256SpkiHeader + raw
+      UserDefaults.standard.set(biometryAtCreation, forKey: domainStateKey(alias))
+      DispatchQueue.main.async { result(spki.base64EncodedString()) }
+    }
+  }
+
+  private static func signWithStepKey(
+    alias: String?, dataBase64: String?, reason: String, result: @escaping FlutterResult
+  ) {
+    guard
+      let alias = alias, let tag = alias.data(using: .utf8),
+      let dataBase64 = dataBase64, let data = Data(base64Encoded: dataBase64)
+    else {
+      keyError("unavailable", result)
+      return
+    }
+    // Hộp xác nhận chặn luồng gọi, nên ký ở luồng nền.
+    DispatchQueue.global(qos: .userInitiated).async {
+      // Bộ sinh trắc học đã đổi từ lúc tạo khoá (hoặc khoá tạo bởi bản cũ, nhận
+      // cả mật mã máy): khoá không dùng được nữa, phải gắn lại.
+      guard let saved = UserDefaults.standard.data(forKey: domainStateKey(alias)) else {
+        DispatchQueue.main.async { keyError("key_invalid", result) }
+        return
+      }
+      switch biometryState() {
+      case .current(let now?) where now == saved:
+        break
+      case .current(.none), .unavailable:
+        DispatchQueue.main.async { keyError("unavailable", result) }
+        return
+      default:
+        // Đã thêm / xoá sinh trắc học (hoặc xoá hết): khoá mất hiệu lực.
+        DispatchQueue.main.async { keyError("key_invalid", result) }
+        return
+      }
+      let context = LAContext()
+      context.localizedReason = reason
+      let query: [String: Any] = [
+        kSecClass as String: kSecClassKey,
+        kSecAttrApplicationTag as String: tag,
+        kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+        kSecReturnRef as String: true,
+        kSecUseAuthenticationContext as String: context,
+      ]
+      var item: CFTypeRef?
+      let status = SecItemCopyMatching(query as CFDictionary, &item)
+      guard status == errSecSuccess, let item = item else {
+        let code = status == errSecItemNotFound ? "key_missing" : "unavailable"
+        DispatchQueue.main.async { keyError(code, result) }
+        return
+      }
+      let privateKey = item as! SecKey
+      var cfError: Unmanaged<CFError>?
+      guard
+        let signature = SecKeyCreateSignature(
+          privateKey, .ecdsaSignatureMessageX962SHA256, data as CFData, &cfError)
+          as Data?
+      else {
+        let nsError = cfError?.takeRetainedValue() as Error? as NSError?
+        let cancelled =
+          nsError?.code == Int(errSecUserCanceled)
+          || (nsError?.domain == LAError.errorDomain
+            && (nsError?.code == LAError.userCancel.rawValue
+              || nsError?.code == LAError.appCancel.rawValue
+              || nsError?.code == LAError.systemCancel.rawValue))
+        var changed = false
+        if !cancelled, case .current(let now?) = biometryState() { changed = now != saved }
+        let code = cancelled ? "cancelled" : changed ? "key_invalid" : "unavailable"
+        DispatchQueue.main.async { keyError(code, result) }
+        return
+      }
+      // Chữ ký X9.62 đã là DER.
+      DispatchQueue.main.async { result(signature.base64EncodedString()) }
     }
   }
 }

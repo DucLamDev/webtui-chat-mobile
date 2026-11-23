@@ -26,6 +26,7 @@ import '../features/auth/presentation/controllers/auth_flow_providers.dart';
 import '../features/auth/presentation/controllers/legal_acceptance_controller.dart';
 import '../features/auth/presentation/controllers/login_controller.dart';
 import '../features/auth/presentation/screens/device_approval_pending_screen.dart';
+import '../features/auth/presentation/screens/login_mfa_screen.dart';
 import '../features/auth/presentation/widgets/app_lock_gate.dart';
 import '../features/auth/presentation/widgets/legal_acceptance_gate.dart';
 import '../features/conversations/data/files/scoped_attachment_file_store.dart';
@@ -96,6 +97,20 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
     );
   }
 
+  /// Cổng vân tay IDE đếm thời gian ở nền cho cả app, không chỉ lúc đang mở
+  /// màn IDE (ra tab chat, để nền lâu rồi vào lại vẫn phải xác thực).
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!ref.exists(ideAccessControllerProvider)) return;
+    final ide = ref.read(ideAccessControllerProvider);
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      ide.onBackground();
+    } else if (state == AppLifecycleState.resumed) {
+      ide.onForeground();
+    }
+  }
+
   @override
   void didChangePlatformBrightness() {
     final next = ui.PlatformDispatcher.instance.platformBrightness;
@@ -126,6 +141,7 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
         .path;
     return path != '/login' &&
         path != '/verify-email' &&
+        path != loginMfaPath &&
         path != '/workspaces' &&
         path != deviceApprovalPendingPath;
   }
@@ -142,6 +158,16 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
       final token = ref.read(authAccessTokenProvider).valueOrNull;
       unawaited(_deepLinkCoordinator.onAuthenticationChanged(token));
     });
+  }
+
+  /// Người khác (hoặc máy chủ khác) vừa đăng nhập: xoá hẳn bản gắn IDE và khoá
+  /// xác nhận của người trước, không đợi tới lúc mở mục IDE.
+  Future<void> _dropOtherAccountIdeBinding() async {
+    try {
+      await ref.read(ideCredentialsProvider.future);
+    } on Object {
+      // Chưa có máy chủ / không đọc được kho: lần mở IDE sau sẽ dọn.
+    }
   }
 
   /// Phiên bị thu hồi / phải đăng nhập lại: dữ liệu cục bộ đã xoá, về màn
@@ -188,6 +214,10 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
   Widget build(BuildContext context) {
     ref.listen<AsyncValue<String?>>(authAccessTokenProvider, (previous, next) {
       next.whenData((_) => _resumePendingLink());
+      final token = next.valueOrNull?.trim() ?? '';
+      if (token.isNotEmpty && token != previous?.valueOrNull?.trim()) {
+        unawaited(_dropOtherAccountIdeBinding());
+      }
     });
     ref.listen<AsyncValue<SessionEndedNotice>>(sessionEndedNoticesProvider, (
       _,

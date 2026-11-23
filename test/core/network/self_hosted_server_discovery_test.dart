@@ -60,6 +60,43 @@ void main() {
     expect(restored.automationEnabled, isTrue);
   });
 
+  test(
+    'admin_base_url: chỉ nhận cùng origin, sai thì bỏ (không hỏng discovery)',
+    () {
+      SelfHostedServerDiscovery parse(String? adminBaseUrl) {
+        return SelfHostedServerDiscovery.fromApiResponse(
+          payload: _payload(adminBaseUrl: adminBaseUrl),
+          requestedServer: Uri.parse('https://chat.company.example'),
+          mobileVersion: '1.2.0',
+        );
+      }
+
+      final ok = parse('https://chat.company.example/admin');
+      expect(ok.adminBaseUri, Uri.parse('https://chat.company.example/admin'));
+      // Bản lưu trên máy giữ nguyên (lưu payload gốc, đọc lại khi mở app).
+      expect(
+        SelfHostedServerDiscovery.fromStorageSnapshot(
+          encodedSnapshot: ok.toStorageSnapshot(),
+          mobileVersion: '1.2.0',
+        ).adminBaseUri,
+        Uri.parse('https://chat.company.example/admin'),
+      );
+      expect(parse(null).adminBaseUri, isNull);
+      expect(parse('').adminBaseUri, isNull);
+      expect(parse('https://evil.example/admin').adminBaseUri, isNull);
+      expect(
+        parse('https://chat.company.example:8443/admin').adminBaseUri,
+        isNull,
+      );
+      expect(parse('http://chat.company.example/admin').adminBaseUri, isNull);
+      expect(
+        parse('https://chat.company.example/admin?x=1').adminBaseUri,
+        isNull,
+      );
+      expect(parse('javascript:alert(1)').adminBaseUri, isNull);
+    },
+  );
+
   test('rejects a runtime URL on another host', () {
     expect(
       () => SelfHostedServerDiscovery.fromApiResponse(
@@ -292,6 +329,33 @@ void main() {
     expect(restored.capabilities.readReceipts, isTrue);
   });
 
+  test('ide được đọc, thiếu cờ = tắt, và giữ trong bản lưu', () {
+    final payload = _payload();
+    final discovery =
+        (payload['data']! as Map<String, Object?>)['discovery']!
+            as Map<String, Object?>;
+    final old = SelfHostedServerDiscovery.fromApiResponse(
+      payload: payload,
+      requestedServer: Uri.parse('https://chat.company.example'),
+      mobileVersion: '1.2.0',
+    );
+    expect(old.capabilities.ide, isFalse);
+    expect(old.capabilities.toJson()['ide'], isFalse);
+
+    (discovery['capabilities']! as Map<String, Object?>)['ide'] = true;
+    final parsed = SelfHostedServerDiscovery.fromApiResponse(
+      payload: payload,
+      requestedServer: Uri.parse('https://chat.company.example'),
+      mobileVersion: '1.2.0',
+    );
+    expect(parsed.capabilities.ide, isTrue);
+    final restored = SelfHostedServerDiscovery.fromStorageSnapshot(
+      encodedSnapshot: parsed.toStorageSnapshot(),
+      mobileVersion: '1.2.0',
+    );
+    expect(restored.capabilities.ide, isTrue);
+  });
+
   test('cold-start snapshot keeps account, privacy and session policy', () {
     final payload = _payload();
     final discovery =
@@ -397,6 +461,7 @@ Map<String, Object?> _payload({
   String minimumMobileVersion = '1.1.0',
   String? zoneKind,
   bool automation = true,
+  String? adminBaseUrl,
 }) {
   return {
     'data': {
@@ -419,6 +484,7 @@ Map<String, Object?> _payload({
           'minimum_supported_mobile_version': minimumMobileVersion,
           'api_base_url': apiBaseUrl,
           'ws_base_url': wsBaseUrl,
+          'admin_base_url': ?adminBaseUrl,
         },
         'capabilities': {
           'self_hosted': true,

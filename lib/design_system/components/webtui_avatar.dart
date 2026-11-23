@@ -14,6 +14,10 @@ export 'webtui_person_silhouette.dart' show WebTuiAvatarGender;
 const webTuiMaxAvatarImageBytes = 512 * 1024;
 const webTuiMaxBrandImageBytes = 1024 * 1024;
 
+/// Ảnh nội dung (vd. ảnh bài trong yêu cầu phê duyệt) thường lớn hơn logo;
+/// đây là trần cứng mọi ảnh qua [WebTuiBoundedNetworkImage].
+const webTuiMaxContentImageBytes = 3 * 1024 * 1024;
+
 typedef WebTuiNetworkImageLoader =
     Future<Uint8List?> Function(
       Uri uri, {
@@ -301,7 +305,7 @@ class WebTuiBoundedNetworkImage extends StatelessWidget {
     if (uri == null || loader == null || width <= 0 || height <= 0) {
       return fallback;
     }
-    final boundedMaxBytes = maxBytes.clamp(1, webTuiMaxBrandImageBytes);
+    final boundedMaxBytes = maxBytes.clamp(1, webTuiMaxContentImageBytes);
     final requestKey =
         '${scope?.cacheKey ?? ''}|$uri|$boundedMaxBytes|'
         '$allowPublicRequest';

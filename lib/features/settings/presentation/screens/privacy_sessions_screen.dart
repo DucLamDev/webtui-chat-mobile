@@ -16,6 +16,7 @@ import '../../../../l10n/app_strings.dart';
 import '../../../auth/application/use_cases/session_use_cases.dart';
 import '../../../auth/presentation/auth_formatters.dart';
 import '../../../auth/presentation/widgets/pending_device_approvals_section.dart';
+import '../../../mfa/presentation/reauth_prompt.dart';
 import '../../../moderation/presentation/controllers/moderation_controller.dart';
 import '../../../moderation/presentation/widgets/moderation_actions.dart';
 import '../../../workspace/presentation/controllers/workspace_controller.dart';
@@ -332,12 +333,25 @@ class _DeleteAccountActionState extends ConsumerState<_DeleteAccountAction> {
     if (request == null || !mounted) {
       return;
     }
+    // Máy chủ bắt buộc xác thực lại; người dùng huỷ thì không xoá gì.
+    final reauthToken = await requestReauthToken(
+      context,
+      ref,
+      reason: tr(
+        'Nhập mật khẩu hoặc mã xác thực để xóa tài khoản.',
+        'Enter your password or verification code to delete your account.',
+      ),
+    );
+    if (reauthToken == null || !mounted) {
+      return;
+    }
     setState(() => _isDeleting = true);
     final result = await ref
         .read(deleteAccountUseCaseProvider)
         .execute(
           confirmation: request.confirmation,
           ownershipSuccessorEmail: request.ownershipSuccessorEmail,
+          reauthToken: reauthToken,
         );
     if (!mounted) {
       return;
@@ -550,6 +564,7 @@ class _RequiresLoginState extends ConsumerWidget {
                   FilledButton.icon(
                     onPressed: () async {
                       await ref.read(logoutUseCaseProvider).execute();
+                      ref.invalidate(authAccessTokenProvider);
                       if (context.mounted) {
                         context.go('/login');
                       }
@@ -908,6 +923,7 @@ class _SessionActions extends ConsumerWidget {
               switch (result) {
                 case Success<void>():
                   await ref.read(logoutUseCaseProvider).execute();
+                  ref.invalidate(authAccessTokenProvider);
                   if (context.mounted) {
                     context.go('/login');
                   }

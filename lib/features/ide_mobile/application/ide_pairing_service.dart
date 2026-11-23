@@ -1,0 +1,324 @@
+import 'dart:async';
+
+import '../data/ide_device_key_store.dart';
+import '../data/ide_pair_api.dart';
+import '../domain/ide_device_credentials.dart';
+import '../domain/ide_device_security.dart';
+import '../domain/ide_pair_code.dart';
+
+enum IdePairOutcome {
+  ok,
+  rejected,
+  expired,
+  invalid,
+  offline,
+  rateLimited,
+  busy,
+  timedOut,
+  noLockScreen,
+  biometricRequired,
+  unsupported,
+
+  /// Máy chủ chat không cho tài khoản dùng IDE (HTTP 403 `IDE_ACCESS_DENIED`).
+  accessDenied,
+  failed,
+}
+
+/// Gắn máy: sinh khoá Ed25519 + khoá xác nhận, `POST pair`, hỏi `GET pair/{id}`
+/// 2 s/lần tối đa 2 phút, lưu khoá khi IDE bấm Xác nhận.
+final class IdePairingService {
+  IdePairingService({
+    required IdePairApi api,
+    required IdeDeviceKeyStore keys,
+    required IdeDeviceSecurity security,
+    required Future<String?> Function() currentUserId,
+    required String serverScopeId,
+    void Function()? onPaired,
+    Future<String?> Function()? chatDeviceId,
+    String? Function()? sessionToken,
+    void Function(String reason)? onAccessDenied,
+    this.pollEvery = const Duration(seconds: 2),
+    this.maxWait = const Duration(minutes: 2),
+  }) : _api = api,
+       _keys = keys,
+       _security = security,
+       _currentUserId = currentUserId,
+       _serverScopeId = serverScopeId,
+       _onPaired = onPaired,
+       _chatDeviceId = chatDeviceId,
+       _sessionToken = sessionToken,
+       _onAccessDenied = onAccessDenied;
+
+  /// Mẫu mã máy IDE cấp (khớp máy chủ chat, header `X-IDE-Device`).
+  static final devicePattern = RegExp(r'^d_[A-Za-z0-9_-]{8,64}$');
+
+  final IdePairApi _api;
+  final IdeDeviceKeyStore _keys;
+  final IdeDeviceSecurity _security;
+  final Future<String?> Function() _currentUserId;
+  final String _serverScopeId;
+
+  /// Gọi khi đã lưu bản ghi gắn mới (kể cả khi màn gắn máy đã đóng).
+  final void Function()? _onPaired;
+
+  /// Mã thiết bị push của máy này (`push_devices.device_id`), gửi kèm khi gắn
+  /// để máy chủ đẩy thông báo IDE đúng điện thoại.
+  final Future<String?> Function()? _chatDeviceId;
+
+  /// Kết quả `push_linked` của lần gắn `ok` gần nhất: `false` = máy IDE đã gắn
+  /// nhưng chưa có thiết bị chat nhận thông báo. `null` = chưa rõ.
+  bool? lastPushLinked;
+
+  /// Token phiên chat hiện tại: đổi giữa chừng (đăng xuất / người khác đăng
+  /// nhập) thì không lưu kết quả gắn.
+  final String? Function()? _sessionToken;
+
+  /// Máy chủ chat trả 403 `IDE_ACCESS_DENIED` kèm `details.reason`.
+  final void Function(String reason)? _onAccessDenied;
+  final Duration pollEvery;
+  final Duration maxWait;
+
+  static const maxNameLength = 60;
+
+  /// [onWaiting] gọi khi đã gửi yêu cầu, đang chờ bấm Xác nhận trên máy tính.
+  /// [isCancelled] để màn hình dừng vòng hỏi.
+  Future<IdePairOutcome> pair({
+    required IdePairCode code,
+    required String deviceName,
+    void Function()? onWaiting,
+    bool Function()? isCancelled,
+  }) async {
+    final name = deviceName.trim().isEmpty ? 'Điện thoại' : deviceName.trim();
+    final clipped = name.runes.length > maxNameLength
+        ? String.fromCharCodes(name.runes.take(maxNameLength))
+        : name;
+    lastPushLinked = null;
+    final session = _sessionToken?.call();
+    final userId = await _currentUserId();
+    if (userId == null || userId.isEmpty) return IdePairOutcome.failed;
+
+    final String seed;
+    final String pubkey;
+    try {
+      seed = await IdeDeviceKeyStore.newSeed();
+      pubkey = await IdeDeviceKeyStore.publicKeyBase64(seed);
+    } on Object {
+      return IdePairOutcome.failed;
+    }
+    final alias = IdeDeviceCredentials.newStepKeyAlias(code.instanceId);
+    String stepPubkey;
+    try {
+      stepPubkey = await _security.createStepKey(alias);
+    } on StepKeyException catch (error) {
+      await _deleteKey(alias);
+      return switch (error.code) {
+        'notEnrolled' => IdePairOutcome.noLockScreen,
+        'biometricRequired' => IdePairOutcome.biometricRequired,
+        'unsupported' => IdePairOutcome.unsupported,
+        _ => IdePairOutcome.failed,
+      };
+    }
+
+    IdePairOutcome outcome;
+    try {
+      outcome = await _register(
+        code: code,
+        userId: userId,
+        session: session,
+        seed: seed,
+        pubkey: pubkey,
+        alias: alias,
+        stepPubkey: stepPubkey,
+        deviceName: clipped,
+        onWaiting: onWaiting,
+        isCancelled: isCancelled,
+      );
+    } on Object {
+      // Kho bảo mật từ chối ghi...: không để màn gắn quay mãi.
+      outcome = IdePairOutcome.failed;
+    }
+    // Gắn hỏng: bỏ khoá vừa tạo, giữ nguyên khoá của lần gắn đang dùng.
+    if (outcome != IdePairOutcome.ok) await _deleteKey(alias);
+    return outcome;
+  }
+
+  Future<IdePairOutcome> _register({
+    required IdePairCode code,
+    required String userId,
+    required String? session,
+    required String seed,
+    required String pubkey,
+    required String alias,
+    required String stepPubkey,
+    required String deviceName,
+    void Function()? onWaiting,
+    bool Function()? isCancelled,
+  }) async {
+    String? chatDeviceId;
+    try {
+      chatDeviceId = await _chatDeviceId?.call();
+    } on Object {
+      chatDeviceId = null;
+    }
+    String pairId;
+    try {
+      pairId = await _api.requestPair(
+        chatDeviceId: chatDeviceId,
+        code: code.code,
+        pubkey: pubkey,
+        stepPubkey: stepPubkey,
+        deviceName: deviceName,
+      );
+    } on IdePairException catch (error) {
+      return _fromError(error);
+    }
+    onWaiting?.call();
+
+    final deadline = DateTime.now().add(maxWait);
+    while (DateTime.now().isBefore(deadline)) {
+      if (isCancelled?.call() ?? false) return IdePairOutcome.failed;
+      try {
+        final poll = await _api.poll(pairId);
+        switch (poll.status) {
+          case IdePairRemoteStatus.ok:
+            final deviceId = poll.deviceId;
+            if (deviceId == null || !devicePattern.hasMatch(deviceId)) {
+              return IdePairOutcome.failed;
+            }
+            // Đăng xuất / đổi người trong lúc chờ: không lưu khoá cho phiên cũ.
+            if (_sessionToken?.call() != session ||
+                await _currentUserId() != userId) {
+              return IdePairOutcome.failed;
+            }
+            final previous = await _keys.loadAny();
+            await _keys.save(
+              IdeDeviceCredentials(
+                instanceId: code.instanceId,
+                chatUserId: userId,
+                deviceId: deviceId,
+                seed: seed,
+                serverScope: _serverScopeId,
+                stepAlias: alias,
+              ),
+            );
+            // Bản ghi cũ (một chỗ cất) đã bị thay: khoá xác nhận của nó vô dụng.
+            final oldAlias = previous?.stepKeyAlias;
+            if (oldAlias != null && oldAlias != alias) {
+              await _deleteKey(oldAlias);
+            }
+            lastPushLinked = poll.pushLinked;
+            _onPaired?.call();
+            return IdePairOutcome.ok;
+          case IdePairRemoteStatus.rejected:
+            return IdePairOutcome.rejected;
+          case IdePairRemoteStatus.expired:
+            return IdePairOutcome.expired;
+          case IdePairRemoteStatus.invalid:
+            return IdePairOutcome.invalid;
+          case IdePairRemoteStatus.pending:
+            break;
+        }
+      } on IdePairException catch (error) {
+        // Lỗi mạng thoáng qua: hỏi tiếp tới hết hạn; lỗi rõ ràng thì dừng.
+        if (error.kind != IdePairErrorKind.other) return _fromError(error);
+      }
+      await Future<void>.delayed(pollEvery);
+    }
+    return IdePairOutcome.timedOut;
+  }
+
+  /// Bản gắn của đúng người [chatUserId] trên máy chủ đang dùng. Bản gắn của
+  /// người khác hoặc máy chủ khác (đã đổi tài khoản) bị xoá hẳn cùng khoá xác
+  /// nhận, không chỉ ẩn đi.
+  Future<IdeDeviceCredentials?> loadCurrent(String chatUserId) async {
+    final stored = await _keys.loadAny();
+    if (stored == null) return null;
+    if (stored.chatUserId == chatUserId &&
+        stored.serverScope == _serverScopeId) {
+      return stored;
+    }
+    await _keys.clear();
+    await _deleteKey(stored.stepKeyAlias);
+    return null;
+  }
+
+  /// Khoá xác nhận của bản gắn đang dùng đã mất hiệu lực (sinh trắc học trên
+  /// máy thay đổi): bản gắn không ký được nữa nên xoá như khi gỡ máy.
+  Future<void> forgetInvalidatedKey() => removeThisDevice();
+
+  /// IDE báo gỡ máy [deviceId]: xoá bản ghi và khoá xác nhận nếu bản ghi đang
+  /// cất còn là máy đó (stream cũ đóng sau khi đã gắn lại thì giữ bản ghi mới).
+  /// Trả `true` nếu đã xoá.
+  Future<bool> forgetRevokedDevice(String deviceId) async {
+    if (deviceId.isEmpty) return false;
+    final stored = await _keys.loadAny();
+    if (stored == null || stored.deviceId != deviceId) return false;
+    await _keys.clear();
+    await _deleteKey(stored.stepKeyAlias);
+    return true;
+  }
+
+  /// Người dùng gỡ máy IDE của chính điện thoại này (hoặc đăng xuất): báo máy
+  /// chủ gỡ máy `ide_device_id` rồi xoá bản ghi + khoá xác nhận ở máy. Lỗi mạng
+  /// / 404 bỏ qua. Không có bản ghi thì không làm gì.
+  Future<void> removeThisDevice() async {
+    final IdeDeviceCredentials? stored;
+    try {
+      final userId = await _currentUserId();
+      if (userId == null || userId.isEmpty) return;
+      // Chỉ máy đã gắn của đúng người + máy chủ đang dùng.
+      stored = await _keys.load(
+        chatUserId: userId,
+        serverScope: _serverScopeId,
+      );
+    } on Object {
+      // Không đọc được người dùng / bản ghi: vẫn cố xoá khoá xác nhận theo bản
+      // ghi đã lưu (nếu đọc được) để đăng xuất không để sót khoá. Nuốt lỗi.
+      try {
+        final any = await _keys.loadAny();
+        if (any != null) {
+          await _keys.clear();
+          await _deleteKey(any.stepKeyAlias);
+        }
+      } on Object {
+        // Đăng xuất không được hỏng.
+      }
+      return;
+    }
+    if (stored == null) return;
+    try {
+      await _api
+          .removeDevice(stored.deviceId)
+          .timeout(const Duration(seconds: 5));
+    } on Object {
+      // Mạng chậm / hỏng: vẫn gỡ ở máy.
+    }
+    await _keys.clear();
+    await _deleteKey(stored.stepKeyAlias);
+  }
+
+  Future<void> _deleteKey(String alias) async {
+    try {
+      await _security.deleteStepKey(alias);
+    } on StepKeyException {
+      // Không xoá được thì thôi: khoá không có bản ghi gắn nào trỏ tới.
+    }
+  }
+
+  IdePairOutcome _fromError(IdePairException error) {
+    if (error.kind == IdePairErrorKind.accessDenied) {
+      _onAccessDenied?.call(error.accessReason);
+    }
+    return _outcomeOf(error);
+  }
+
+  static IdePairOutcome _outcomeOf(IdePairException error) =>
+      switch (error.kind) {
+        IdePairErrorKind.accessDenied => IdePairOutcome.accessDenied,
+        IdePairErrorKind.offline => IdePairOutcome.offline,
+        IdePairErrorKind.rateLimited => IdePairOutcome.rateLimited,
+        IdePairErrorKind.busy => IdePairOutcome.busy,
+        IdePairErrorKind.invalid => IdePairOutcome.invalid,
+        IdePairErrorKind.other => IdePairOutcome.failed,
+      };
+}

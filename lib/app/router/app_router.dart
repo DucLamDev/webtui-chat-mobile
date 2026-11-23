@@ -8,6 +8,7 @@ import '../../features/auth/domain/entities/email_verification.dart';
 import '../../features/auth/presentation/screens/device_approval_pending_screen.dart';
 import '../../features/auth/presentation/screens/device_approval_review_screen.dart';
 import '../../features/auth/presentation/screens/email_verification_screen.dart';
+import '../../features/auth/presentation/screens/login_mfa_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/qr_login_screen.dart';
 import '../../features/business/presentation/screens/business_route_screen.dart';
@@ -18,6 +19,18 @@ import '../../features/conversations/presentation/screens/chat_room_screen.dart'
 import '../../features/customer_tickets/presentation/screens/customer_ticket_detail_screen.dart';
 import '../../features/customer_tickets/presentation/screens/customer_ticket_list_screen.dart';
 import '../../features/home/presentation/screens/home_shell_screen.dart';
+import '../../features/ide_mobile/presentation/controllers/ide_controllers.dart'
+    show IdeAiSessionItem;
+import '../../features/ide_mobile/presentation/screens/ide_ai_chat_screen.dart';
+import '../../features/ide_mobile/presentation/screens/ide_job_screen.dart';
+import '../../features/ide_mobile/presentation/screens/ide_pair_screen.dart';
+import '../../features/ide_mobile/presentation/screens/ide_screen.dart';
+import '../../features/ide_mobile/presentation/screens/media/ide_media_routes.dart';
+import '../../features/ide_mobile/presentation/screens/more/ide_more_routes.dart';
+import '../../features/ide_mobile/presentation/screens/projects/ide_project_routes.dart';
+import '../../features/ide_mobile/presentation/screens/talk/ide_talk_routes.dart';
+import '../../features/ide_mobile/presentation/screens/tools/ide_tools_routes.dart';
+import '../../features/ide_mobile/presentation/widgets/ide_access_gate.dart';
 import '../../features/inbox/presentation/screens/inbox_conversation_screen.dart';
 import '../../features/inbox/presentation/screens/inbox_list_screen.dart';
 import '../../features/meeting_calendar/presentation/screens/meeting_detail_screen.dart';
@@ -53,8 +66,14 @@ final appRouterProvider = Provider<GoRouter>((_) {
                 context.go(deviceApprovalPendingPath),
             onEmailVerificationRequired: (ticket) =>
                 context.push(emailVerificationLocation(ticket)),
+            onMfaRequired: () => context.push(loginMfaPath),
           );
         },
+      ),
+      GoRoute(
+        path: loginMfaPath,
+        name: 'login-mfa',
+        builder: (context, state) => const LoginMfaScreen(),
       ),
       GoRoute(
         path: '/workspaces',
@@ -254,6 +273,58 @@ final appRouterProvider = Provider<GoRouter>((_) {
           initialFolderId: state.uri.queryParameters['folderId'],
         ),
       ),
+      // IDE: cổng vân tay bọc mọi màn; /ide/jobs/:id chờ màn tiến trình.
+      GoRoute(
+        path: '/ide',
+        name: 'ide',
+        builder: (context, state) => const IdeAccessGate(child: IdeScreen()),
+      ),
+      GoRoute(
+        path: '/ide/pair',
+        name: 'ide-pair',
+        builder: (context, state) =>
+            const IdeAccessGate(child: IdePairScreen()),
+      ),
+      // Phiên mới đặt TRƯỚC `:key` để "new" không bị nuốt làm mã phiên.
+      GoRoute(
+        path: '/ide/ai/new',
+        name: 'ide-ai-new',
+        builder: (context, state) {
+          final q = state.uri.queryParameters;
+          return IdeAccessGate(
+            child: IdeAiChatScreen.newSession(
+              kind: q['kind'] == 'codex' ? 'codex' : 'claude',
+              root: q['root'] ?? '',
+              worktree: q['worktree'],
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/ide/ai/:key',
+        name: 'ide-ai',
+        builder: (context, state) => IdeAccessGate(
+          child: IdeAiChatScreen(
+            sessionKey: state.pathParameters['key'] ?? '',
+            info: switch (state.extra) {
+              final IdeAiSessionItem item => item,
+              _ => null,
+            },
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/ide/jobs/:id',
+        name: 'ide-job',
+        builder: (context, state) => IdeAccessGate(
+          child: IdeJobScreen(jobId: state.pathParameters['id'] ?? ''),
+        ),
+      ),
+      ...ideProjectRoutes(),
+      ...ideMoreRoutes(),
+      ...ideToolsRoutes(),
+      ...ideTalkRoutes(),
+      ...ideMediaRoutes(),
       // Tab Công việc: màn con (việc của tôi, lịch họp, tệp, lối tắt).
       GoRoute(
         path: '/my-tasks',

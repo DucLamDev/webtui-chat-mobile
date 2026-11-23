@@ -17,6 +17,15 @@ class WebTuiFilterChipData {
   final Key? key;
 }
 
+/// Màu riêng cho [WebTuiFilterChipBar] (vd IDE dùng tông tím của IDE web).
+/// Không truyền thì chip theo màu chung của app.
+typedef WebTuiChipPalette = ({
+  Color fill,
+  Color text,
+  Color selectedFill,
+  Color selectedText,
+});
+
 /// Thanh lọc trượt ngang kiểu Messenger: chip viên thuốc cao 32, không viền,
 /// nền xám nhạt; chip chọn nền xanh trong suốt, chữ màu nhấn đậm;
 /// hàng chip tràn tới mép màn hình, cuộn có quán tính và nảy ở hai đầu, không
@@ -28,6 +37,7 @@ class WebTuiFilterChipBar extends StatefulWidget {
     required this.selectedIndex,
     required this.onSelected,
     this.semanticLabel,
+    this.palette,
     super.key,
   });
 
@@ -35,6 +45,7 @@ class WebTuiFilterChipBar extends StatefulWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelected;
   final String? semanticLabel;
+  final WebTuiChipPalette? palette;
 
   @override
   State<WebTuiFilterChipBar> createState() => _WebTuiFilterChipBarState();
@@ -130,6 +141,7 @@ class _WebTuiFilterChipBarState extends State<WebTuiFilterChipBar> {
             key: chip.key,
             data: chip,
             selected: index == widget.selectedIndex,
+            palette: widget.palette,
             onTap: () => _select(index),
           ),
         );
@@ -164,21 +176,33 @@ class _FilterChip extends StatelessWidget {
     required this.data,
     required this.selected,
     required this.onTap,
+    this.palette,
     super.key,
   });
 
   final WebTuiFilterChipData data;
   final bool selected;
   final VoidCallback onTap;
+  final WebTuiChipPalette? palette;
 
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
+    final p = palette;
     // Sáng: chữ chọn dùng primaryPressed (đậm hơn) để đủ tương phản 4.5:1 trên
     // nền xanh nhạt.
     final foreground = selected
-        ? (dark ? WebTuiColors.primary : WebTuiColors.primaryPressed)
-        : WebTuiColors.textSecondary;
+        ? (p?.selectedText ??
+              (dark
+                  ? WebTuiColors.of(context).primary
+                  : WebTuiColors.of(context).primaryPressed))
+        : (p?.text ?? WebTuiColors.of(context).textSecondary);
+    final fill = selected
+        ? (p?.selectedFill ??
+              WebTuiColors.of(
+                context,
+              ).primary.withValues(alpha: dark ? 0.2 : 0.14))
+        : (p?.fill ?? WebTuiColors.of(context).chipBackground);
     final count = data.count ?? 0;
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     return Semantics(
@@ -196,9 +220,7 @@ class _FilterChip extends StatelessWidget {
             height: 32,
             padding: const EdgeInsets.symmetric(horizontal: 14),
             decoration: BoxDecoration(
-              color: selected
-                  ? WebTuiColors.primary.withValues(alpha: dark ? 0.2 : 0.14)
-                  : WebTuiColors.chipBackground,
+              color: fill,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Row(

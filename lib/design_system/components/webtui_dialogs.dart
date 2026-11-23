@@ -69,7 +69,7 @@ class WebTuiDialog extends StatelessWidget {
     final danger = tone == WebTuiDialogTone.danger;
     final icon = this.icon;
     return Dialog(
-      backgroundColor: WebTuiColors.surface,
+      backgroundColor: WebTuiColors.of(context).surface,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(WebTuiRadii.dialog),
@@ -98,15 +98,17 @@ class WebTuiDialog extends StatelessWidget {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: danger ? _dangerSoft : WebTuiColors.primarySoft,
+                      color: danger
+                          ? _dangerSoft
+                          : WebTuiColors.of(context).primarySoft,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       icon,
                       size: 24,
                       color: danger
-                          ? WebTuiColors.danger
-                          : WebTuiColors.primary,
+                          ? WebTuiColors.of(context).danger
+                          : WebTuiColors.of(context).primary,
                     ),
                   ),
                 ),
@@ -119,7 +121,7 @@ class WebTuiDialog extends StatelessWidget {
                   style: WebTuiTypography.titleLarge.copyWith(
                     fontSize: 19,
                     fontWeight: FontWeight.w800,
-                    color: WebTuiColors.textPrimary,
+                    color: WebTuiColors.of(context).textPrimary,
                   ),
                 ),
               ),
@@ -130,7 +132,7 @@ class WebTuiDialog extends StatelessWidget {
                   style: WebTuiTypography.bodyMedium.copyWith(
                     fontSize: 15,
                     height: 1.45,
-                    color: WebTuiColors.textSecondary,
+                    color: WebTuiColors.of(context).textSecondary,
                   ),
                 ),
               ],
@@ -205,23 +207,24 @@ class _DialogButton extends StatelessWidget {
             child: CircularProgressIndicator(
               strokeWidth: 2.2,
               color: action.primary
-                  ? WebTuiColors.textOnPrimary
-                  : WebTuiColors.primary,
+                  ? WebTuiColors.of(context).textOnPrimary
+                  : WebTuiColors.of(context).primary,
             ),
           )
         : Text(action.label, maxLines: 1, overflow: TextOverflow.ellipsis);
     if (action.primary) {
+      // Nền có chữ trắng: primaryFill (nền tối đậm hơn primary cho đủ tương phản).
       final color = action.destructive
-          ? WebTuiColors.danger
-          : WebTuiColors.primary;
+          ? WebTuiColors.of(context).danger
+          : WebTuiColors.of(context).primaryFill;
       return FilledButton(
         key: action.key,
         onPressed: onPressed,
         style: FilledButton.styleFrom(
           backgroundColor: color,
-          foregroundColor: WebTuiColors.textOnPrimary,
+          foregroundColor: WebTuiColors.of(context).textOnPrimary,
           disabledBackgroundColor: color.withValues(alpha: 0.4),
-          disabledForegroundColor: WebTuiColors.textOnPrimary,
+          disabledForegroundColor: WebTuiColors.of(context).textOnPrimary,
           minimumSize: const Size.fromHeight(48),
           shape: shape,
           textStyle: textStyle,
@@ -234,10 +237,10 @@ class _DialogButton extends StatelessWidget {
       key: action.key,
       onPressed: onPressed,
       style: TextButton.styleFrom(
-        backgroundColor: WebTuiColors.backgroundMuted,
+        backgroundColor: WebTuiColors.of(context).backgroundMuted,
         foregroundColor: action.destructive
-            ? WebTuiColors.danger
-            : WebTuiColors.textPrimary,
+            ? WebTuiColors.of(context).danger
+            : WebTuiColors.of(context).textPrimary,
         minimumSize: const Size.fromHeight(48),
         shape: shape,
         textStyle: textStyle,
@@ -477,7 +480,7 @@ class WebTuiDialogTextField extends StatelessWidget {
             label!,
             style: WebTuiTypography.bodySmall.copyWith(
               fontWeight: FontWeight.w700,
-              color: WebTuiColors.textSecondary,
+              color: WebTuiColors.of(context).textSecondary,
             ),
           ),
           const SizedBox(height: WebTuiSpacing.xs + 2),
@@ -502,17 +505,21 @@ class WebTuiDialogTextField extends StatelessWidget {
           onSubmitted: onSubmitted,
           style: WebTuiTypography.bodyMedium.copyWith(
             fontSize: 16,
-            color: WebTuiColors.textPrimary,
+            color: WebTuiColors.of(context).textPrimary,
           ),
           decoration: InputDecoration(
             hintText: hint,
             errorText: errorText,
             counterText: showCounter ? null : '',
             filled: true,
-            fillColor: WebTuiColors.backgroundMuted,
+            fillColor: WebTuiColors.of(context).backgroundMuted,
             prefixIcon: prefixIcon == null
                 ? null
-                : Icon(prefixIcon, size: 20, color: WebTuiColors.textMuted),
+                : Icon(
+                    prefixIcon,
+                    size: 20,
+                    color: WebTuiColors.of(context).textMuted,
+                  ),
             suffixIcon: suffix,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: WebTuiSpacing.lg,
@@ -520,9 +527,9 @@ class WebTuiDialogTextField extends StatelessWidget {
             ),
             border: border(Colors.transparent),
             enabledBorder: border(Colors.transparent),
-            focusedBorder: border(WebTuiColors.primary, 1.6),
-            errorBorder: border(WebTuiColors.danger),
-            focusedErrorBorder: border(WebTuiColors.danger, 1.6),
+            focusedBorder: border(WebTuiColors.of(context).primary, 1.6),
+            errorBorder: border(WebTuiColors.of(context).danger),
+            focusedErrorBorder: border(WebTuiColors.of(context).danger, 1.6),
           ),
         ),
       ],
@@ -544,7 +551,7 @@ Future<T?> showWebTuiSheet<T>({
     isDismissible: isDismissible,
     useSafeArea: true,
     showDragHandle: true,
-    backgroundColor: WebTuiColors.surface,
+    backgroundColor: WebTuiColors.of(context).surface,
     builder: (context) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: builder(context),
@@ -588,7 +595,7 @@ class WebTuiSheetHeader extends StatelessWidget {
                     style: WebTuiTypography.titleMedium.copyWith(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
-                      color: WebTuiColors.textPrimary,
+                      color: WebTuiColors.of(context).textPrimary,
                     ),
                   ),
                 ),
@@ -597,7 +604,7 @@ class WebTuiSheetHeader extends StatelessWidget {
                   Text(
                     subtitle!,
                     style: WebTuiTypography.bodySmall.copyWith(
-                      color: WebTuiColors.textSecondary,
+                      color: WebTuiColors.of(context).textSecondary,
                     ),
                   ),
                 ],
@@ -636,11 +643,15 @@ class WebTuiSheetActionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final danger = tone == WebTuiDialogTone.danger;
-    final foreground = danger ? WebTuiColors.danger : WebTuiColors.primary;
+    final foreground = danger
+        ? WebTuiColors.of(context).danger
+        : WebTuiColors.of(context).primary;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: WebTuiSpacing.sm),
       child: Material(
-        color: selected ? WebTuiColors.primarySoft : Colors.transparent,
+        color: selected
+            ? WebTuiColors.of(context).primarySoft
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(WebTuiRadii.lg),
         child: InkWell(
           borderRadius: BorderRadius.circular(WebTuiRadii.lg),
@@ -658,7 +669,9 @@ class WebTuiSheetActionTile extends StatelessWidget {
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      color: danger ? _dangerSoft : WebTuiColors.primarySoft,
+                      color: danger
+                          ? _dangerSoft
+                          : WebTuiColors.of(context).primarySoft,
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Icon(icon, size: 21, color: foreground),
@@ -675,8 +688,8 @@ class WebTuiSheetActionTile extends StatelessWidget {
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                             color: danger
-                                ? WebTuiColors.danger
-                                : WebTuiColors.textPrimary,
+                                ? WebTuiColors.of(context).danger
+                                : WebTuiColors.of(context).textPrimary,
                           ),
                         ),
                         if (subtitle != null) ...[
@@ -684,7 +697,7 @@ class WebTuiSheetActionTile extends StatelessWidget {
                           Text(
                             subtitle!,
                             style: WebTuiTypography.bodySmall.copyWith(
-                              color: WebTuiColors.textSecondary,
+                              color: WebTuiColors.of(context).textSecondary,
                             ),
                           ),
                         ],

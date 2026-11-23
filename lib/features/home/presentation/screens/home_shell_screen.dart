@@ -23,6 +23,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
+import '../../../admin_panel/application/admin_panel_access.dart';
 import '../../../approvals/application/approval_notification_actions.dart';
 import '../../../approvals/presentation/controllers/approval_list_controller.dart';
 import '../../../auth/application/session_termination.dart';
@@ -234,6 +235,11 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     final workspaceState = ref.watch(workspaceControllerProvider);
     final activeWorkspace = workspaceState.activeWorkspace;
     final organization = ref.watch(activeServerDiscoveryProvider);
+    // Cài đặt > Trang quản trị: chỉ khi có quyền vào trang quản trị (admin.view)
+    // trong workspace đang mở; quyền chưa tải xong thì chưa hiện.
+    final adminPanelTarget = canOpenAdminPanel(workspaceState.permissions)
+        ? adminPanelUri(organization)
+        : null;
     // Âm lượng / Cỡ chữ ở tab Cài đặt đọc và ghi kho cài đặt thật của app.
     final appSettings = ref.watch(
       appSettingsControllerProvider.select((state) => state.settings),
@@ -434,6 +440,9 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
                       onQrLoginTap: organization?.capabilities.qrLogin == true
                           ? () => context.push('/qr-login')
                           : null,
+                      onAdminPanelTap: adminPanelTarget == null
+                          ? null
+                          : () => unawaited(_openAdminPanel(adminPanelTarget)),
                       onLogoutTap: _confirmAndLogout,
                       onNotificationChanged: (value) {
                         setState(() => _notificationEnabled = value);
@@ -1089,6 +1098,11 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       }
       if (target.isMeeting) bumpMeetingCalendar(ref.read);
       final location = locationForNotificationTarget(target);
+      // Đang mở đúng phiên AI / việc nền đó rồi thì không nhắc lại.
+      final current = GoRouter.of(
+        context,
+      ).routeInformationProvider.value.uri.path;
+      if (isSameIdeLocation(current, location)) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(tr('Có thông báo mới', 'New notification')),
@@ -1730,6 +1744,26 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     }
     ref.invalidate(pendingDeviceApprovalsProvider);
     unawaited(context.push(deviceApprovalReviewLocation(id)));
+  }
+
+  /// Cài đặt > Trang quản trị: mở trang quản trị (web, đăng nhập riêng) bằng
+  /// trình duyệt. Nút "Về giao diện chat" của trang quản trị mở lại app nhờ
+  /// `from=app` (xem admin_panel_access.dart).
+  Future<void> _openAdminPanel(Uri uri) async {
+    final opened = await ref
+        .read(externalUrlLauncherProvider)
+        .open(uri.toString());
+    if (opened || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          tr(
+            'Không mở được trang quản trị.',
+            'Could not open the admin dashboard.',
+          ),
+        ),
+      ),
+    );
   }
 
   /// Hỏi xác nhận rồi đăng xuất; chạm nhiều lần chỉ chạy một lần.
@@ -2583,11 +2617,16 @@ class SettingsTab extends StatelessWidget {
     this.userGender,
     this.userEmail,
     this.onQrLoginTap,
+    this.onAdminPanelTap,
     super.key,
   });
 
   /// Mở danh sách workspace.
   final VoidCallback onWorkspaceTap;
+
+  /// Mở trang quản trị bằng trình duyệt; null khi tài khoản không có quyền vào
+  /// trang quản trị (`admin.view`) thì dòng không hiện.
+  final VoidCallback? onAdminPanelTap;
 
   /// Tài khoản có từ 2 workspace: dòng ghi "Chuyển workspace".
   final bool canSwitchWorkspace;
@@ -2671,6 +2710,22 @@ class SettingsTab extends StatelessWidget {
             // đề nên để hở bên phải mũi tên).
             value: workspaceName,
           ),
+          if (onAdminPanelTap != null) ...[
+            divider,
+            WebTuiSettingRow(
+              key: const Key('settings_admin_panel_row'),
+              title: tr('Trang quản trị', 'Admin dashboard'),
+              icon: WebTuiIcons.adminPanel,
+              onTap: onAdminPanelTap,
+              // Mở trình duyệt (rời app): biểu tượng liên kết ngoài thay mũi tên.
+              trailing: Icon(
+                WebTuiIcons.externalLink,
+                size: 18,
+                color: WebTuiColors.textMuted,
+                semanticLabel: tr('mở trong trình duyệt', 'opens in browser'),
+              ),
+            ),
+          ],
           if (onQrLoginTap != null) ...[
             divider,
             WebTuiSettingRow(

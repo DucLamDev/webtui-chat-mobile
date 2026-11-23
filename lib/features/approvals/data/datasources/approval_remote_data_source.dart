@@ -68,6 +68,15 @@ ApprovalRequest approvalFromMap(JsonMap map) {
   final result = jsonMap(field(map, const ['result']));
   final resultExecutor = stringField(result, const ['executor']);
   final resultError = stringField(result, const ['error']);
+  final externalKey = _text(map, const ['external_key']);
+  final resultLabel = _text(map, const ['result_label']);
+  // Lý do huỷ: đọc ở gốc phiếu, dự phòng trong `result` (máy chủ có thể để
+  // cạnh kết quả thực hiện).
+  final cancelReason = _text(map, const [
+    'cancel_reason',
+    'cancelled_reason',
+    'cancellation_reason',
+  ]).ifEmpty(() => _text(result, const ['cancel_reason', 'reason']));
   return ApprovalRequest(
     id: stringField(map, const ['id', 'approval_id']),
     workspaceId: stringField(map, const ['workspace_id']),
@@ -97,15 +106,79 @@ ApprovalRequest approvalFromMap(JsonMap map) {
         .map(
           (vote) => ApprovalVote(
             userId: stringField(vote, const ['user_id']),
+            userEmail: _text(vote, const ['user_email', 'email']),
             decision: ApprovalDecisionKind.fromApi(
               stringField(vote, const ['decision']),
             ),
-            comment: stringField(vote, const ['comment']),
-            createdAt: _time(field(vote, const ['created_at'])),
+            comment: _text(vote, const ['comment', 'note']),
+            createdAt: _time(field(vote, const ['created_at', 'decided_at'])),
           ),
         )
         .toList(growable: false),
+    content: approvalContentFromJson(field(map, const ['display'])),
+    externalKey: externalKey.isEmpty ? null : externalKey,
+    cancelReason: cancelReason.isEmpty ? null : cancelReason,
+    resultLabel: resultLabel.isEmpty
+        ? null
+        : resultLabel.length > approvalResultLabelMaxLength
+        ? resultLabel.substring(0, approvalResultLabelMaxLength)
+        : resultLabel,
   );
+}
+
+/// Giới hạn khi đọc khối `display` (khớp giới hạn máy chủ nhận vào), để dữ
+/// liệu lạ không làm màn hình quá dài.
+const approvalContentMaxTextLength = 4000;
+const approvalContentMaxFields = 8;
+const approvalResultLabelMaxLength = 40;
+
+/// Đọc khối `display`. Thiếu / sai kiểu / rỗng thì trả `null` (hiện như cũ).
+/// Ảnh và liên kết không phải `https://` bị bỏ.
+ApprovalContent? approvalContentFromJson(Object? value) {
+  final map = jsonMapOrNull(value);
+  if (map == null) return null;
+  final rawText = _text(map, const ['text'], trim: false);
+  final text = rawText.length > approvalContentMaxTextLength
+      ? rawText.substring(0, approvalContentMaxTextLength)
+      : rawText;
+  final image = approvalHttpsUri(_text(map, const ['image_url', 'imageUrl']));
+  final fields = <ApprovalContentField>[];
+  for (final item in jsonMapList(field(map, const ['fields']))) {
+    final label = _text(item, const ['label']);
+    final fieldValue = _text(item, const ['value']);
+    if (label.isEmpty || fieldValue.isEmpty) continue;
+    fields.add(ApprovalContentField(label: label, value: fieldValue));
+    if (fields.length >= approvalContentMaxFields) break;
+  }
+  final rawLink = jsonMapOrNull(field(map, const ['link']));
+  ApprovalContentLink? link;
+  if (rawLink != null) {
+    final url = _text(rawLink, const ['url']);
+    if (approvalHttpsUri(url) != null) {
+      link = ApprovalContentLink(
+        label: _text(rawLink, const ['label']),
+        url: url,
+      );
+    }
+  }
+  final content = ApprovalContent(
+    text: text.trim().isEmpty ? '' : text,
+    imageUrl: image?.toString(),
+    fields: List.unmodifiable(fields),
+    link: link,
+  );
+  return content.isEmpty ? null : content;
+}
+
+/// Chỉ nhận giá trị chuỗi (không biến map / list thành chữ).
+String _text(JsonMap map, Iterable<String> keys, {bool trim = true}) {
+  final value = field(map, keys);
+  if (value is! String) return '';
+  return trim ? value.trim() : value.replaceAll('\r\n', '\n');
+}
+
+extension on String {
+  String ifEmpty(String Function() other) => isEmpty ? other() : this;
 }
 
 DateTime? _time(Object? value) {

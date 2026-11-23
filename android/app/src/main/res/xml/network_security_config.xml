@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Bản phát hành: chỉ HTTPS / WSS, chỉ tin chứng chỉ gốc của hệ thống (không tin
+  chứng chỉ người dùng tự cài), kể cả với localhost.
+  Bản debug thay tệp này bằng src/debug/res/xml/network_security_config.xml.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

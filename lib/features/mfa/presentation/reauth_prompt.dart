@@ -6,19 +6,29 @@ import '../../../design_system/icons/webtui_icons.dart';
 import '../../../design_system/tokens/webtui_spacing.dart';
 import '../../../l10n/app_strings.dart';
 
+/// Mã lỗi khi thao tác đổi yếu tố xác thực cần token xác thực lại bằng yếu tố
+/// thứ hai (mã ứng dụng xác thực / mã khôi phục), không chỉ mật khẩu.
+const reauthSecondFactorRequiredCode = 'REAUTH_SECOND_FACTOR_REQUIRED';
+
 /// Mỗi thao tác xác thực riêng; không lưu token ra đĩa hoặc dùng lại sau đổi tài khoản.
+///
+/// [secondFactorOnly]: chỉ cho nhập mã OTP / mã khôi phục (bắt buộc bước xác
+/// thực hai lớp cho thao tác đổi yếu tố xác thực).
 Future<String?> requestReauthToken(
   BuildContext context,
   WidgetRef ref, {
   String? reason,
+  bool secondFactorOnly = false,
 }) => showDialog<String>(
   context: context,
-  builder: (_) => _ReauthDialog(reason: reason),
+  builder: (_) =>
+      _ReauthDialog(reason: reason, secondFactorOnly: secondFactorOnly),
 );
 
 class _ReauthDialog extends ConsumerStatefulWidget {
-  const _ReauthDialog({this.reason});
+  const _ReauthDialog({this.reason, this.secondFactorOnly = false});
   final String? reason;
+  final bool secondFactorOnly;
   @override
   ConsumerState<_ReauthDialog> createState() => _ReauthDialogState();
 }
@@ -26,7 +36,7 @@ class _ReauthDialog extends ConsumerStatefulWidget {
 class _ReauthDialogState extends ConsumerState<_ReauthDialog> {
   final _value = TextEditingController();
   final _focus = FocusNode();
-  String _method = 'password';
+  late String _method = widget.secondFactorOnly ? 'totp' : 'password';
   String? _error;
   bool _busy = false;
   bool _showPassword = false;
@@ -72,8 +82,8 @@ class _ReauthDialogState extends ConsumerState<_ReauthDialog> {
     if (mounted && ok) _focus.requestFocus();
   }
 
-  static List<(String, String)> get _methods => [
-    ('password', tr('Mật khẩu', 'Password')),
+  List<(String, String)> get _methods => [
+    if (!widget.secondFactorOnly) ('password', tr('Mật khẩu', 'Password')),
     ('totp', tr('Mã OTP', 'OTP code')),
     ('recovery_code', tr('Khôi phục', 'Recovery')),
   ];
@@ -85,10 +95,15 @@ class _ReauthDialogState extends ConsumerState<_ReauthDialog> {
       title: tr('Xác thực lại', 'Verify again'),
       message:
           widget.reason ??
-          tr(
-            'Nhập mật khẩu hoặc mã xác thực để tiếp tục.',
-            'Enter your password or verification code to continue.',
-          ),
+          (widget.secondFactorOnly
+              ? tr(
+                  'Nhập mã từ ứng dụng xác thực hoặc mã khôi phục để tiếp tục.',
+                  'Enter a code from your authenticator app or a recovery code to continue.',
+                )
+              : tr(
+                  'Nhập mật khẩu hoặc mã xác thực để tiếp tục.',
+                  'Enter your password or verification code to continue.',
+                )),
       icon: WebTuiIcons.lock,
       content: Column(
         mainAxisSize: MainAxisSize.min,

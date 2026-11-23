@@ -50,6 +50,28 @@ jobs:
       # Smoke test chạy bằng flutter_tester (không cần thiết bị / emulator).
       - run: flutter test integration_test/app_smoke_test.dart -d flutter-tester
       - run: flutter build apk --debug --flavor dev -t lib/main_dev.dart
+      # Quét lỗ hổng thư viện đã biết (OSV) cho pub và Gradle. osv-scanner tải bản
+      # ghim theo SHA-256. pubspec.lock có lỗ hổng thì đỏ; Gradle (khoá tạm danh sách
+      # thư viện của bản dev debug bằng init script, không sửa build.gradle) hiện
+      # cảnh báo, chưa chặn: còn lỗ hổng cũ từ thư viện của plugin cần xử lý riêng.
+      - name: Scan dependencies for known vulnerabilities
+        env:
+          OSV_SCANNER_VERSION: v2.7.1
+          OSV_SCANNER_SHA256: fb7dab19a8bd9bbe5c3189f09d4b7ee1820c9553a23bac202648a56efd2f6ee8
+        run: |
+          set -euo pipefail
+          bin="$RUNNER_TEMP/osv-scanner"
+          curl -fsSL -o "$bin" "https://github.com/google/osv-scanner/releases/download/${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64"
+          echo "${OSV_SCANNER_SHA256}  $bin" | sha256sum -c -
+          chmod +x "$bin"
+          "$bin" scan source --lockfile pubspec.lock
+          init="$RUNNER_TEMP/lock-all.gradle"
+          printf 'allprojects {\n    dependencyLocking { lockAllConfigurations() }\n}\n' > "$init"
+          (cd android && ./gradlew -q --init-script "$init" :app:dependencies --configuration devDebugRuntimeClasspath --write-locks > /dev/null)
+          if ! "$bin" scan source --lockfile android/app/gradle.lockfile; then
+            echo "::warning::osv-scanner found known vulnerabilities in Gradle dependencies (see log above)."
+          fi
+          rm -f android/app/gradle.lockfile
 
   android-release:
     if: startsWith(github.ref, 'refs/tags/mobile-v')

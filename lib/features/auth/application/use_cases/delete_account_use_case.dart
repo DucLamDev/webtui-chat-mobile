@@ -22,9 +22,12 @@ final class DeleteAccountUseCase {
   final SessionStateRepository _sessionStateRepository;
   final AppLockRepository _appLockRepository;
 
+  /// [reauthToken]: token xác thực lại vừa lấy trên thiết bị này (không lưu,
+  /// không dùng lại). Thiếu thì không gọi máy chủ.
   Future<Result<void>> execute({
     String confirmation = 'DELETE',
     String? ownershipSuccessorEmail,
+    required String? reauthToken,
   }) async {
     final normalizedConfirmation = confirmation.trim().toUpperCase();
     if (normalizedConfirmation != 'DELETE') {
@@ -35,6 +38,20 @@ final class DeleteAccountUseCase {
           message: tr(
             'Nhập DELETE để xác nhận xóa tài khoản.',
             'Type DELETE to confirm deleting your account.',
+          ),
+        ),
+      );
+    }
+
+    final token = reauthToken?.trim() ?? '';
+    if (token.isEmpty) {
+      return FailureResult(
+        Failure(
+          kind: FailureKind.forbidden,
+          code: 'REAUTH_REQUIRED',
+          message: tr(
+            'Cần xác thực lại trước khi xóa tài khoản.',
+            'Verify again before deleting your account.',
           ),
         ),
       );
@@ -57,6 +74,7 @@ final class DeleteAccountUseCase {
 
     final deletion = await _accountRepository.deleteAccount(
       confirmation: normalizedConfirmation,
+      reauthToken: token,
       ownershipSuccessorEmail: ownershipSuccessorEmail?.trim(),
     );
     if (deletion case FailureResult<void>()) {

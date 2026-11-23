@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/providers/foundation_providers.dart';
+import '../../../core/error/failure.dart';
 import '../../../l10n/app_strings.dart';
 import '../domain/mfa_repository.dart';
 import 'reauth_prompt.dart';
@@ -40,37 +41,75 @@ class _MfaSettingsScreenState extends ConsumerState<MfaSettingsScreen> {
   }
 
   Future<void> _change(bool enable) async {
-    final token = await requestReauthToken(
-      context,
-      ref,
-      reason: enable
-          ? tr('Bật mã xác thực TOTP', 'Turn on TOTP verification')
-          : tr('Tắt mã xác thực TOTP', 'Turn off TOTP verification'),
-    );
-    if (!mounted || token == null) return;
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
+    final reason = enable
+        ? tr('Bật mã xác thực TOTP', 'Turn on TOTP verification')
+        : tr('Tắt mã xác thực TOTP', 'Turn off TOTP verification');
+    // Tắt TOTP: tài khoản đang có yếu tố thứ hai nên máy chủ bắt buộc xác thực
+    // lại bằng mã, không nhận token chỉ từ mật khẩu.
+    var secondFactorOnly = !enable;
     final service = ref.read(mfaUseCasesProvider);
-    if (enable) {
-      final result = await service.enroll(token);
+    while (true) {
       if (!mounted) return;
+      final token = await requestReauthToken(
+        context,
+        ref,
+        reason: reason,
+        secondFactorOnly: secondFactorOnly,
+      );
+      if (!mounted || token == null) return;
       setState(() {
-        _enrollment = result.valueOrNull;
-        _error = result.failureOrNull?.message;
-        _busy = false;
+        _busy = true;
+        _error = null;
       });
-    } else {
-      final result = await service.disable(token);
-      if (!mounted) return;
-      setState(() {
-        _error = result.failureOrNull?.message;
-        _busy = false;
-        _recoveryCodes = null;
-      });
-      if (result.isSuccess) await _load();
+      if (enable) {
+        final result = await service.enroll(token);
+        if (!mounted) return;
+        if (_needsSecondFactor(result.failureOrNull, secondFactorOnly)) {
+          secondFactorOnly = true;
+          setState(() => _busy = false);
+          continue;
+        }
+        setState(() {
+          _enrollment = result.valueOrNull;
+          _error = _failureMessage(result.failureOrNull);
+          _busy = false;
+        });
+      } else {
+        final result = await service.disable(token);
+        if (!mounted) return;
+        if (_needsSecondFactor(result.failureOrNull, secondFactorOnly)) {
+          secondFactorOnly = true;
+          setState(() => _busy = false);
+          continue;
+        }
+        setState(() {
+          _error = _failureMessage(result.failureOrNull);
+          _busy = false;
+          _recoveryCodes = null;
+        });
+        if (result.isSuccess) await _load();
+      }
+      return;
     }
+  }
+
+  /// Token chỉ từ mật khẩu bị từ chối: hỏi lại một lần bằng yếu tố thứ hai.
+  bool _needsSecondFactor(Failure? failure, bool alreadySecondFactor) =>
+      !alreadySecondFactor &&
+      failure != null &&
+      failure.hasCode(reauthSecondFactorRequiredCode);
+
+  String? _failureMessage(Failure? failure) {
+    if (failure == null) return null;
+    if (failure.hasCode(reauthSecondFactorRequiredCode)) {
+      return tr(
+        'Cần xác thực lại bằng mã từ ứng dụng xác thực hoặc mã khôi phục. '
+            'Nếu tài khoản chỉ có passkey, hãy làm thao tác này trên web.',
+        'Verify again with an authenticator app code or a recovery code. '
+            'If the account only has a passkey, do this on the web.',
+      );
+    }
+    return failure.message;
   }
 
   Future<void> _confirm() async {
