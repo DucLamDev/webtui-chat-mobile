@@ -73,7 +73,10 @@ dependencies:
   video_player: 2.11.1
   open_filex: ^4.7.0
   mobile_scanner: ^7.4.0
-  receive_sharing_intent: 1.8.1
+  # Local 1.8.1 fork: Android copies shared content:// streams only into a
+  # sanitized cache subdirectory (third_party/receive_sharing_intent/WEBTUI_PATCH.md).
+  receive_sharing_intent:
+    path: third_party/receive_sharing_intent
   livekit_client: ^2.13.2
   pdfx: ^2.11.0
   opus_dart: ^3.0.1
