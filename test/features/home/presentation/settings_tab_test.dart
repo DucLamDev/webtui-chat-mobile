@@ -11,6 +11,50 @@ import 'package:webtui_chat/l10n/app_strings.dart';
 import '../../../support/system_font.dart';
 
 void main() {
+  testWidgets(
+    'có quyền vào trang quản trị: dòng Trang quản trị ngay dưới Workspace, bấm mở',
+    (tester) async {
+      var opened = 0;
+      await tester.pumpWidget(_host(_tab(onAdminPanelTap: () => opened++)));
+      await tester.pump();
+
+      final row = find.byKey(const Key('settings_admin_panel_row'));
+      expect(row, findsOneWidget);
+      expect(
+        find.descendant(of: row, matching: find.text('Trang quản trị')),
+        findsOneWidget,
+      );
+      // Mở trình duyệt: biểu tượng liên kết ngoài thay cho mũi tên.
+      expect(
+        find.descendant(
+          of: row,
+          matching: find.byIcon(WebTuiIcons.externalLink),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester.getTopLeft(row).dy,
+        greaterThan(
+          tester.getTopLeft(find.byKey(const Key('settings_workspace_row'))).dy,
+        ),
+      );
+
+      await tester.tap(row);
+      expect(opened, 1);
+    },
+  );
+
+  testWidgets(
+    'không có quyền vào trang quản trị: không có dòng Trang quản trị',
+    (tester) async {
+      await tester.pumpWidget(_host(_tab()));
+      await tester.pump();
+
+      expect(find.byKey(const Key('settings_admin_panel_row')), findsNothing);
+      expect(find.text('Trang quản trị'), findsNothing);
+    },
+  );
+
   testWidgets('dòng Workspace bấm được cả khi tài khoản chỉ có 1 workspace', (
     tester,
   ) async {
@@ -361,6 +405,7 @@ SettingsTab _tab({
   VoidCallback? onAdvancedTap,
   VoidCallback? onLogoutTap,
   VoidCallback? onQrLoginTap,
+  VoidCallback? onAdminPanelTap,
   ValueChanged<bool>? onNotificationChanged,
   ValueChanged<bool>? onCompactChanged,
   double soundLevel = 0.6,
@@ -377,6 +422,7 @@ SettingsTab _tab({
     canSwitchWorkspace: canSwitchWorkspace,
     onWorkspaceTap: onWorkspaceTap ?? () {},
     onQrLoginTap: onQrLoginTap,
+    onAdminPanelTap: onAdminPanelTap,
     notificationEnabled: true,
     compactMode: compactMode,
     soundLevel: soundLevel,

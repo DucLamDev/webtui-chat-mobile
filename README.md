@@ -65,6 +65,7 @@ App lock/privacy:
 - Khi đổi workspace, app reset runtime scope trong Drift (`workspace_runtime`, `workspace:{id}:runtime`) và tăng generation để rebuild shell/provider phụ thuộc workspace; route chọn workspace dùng `context.go('/')` để reset navigation stack.
 - `features/profile`: gọi `GET|PATCH /api/v1/users/me`; avatar chọn bằng camera/gallery qua `image_picker`, upload multipart vào `POST /api/v1/workspaces/{workspace_id}/files`, rồi cập nhật `avatar_url`.
 - `features/settings`: lưu theme/language/notification/privacy preview theo session scope local; màn quyền riêng tư dùng session API từ M2 để list/revoke phiên.
+- `features/admin_panel`: dòng "Trang quản trị" trong tab Cài đặt chỉ hiện khi `PermissionSet` có `admin.view`. Bấm thì mở trang quản trị bằng trình duyệt: lấy `runtime.admin_base_url` của discovery (chỉ nhận cùng origin), không có thì `<origin>/admin/`, luôn kèm `?from=app`. Khi có tham số này, nút "Về giao diện chat" của trang quản trị mở lại app bằng `webtui://chat`.
 - 403 từ backend được giữ message tiếng Việt trong `FailureKind.forbidden` và hiển thị như lỗi quyền, không map thành lỗi hệ thống chung.
 
 ## Flavor Và Base URL
@@ -202,8 +203,8 @@ bấm trong IDE ở mục **Màn hình app**. Bản Linux chỉ để chạy th�
 
 ## Reference UI
 
-Ảnh reference nằm tại
-`docs/design/mobile/references/webtui-mobile-zalo-reference.png`. Phase M1
+Mẫu giao diện đã chốt mô tả tại
+`docs/design/mobile/references/mobile-ui-reference.md`. Phase M1
 dựng shell và design tokens; Phase M2 thêm auth/session foundation và login
 entrypoint, chưa phụ thuộc backend/mock production trong widget test.
 
