@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/app/providers/foundation_providers.dart';
@@ -774,7 +775,48 @@ void main() {
           ),
         );
         expect(tester.takeException(), isNull, reason: '$prompt');
+        // Nút không cắt chữ, đủ lớn, cuộn tới được.
+        for (final key in ['ide_web_prompt_ok', 'ide_web_prompt_cancel']) {
+          final button = _key(key);
+          await tester.ensureVisible(button);
+          await tester.pump();
+          expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+          final label = tester.renderObject<RenderParagraph>(
+            find.descendant(of: button, matching: find.byType(RichText)),
+          );
+          expect(label.didExceedMaxLines, isFalse, reason: '$prompt $key');
+        }
       }
+    });
+
+    testWidgets('chữ to: chỉ báo thu còn biểu tượng, tên màn không bị cắt', (
+      tester,
+    ) async {
+      tester.view
+        ..physicalSize = const Size(320, 568)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final rig = _Rig();
+      await rig.open(tester, textScale: 1.6);
+      rig.view.add(
+        IdeWebPermissionAsked(
+          microphoneOnly: true,
+          mainUrl: '$testOrigin/appchat/',
+          resolve: ({required granted}) async {},
+        ),
+      );
+      await rig.pump(tester);
+      await tester.tap(_key('ide_web_prompt_ok'));
+      await rig.pump(tester);
+      rig.view.add(const IdeWebCaptureChanged(active: true, any: true));
+      await rig.pump(tester);
+      expect(_key('ide_web_mic_chip'), findsOneWidget);
+      expect(find.text('Đang thu'), findsNothing);
+      expect(find.bySemanticsLabel('Đang thu micro'), findsOneWidget);
+      final title = tester.renderObject<RenderParagraph>(
+        find.text('VPSTTT IDE'),
+      );
+      expect(title.didExceedMaxLines, isFalse);
     });
   });
 }

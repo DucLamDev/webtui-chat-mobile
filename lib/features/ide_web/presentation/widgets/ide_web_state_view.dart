@@ -59,7 +59,9 @@ class IdeWebStateView extends StatelessWidget {
       ),
       IdeWebUnavailable(:final rateLimited) => _Frame(
         key: const Key('ide_web_unavailable'),
-        icon: Icons.wifi_off_rounded,
+        icon: rateLimited
+            ? Icons.hourglass_top_rounded
+            : Icons.wifi_off_rounded,
         title: rateLimited
             ? tr('Mở quá nhiều lần', 'Too many attempts')
             : tr(

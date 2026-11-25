@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../design_system/components/webtui_components.dart';
+import '../../../../design_system/tokens/webtui_colors.dart';
+import '../../../../design_system/tokens/webtui_spacing.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../application/ide_web_prompter.dart';
 import '../../domain/ide_web_device_key.dart';
@@ -15,23 +17,82 @@ class IdeWebPromptDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = ideWebPromptText(prompt);
     final destructive = prompt is IdeWebDeleteKeyPrompt;
+    void answer(bool value) => Navigator.of(context).pop(value);
+    // Chữ to: hai nút cạnh nhau cắt mất chữ ("Đăng…"), xếp dọc.
+    final stacked = ideWebLargeText(context);
     return WebTuiDialog(
       title: text.title,
       message: text.message,
       icon: text.icon,
       tone: destructive ? WebTuiDialogTone.danger : WebTuiDialogTone.normal,
+      content: stacked
+          ? _StackedActions(
+              confirm: text.confirm,
+              destructive: destructive,
+              answer: answer,
+            )
+          : null,
       actions: [
-        WebTuiDialogAction(
-          key: const Key('ide_web_prompt_cancel'),
-          label: tr('Huỷ', 'Cancel'),
-          onPressed: () => Navigator.of(context).pop(false),
-        ),
-        WebTuiDialogAction(
+        if (!stacked) ...[
+          WebTuiDialogAction(
+            key: const Key('ide_web_prompt_cancel'),
+            label: tr('Huỷ', 'Cancel'),
+            onPressed: () => answer(false),
+          ),
+          WebTuiDialogAction(
+            key: const Key('ide_web_prompt_ok'),
+            label: text.confirm,
+            primary: true,
+            destructive: destructive,
+            onPressed: () => answer(true),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+bool ideWebLargeText(BuildContext context) =>
+    MediaQuery.textScalerOf(context).scale(10) > 13;
+
+class _StackedActions extends StatelessWidget {
+  const _StackedActions({
+    required this.confirm,
+    required this.destructive,
+    required this.answer,
+  });
+
+  final String confirm;
+  final bool destructive;
+  final void Function(bool value) answer;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = WebTuiColors.of(context);
+    const height = Size.fromHeight(48);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FilledButton(
           key: const Key('ide_web_prompt_ok'),
-          label: text.confirm,
-          primary: true,
-          destructive: destructive,
-          onPressed: () => Navigator.of(context).pop(true),
+          onPressed: () => answer(true),
+          style: FilledButton.styleFrom(
+            backgroundColor: destructive ? c.danger : c.primaryFill,
+            foregroundColor: c.textOnPrimary,
+            minimumSize: height,
+          ),
+          child: Text(confirm, textAlign: TextAlign.center),
+        ),
+        const SizedBox(height: WebTuiSpacing.sm),
+        TextButton(
+          key: const Key('ide_web_prompt_cancel'),
+          onPressed: () => answer(false),
+          style: TextButton.styleFrom(
+            backgroundColor: c.backgroundMuted,
+            foregroundColor: c.textPrimary,
+            minimumSize: height,
+          ),
+          child: Text(tr('Huỷ', 'Cancel')),
         ),
       ],
     );
@@ -101,5 +162,6 @@ ideWebPromptText(IdeWebPrompt prompt) => switch (prompt) {
 String _size(int bytes) {
   if (bytes < 1024) return '$bytes B';
   if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
-  return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  final text = (bytes / (1024 * 1024)).toStringAsFixed(1);
+  return '${tr(text.replaceAll('.', ','), text)} MB';
 }
