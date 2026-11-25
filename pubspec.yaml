@@ -91,6 +91,11 @@ dependencies:
   # Biết đang dùng Wi-Fi hay dữ liệu di động (tự tải ảnh / lưu video vào kho).
   # Đã có sẵn qua livekit_client, khai trực tiếp đúng bản trong pubspec.lock.
   connectivity_plus: ^7.3.1
+  # Nhúng VPSTTT IDE (chỉ máy chủ nội bộ). Ghim đúng bản: phần native lấy WebView
+  # thật qua API ngoài của từng gói nền tảng.
+  webview_flutter: 4.14.1
+  webview_flutter_android: 4.14.1
+  webview_flutter_wkwebview: 3.26.2
 dev_dependencies:
   flutter_test:
     sdk: flutter

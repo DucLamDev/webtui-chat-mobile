@@ -1,11 +1,14 @@
 import AVFoundation
+import AuthenticationServices
 import CallKit
 import Flutter
 import LocalAuthentication
 import PushKit
 import UIKit
+import WebKit
 import WebRTC
 import flutter_callkit_incoming
+import webview_flutter_wkwebview
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, PKPushRegistryDelegate, CallkitIncomingAppDelegate {
@@ -16,6 +19,8 @@ import flutter_callkit_incoming
   private var deepLinkChannel: FlutterMethodChannel?
   private var pendingDeepLink: String?
   private var videoCompressBridge: VideoCompressBridge?
+  private var ideWebAuth: IdeWebAuth?
+  private var ideWebHost: IdeWebHost?
   private let activeInstanceIDKey = "webtui.active_instance_id"
   private let activeInstanceOriginKey = "webtui.active_instance_origin"
   private let validatedInstanceKey = "webtui.instance_binding_validated"
@@ -238,6 +243,37 @@ import flutter_callkit_incoming
     ))
     compressor.register()
     videoCompressBridge = compressor
+    configureIdeWebChannels(messenger)
+  }
+
+  /// VPSTTT IDE nhúng bằng WebView: khoá chip, trình duyệt đăng nhập, cầu nối.
+  private func configureIdeWebChannels(_ messenger: FlutterBinaryMessenger) {
+    FlutterMethodChannel(name: "webtui/ide_web_keys", binaryMessenger: messenger)
+      .setMethodCallHandler { call, result in IdeWebDeviceKeys.handle(call, result: result) }
+
+    let auth = IdeWebAuth(anchor: window)
+    ideWebAuth = auth
+    FlutterMethodChannel(name: "webtui/ide_web_auth", binaryMessenger: messenger)
+      .setMethodCallHandler { [weak auth] call, result in
+        guard let auth else {
+          result(FlutterError(code: "failed", message: nil, details: nil))
+          return
+        }
+        auth.handle(call, result: result)
+      }
+
+    let host = IdeWebHost(registrar: registrar(forPlugin: "IdeWebHost"))
+    ideWebHost = host
+    FlutterMethodChannel(name: "webtui/ide_web_host", binaryMessenger: messenger)
+      .setMethodCallHandler { [weak host] call, result in
+        guard let host else {
+          result(FlutterError(code: "failed", message: nil, details: nil))
+          return
+        }
+        host.handle(call, result: result)
+      }
+    FlutterEventChannel(name: "webtui/ide_web_host/events", binaryMessenger: messenger)
+      .setStreamHandler(host.events)
   }
 
   override func application(
@@ -321,6 +357,7 @@ import flutter_callkit_incoming
     else { return false }
     let host = url.host?.lowercased()
     return (host == "oidc" && url.path == "/callback")
+      || (host == "ide-web" && url.path == "/callback")
       || (host == "chat" && isAllowedNavigationPath(url.path))
   }
 
@@ -1115,5 +1152,620 @@ enum IdeDeviceSecurity {
       // Chữ ký X9.62 đã là DER.
       DispatchQueue.main.async { result(signature.base64EncodedString()) }
     }
+  }
+}
+
+// MARK: - VPSTTT IDE nhúng bằng WebView (kênh webtui/ide_web_*)
+
+/// Khoá "possession" (kênh `webtui/ide_web_keys`): P-256 trong Secure Enclave, không hỏi sinh trắc,
+/// chỉ dùng khi máy đang mở khoá. Khoá sinh trắc vẫn do `webtui/biometric` quản lý; ở đây chỉ xem
+/// trạng thái / xoá theo alias.
+enum IdeWebDeviceKeys {
+  // Phần đầu SubjectPublicKeyInfo của khoá công khai P-256, theo sau là điểm X9.63 65 byte.
+  private static let p256SpkiHeader = Data([
+    0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01,
+    0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07, 0x03, 0x42, 0x00,
+  ])
+  private static let aliasPrefix = "ideweb."
+  private static let installMarkerKey = "webtui.ide_web_keys_installed"
+  private static let maxDataBytes = 64 * 1024
+  private static let queue = DispatchQueue(label: "webtui.ide_web_keys", qos: .userInitiated)
+
+  private struct Failure: Error {
+    let code: String
+  }
+
+  static func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    let arguments = call.arguments as? [String: Any]
+    let alias = arguments?["alias"] as? String
+    switch call.method {
+    case "createPossessionKey":
+      run(result) { try create(checked(alias, kinds: "p")) }
+    case "signPossession":
+      let data = (arguments?["data"] as? FlutterStandardTypedData)?.data
+      run(result) {
+        FlutterStandardTypedData(bytes: try sign(checked(alias, kinds: "p"), data: data))
+      }
+    case "keyState":
+      run(result) { state(try checked(alias, kinds: "pb")) }
+    case "deleteKey":
+      run(result) {
+        try delete(checked(alias, kinds: "pb"))
+        return nil
+      }
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+
+  private static func run(_ result: @escaping FlutterResult, _ work: @escaping () throws -> Any?) {
+    queue.async {
+      purgeKeysOfPreviousInstall()
+      let value: Any?
+      do {
+        value = try work()
+      } catch {
+        // Không đưa alias hay dữ liệu ký vào lỗi.
+        let code = (error as? Failure)?.code ?? "failed"
+        value = FlutterError(code: code, message: code, details: nil)
+      }
+      DispatchQueue.main.async { result(value) }
+    }
+  }
+
+  /// Keychain còn giữ khoá sau khi gỡ app; bản cài mới (chưa có dấu) không dùng khoá của bản cũ.
+  private static func purgeKeysOfPreviousInstall() {
+    let defaults = UserDefaults.standard
+    guard !defaults.bool(forKey: installMarkerKey) else { return }
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassKey,
+      kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+      kSecReturnAttributes as String: true,
+      kSecMatchLimit as String: kSecMatchLimitAll,
+    ]
+    var items: CFTypeRef?
+    let status = SecItemCopyMatching(query as CFDictionary, &items)
+    // Máy đang khoá hoặc Keychain lỗi: để lần sau.
+    guard status == errSecSuccess || status == errSecItemNotFound else { return }
+    for item in (items as? [[String: Any]]) ?? [] {
+      guard
+        let tag = item[kSecAttrApplicationTag as String] as? Data,
+        let alias = String(data: tag, encoding: .utf8),
+        alias.hasPrefix(aliasPrefix)
+      else { continue }
+      let deleted = SecItemDelete(baseQuery(tag) as CFDictionary)
+      guard deleted == errSecSuccess || deleted == errSecItemNotFound else { return }
+    }
+    defaults.set(true, forKey: installMarkerKey)
+  }
+
+  private static func baseQuery(_ tag: Data) -> [String: Any] {
+    [
+      kSecClass as String: kSecClassKey,
+      kSecAttrApplicationTag as String: tag,
+      kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+    ]
+  }
+
+  /// Chỉ nhận alias khoá của IDE nhúng, không đụng khoá khác của app.
+  private static func checked(_ alias: String?, kinds: String) throws -> String {
+    let pattern = "^ideweb\\.[\(kinds)]\\.[0-9a-f]{24}\\.[A-Za-z0-9_-]{16,128}\\z"
+    guard let alias, alias.range(of: pattern, options: .regularExpression) != nil else {
+      throw Failure(code: "failed")
+    }
+    return alias
+  }
+
+  private static func create(_ alias: String) throws -> Any? {
+    #if targetEnvironment(simulator)
+      throw Failure(code: "unsupported")
+    #else
+      let tag = Data(alias.utf8)
+      SecItemDelete(baseQuery(tag) as CFDictionary)
+      guard
+        let access = SecAccessControlCreateWithFlags(
+          kCFAllocatorDefault,
+          kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+          .privateKeyUsage,
+          nil
+        )
+      else { throw Failure(code: "failed") }
+      let privateAttributes: [String: Any] = [
+        kSecAttrIsPermanent as String: true,
+        kSecAttrApplicationTag as String: tag,
+        kSecAttrAccessControl as String: access,
+      ]
+      let attributes: [String: Any] = [
+        kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+        kSecAttrKeySizeInBits as String: 256,
+        kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
+        kSecPrivateKeyAttrs as String: privateAttributes,
+      ]
+      var keyError: Unmanaged<CFError>?
+      guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &keyError) else {
+        let code = (keyError?.takeRetainedValue()).map { CFErrorGetCode($0) }
+        throw Failure(code: code == Int(errSecUnimplemented) ? "unsupported" : "failed")
+      }
+      guard
+        let publicKey = SecKeyCopyPublicKey(privateKey),
+        let point = SecKeyCopyExternalRepresentation(publicKey, nil) as Data?,
+        point.count == 65
+      else {
+        SecItemDelete(baseQuery(tag) as CFDictionary)
+        throw Failure(code: "failed")
+      }
+      let spki = (p256SpkiHeader + point).base64EncodedString()
+        .replacingOccurrences(of: "+", with: "-")
+        .replacingOccurrences(of: "/", with: "_")
+        .replacingOccurrences(of: "=", with: "")
+      let reply: [String: Any] = ["publicKey": spki, "hardware": "secure_enclave"]
+      return reply
+    #endif
+  }
+
+  private static func sign(_ alias: String, data: Data?) throws -> Data {
+    guard let data, !data.isEmpty, data.count <= maxDataBytes else { throw Failure(code: "failed") }
+    var query = baseQuery(Data(alias.utf8))
+    query[kSecReturnRef as String] = true
+    var item: CFTypeRef?
+    let status = SecItemCopyMatching(query as CFDictionary, &item)
+    guard status == errSecSuccess, let item else {
+      throw Failure(code: status == errSecItemNotFound ? "key_missing" : "failed")
+    }
+    let privateKey = item as! SecKey
+    // SHA-256 do hệ thống tính; chữ ký X9.62 đã là DER.
+    guard
+      let signature = SecKeyCreateSignature(
+        privateKey, .ecdsaSignatureMessageX962SHA256, data as CFData, nil) as Data?
+    else { throw Failure(code: "failed") }
+    return signature
+  }
+
+  private static func state(_ alias: String) -> Any? {
+    var query = baseQuery(Data(alias.utf8))
+    query[kSecReturnAttributes as String] = true
+    var item: CFTypeRef?
+    let status = SecItemCopyMatching(query as CFDictionary, &item)
+    // Máy đang khoá: khoá còn đó nhưng chưa dùng được.
+    let exists = status == errSecSuccess || status == errSecInteractionNotAllowed
+    let attributes = item as? [String: Any]
+    let inChip =
+      (attributes?[kSecAttrTokenID as String] as? String) == (kSecAttrTokenIDSecureEnclave as String)
+    let reply: [String: Any] = [
+      "exists": exists,
+      "usable": status == errSecSuccess && inChip,
+      "hardware": (inChip ? "secure_enclave" : NSNull()) as Any,
+    ]
+    return reply
+  }
+
+  private static func delete(_ alias: String) throws {
+    let status = SecItemDelete(baseQuery(Data(alias.utf8)) as CFDictionary)
+    guard status == errSecSuccess || status == errSecItemNotFound else {
+      throw Failure(code: "failed")
+    }
+    // Dấu bộ sinh trắc học mà `webtui/biometric` lưu kèm khoá sinh trắc cùng alias.
+    UserDefaults.standard.removeObject(forKey: "ide_step_biometry_state_" + alias)
+  }
+}
+
+/// Đăng nhập VPSTTT IDE bằng trình duyệt hệ thống (kênh `webtui/ide_web_auth`). Callback chỉ về
+/// phiên này, không qua deep link của app.
+@MainActor
+final class IdeWebAuth: NSObject, ASWebAuthenticationPresentationContextProviding {
+  private weak var anchor: UIWindow?
+  private var session: ASWebAuthenticationSession?
+  private var pending: FlutterResult?
+  private var generation = 0
+
+  init(anchor: UIWindow?) {
+    self.anchor = anchor
+    super.init()
+  }
+
+  func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard call.method == "authenticate" else {
+      result(FlutterMethodNotImplemented)
+      return
+    }
+    let arguments = call.arguments as? [String: Any]
+    guard
+      let rawURL = arguments?["url"] as? String,
+      let url = URL(string: rawURL),
+      url.scheme?.lowercased() == "https",
+      url.host?.isEmpty == false,
+      url.user == nil,
+      url.password == nil
+    else {
+      result(FlutterError(code: "invalid_url", message: "https URL required", details: nil))
+      return
+    }
+    guard arguments?["callbackScheme"] as? String == "webtui" else {
+      result(FlutterError(code: "failed", message: "unsupported callback scheme", details: nil))
+      return
+    }
+    // Chỉ một phiên một lúc: mở lượt mới thì lượt cũ coi như huỷ.
+    session?.cancel()
+    finish(["mode": "cancelled"])
+
+    pending = result
+    generation += 1
+    let current = generation
+    let newSession = ASWebAuthenticationSession(url: url, callbackURLScheme: "webtui") {
+      [weak self] callbackURL, error in
+      DispatchQueue.main.async { [weak self] in
+        // Phiên đã bị thay thì bỏ qua.
+        guard let self, self.generation == current else { return }
+        self.complete(callbackURL: callbackURL, error: error)
+      }
+    }
+    newSession.presentationContextProvider = self
+    newSession.prefersEphemeralWebBrowserSession = true
+    session = newSession
+    if !newSession.start() {
+      finish(FlutterError(code: "failed", message: "cannot open browser", details: nil))
+    }
+  }
+
+  private func complete(callbackURL: URL?, error: Error?) {
+    if let callbackURL,
+      callbackURL.scheme?.lowercased() == "webtui",
+      callbackURL.host?.lowercased() == "ide-web",
+      callbackURL.path == "/callback"
+    {
+      finish(["mode": "result", "url": callbackURL.absoluteString])
+      return
+    }
+    if (error as? ASWebAuthenticationSessionError)?.code == .canceledLogin {
+      finish(["mode": "cancelled"])
+      return
+    }
+    finish(FlutterError(code: "failed", message: "failed", details: nil))
+  }
+
+  private func finish(_ value: Any) {
+    session = nil
+    let result = pending
+    pending = nil
+    result?(value)
+  }
+
+  func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+    anchor ?? ASPresentationAnchor()
+  }
+}
+
+/// Giữ luồng sự kiện `webtui/ide_web_host/events` (gọi ở luồng chính).
+final class IdeWebEventStream: NSObject, FlutterStreamHandler {
+  private(set) var sink: FlutterEventSink?
+
+  func onListen(
+    withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink
+  ) -> FlutterError? {
+    sink = events
+    return nil
+  }
+
+  func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    sink = nil
+    return nil
+  }
+}
+
+/// Cầu nối giữa trang VPSTTT IDE trong WebView và app (kênh `webtui/ide_web_host`). Chỉ khung chính
+/// đúng origin được gửi yêu cầu; nội dung do phần Dart kiểm và xử lý. Không ghi nhật ký nội dung.
+@MainActor
+final class IdeWebHost: NSObject {
+  let events = IdeWebEventStream()
+  private let registrar: FlutterPluginRegistrar?
+  private var attachments: [Int64: IdeWebAttachment] = [:]
+  private var captureActive = false
+
+  init(registrar: FlutterPluginRegistrar?) {
+    self.registrar = registrar
+    super.init()
+  }
+
+  func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    let arguments = call.arguments as? [String: Any]
+    let id = (arguments?["webViewId"] as? NSNumber)?.int64Value
+    let attachment = id.flatMap { attachments[$0] }
+    switch call.method {
+    case "attach":
+      guard
+        let id,
+        let origin = Self.canonicalOrigin(arguments?["allowedOrigin"] as? String),
+        let registrar,
+        let webView = FWFWebViewFlutterWKWebViewExternalAPI.webView(
+          forIdentifier: id, withPluginRegistrar: registrar)
+      else {
+        result(FlutterError(code: "failed", message: "invalid web view or origin", details: nil))
+        return
+      }
+      detach(id)
+      let bridgeEnabled = arguments?["bridgeEnabled"] as? Bool ?? false
+      attachments[id] = IdeWebAttachment(
+        host: self, id: id, webView: webView, origin: origin, bridgeEnabled: bridgeEnabled)
+      refreshCapture()
+      result(["supported": true])
+    case "detach":
+      if let id { detach(id) }
+      result(nil)
+    case "postReply":
+      if let replyId = arguments?["replyId"] as? String,
+        let payload = arguments?["payload"] as? String
+      {
+        attachment?.reply(replyId, payload: payload)
+      }
+      result(nil)
+    case "emit":
+      guard
+        let payload = arguments?["payload"] as? String,
+        (try? JSONSerialization.jsonObject(with: Data(payload.utf8))) is [String: Any]
+      else {
+        result(FlutterError(code: "failed", message: "payload is not JSON", details: nil))
+        return
+      }
+      attachment?.emit(payload)
+      result(nil)
+    case "captureState":
+      result(["active": captureActive])
+    case "stopCapture":
+      attachment?.stopCapture()
+      result(nil)
+    case "clearAllData":
+      WKWebsiteDataStore.default().removeData(
+        ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(),
+        modifiedSince: .distantPast
+      ) {
+        result(nil)
+      }
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+
+  private func detach(_ id: Int64) {
+    guard let attachment = attachments.removeValue(forKey: id) else { return }
+    attachment.dispose()
+    refreshCapture()
+  }
+
+  func refreshCapture() {
+    let active = attachments.values.contains { $0.isCapturing }
+    guard active != captureActive else { return }
+    captureActive = active
+    events.sink?(["type": "capture", "active": active] as [String: Any])
+  }
+
+  /// `https://host` (cổng 443, không phần khác) hoặc nil.
+  static func canonicalOrigin(_ raw: String?) -> String? {
+    guard
+      let raw,
+      let components = URLComponents(string: raw),
+      components.scheme?.lowercased() == "https",
+      let host = components.host?.lowercased(),
+      host.range(of: "^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?\\z", options: .regularExpression) != nil,
+      (components.port ?? 443) == 443,
+      components.user == nil,
+      components.password == nil,
+      components.query == nil,
+      components.fragment == nil,
+      components.path.isEmpty || components.path == "/"
+    else { return nil }
+    return "https://" + host
+  }
+}
+
+/// Phần gắn vào một WebView. `WKUserContentController` giữ đối tượng này nên chỉ tham chiếu yếu tới
+/// WebView và host.
+@MainActor
+final class IdeWebAttachment: NSObject, WKScriptMessageHandlerWithReply {
+  private typealias Reply = @MainActor (String) -> Void
+
+  private static let handlerName = "appChatNative"
+  // `file.save` tối đa 14 MB; phần Dart kiểm hạn chặt hơn cho từng hàm.
+  private static let maxMessageLength = 14 * 1024 * 1024
+  private static let maxPendingReplies = 32
+
+  private weak var host: IdeWebHost?
+  private weak var webView: WKWebView?
+  private let id: Int64
+  private let origin: String
+  private let bridgeEnabled: Bool
+  private let script: String
+  private var captureObservation: NSKeyValueObservation?
+  private var pending: [(id: String, requestHead: String, reply: Reply)] = []
+  private var disposed = false
+
+  init(host: IdeWebHost, id: Int64, webView: WKWebView, origin: String, bridgeEnabled: Bool) {
+    self.host = host
+    self.id = id
+    self.webView = webView
+    self.origin = origin
+    self.bridgeEnabled = bridgeEnabled
+    script = Self.bridgeScript(origin: origin)
+    super.init()
+    #if DEBUG
+      if #available(iOS 16.4, *) { webView.isInspectable = true }
+    #endif
+    captureObservation = webView.observe(\.microphoneCaptureState) { [weak self] _, _ in
+      DispatchQueue.main.async { [weak self] in self?.host?.refreshCapture() }
+    }
+    if bridgeEnabled {
+      let controller = webView.configuration.userContentController
+      // Đăng ký trùng tên sẽ ném ngoại lệ nên gỡ trước.
+      controller.removeScriptMessageHandler(forName: Self.handlerName, contentWorld: .page)
+      controller.addScriptMessageHandler(self, contentWorld: .page, name: Self.handlerName)
+      controller.addUserScript(
+        WKUserScript(source: script, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+    }
+  }
+
+  var isCapturing: Bool {
+    webView?.microphoneCaptureState == WKMediaCaptureState.active
+  }
+
+  func dispose() {
+    guard !disposed else { return }
+    disposed = true
+    captureObservation?.invalidate()
+    captureObservation = nil
+    // Phải trả lời mọi lượt đang chờ, nếu không trang treo.
+    let waiting = pending
+    pending.removeAll()
+    waiting.forEach { $0.reply(Self.errorReply($0.requestHead, code: "cancelled")) }
+    guard bridgeEnabled, let controller = webView?.configuration.userContentController else { return }
+    controller.removeScriptMessageHandler(forName: Self.handlerName, contentWorld: .page)
+    // WebKit không gỡ được từng script: xoá hết rồi đặt lại script của bên khác.
+    let others = controller.userScripts.filter { $0.source != script }
+    controller.removeAllUserScripts()
+    others.forEach { controller.addUserScript($0) }
+  }
+
+  func stopCapture() {
+    webView?.setMicrophoneCaptureState(WKMediaCaptureState.none, completionHandler: nil)
+  }
+
+  func reply(_ replyId: String, payload: String) {
+    guard let index = pending.firstIndex(where: { $0.id == replyId }) else { return }
+    pending.remove(at: index).reply(payload)
+  }
+
+  func emit(_ payload: String) {
+    guard bridgeEnabled, !disposed, let webView else { return }
+    // Nội dung đi bằng đối số (WebKit tự mã hoá), không ghép vào mã.
+    webView.callAsyncJavaScript(
+      """
+      if (location.origin === origin) {
+        window.dispatchEvent(new CustomEvent('appchat:event', { detail: JSON.parse(payload) }));
+      }
+      return true;
+      """,
+      arguments: ["origin": origin, "payload": payload],
+      in: nil,
+      in: .page,
+      completionHandler: { _ in }
+    )
+  }
+
+  // MARK: WKScriptMessageHandlerWithReply
+
+  #if compiler(>=6.0)
+    func userContentController(
+      _ userContentController: WKUserContentController,
+      didReceive message: WKScriptMessage,
+      replyHandler: @escaping @MainActor (Any?, String?) -> Void
+    ) {
+      receive(message) { replyHandler($0, nil) }
+    }
+  #else
+    func userContentController(
+      _ userContentController: WKUserContentController,
+      didReceive message: WKScriptMessage,
+      replyHandler: @escaping (Any?, String?) -> Void
+    ) {
+      receive(message) { replyHandler($0, nil) }
+    }
+  #endif
+
+  private func receive(_ message: WKScriptMessage, reply: @escaping Reply) {
+    let json = message.body as? String
+    let source = message.frameInfo.securityOrigin
+    let trusted =
+      message.frameInfo.isMainFrame
+      && source.protocol.lowercased() == "https"
+      && (source.port == 0 || source.port == 443)
+      && "https://" + source.host.lowercased() == origin
+    guard trusted else {
+      reply(Self.errorReply(json, code: "forbidden_origin"))
+      return
+    }
+    guard let json else {
+      reply(Self.errorReply(nil, code: "bad_request"))
+      return
+    }
+    guard json.utf16.count <= Self.maxMessageLength else {
+      reply(Self.errorReply(json, code: "too_large"))
+      return
+    }
+    guard !disposed, let sink = host?.events.sink else {
+      reply(Self.errorReply(json, code: "failed"))
+      return
+    }
+    // Trả lời bị bỏ (trang đã đổi) không được chiếm chỗ mãi: đầy thì huỷ lượt cũ nhất.
+    while pending.count >= Self.maxPendingReplies {
+      let oldest = pending.removeFirst()
+      oldest.reply(Self.errorReply(oldest.requestHead, code: "busy"))
+    }
+    let replyId = UUID().uuidString.lowercased()
+    pending.append((id: replyId, requestHead: String(json.prefix(512)), reply: reply))
+    sink([
+      "type": "message",
+      "webViewId": NSNumber(value: id),
+      "id": replyId,
+      "json": json,
+      "isMainFrame": true,
+      "origin": origin,
+    ] as [String: Any])
+  }
+
+  private static func errorReply(_ json: String?, code: String) -> String {
+    // Chỉ dò mã yêu cầu ở đầu chuỗi: không đọc cả thân lớn chỉ để báo lỗi.
+    var requestId = ""
+    if let json {
+      let head = String(json.prefix(512))
+      if let match = head.range(
+        of: "\"id\"\\s*:\\s*\"[A-Za-z0-9_-]{1,64}\"", options: .regularExpression)
+      {
+        requestId = String(head[match].dropLast().split(separator: "\"").last ?? "")
+      }
+    }
+    let body: [String: Any] = [
+      "v": 1, "id": requestId, "ok": false,
+      "error": ["code": code, "message": code],
+    ]
+    guard
+      let data = try? JSONSerialization.data(withJSONObject: body),
+      let text = String(data: data, encoding: .utf8)
+    else { return "{}" }
+    return text
+  }
+
+  private static func bridgeScript(origin: String) -> String {
+    // `origin` chỉ gồm chữ thường, số, dấu chấm, gạch ngang (xem canonicalOrigin).
+    """
+    (function () {
+      'use strict';
+      if (window !== window.top || location.origin !== '\(origin)') return;
+      if (Object.prototype.hasOwnProperty.call(window, 'AppChatBridge')) return;
+      var native = window.webkit && window.webkit.messageHandlers
+        && window.webkit.messageHandlers.\(handlerName);
+      if (!native) return;
+      function newId() {
+        var bytes = crypto.getRandomValues(new Uint8Array(16)), id = '';
+        for (var i = 0; i < bytes.length; i++) id += ('0' + bytes[i].toString(16)).slice(-2);
+        return id;
+      }
+      var bridge = Object.create(null);
+      bridge.request = function (method, params) {
+        var id = newId();
+        function failure(code) {
+          return { v: 1, id: id, ok: false, error: { code: code, message: code } };
+        }
+        var body;
+        try {
+          body = JSON.stringify(
+            { v: 1, id: id, method: method, params: params === undefined ? {} : params });
+        } catch (e) {
+          return Promise.resolve(failure('bad_request'));
+        }
+        return native.postMessage(body).then(
+          function (text) { return JSON.parse(text); }
+        ).catch(function () { return failure('failed'); });
+      };
+      Object.defineProperty(window, 'AppChatBridge', { value: Object.freeze(bridge) });
+    })();
+    """
   }
 }

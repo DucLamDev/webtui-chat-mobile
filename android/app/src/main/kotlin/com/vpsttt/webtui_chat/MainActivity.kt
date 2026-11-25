@@ -19,6 +19,8 @@ class MainActivity : FlutterActivity() {
     private lateinit var deepLinkChannel: MethodChannel
     private var pendingDeepLink: String? = null
     private var videoCompressChannel: VideoCompressChannel? = null
+    private var ideWebKeys: IdeWebDeviceKeys? = null
+    private var ideWebAuth: IdeWebAuth? = null
     private val ideDeviceSecurity by lazy { IdeDeviceSecurity(this) }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -77,6 +79,12 @@ class MainActivity : FlutterActivity() {
             applicationContext,
             flutterEngine.dartExecutor.binaryMessenger
         )
+        // VPSTTT IDE nhúng bằng WebView: khoá chip, trình duyệt đăng nhập, cầu nối.
+        ideWebKeys?.dispose()
+        ideWebKeys = IdeWebDeviceKeys(flutterEngine.dartExecutor.binaryMessenger)
+        ideWebAuth?.dispose()
+        ideWebAuth = IdeWebAuth(this, flutterEngine.dartExecutor.binaryMessenger)
+        flutterEngine.plugins.add(IdeWebHost())
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "webtui/launcher"
@@ -111,6 +119,10 @@ class MainActivity : FlutterActivity() {
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
         videoCompressChannel?.dispose()
         videoCompressChannel = null
+        ideWebKeys?.dispose()
+        ideWebKeys = null
+        ideWebAuth?.dispose()
+        ideWebAuth = null
         super.cleanUpFlutterEngine(flutterEngine)
     }
 
