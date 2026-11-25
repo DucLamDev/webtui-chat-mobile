@@ -12,6 +12,13 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
 - **Cầu nối cho trang IDE:** chỉ trang đúng địa chỉ, ở khung chính, mới gọi được; dừng micro và xoá dữ liệu trang theo lệnh app.
 - Không thêm quyền mới. Câu xin quyền micro và Face ID trên iPhone nói rõ thêm việc dùng cho VPSTTT IDE.
 
+## 1.65.3 · 23/11/2026
+### Sửa lỗi
+- Mục Ticket khách chỉ hiện với nhân viên (có quyền "Trả lời ticket khách" `order.ticket_reply` hoặc kế toán
+  `order.billing`). Máy chủ chat từ bản 1.60.1 không cho thành viên thường (chỉ có `order.view`) xem ticket của khách,
+  nên trước đây họ thấy mục nhưng mở ra chỉ báo không có quyền. Người có `order.billing` mà không có quyền trả lời vẫn
+  xem được, không trả lời được như cũ.
+
 ## 1.65.2 · 23/11/2026
 ### Sửa lỗi
 - Chia sẻ tệp từ ứng dụng khác vào app an toàn hơn: app chỉ nhận bản sao của tệp được chia sẻ, lưu trong thư mục tạm
