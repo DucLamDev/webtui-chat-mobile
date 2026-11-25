@@ -27,7 +27,7 @@ import 'package:webtui_chat/features/ide_web/domain/ide_web_host_policy.dart';
 import 'package:webtui_chat/features/ide_web/domain/ide_web_launch.dart';
 import 'package:webtui_chat/features/ide_web/domain/ide_web_ports.dart';
 import 'package:webtui_chat/features/ide_web/presentation/screens/ide_web_screen.dart';
-import 'package:webtui_chat/features/ide_web/presentation/widgets/ide_web_prompt_dialog.dart';
+import 'package:webtui_chat/features/ide_web/presentation/widgets/ide_web_prompt_sheet.dart';
 import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../support/system_font.dart';
@@ -453,10 +453,10 @@ void main() {
         ),
       );
       await rig.pump(tester);
-      expect(find.byType(IdeWebPromptDialog), findsOneWidget);
+      expect(find.byType(IdeWebPromptSheet), findsOneWidget);
       rig.view.add(const IdeWebPageStarted());
       await rig.pump(tester);
-      expect(find.byType(IdeWebPromptDialog), findsNothing);
+      expect(find.byType(IdeWebPromptSheet), findsNothing);
       expect((rig.view.replies.single.$2['error'] as Map)['code'], 'cancelled');
       expect(rig.chip.keys, isEmpty);
     });
@@ -577,7 +577,7 @@ void main() {
       await grantMic(rig, tester);
       rig.view.add(IdeWebExternalLink(Uri.parse('https://example.com')));
       await rig.pump(tester);
-      expect(find.byType(IdeWebPromptDialog), findsOneWidget);
+      expect(find.byType(IdeWebPromptSheet), findsOneWidget);
       expect(rig.view.log, isNot(contains('stopCapture')));
       unawaited(
         Navigator.of(
@@ -600,7 +600,7 @@ void main() {
       }
       rig.view.add(IdeWebExternalLink(Uri.parse('https://example.com')));
       await rig.pump(tester);
-      expect(find.byType(IdeWebPromptDialog), findsNothing);
+      expect(find.byType(IdeWebPromptSheet), findsNothing);
       expect(rig.launcher.opened, isEmpty);
     });
 
@@ -667,11 +667,11 @@ void main() {
       await grantMic(rig, tester);
       rig.view.add(IdeWebExternalLink(Uri.parse('https://example.com')));
       await rig.pump(tester);
-      expect(find.byType(IdeWebPromptDialog), findsOneWidget);
+      expect(find.byType(IdeWebPromptSheet), findsOneWidget);
       rig.locked.value = true;
       await rig.pump(tester);
       expect(_key('ide_web_view'), findsNothing);
-      expect(find.byType(IdeWebPromptDialog), findsNothing);
+      expect(find.byType(IdeWebPromptSheet), findsNothing);
       expect(rig.view.log, contains('stopCapture'));
       expect(rig.view.log, isNot(contains('dispose')));
       rig.view.add(const IdeWebCaptureChanged(active: false, any: false));
@@ -770,7 +770,7 @@ void main() {
                 size: Size(320, 568),
                 textScaler: TextScaler.linear(2),
               ),
-              child: IdeWebPromptDialog(prompt: prompt),
+              child: IdeWebPromptSheet(prompt: prompt, host: testBase.host),
             ),
           ),
         );

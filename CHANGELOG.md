@@ -9,9 +9,11 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
 - **Mở IDE:** đăng nhập bằng trình duyệt của máy rồi tự quay lại app; máy đã đăng ký thì vào thẳng. Có màn báo rõ khi đang mở,
   chờ trình duyệt, chưa kết nối được (Thử lại), mở quá nhiều lần, quản trị tắt, chưa được cấp quyền, hết hạn, WebView cũ.
 - **Trang IDE chỉ chạy ở địa chỉ IDE của máy chủ mình.** Liên kết ra ngoài thì hỏi rồi mở bằng trình duyệt.
+- **Giao diện riêng cho VPSTTT IDE:** hình cửa sổ mã đổi theo từng trạng thái, thanh trên có địa chỉ trang, bảng hỏi trượt từ dưới nói rõ
+  ai hỏi và chuyện gì sẽ xảy ra.
 - **Dùng khả năng của điện thoại, luôn hỏi trước:**
   - đăng ký / xoá khoá thiết bị; ký bằng vân tay hoặc khuôn mặt;
-  - micro: hỏi một lần mỗi lần mở màn, có chữ "Đang thu", tự tắt khi rời màn, xuống nền, khoá app hoặc có cuộc gọi;
+  - micro: hỏi một lần mỗi lần mở màn, có chỉ báo đang thu kèm giờ, tự tắt khi rời màn, xuống nền, khoá app hoặc có cuộc gọi;
   - gửi tệp cho IDE; lưu tệp IDE trả về (tối đa 10 MB, chặn loại cài đặt / trang web).
 - **Đăng xuất, đổi người, đổi máy chủ:** đóng màn, báo máy chủ thu hồi phiên IDE và xoá dữ liệu trang trên máy. Khoá thiết bị giữ lại
   khi cùng người đăng nhập lại; xoá khi người khác đăng nhập hoặc xoá tài khoản.

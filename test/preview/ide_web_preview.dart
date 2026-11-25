@@ -22,8 +22,8 @@ import 'package:webtui_chat/features/ide_web/domain/ide_web_device_key.dart';
 import 'package:webtui_chat/features/ide_web/domain/ide_web_host_policy.dart';
 import 'package:webtui_chat/features/ide_web/domain/ide_web_launch.dart';
 import 'package:webtui_chat/features/ide_web/presentation/screens/ide_web_screen.dart';
-import 'package:webtui_chat/features/ide_web/presentation/widgets/ide_web_mic_chip.dart';
-import 'package:webtui_chat/features/ide_web/presentation/widgets/ide_web_prompt_dialog.dart';
+import 'package:webtui_chat/features/ide_web/presentation/widgets/ide_web_prompt_sheet.dart';
+import 'package:webtui_chat/features/ide_web/presentation/widgets/ide_web_top_bar.dart';
 import 'package:webtui_chat/features/work_hub/presentation/controllers/work_hub_providers.dart';
 import 'package:webtui_chat/features/work_hub/presentation/widgets/work_apps_grid.dart';
 
@@ -115,9 +115,13 @@ class _Menu extends StatelessWidget {
         for (final prompt in _prompts.entries)
           ListTile(
             title: Text(prompt.key),
-            onTap: () => showDialog<bool>(
-              context: context,
-              builder: (_) => IdeWebPromptDialog(prompt: prompt.value),
+            onTap: () => Navigator.of(context).push(
+              ideWebPromptRoute(
+                context: context,
+                prompt: prompt.value,
+                host: testBase.host,
+                onVisibilityChanged: () {},
+              ),
             ),
           ),
         ListTile(
@@ -187,17 +191,10 @@ class _MicScene extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      leading: const CloseButton(),
-      title: const Text('VPSTTT IDE'),
-      actions: [
-        Padding(
-          padding: const EdgeInsetsDirectional.only(end: 16),
-          child: Center(
-            child: IdeWebMicChip(capturing: ValueNotifier<bool>(true)),
-          ),
-        ),
-      ],
+    appBar: IdeWebTopBar(
+      onClose: () => Navigator.of(context).pop(),
+      host: testBase.host,
+      capturing: ValueNotifier<bool>(true),
     ),
     body: FakeIdeWebView().build(),
   );

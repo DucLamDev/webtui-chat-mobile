@@ -7,15 +7,15 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/security/active_call_tracker.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
-import '../../../../l10n/app_strings.dart';
 import '../../../auth/presentation/widgets/app_lock_gate.dart';
 import '../../application/ide_web_access.dart';
 import '../../application/ide_web_mic_guard.dart';
 import '../../application/ide_web_prompter.dart';
+import '../../application/ide_web_providers.dart';
 import '../controllers/ide_web_controller.dart';
-import '../widgets/ide_web_mic_chip.dart';
-import '../widgets/ide_web_prompt_dialog.dart';
+import '../widgets/ide_web_prompt_sheet.dart';
 import '../widgets/ide_web_state_view.dart';
+import '../widgets/ide_web_top_bar.dart';
 
 /// Màn VPSTTT IDE: các trạng thái mở và trang IDE nhúng. Màn tự kiểm lại quyền
 /// (không tin việc ô có hiện hay không).
@@ -38,8 +38,8 @@ class _IdeWebScreenState extends ConsumerState<IdeWebScreen>
   /// Phải đóng nhưng màn khác (cuộc gọi...) đang đè lên: đợi màn đó rời đi.
   bool _closeWhenCurrent = false;
 
-  /// Hộp xác nhận đang mở (tối đa một).
-  DialogRoute<bool>? _dialog;
+  /// Bảng hỏi đang mở (tối đa một).
+  ModalBottomSheetRoute<bool>? _dialog;
 
   @override
   void initState() {
@@ -116,12 +116,11 @@ class _IdeWebScreenState extends ConsumerState<IdeWebScreen>
   Future<bool> confirm(IdeWebPrompt prompt) async {
     if (!mounted || _dialog != null) return false;
     final navigator = Navigator.of(context, rootNavigator: true);
-    final route = DialogRoute<bool>(
+    final route = ideWebPromptRoute(
       context: context,
-      builder: (_) => _DialogWatcher(
-        onChanged: _scheduleStatus,
-        child: IdeWebPromptDialog(prompt: prompt),
-      ),
+      prompt: prompt,
+      host: ref.read(ideWebHostPolicyProvider)?.host ?? '',
+      onVisibilityChanged: _scheduleStatus,
     );
     _dialog = route;
     try {
@@ -193,32 +192,15 @@ class _IdeWebScreenState extends ConsumerState<IdeWebScreen>
       },
       child: Scaffold(
         backgroundColor: WebTuiColors.of(context).background,
-        appBar: AppBar(
-          leading: IconButton(
-            key: const Key('ide_web_close'),
-            tooltip: tr('Đóng', 'Close'),
-            icon: const Icon(Icons.close_rounded),
-            onPressed: () => unawaited(_controller.cancel()),
-          ),
-          title: const Text(
-            'VPSTTT IDE',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          actions: [
-            if (state case IdeWebReady(:final session))
-              Padding(
-                padding: const EdgeInsetsDirectional.only(end: 16),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: MediaQuery.sizeOf(context).width * 0.4,
-                    ),
-                    child: IdeWebMicChip(capturing: session.capturing),
-                  ),
-                ),
-              ),
-          ],
+        appBar: IdeWebTopBar(
+          onClose: () => unawaited(_controller.cancel()),
+          host: state is IdeWebReady
+              ? ref.watch(ideWebHostPolicyProvider)?.host
+              : null,
+          capturing: switch (state) {
+            IdeWebReady(:final session) => session.capturing,
+            _ => null,
+          },
         ),
         body: SafeArea(
           child: switch (state) {
@@ -238,31 +220,4 @@ class _IdeWebScreenState extends ConsumerState<IdeWebScreen>
       ),
     );
   }
-}
-
-/// Báo khi màn khác đè lên / rời khỏi hộp xác nhận.
-class _DialogWatcher extends StatefulWidget {
-  const _DialogWatcher({required this.onChanged, required this.child});
-
-  final VoidCallback onChanged;
-  final Widget child;
-
-  @override
-  State<_DialogWatcher> createState() => _DialogWatcherState();
-}
-
-class _DialogWatcherState extends State<_DialogWatcher> {
-  bool? _current;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final current = ModalRoute.of(context)?.isCurrent;
-    if (current == _current) return;
-    _current = current;
-    widget.onChanged();
-  }
-
-  @override
-  Widget build(BuildContext context) => widget.child;
 }
