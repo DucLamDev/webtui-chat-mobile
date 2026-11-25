@@ -3,6 +3,15 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.66.0 · 25/11/2026
+### VPSTTT IDE ngay trong app: phần nền cho Android và iPhone
+- Chuẩn bị cho màn VPSTTT IDE trong app; bản này chưa có gì mới hiện ra với người dùng.
+- **Khoá thiết bị:** tạo, ký, xoá khoá nằm trong chip an toàn (Android: chip bảo mật / vùng an toàn; iPhone: Secure Enclave). Khoá
+  không xuất ra được; gỡ app trên iPhone thì khoá cũ không dùng lại.
+- **Đăng nhập bằng trình duyệt của máy** rồi quay lại app, tách riêng đăng nhập của app chat.
+- **Cầu nối cho trang IDE:** chỉ trang đúng địa chỉ, ở khung chính, mới gọi được; dừng micro và xoá dữ liệu trang theo lệnh app.
+- Không thêm quyền mới. Câu xin quyền micro và Face ID trên iPhone nói rõ thêm việc dùng cho VPSTTT IDE.
+
 ## 1.65.2 · 23/11/2026
 ### Sửa lỗi
 - Chia sẻ tệp từ ứng dụng khác vào app an toàn hơn: app chỉ nhận bản sao của tệp được chia sẻ, lưu trong thư mục tạm

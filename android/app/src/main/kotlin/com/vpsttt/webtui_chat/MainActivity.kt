@@ -81,7 +81,10 @@ class MainActivity : FlutterActivity() {
         )
         // VPSTTT IDE nhúng bằng WebView: khoá chip, trình duyệt đăng nhập, cầu nối.
         ideWebKeys?.dispose()
-        ideWebKeys = IdeWebDeviceKeys(flutterEngine.dartExecutor.binaryMessenger)
+        ideWebKeys = IdeWebDeviceKeys(
+            applicationContext,
+            flutterEngine.dartExecutor.binaryMessenger
+        )
         ideWebAuth?.dispose()
         ideWebAuth = IdeWebAuth(this, flutterEngine.dartExecutor.binaryMessenger)
         flutterEngine.plugins.add(IdeWebHost())
