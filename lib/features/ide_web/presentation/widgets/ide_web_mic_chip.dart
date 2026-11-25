@@ -8,6 +8,7 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../design_system/tokens/webtui_typography.dart';
 import '../../../../l10n/app_strings.dart';
 import 'ide_web_buttons.dart';
+import 'ide_web_code_window.dart';
 
 /// Chỉ báo trang IDE đang dùng micro: sóng âm và thời gian thu.
 class IdeWebMicChip extends StatefulWidget {
@@ -82,6 +83,7 @@ class _IdeWebMicChipState extends State<IdeWebMicChip>
   Widget build(BuildContext context) {
     if (!widget.capturing.value) return const SizedBox.shrink();
     final c = WebTuiColors.of(context);
+    final ink = IdeWebInk.recording(context);
     final time =
         '${_seconds ~/ 60}:${(_seconds % 60).toString().padLeft(2, '0')}';
     return Semantics(
@@ -106,7 +108,7 @@ class _IdeWebMicChipState extends State<IdeWebMicChip>
               child: AnimatedBuilder(
                 animation: _wave,
                 builder: (_, _) =>
-                    CustomPaint(painter: _WavePainter(_wave.value, c.danger)),
+                    CustomPaint(painter: _WavePainter(_wave.value, ink)),
               ),
             ),
             // Chữ to: chỉ giữ sóng âm để tên màn không bị cắt.
@@ -118,7 +120,7 @@ class _IdeWebMicChipState extends State<IdeWebMicChip>
                   fontSize: 13.5,
                   fontWeight: FontWeight.w700,
                   fontFeatures: const [FontFeature.tabularFigures()],
-                  color: c.danger,
+                  color: ink,
                 ),
               ),
             ],

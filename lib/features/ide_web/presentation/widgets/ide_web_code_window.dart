@@ -20,6 +20,20 @@ abstract final class IdeWebInk {
   // ở cả hai nền.
   static const alertRed = Color(0xFFC8372D);
   static const alertAmber = Color(0xFFB0721A);
+
+  // Chữ nhỏ trên nền nhạt cùng tông: ở nền sáng, đỏ và xanh của bảng màu chung
+  // chưa đủ 4,5:1 nên dùng sắc đậm hơn một bậc.
+  static Color recording(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+      ? WebTuiColors.of(context).danger
+      : const Color(0xFFB42318);
+
+  static Color stepNumber(BuildContext context) {
+    final c = WebTuiColors.of(context);
+    return Theme.of(context).brightness == Brightness.dark
+        ? c.primary
+        : c.primaryPressed;
+  }
 }
 
 /// Dấu hiệu VPSTTT IDE: ô vuông tối với dấu nhắc lệnh.

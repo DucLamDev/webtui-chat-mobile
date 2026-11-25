@@ -27,6 +27,7 @@ import 'package:webtui_chat/features/ide_web/domain/ide_web_host_policy.dart';
 import 'package:webtui_chat/features/ide_web/domain/ide_web_launch.dart';
 import 'package:webtui_chat/features/ide_web/domain/ide_web_ports.dart';
 import 'package:webtui_chat/features/ide_web/presentation/screens/ide_web_screen.dart';
+import 'package:webtui_chat/features/ide_web/presentation/widgets/ide_web_mic_chip.dart';
 import 'package:webtui_chat/features/ide_web/presentation/widgets/ide_web_prompt_sheet.dart';
 import 'package:webtui_chat/l10n/app_strings.dart';
 
@@ -823,6 +824,79 @@ void main() {
       await rig.pump(tester);
     });
 
+    for (final dark in [false, true]) {
+      testWidgets('chữ nhỏ và nút đủ tương phản, ${dark ? 'tối' : 'sáng'}', (
+        tester,
+      ) async {
+        final theme = dark ? WebTuiTheme.dark() : WebTuiTheme.light();
+        Color ink(Finder text) =>
+            tester.renderObject<RenderParagraph>(text).text.style!.color!;
+        Color fill(Finder text) =>
+            (tester
+                        .widget<Container>(
+                          find
+                              .ancestor(
+                                of: text,
+                                matching: find.byType(Container),
+                              )
+                              .first,
+                        )
+                        .decoration!
+                    as BoxDecoration)
+                .color!;
+
+        final rig = _Rig();
+        rig.repository.launchResult = Success(testBrowserLaunch());
+        await rig.open(tester, dark: dark);
+        final step = find.text('1');
+        expect(_contrast(ink(step), fill(step)), greaterThanOrEqualTo(4.5));
+        await tester.pumpWidget(const SizedBox());
+        rig.container.dispose();
+        await rig.pump(tester);
+
+        // Chỉ báo thu: nền nhạt phủ lên nền thanh trên.
+        final capturing = ValueNotifier(true);
+        addTearDown(capturing.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme,
+            home: Scaffold(body: IdeWebMicChip(capturing: capturing)),
+          ),
+        );
+        final time = find.text('0:00');
+        final surface = WebTuiColors.of(tester.element(time)).surface;
+        expect(
+          _contrast(ink(time), Color.alphaBlend(fill(time), surface)),
+          greaterThanOrEqualTo(4.5),
+        );
+        capturing.value = false;
+        await tester.pump();
+
+        // Nút chính, kể cả nút nguy hiểm.
+        for (final prompt in const <IdeWebPrompt>[
+          IdeWebMicrophonePrompt(),
+          IdeWebDeleteKeyPrompt(),
+        ]) {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: theme,
+              home: IdeWebPromptSheet(prompt: prompt, host: testBase.host),
+            ),
+          );
+          final button = _key('ide_web_prompt_ok');
+          final style = tester.widget<FilledButton>(button).style!;
+          expect(
+            _contrast(
+              style.foregroundColor!.resolve(const {})!,
+              style.backgroundColor!.resolve(const {})!,
+            ),
+            greaterThanOrEqualTo(4.5),
+            reason: '$prompt',
+          );
+        }
+      });
+    }
+
     testWidgets('chữ to: chỉ báo thu còn biểu tượng, tên màn không bị cắt', (
       tester,
     ) async {
@@ -853,4 +927,12 @@ void main() {
       expect(title.didExceedMaxLines, isFalse);
     });
   });
+}
+
+double _contrast(Color a, Color b) {
+  final la = a.computeLuminance();
+  final lb = b.computeLuminance();
+  final hi = la > lb ? la : lb;
+  final lo = la > lb ? lb : la;
+  return (hi + 0.05) / (lo + 0.05);
 }

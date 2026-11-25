@@ -309,7 +309,7 @@ class _Steps extends StatelessWidget {
                     style: WebTuiTypography.labelSmall.copyWith(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
-                      color: c.primary,
+                      color: IdeWebInk.stepNumber(context),
                     ),
                   ),
                 ),
