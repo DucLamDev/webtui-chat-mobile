@@ -41,6 +41,20 @@ publisher and instance operator, can read the data; TLS alone does not qualify.
 | Precise/approximate location | Not collected | The app does not request Android location permissions | None |
 | Advertising ID | Not collected | No advertising SDK is included | None |
 
+### Embedded VPSTTT IDE (Draft, Waiting For The IDE Operator)
+
+Shown only on the company's internal server after its administrator enables it.
+Add these rows to the form only for a release where the feature is enabled, and
+confirm retention, AI sub-processors, and deletion with the IDE operator first.
+
+| Play data type | Required or optional | Purpose | Destination / processor |
+| --- | --- | --- | --- |
+| Name, email address | Required to open the IDE | Account selection in the IDE (sent by the chat server) | Company IDE operator |
+| Voice or sound recordings | Optional, user initiated, in-app confirmation plus system permission | Voice input in the IDE | Company IDE operator |
+| Files, documents, photos | Optional, user initiated | Attachments to IDE tasks | Company IDE operator |
+| Other user-generated content (prompts, edits) | Optional, user initiated | IDE functionality | Company IDE operator and its AI sub-processors |
+| Device-key identifier and public key | Optional | Device registration and sign-in security | Company IDE operator |
+
 Workspace-member names and profiles are server-side collaboration data; the app
 does not read the Android address book. Data sent to a server selected by the
 user or their organization is still described in the form so the listing
@@ -63,7 +77,9 @@ Review the Data Safety guidance for every production dependency, particularly:
 
 - Firebase Core and Firebase Cloud Messaging;
 - WebRTC/TURN and incoming-call SDKs;
-- image/file pickers and secure storage.
+- image/file pickers and secure storage;
+- `webview_flutter` (Android System WebView), used only for the embedded VPSTTT
+  IDE; WebView data is erased on sign-out and account or server change.
 
 Any future analytics, ads, crash reporting, AI, or attribution SDK requires a
 new inventory and an updated Play declaration before rollout.

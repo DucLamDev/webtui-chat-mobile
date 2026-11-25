@@ -53,6 +53,50 @@ void main() {
     expect(policy.classifyText(null), IdeWebUrlClass.blocked);
   });
 
+  test('điều hướng: trong IDE cho đi, ngoài hỏi, còn lại chặn', () {
+    final policy = IdeWebHostPolicy(testBase);
+    IdeWebNavigation go(
+      String url, {
+      bool main = true,
+      bool blank = false,
+      bool ios = false,
+    }) => policy.navigation(
+      url: url,
+      isMainFrame: main,
+      blankExpected: blank,
+      newWindowAsSubframe: ios,
+    );
+    for (final ios in [false, true]) {
+      expect(go('$testOrigin/appchat/', ios: ios), IdeWebNavigation.allow);
+      expect(
+        go('$testOrigin/appchat/', main: false, ios: ios),
+        IdeWebNavigation.allow,
+      );
+      expect(go('https://x.example/', ios: ios), IdeWebNavigation.askExternal);
+      for (final url in [
+        'webtui://x',
+        'javascript:1',
+        'file:///x',
+        'http://x',
+      ]) {
+        expect(go(url, ios: ios), IdeWebNavigation.block);
+        expect(go(url, main: false, ios: ios), IdeWebNavigation.block);
+      }
+      expect(go('about:blank', ios: ios), IdeWebNavigation.block);
+      expect(go('about:blank', blank: true, ios: ios), IdeWebNavigation.allow);
+      expect(
+        go('about:blank', main: false, blank: true, ios: ios),
+        IdeWebNavigation.block,
+      );
+    }
+    // Liên kết `target=_blank` trên iOS không có khung đích.
+    expect(
+      go('https://x.example/', main: false, ios: true),
+      IdeWebNavigation.askExternal,
+    );
+    expect(go('https://x.example/', main: false), IdeWebNavigation.block);
+  });
+
   group('micro', () {
     late FakeIdeWebView view;
     late FakePrompter prompter;
@@ -259,6 +303,38 @@ void main() {
         'replyId': 'r',
         'payload': 'p',
       });
+    });
+
+    test('màn cũ ngừng nghe muộn không tắt sự kiện của màn mới', () async {
+      const events = EventChannel('webtui/ide_web_host/events');
+      MockStreamHandlerEventSink? sink;
+      var cancels = 0;
+      messenger.setMockStreamHandler(
+        events,
+        MockStreamHandler.inline(
+          onListen: (_, value) => sink = value,
+          onCancel: (_) {
+            cancels++;
+            sink = null;
+          },
+        ),
+      );
+      addTearDown(() => messenger.setMockStreamHandler(events, null));
+      const channel = MethodChannelIdeWebHost();
+      final old = channel.events(1).listen((_) {});
+      await settle();
+      final received = <IdeWebViewEvent>[];
+      final fresh = channel.events(2).listen(received.add);
+      await settle();
+      await old.cancel();
+      await settle();
+      expect(cancels, 0);
+      sink!.success({'type': 'render_gone'});
+      await settle();
+      expect(received.single, isA<IdeWebRenderGone>());
+      await fresh.cancel();
+      await settle();
+      expect(cancels, 1);
     });
 
     test('sự kiện: chỉ nhận đúng WebView, dữ liệu lạ bị bỏ', () {

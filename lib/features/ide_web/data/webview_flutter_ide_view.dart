@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
@@ -111,7 +112,11 @@ final class WebViewFlutterIdeView implements IdeWebView {
       await android.setOnShowFileSelector(_pickFiles);
     }
     if (_controller.platform case final WebKitWebViewController webKit) {
-      await webKit.setInspectable(kDebugMode);
+      try {
+        await webKit.setInspectable(kDebugMode);
+      } on PlatformException {
+        // iOS dưới 16.4 không có thuộc tính này (mặc định vẫn không soi được).
+      }
     }
     // Nghe trước khi gắn và tải; không đặt lại delegate sau `attach`.
     _hostEvents = _host.events(_id).listen(_add, onError: (Object _) {});
@@ -194,22 +199,21 @@ final class WebViewFlutterIdeView implements IdeWebView {
   }
 
   NavigationDecision _onNavigation(NavigationRequest request) {
-    final kind = _policy.classifyText(request.url);
-    if (kind == IdeWebUrlClass.internal) {
-      if (request.isMainFrame) _rememberRequest(request.url);
-      return NavigationDecision.navigate;
-    }
-    if (request.isMainFrame) {
-      if (_blank && request.url == 'about:blank') {
+    switch (_policy.navigation(
+      url: request.url,
+      isMainFrame: request.isMainFrame,
+      blankExpected: _blank,
+      newWindowAsSubframe: _controller.platform is WebKitWebViewController,
+    )) {
+      case IdeWebNavigation.allow:
+        if (request.isMainFrame) _rememberRequest(request.url);
         return NavigationDecision.navigate;
-      }
-      if (kind == IdeWebUrlClass.external) {
+      case IdeWebNavigation.askExternal:
         _add(IdeWebExternalLink(Uri.parse(request.url)));
-      }
+        return NavigationDecision.prevent;
+      case IdeWebNavigation.block:
+        return NavigationDecision.prevent;
     }
-    // Khung phụ ra ngoài địa chỉ IDE luôn bị chặn (Android: gói không báo
-    // khung phụ; máy chủ gửi CSP `frame-src 'none'`).
-    return NavigationDecision.prevent;
   }
 
   void _rememberRequest(String url) {

@@ -293,6 +293,36 @@ void main() {
       expect(args['alias'], 'a');
     });
 
+    test(
+      'biometricState: đọc đúng kênh mới, thiếu / lỗi thì coi như không có',
+      () async {
+        List<bool> flags(IdeWebBiometricState s) => [
+          s.available,
+          s.enrolled,
+          s.strong,
+        ];
+        Object? answer;
+        messenger
+          ..setMockMethodCallHandler(channel, (call) async {
+            expect(call.method, 'biometricState');
+            return answer;
+          })
+          // Kênh cũ tính cả sinh trắc yếu: không được hỏi.
+          ..setMockMethodCallHandler(biometric, (call) async => true);
+        answer = {'available': true, 'enrolled': false, 'strong': true};
+        expect(flags(await chip.biometricState()), [true, false, true]);
+        answer = null;
+        expect(flags(await chip.biometricState()), [false, false, false]);
+        messenger.setMockMethodCallHandler(
+          channel,
+          (_) async => throw PlatformException(code: 'failed'),
+        );
+        expect(flags(await chip.biometricState()), [false, false, false]);
+        messenger.setMockMethodCallHandler(channel, null);
+        expect(flags(await chip.biometricState()), [false, false, false]);
+      },
+    );
+
     test('biometric dùng kênh sẵn có, đổi base64 sang base64url', () async {
       messenger
         ..setMockMethodCallHandler(biometric, (call) async {

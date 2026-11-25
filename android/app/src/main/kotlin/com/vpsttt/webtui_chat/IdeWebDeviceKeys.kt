@@ -1,5 +1,8 @@
 package com.vpsttt.webtui_chat
 
+import android.content.Context
+import android.hardware.biometrics.BiometricManager
+import android.hardware.fingerprint.FingerprintManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -28,7 +31,7 @@ import java.util.concurrent.Executors
  * an toàn (StrongBox, không có thì TEE), không đòi xác thực, không xuất được. Khoá sinh trắc vẫn do
  * `webtui/biometric` quản lý; ở đây chỉ xem trạng thái / xoá theo alias.
  */
-class IdeWebDeviceKeys(messenger: BinaryMessenger) {
+class IdeWebDeviceKeys(private val context: Context, messenger: BinaryMessenger) {
     private companion object {
         const val KEYSTORE = "AndroidKeyStore"
         // Chỉ đụng khoá của IDE nhúng, không đụng khoá khác của app.
@@ -62,6 +65,7 @@ class IdeWebDeviceKeys(messenger: BinaryMessenger) {
                 sign(checked(alias, POSSESSION_ALIAS), args?.get("data") as? ByteArray)
             }
             "keyState" -> run(result) { state(checked(alias, ANY_ALIAS)) }
+            "biometricState" -> run(result) { biometricState() }
             "deleteKey" -> run(result) {
                 val store = keyStore()
                 val name = checked(alias, ANY_ALIAS)
@@ -214,5 +218,31 @@ class IdeWebDeviceKeys(messenger: BinaryMessenger) {
         } catch (_: Exception) {
             none
         }
+    }
+
+    /** Sinh trắc mạnh, đúng điều kiện `webtui/biometric` đòi khi tạo khoá sinh trắc. */
+    private fun biometricState(): Map<String, Boolean> {
+        var available = false
+        var enrolled = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val manager = context.getSystemService(BiometricManager::class.java)
+            when (manager?.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)) {
+                BiometricManager.BIOMETRIC_SUCCESS -> {
+                    available = true
+                    enrolled = true
+                }
+                BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> available = true
+            }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            // Android 9–10 không hỏi được mức mạnh: chỉ tính vân tay.
+            @Suppress("DEPRECATION")
+            val fingerprint = context.getSystemService(FingerprintManager::class.java)
+            @Suppress("DEPRECATION")
+            if (fingerprint?.isHardwareDetected == true) {
+                available = true
+                enrolled = fingerprint.hasEnrolledFingerprints()
+            }
+        }
+        return mapOf("available" to available, "enrolled" to enrolled, "strong" to available)
     }
 }

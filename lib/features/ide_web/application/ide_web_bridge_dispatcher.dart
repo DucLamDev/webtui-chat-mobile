@@ -213,7 +213,7 @@ final class IdeWebBridgeDispatcher {
   Future<Map<String, Object?>> _status() async {
     await _requireSession();
     final keys = await _keys.status(owner);
-    final available = await _keys.biometricAvailable();
+    final biometric = await _keys.biometricState();
     return {
       'keys': [
         for (final item in keys)
@@ -225,9 +225,9 @@ final class IdeWebBridgeDispatcher {
           },
       ],
       'biometric': {
-        'available': available,
-        'enrolled': available,
-        'strong': available,
+        'available': biometric.available,
+        'enrolled': biometric.enrolled,
+        'strong': biometric.strong,
       },
     };
   }

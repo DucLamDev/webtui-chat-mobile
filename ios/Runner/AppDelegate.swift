@@ -1188,6 +1188,8 @@ enum IdeWebDeviceKeys {
       }
     case "keyState":
       run(result) { state(try checked(alias, kinds: "pb")) }
+    case "biometricState":
+      run(result) { biometricState() }
     case "deleteKey":
       run(result) {
         try delete(checked(alias, kinds: "pb"))
@@ -1336,6 +1338,19 @@ enum IdeWebDeviceKeys {
       "usable": status == errSecSuccess && inChip,
       "hardware": (inChip ? "secure_enclave" : NSNull()) as Any,
     ]
+    return reply
+  }
+
+  /// Face ID / Touch ID (đều là sinh trắc mạnh).
+  private static func biometricState() -> Any? {
+    var error: NSError?
+    let ready = LAContext().canEvaluatePolicy(
+      .deviceOwnerAuthenticationWithBiometrics, error: &error)
+    let code = error?.code
+    // Tạm khoá vì thử sai nhiều lần vẫn là máy đã đăng ký.
+    let enrolled = ready || code == LAError.Code.biometryLockout.rawValue
+    let available = enrolled || code == LAError.Code.biometryNotEnrolled.rawValue
+    let reply: [String: Any] = ["available": available, "enrolled": enrolled, "strong": available]
     return reply
   }
 

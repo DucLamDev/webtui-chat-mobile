@@ -67,6 +67,30 @@ final class IdeWebCreatedKey {
   final String hardware;
 }
 
+/// Sinh trắc mạnh của máy, loại duy nhất khoá sinh trắc chấp nhận.
+final class IdeWebBiometricState {
+  const IdeWebBiometricState({
+    required this.available,
+    required this.enrolled,
+    required this.strong,
+  });
+
+  static const none = IdeWebBiometricState(
+    available: false,
+    enrolled: false,
+    strong: false,
+  );
+
+  /// Máy có cảm biến dùng được.
+  final bool available;
+
+  /// Đã đăng ký vân tay / khuôn mặt.
+  final bool enrolled;
+
+  /// Cảm biến thuộc loại mạnh.
+  final bool strong;
+}
+
 /// Chip khoá của máy (gọi kênh native).
 abstract interface class IdeWebKeyChip {
   Future<IdeWebCreatedKey> create(IdeWebKeyPurpose purpose, String alias);
@@ -82,7 +106,7 @@ abstract interface class IdeWebKeyChip {
 
   Future<void> delete(IdeWebKeyPurpose purpose, String alias);
 
-  Future<bool> biometricAvailable();
+  Future<IdeWebBiometricState> biometricState();
 }
 
 /// Trình duyệt hệ thống.

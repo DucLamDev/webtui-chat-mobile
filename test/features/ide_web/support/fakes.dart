@@ -295,8 +295,14 @@ final class FakeKeyChip implements IdeWebKeyChip {
     keys.remove(alias);
   }
 
+  IdeWebBiometricState biometric = const IdeWebBiometricState(
+    available: true,
+    enrolled: true,
+    strong: true,
+  );
+
   @override
-  Future<bool> biometricAvailable() async => true;
+  Future<IdeWebBiometricState> biometricState() async => biometric;
 }
 
 Uint8List derSignature(BigInt r, BigInt s) {

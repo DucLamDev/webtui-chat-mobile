@@ -117,8 +117,24 @@ final class MethodChannelIdeWebKeyChip implements IdeWebKeyChip {
     }
   });
 
+  // Kênh `webtui/biometric` tính cả sinh trắc yếu nên không dùng ở đây.
   @override
-  Future<bool> biometricAvailable() => _biometric.isAvailable();
+  Future<IdeWebBiometricState> biometricState() async {
+    try {
+      final value = await _channel.invokeMapMethod<String, Object?>(
+        'biometricState',
+      );
+      return IdeWebBiometricState(
+        available: value?['available'] == true,
+        enrolled: value?['enrolled'] == true,
+        strong: value?['strong'] == true,
+      );
+    } on MissingPluginException {
+      return IdeWebBiometricState.none;
+    } on PlatformException {
+      return IdeWebBiometricState.none;
+    }
+  }
 
   static Future<T> _run<T>(Future<T> Function() action) async {
     try {

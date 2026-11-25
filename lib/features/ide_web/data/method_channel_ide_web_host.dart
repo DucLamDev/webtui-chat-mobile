@@ -7,12 +7,15 @@ import '../domain/ide_web_ports.dart';
 final class MethodChannelIdeWebHost implements IdeWebDataCleaner {
   const MethodChannelIdeWebHost({
     MethodChannel channel = const MethodChannel('webtui/ide_web_host'),
-    EventChannel events = const EventChannel('webtui/ide_web_host/events'),
-  }) : _channel = channel,
-       _events = events;
+  }) : _channel = channel;
 
   final MethodChannel _channel;
-  final EventChannel _events;
+
+  /// Một luồng cho cả app. Mỗi lần `receiveBroadcastStream` là một luồng riêng:
+  /// màn cũ ngừng nghe muộn (đóng rồi mở lại nhanh) sẽ tắt luôn kênh của màn mới.
+  static final Stream<Object?> _events = const EventChannel(
+    'webtui/ide_web_host/events',
+  ).receiveBroadcastStream();
 
   Future<bool> attach({
     required int webViewId,
@@ -61,7 +64,6 @@ final class MethodChannelIdeWebHost implements IdeWebDataCleaner {
 
   /// Sự kiện của đúng WebView [webViewId]; sự kiện lạ bị bỏ.
   Stream<IdeWebViewEvent> events(int webViewId) => _events
-      .receiveBroadcastStream()
       .map((event) => parseIdeWebHostEvent(event, webViewId))
       .where((event) => event != null)
       .cast<IdeWebViewEvent>();

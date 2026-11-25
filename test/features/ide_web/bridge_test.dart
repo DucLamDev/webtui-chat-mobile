@@ -151,6 +151,33 @@ void main() {
     expect(code(await rig.sign(id)), 'key_missing');
   });
 
+  test('device.status báo đúng sinh trắc, không suy ra mức mạnh', () async {
+    Future<Object?> biometric() async =>
+        ((await rig.call('device.status'))['result']
+            as Map<String, dynamic>)['biometric'];
+    expect(await biometric(), {
+      'available': true,
+      'enrolled': true,
+      'strong': true,
+    });
+    rig.chip.biometric = const IdeWebBiometricState(
+      available: true,
+      enrolled: false,
+      strong: true,
+    );
+    expect(await biometric(), {
+      'available': true,
+      'enrolled': false,
+      'strong': true,
+    });
+    rig.chip.biometric = IdeWebBiometricState.none;
+    expect(await biometric(), {
+      'available': false,
+      'enrolled': false,
+      'strong': false,
+    });
+  });
+
   test('origin lạ và iframe bị từ chối, trả đúng id', () async {
     const request = '{"v":1,"id":"a1","method":"app.info"}';
     for (final origin in [

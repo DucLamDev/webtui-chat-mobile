@@ -1,5 +1,8 @@
 enum IdeWebUrlClass { internal, external, blocked }
 
+/// Xử lý một lần điều hướng: cho đi, chặn, hoặc chặn rồi hỏi mở ngoài app.
+enum IdeWebNavigation { allow, block, askExternal }
+
 /// Địa chỉ nào được ở trong WebView: đúng `https://ide.<chat>` cổng 443.
 final class IdeWebHostPolicy {
   IdeWebHostPolicy(Uri baseUri)
@@ -31,6 +34,27 @@ final class IdeWebHostPolicy {
 
   bool isInternalText(String? url) =>
       classifyText(url) == IdeWebUrlClass.internal;
+
+  /// Khung phụ ra ngoài địa chỉ IDE luôn bị chặn (Android: gói không báo khung
+  /// phụ; IDE phải gửi CSP `frame-src 'none'`). [newWindowAsSubframe]: iOS báo
+  /// liên kết mở cửa sổ mới (`target=_blank`) như khung phụ vì không có khung
+  /// đích, nên cũng hỏi mở ngoài app. [blankExpected]: app đang tự tải trang trống.
+  IdeWebNavigation navigation({
+    required String url,
+    required bool isMainFrame,
+    required bool blankExpected,
+    required bool newWindowAsSubframe,
+  }) {
+    final kind = classifyText(url);
+    if (kind == IdeWebUrlClass.internal) return IdeWebNavigation.allow;
+    if (isMainFrame && blankExpected && url == 'about:blank') {
+      return IdeWebNavigation.allow;
+    }
+    return kind == IdeWebUrlClass.external &&
+            (isMainFrame || newWindowAsSubframe)
+        ? IdeWebNavigation.askExternal
+        : IdeWebNavigation.block;
+  }
 
   /// Origin do lớp native báo (cổng mặc định 443 có thể được ghi ra).
   bool isAllowedOrigin(String value) =>

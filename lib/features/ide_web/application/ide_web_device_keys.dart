@@ -49,7 +49,7 @@ final class IdeWebDeviceKeys {
   final DateTime Function() _clock;
   final _serial = IdeWebSerial();
 
-  Future<bool> biometricAvailable() => _chip.biometricAvailable();
+  Future<IdeWebBiometricState> biometricState() => _chip.biometricState();
 
   Future<List<IdeWebKeyStatus>> status(IdeWebOwner owner) async {
     final keys = await _serial.run(() => _keysOf(owner));
