@@ -193,6 +193,8 @@ void main() {
         'android:path="/conversations"',
         'android:pathPrefix="/conversations/"',
         'android:path="/notifications"',
+        'android:host="oidc"',
+        'android:host="ide-web"',
       ],
       mustNotContain: const [
         'android:pathPrefix="/notifications"',
@@ -246,6 +248,7 @@ void main() {
         '<key>FlutterDeepLinkingEnabled</key>',
         '<false/>',
         '<key>NSFaceIDUsageDescription</key>',
+        '<key>NSMicrophoneUsageDescription</key>',
         '<key>NSLocalNetworkUsageDescription</key>',
         '<string>audio</string>',
         '<string>voip</string>',
