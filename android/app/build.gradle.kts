@@ -159,6 +159,8 @@ dependencies {
     implementation("androidx.media3:media3-common:1.8.0")
     implementation("androidx.media3:media3-effect:1.8.0")
     implementation("androidx.media3:media3-transformer:1.8.0")
+    // Cầu nối WebView của VPSTTT IDE (kênh webtui/ide_web_host); cùng bản với webview_flutter_android.
+    implementation("androidx.webkit:webkit:1.15.0")
 }
 
 flutter {

@@ -127,6 +127,16 @@
                     android:host="oidc"
                     android:pathPrefix="/callback" />
             </intent-filter>
+            <!-- Đăng nhập VPSTTT IDE nhúng xong, trình duyệt quay về app. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="webtui"
+                    android:host="ide-web"
+                    android:path="/callback" />
+            </intent-filter>
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
