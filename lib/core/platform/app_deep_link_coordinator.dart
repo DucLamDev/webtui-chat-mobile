@@ -18,6 +18,17 @@ final class AppOidcCallbackDeepLink extends AppDeepLinkIntent {
   final Uri uri;
 }
 
+/// Kết quả đăng nhập VPSTTT IDE từ trình duyệt (`webtui://ide-web/callback`).
+/// Mang mã một lần nên không bao giờ thành `location` của router.
+final class AppIdeWebCallbackDeepLink extends AppDeepLinkIntent {
+  const AppIdeWebCallbackDeepLink(this.uri);
+
+  final Uri uri;
+
+  @override
+  String toString() => 'AppIdeWebCallbackDeepLink(<redacted>)';
+}
+
 /// Lời mời vào workspace `/invite/<token>` (Lõi 2.5).
 final class AppInviteDeepLink extends AppDeepLinkIntent {
   const AppInviteDeepLink({required this.token, required this.host});
@@ -41,6 +52,9 @@ AppDeepLinkIntent? parseAppDeepLink(
 }) {
   if (_isOidcCallback(uri)) {
     return AppOidcCallbackDeepLink(uri);
+  }
+  if (_isIdeWebCallback(uri)) {
+    return AppIdeWebCallbackDeepLink(uri);
   }
   final invite = _parseInvite(uri, activeInstance);
   if (invite != null) {
@@ -130,6 +144,7 @@ final class AppDeepLinkCoordinator {
     required InstanceScope? Function() loadActiveInstance,
     required void Function(String location) navigate,
     required Future<void> Function(Uri uri) handleOidcCallback,
+    Future<void> Function(Uri uri)? handleIdeWebCallback,
     void Function(String inviteToken, String? serverHost)?
     onInviteRequiresLogin,
     bool Function()? isAuthenticationReady,
@@ -137,6 +152,7 @@ final class AppDeepLinkCoordinator {
        _loadActiveInstance = loadActiveInstance,
        _navigate = navigate,
        _handleOidcCallback = handleOidcCallback,
+       _handleIdeWebCallback = handleIdeWebCallback,
        _onInviteRequiresLogin = onInviteRequiresLogin,
        _isAuthenticationReady = isAuthenticationReady ?? _alwaysReady;
 
@@ -146,6 +162,7 @@ final class AppDeepLinkCoordinator {
   final InstanceScope? Function() _loadActiveInstance;
   final void Function(String location) _navigate;
   final Future<void> Function(Uri uri) _handleOidcCallback;
+  final Future<void> Function(Uri uri)? _handleIdeWebCallback;
   final void Function(String inviteToken, String? serverHost)?
   _onInviteRequiresLogin;
   String? _pendingLocation;
@@ -155,7 +172,17 @@ final class AppDeepLinkCoordinator {
   String? _pendingHost;
   int _navigationGeneration = 0;
 
+  /// Callback VPSTTT IDE tới lúc phiên chưa sẵn sàng (app vừa được mở lại):
+  /// chỉ giữ trong bộ nhớ. Giữ vài bản vì app khác có thể bắn callback rác chen
+  /// vào; bên nhận chỉ dùng bản khớp lượt đang chờ.
+  final _pendingIdeWebCallbacks = <Uri>[];
+  static const _maxPendingIdeWebCallbacks = 4;
+
   String? get pendingLocation => _pendingLocation;
+
+  /// Còn việc chờ phiên đăng nhập sẵn sàng.
+  bool get hasPendingWork =>
+      _pendingLocation != null || _pendingIdeWebCallbacks.isNotEmpty;
 
   Future<void> handle(Uri uri) async {
     final activeInstance = _loadActiveInstance();
@@ -163,6 +190,24 @@ final class AppDeepLinkCoordinator {
     switch (intent) {
       case AppOidcCallbackDeepLink(:final uri):
         await _handleOidcCallback(uri);
+        return;
+      case AppIdeWebCallbackDeepLink(:final uri):
+        final handler = _handleIdeWebCallback;
+        if (handler == null) return;
+        String? token;
+        try {
+          token = await _loadAccessToken();
+        } on Object {
+          token = null;
+        }
+        if (token?.trim().isNotEmpty != true || !_isAuthenticationReady()) {
+          if (!_pendingIdeWebCallbacks.contains(uri) &&
+              _pendingIdeWebCallbacks.length < _maxPendingIdeWebCallbacks) {
+            _pendingIdeWebCallbacks.add(uri);
+          }
+          return;
+        }
+        await handler(uri);
         return;
       case AppNavigationDeepLink(:final location):
         final hasToken = await _hasToken();
@@ -241,6 +286,15 @@ final class AppDeepLinkCoordinator {
     if (accessToken?.trim().isNotEmpty != true || !_isAuthenticationReady()) {
       return;
     }
+    final ideWebCallbacks = _pendingIdeWebCallbacks.toList();
+    _pendingIdeWebCallbacks.clear();
+    _resumeLocation();
+    for (final uri in ideWebCallbacks) {
+      await _handleIdeWebCallback?.call(uri);
+    }
+  }
+
+  void _resumeLocation() {
     final location = _pendingLocation;
     final pendingInstanceScopeId = _pendingInstanceScopeId;
     final pendingHost = _pendingHost;
@@ -267,6 +321,15 @@ bool _isOidcCallback(Uri uri) {
   return uri.scheme.toLowerCase() == 'webtui' &&
       uri.host.toLowerCase() == 'oidc' &&
       uri.userInfo.isEmpty &&
+      uri.path == '/callback' &&
+      !uri.hasFragment;
+}
+
+bool _isIdeWebCallback(Uri uri) {
+  return uri.scheme.toLowerCase() == 'webtui' &&
+      uri.host.toLowerCase() == 'ide-web' &&
+      uri.userInfo.isEmpty &&
+      !uri.hasPort &&
       uri.path == '/callback' &&
       !uri.hasFragment;
 }

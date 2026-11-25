@@ -20,6 +20,7 @@ final class SelfHostedServerDiscovery {
     required this.capabilities,
     this.logoUrl,
     this.adminBaseUri,
+    this.ideWebBaseUri,
     this.zoneKind = '',
     this.privacyPolicy = const SelfHostedPrivacyPolicy(),
     this.sessionPolicy = const SessionPolicy(),
@@ -210,6 +211,8 @@ final class SelfHostedServerDiscovery {
         myNotes: capabilities['my_notes'] == true,
         // IDE trên điện thoại (cổng IDE đã cấu hình); thiếu trường = tắt.
         ide: capabilities['ide'] == true,
+        // VPSTTT IDE nhúng bằng WebView; thiếu trường = tắt.
+        ideWeb: capabilities['ide_web'] == true,
         secretMessages: capabilities['secret_messages'] == true,
         mfa: capabilities['mfa'] == true,
         // Lõi 5: phê duyệt chung; máy chủ cũ không trả → tắt.
@@ -234,6 +237,7 @@ final class SelfHostedServerDiscovery {
         _text(runtime['admin_base_url']),
         requestedServer,
       ),
+      ideWebBaseUri: _ideWebBaseUriOrNull(runtime['ide_web_base_url'], domain),
       zoneKind: _text(zone['kind']).toLowerCase(),
       privacyPolicy: SelfHostedPrivacyPolicy.fromJson(privacyPolicy),
       sessionPolicy: SessionPolicy.fromJson(
@@ -280,6 +284,11 @@ final class SelfHostedServerDiscovery {
   /// `<origin>/admin/` (xem admin_panel_access.dart).
   final Uri? adminBaseUri;
 
+  /// Địa chỉ nhúng VPSTTT IDE (`runtime.ide_web_base_url`): đúng
+  /// `https://ide.<domain>`, cổng 443, không đường dẫn / query / fragment / tài
+  /// khoản. Sai dạng thì null và coi như tắt.
+  final Uri? ideWebBaseUri;
+
   /// Chính sách riêng tư (khoá máy, tin bí mật); máy chủ cũ không trả thì dùng mặc định.
   final SelfHostedPrivacyPolicy privacyPolicy;
 
@@ -293,6 +302,11 @@ final class SelfHostedServerDiscovery {
   /// zone nội bộ; mặc định (mọi server khác, hoặc thiếu thông tin) là tắt.
   bool get vpstttInternalModules =>
       domain == vpstttInternalHost && zoneKind == vpstttInternalZoneKind;
+
+  /// VPSTTT IDE nhúng: zone nội bộ, máy chủ bật `ide_web` và địa chỉ nhúng hợp
+  /// lệ. Thiếu một điều kiện là tắt; máy chủ vẫn kiểm ở mọi API.
+  bool get ideWebEnabled =>
+      vpstttInternalModules && capabilities.ideWeb && ideWebBaseUri != null;
 
   /// Tab / kênh Automation (kênh bot nội bộ) chỉ có trên server nội bộ VPSTTT.
   bool get automationEnabled =>
@@ -322,6 +336,8 @@ final class SelfHostedServerDiscovery {
           'api_base_url': apiBaseUri.toString(),
           'ws_base_url': wsBaseUri.toString(),
           if (adminBaseUri != null) 'admin_base_url': adminBaseUri.toString(),
+          if (ideWebBaseUri != null)
+            'ide_web_base_url': ideWebBaseUri.toString(),
           'app_name': name,
           'logo_url': logoUrl,
           'api_contract_version': apiContractVersion,
@@ -412,6 +428,7 @@ final class SelfHostedCapabilities {
     this.transcription = false,
     this.myNotes = false,
     this.ide = false,
+    this.ideWeb = false,
     this.secretMessages = false,
     this.mfa = false,
     this.approvals = false,
@@ -455,6 +472,9 @@ final class SelfHostedCapabilities {
 
   /// Mục IDE (cổng IDE đã cấu hình ở máy chủ chat).
   final bool ide;
+
+  /// VPSTTT IDE nhúng bằng WebView (`ide_web`).
+  final bool ideWeb;
 
   /// Tin nhắn bí mật tự xoá.
   final bool secretMessages;
@@ -513,6 +533,7 @@ final class SelfHostedCapabilities {
       'transcription': transcription,
       'my_notes': myNotes,
       'ide': ide,
+      'ide_web': ideWeb,
       'secret_messages': secretMessages,
       'mfa': mfa,
       'approvals': approvals,
@@ -696,6 +717,23 @@ Uri? _sameOriginPageUriOrNull(String value, Uri requestedServer) {
     return null;
   }
   return parsed;
+}
+
+/// Địa chỉ nhúng IDE suy từ [domain], không tin hoàn toàn giá trị máy chủ.
+Uri? _ideWebBaseUriOrNull(Object? value, String domain) {
+  if (value is! String || domain.isEmpty) return null;
+  final parsed = Uri.tryParse(value);
+  if (parsed == null ||
+      parsed.scheme != 'https' ||
+      parsed.host != 'ide.$domain' ||
+      parsed.port != 443 ||
+      parsed.userInfo.isNotEmpty ||
+      parsed.path.isNotEmpty ||
+      parsed.hasQuery ||
+      parsed.hasFragment) {
+    return null;
+  }
+  return Uri(scheme: 'https', host: parsed.host);
 }
 
 Uri _wsRuntimeUri(String value, Uri requestedServer) {

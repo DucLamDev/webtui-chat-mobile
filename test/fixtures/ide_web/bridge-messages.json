@@ -1,0 +1,33 @@
+{
+  "request": {
+    "v": 1,
+    "id": "req-1",
+    "method": "device.sign",
+    "params": {
+      "key_id": "6b1f0e3a-8c57-4c8e-9b39-2f1f5b0d7a11",
+      "challenge": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8"
+    }
+  },
+  "ok": {
+    "v": 1,
+    "id": "req-1",
+    "ok": true,
+    "result": {
+      "signature": "…"
+    }
+  },
+  "error": {
+    "v": 1,
+    "id": "req-1",
+    "ok": false,
+    "error": {
+      "code": "forbidden_origin",
+      "message": "Trang này không được phép."
+    }
+  },
+  "event": {
+    "v": 1,
+    "event": "app.background",
+    "data": {}
+  }
+}

@@ -16,6 +16,31 @@ Purposes are App Functionality, Account Management, and Security. The current
 source does not track users across companies' apps or websites, access the IDFA,
 sell data, or include advertising.
 
+## Embedded VPSTTT IDE (Draft, Waiting For The IDE Operator)
+
+The binary can open the company's VPSTTT IDE in a WebView. The entry appears
+only on the company's internal server after its administrator enables it; every
+other server never shows it.
+
+- Sent when the user opens it: name and email (by the chat server), platform,
+  app version, and up to two device-key identifiers.
+- Sent while using it: what the user types, uploads, or says to the embedded
+  page. Audio needs an in-app confirmation and the system permission, shows a
+  recording indicator, and stops when the user leaves the screen, locks the
+  app, sends it to the background, or is in a call.
+- Device keys: private keys stay in the Secure Enclave. Only public keys and
+  signatures over challenges issued by the IDE are sent.
+- Purposes: App Functionality and Security. No tracking, no advertising.
+- Must be confirmed by the IDE operator before submission: retention of audio,
+  prompts, and files; AI sub-processors; deletion on request.
+
+Guidelines 4.7 and 4.7.2: the embedded page can call only a small, fixed set of
+app functions, and the app asks the user before creating or deleting a device
+key or saving a file. State this in the review notes, and give the reviewer an
+account on a server where the feature is enabled or state that it is off there.
+If Apple objects, the server administrator can turn these functions off for iOS
+without an app update.
+
 ## Review Requirements
 
 Do not submit the current iOS build yet. The backend has reporting, blocking,

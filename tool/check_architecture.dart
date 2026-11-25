@@ -15,6 +15,16 @@ void main() {
     }
 
     final content = file.readAsStringSync();
+    if (!file.path.replaceAll('\\', '/').endsWith(_webViewOwner)) {
+      for (final import in _importsFrom(content)) {
+        if (import.toLowerCase().startsWith('package:webview_flutter')) {
+          violations.add(
+            '${file.path}: import "$import" bị chặn: chỉ $_webViewOwner '
+            'được dùng WebView',
+          );
+        }
+      }
+    }
     if (!_isPresentationSurface(file.path, content)) {
       continue;
     }
@@ -35,6 +45,9 @@ void main() {
     exitCode = 1;
   }
 }
+
+/// Nơi duy nhất được import WebView; phần còn lại dùng cổng `IdeWebView`.
+const _webViewOwner = 'lib/features/ide_web/data/webview_flutter_ide_view.dart';
 
 bool _isPresentationSurface(String path, String content) {
   final normalized = path.replaceAll('\\', '/');

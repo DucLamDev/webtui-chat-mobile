@@ -158,6 +158,8 @@ import '../../features/ide_mobile/domain/ide_device_security.dart';
 import '../../features/ide_mobile/domain/ide_errors.dart';
 import '../../features/ide_mobile/domain/ide_ready.dart';
 import '../../features/ide_mobile/domain/ide_server_access.dart';
+import '../../features/ide_web/application/ide_web_access.dart';
+import '../../features/ide_web/application/ide_web_providers.dart';
 import '../../features/inbox/data/datasources/inbox_remote_data_source.dart';
 import '../../features/inbox/data/repositories/inbox_repository_impl.dart';
 import '../../features/inbox/data/repositories/web_socket_inbox_realtime_repository.dart';
@@ -520,6 +522,7 @@ final sessionStateRepositoryProvider = Provider<SessionStateRepository>((ref) {
     clearMessageNotifications: () =>
         ScopedLocalNotificationService.instance.clearMessageNotifications(),
     clearScopedAttachmentFiles: const ScopedAttachmentFileStore().clearScope,
+    clearIdeWebData: () => ref.read(ideWebSessionCleanerProvider).clearAll(),
     serverAccountRegistry: ref.watch(serverAccountRegistryProvider),
   );
 });
@@ -722,13 +725,34 @@ final acceptInviteUseCaseProvider = Provider<AcceptInviteUseCase>((ref) {
   return AcceptInviteUseCase(ref.watch(inviteRepositoryProvider));
 });
 
+Future<void> _ignoringErrors(Future<void> Function() action) async {
+  try {
+    await action();
+  } on Object {
+    // Không chặn đăng xuất.
+  }
+}
+
 final logoutUseCaseProvider = Provider<LogoutUseCase>((ref) {
   return LogoutUseCase(
     authRepository: ref.watch(authRepositoryProvider),
     tokenRepository: ref.watch(authTokenRepositoryProvider),
     sessionStateRepository: ref.watch(sessionStateRepositoryProvider),
     // Còn token: báo máy chủ gỡ máy IDE đã gắn trước khi xoá phiên.
-    beforeSignOut: () => ref.read(idePairingServiceProvider).removeThisDevice(),
+    // Song song, mỗi nhánh tự nuốt lỗi: bên này hỏng không cản bên kia.
+    beforeSignOut: () {
+      ref.read(ideWebCallbackInboxProvider).clear();
+      return Future.wait<void>([
+        _ignoringErrors(
+          () => ref.read(idePairingServiceProvider).removeThisDevice(),
+        ),
+        _ignoringErrors(() async {
+          if (ref.read(ideWebEnabledProvider)) {
+            await ref.read(endIdeWebSessionUseCaseProvider).execute();
+          }
+        }),
+      ]);
+    },
   );
 });
 
@@ -745,6 +769,7 @@ final deleteAccountUseCaseProvider = Provider<DeleteAccountUseCase>((ref) {
     tokenRepository: ref.watch(authTokenRepositoryProvider),
     sessionStateRepository: ref.watch(sessionStateRepositoryProvider),
     appLockRepository: ref.watch(appLockRepositoryProvider),
+    purgeDeviceKeys: () => ref.read(ideWebDeviceKeysProvider).purge(),
   );
 });
 

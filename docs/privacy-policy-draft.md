@@ -12,6 +12,15 @@ Webtui Chat processes:
 - Device and session data such as app-generated device ID, refresh session, FCM token, platform, app version, and release channel.
 - Workspace admin data such as bot, webhook, API token metadata, automation, audit log, and ticket metadata when the user has permission.
 
+## VPSTTT IDE (Company Server Only, Draft)
+
+On the company's internal server the administrator can enable an embedded VPSTTT
+IDE. Opening it sends your name and email to the IDE. What you type, upload, or
+say there is processed by the IDE and its AI providers. The microphone is used
+only after you agree and stops when you leave the screen. Device keys stay in
+your phone's security chip. Retention, AI providers, and deletion must be
+confirmed by the IDE operator before this section is published.
+
 ## Why We Process Data
 
 - Authenticate users and keep sessions secure.

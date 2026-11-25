@@ -1,0 +1,12 @@
+{
+  "platform": "android",
+  "app_version": "1.66.0",
+  "bridge_version": 1,
+  "callback": "custom_scheme",
+  "code_challenge": "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+  "code_challenge_method": "S256",
+  "device": {
+    "possession_key_id": null,
+    "biometric_key_id": null
+  }
+}

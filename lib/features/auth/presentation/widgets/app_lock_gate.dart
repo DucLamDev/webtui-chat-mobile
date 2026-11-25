@@ -11,6 +11,22 @@ import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../domain/entities/app_lock_timeout_policy.dart';
 
+/// Cho màn bên dưới biết lớp khoá đang che (vd. màn có WebView phải dừng micro
+/// và gỡ khung native, vì khung native có thể vẽ đè lên lớp phủ).
+class AppLockScope extends InheritedWidget {
+  const AppLockScope({required this.obscured, required super.child, super.key});
+
+  final bool obscured;
+
+  static bool isObscured(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<AppLockScope>()?.obscured ??
+      false;
+
+  @override
+  bool updateShouldNotify(AppLockScope oldWidget) =>
+      obscured != oldWidget.obscured;
+}
+
 /// Lớp khoá ứng dụng (lõi 3.1).
 ///
 /// Lớp khoá là một lớp PHỦ nằm trên router: nội dung bên dưới (màn gọi, phòng
@@ -191,7 +207,10 @@ class _AppLockGateState extends ConsumerState<AppLockGate>
           // Nội dung luôn được giữ trong cây widget (không gỡ màn gọi / phòng chat).
           ExcludeSemantics(
             excluding: obscured,
-            child: AbsorbPointer(absorbing: obscured, child: widget.child),
+            child: AbsorbPointer(
+              absorbing: obscured,
+              child: AppLockScope(obscured: obscured, child: widget.child),
+            ),
           ),
           if (overlay != null) Positioned.fill(child: overlay),
         ],

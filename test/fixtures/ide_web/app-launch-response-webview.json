@@ -1,0 +1,9 @@
+{
+  "launch_id": "6f1a5b0e-3c1a-4a8b-9d2e-0a3b5c7d9e11",
+  "mode": "webview",
+  "enter_url": "https://ide.chat.example.com/_appchat/enter",
+  "gate_token": "token-cong",
+  "open_code": "mã-mở-một-lần",
+  "expires_at": "2026-11-25T08:01:00Z",
+  "bridge_enabled": true
+}
