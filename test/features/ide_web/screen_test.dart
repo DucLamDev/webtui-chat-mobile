@@ -789,6 +789,40 @@ void main() {
       }
     });
 
+    testWidgets('chữ trên nút cùng phông với phần còn lại', (tester) async {
+      String? family(Finder text) =>
+          tester.renderObject<RenderParagraph>(text).text.style?.fontFamily;
+
+      final rig = _Rig();
+      rig.repository.launchResult = failResult(
+        FailureKind.network,
+        code: 'IDE_WEB_UNAVAILABLE',
+      );
+      await rig.open(tester);
+      final screenFamily = family(find.text('VPSTTT IDE'));
+      expect(screenFamily, isNotNull);
+      expect(family(find.text('Thử lại')), screenFamily);
+      expect(family(find.text('Đóng')), screenFamily);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: WebTuiTheme.light(),
+          home: IdeWebPromptSheet(
+            prompt: const IdeWebDeleteKeyPrompt(),
+            host: testBase.host,
+          ),
+        ),
+      );
+      for (final key in ['ide_web_prompt_ok', 'ide_web_prompt_cancel']) {
+        expect(
+          family(find.descendant(of: _key(key), matching: find.byType(Text))),
+          screenFamily,
+        );
+      }
+      rig.container.dispose();
+      await rig.pump(tester);
+    });
+
     testWidgets('chữ to: chỉ báo thu còn biểu tượng, tên màn không bị cắt', (
       tester,
     ) async {

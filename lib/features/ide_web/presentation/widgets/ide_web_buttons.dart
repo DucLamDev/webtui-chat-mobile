@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../design_system/tokens/webtui_colors.dart';
-import '../../../../design_system/tokens/webtui_typography.dart';
 import 'ide_web_code_window.dart';
 
 /// Chữ hệ thống lớn: thu hình, bỏ chữ phụ để nội dung chính không bị cắt.
@@ -38,10 +37,11 @@ class IdeWebButton extends StatelessWidget {
     final shape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(16),
     );
-    final style = WebTuiTypography.bodyMedium.copyWith(
-      fontSize: 16,
-      fontWeight: FontWeight.w700,
-    );
+    // Lấy từ theme chứ không từ WebTuiTypography: `textStyle` của nút thay hẳn kiểu
+    // chữ mặc định, kiểu không có phông thì nút rơi về phông khác phần còn lại.
+    final style = Theme.of(
+      context,
+    ).textTheme.bodyMedium!.copyWith(fontSize: 16, fontWeight: FontWeight.w700);
     final label = Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Text(action.label, textAlign: TextAlign.center),
