@@ -1,0 +1,12 @@
+{
+  "origin": "https://ide.chat.example.com",
+  "key_id": "6b1f0e3a-8c57-4c8e-9b39-2f1f5b0d7a11",
+  "challenge": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+  "purpose_sign": "possession",
+  "string_sign": "AppChat-IDE-v1:sign\npossession\nhttps://ide.chat.example.com\n6b1f0e3a-8c57-4c8e-9b39-2f1f5b0d7a11\nAAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+  "sha256_sign": "0ff0f2b7e5ca4b9b90878b11a2d465f7244b98d570a39473d43bc3ee0894ecb5",
+  "purpose_register": "biometric",
+  "sha256_register": "e3b8bc9a3bc12a56bbd8480987ca2fd7202c27202ad110ecf58e67a07212cd61",
+  "public_key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEA-anctXxAE6AnsrCrnuisr2RtM26llrI4WM4qMZKG86ma969qESycXsy_bXF2CzAjiWDHKb0yKnh-beodpaaQw",
+  "signature_example": "MEUCIHrvER2m-c4YPFWPNRJ-npbLN3x6tqL_kSP0efb0fV-2AiEAnKlSAmu-Fg3G9zxRgA49WC_d1sp0koNWoQoRE9IUD_Y"
+}

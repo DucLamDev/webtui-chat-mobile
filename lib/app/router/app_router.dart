@@ -31,6 +31,8 @@ import '../../features/ide_mobile/presentation/screens/projects/ide_project_rout
 import '../../features/ide_mobile/presentation/screens/talk/ide_talk_routes.dart';
 import '../../features/ide_mobile/presentation/screens/tools/ide_tools_routes.dart';
 import '../../features/ide_mobile/presentation/widgets/ide_access_gate.dart';
+import '../../features/ide_web/application/ide_web_access.dart';
+import '../../features/ide_web/presentation/screens/ide_web_screen.dart';
 import '../../features/inbox/presentation/screens/inbox_conversation_screen.dart';
 import '../../features/inbox/presentation/screens/inbox_list_screen.dart';
 import '../../features/meeting_calendar/presentation/screens/meeting_detail_screen.dart';
@@ -272,6 +274,12 @@ final appRouterProvider = Provider<GoRouter>((_) {
           workspaceId: state.uri.queryParameters['workspaceId'],
           initialFolderId: state.uri.queryParameters['folderId'],
         ),
+      ),
+      // VPSTTT IDE nhúng: màn tự kiểm quyền lại; callback không qua location.
+      GoRoute(
+        path: ideWebRoutePath,
+        name: 'ide-web',
+        builder: (context, state) => const IdeWebScreen(),
       ),
       // IDE: cổng vân tay bọc mọi màn; /ide/jobs/:id chờ màn tiến trình.
       GoRoute(

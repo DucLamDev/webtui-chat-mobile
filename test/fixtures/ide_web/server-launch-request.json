@@ -1,0 +1,18 @@
+{
+  "launch_id": "6f1a5b0e-3c1a-4a8b-9d2e-0a3b5c7d9e11",
+  "profile": {
+    "display_name": "Nguyễn Văn An",
+    "email": "an@example.com"
+  },
+  "callback_uri": "webtui://ide-web/callback",
+  "state": "c3RhdGUtdmF0LW1hdS0wMTIzNDU2Nzg5MDEyMzQ1Njc4OQ",
+  "code_challenge": "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+  "code_challenge_method": "S256",
+  "platform": "android",
+  "app_version": "1.66.0",
+  "bridge_version": 1,
+  "device": {
+    "possession_key_id": null,
+    "biometric_key_id": null
+  }
+}

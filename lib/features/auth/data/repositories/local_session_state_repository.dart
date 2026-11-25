@@ -15,6 +15,7 @@ final class LocalSessionStateRepository implements SessionStateRepository {
     Future<void> Function(InstanceScope?)? terminateNativeCalls,
     Future<void> Function()? clearMessageNotifications,
     Future<void> Function(InstanceScope?)? clearScopedAttachmentFiles,
+    Future<void> Function()? clearIdeWebData,
     SecureServerAccountRegistry? serverAccountRegistry,
   }) : _secureStore = secureStore,
        _database = database,
@@ -23,6 +24,7 @@ final class LocalSessionStateRepository implements SessionStateRepository {
        _terminateNativeCalls = terminateNativeCalls,
        _clearMessageNotifications = clearMessageNotifications,
        _clearScopedAttachmentFiles = clearScopedAttachmentFiles,
+       _clearIdeWebData = clearIdeWebData,
        _serverAccountRegistry = serverAccountRegistry;
 
   final SecureKeyValueStore _secureStore;
@@ -32,6 +34,9 @@ final class LocalSessionStateRepository implements SessionStateRepository {
   final Future<void> Function(InstanceScope?)? _terminateNativeCalls;
   final Future<void> Function()? _clearMessageNotifications;
   final Future<void> Function(InstanceScope?)? _clearScopedAttachmentFiles;
+
+  /// Đóng màn VPSTTT IDE và xoá dữ liệu WebView (không còn token cũng gọi được).
+  final Future<void> Function()? _clearIdeWebData;
   final SecureServerAccountRegistry? _serverAccountRegistry;
 
   @override
@@ -59,6 +64,7 @@ final class LocalSessionStateRepository implements SessionStateRepository {
     final instanceScope = _loadInstanceScope();
     await _clearNativeInstanceBinding();
     await _secureStore.clearSession();
+    await _clearIdeWebDataSafely();
     await _terminateNativeCalls?.call(instanceScope);
     await _clearMessageNotifications?.call();
     await _clearScopedAttachmentFiles?.call(instanceScope);
@@ -70,11 +76,22 @@ final class LocalSessionStateRepository implements SessionStateRepository {
     await _clearNativeInstanceBinding();
     await _serverAccountRegistry?.clearActiveSession();
     await _secureStore.clearSession();
+    await _clearIdeWebDataSafely();
     await _terminateNativeCalls?.call(instanceScope);
     await _clearMessageNotifications?.call();
     await _clearScopedAttachmentFiles?.call(instanceScope);
     if (instanceScope != null) {
       await _database.deleteScopesWithPrefix(instanceScope.storagePrefix);
+    }
+  }
+
+  /// Lỗi dọn WebView không được làm hỏng đăng xuất: bộ dọn đã ghi cờ để lần mở
+  /// IDE sau phải xoá xong mới tạo WebView.
+  Future<void> _clearIdeWebDataSafely() async {
+    try {
+      await _clearIdeWebData?.call();
+    } on Object {
+      // Cờ chờ xoá còn đó.
     }
   }
 
@@ -111,6 +128,7 @@ final class LocalSessionStateRepository implements SessionStateRepository {
         ),
       );
       await cleanup(_secureStore.clearSession);
+      await cleanup(_clearIdeWebDataSafely);
       await cleanup(() async => _terminateNativeCalls?.call(instanceScope));
       await cleanup(() async => _clearMessageNotifications?.call());
       await cleanup(

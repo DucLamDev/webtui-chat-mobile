@@ -30,6 +30,8 @@ import '../features/auth/presentation/screens/login_mfa_screen.dart';
 import '../features/auth/presentation/widgets/app_lock_gate.dart';
 import '../features/auth/presentation/widgets/legal_acceptance_gate.dart';
 import '../features/conversations/data/files/scoped_attachment_file_store.dart';
+import '../features/ide_web/application/ide_web_access.dart';
+import '../features/ide_web/application/ide_web_providers.dart';
 import '../features/settings/domain/entities/app_settings.dart';
 import '../features/settings/presentation/controllers/app_settings_controller.dart';
 import '../features/settings/presentation/widgets/mobile_update_gate.dart';
@@ -79,6 +81,7 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
       isAuthenticationReady: _isAuthenticationReady,
       handleOidcCallback: (uri) =>
           ref.read(loginControllerProvider.notifier).handleDeepLink(uri),
+      handleIdeWebCallback: _handleIdeWebCallback,
       onInviteRequiresLogin: (token, serverHost) {
         if (mounted) {
           ref.read(loginPrefillProvider.notifier).state = LoginPrefill(
@@ -147,8 +150,7 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
   }
 
   void _resumePendingLink() {
-    if (!_isAuthenticationReady() ||
-        _deepLinkCoordinator.pendingLocation == null) {
+    if (!_isAuthenticationReady() || !_deepLinkCoordinator.hasPendingWork) {
       return;
     }
     // Đợi chuyển màn đăng nhập / chọn workspace hoàn tất để không ghi đè
@@ -167,6 +169,23 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
       await ref.read(ideCredentialsProvider.future);
     } on Object {
       // Chưa có máy chủ / không đọc được kho: lần mở IDE sau sẽ dọn.
+    }
+    try {
+      // VPSTTT IDE nhúng: khoá thiết bị và dữ liệu WebView của người trước.
+      await ref.read(dropOtherIdeWebOwnerUseCaseProvider).execute();
+    } on Object {
+      // Lần mở màn IDE sau sẽ dọn.
+    }
+  }
+
+  /// Kết quả đăng nhập VPSTTT IDE: trao cho màn IDE qua bộ nhớ, không đưa vào
+  /// `location`. Callback lạ / lặp bị bỏ êm, không mở màn.
+  Future<void> _handleIdeWebCallback(Uri uri) async {
+    if (!mounted || !ref.read(ideWebEnabledProvider)) return;
+    if (!await ref.read(completeIdeWebUseCaseProvider).matches(uri)) return;
+    if (!mounted) return;
+    if (ref.read(ideWebCallbackInboxProvider).deliver(uri)) {
+      unawaited(ref.read(appRouterProvider).push<void>(ideWebRoutePath));
     }
   }
 

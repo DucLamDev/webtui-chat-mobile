@@ -12,15 +12,21 @@ final class DeleteAccountUseCase {
     required AuthTokenRepository tokenRepository,
     required SessionStateRepository sessionStateRepository,
     required AppLockRepository appLockRepository,
+    Future<void> Function()? purgeDeviceKeys,
   }) : _accountRepository = accountRepository,
        _tokenRepository = tokenRepository,
        _sessionStateRepository = sessionStateRepository,
-       _appLockRepository = appLockRepository;
+       _appLockRepository = appLockRepository,
+       _purgeDeviceKeys = purgeDeviceKeys;
 
   final AccountRepository _accountRepository;
   final AuthTokenRepository _tokenRepository;
   final SessionStateRepository _sessionStateRepository;
   final AppLockRepository _appLockRepository;
+
+  /// Xoá khoá thiết bị của tài khoản khỏi máy (lỗi bỏ qua: bản ghi còn đó, lần
+  /// đăng nhập của người khác sẽ xoá tiếp).
+  final Future<void> Function()? _purgeDeviceKeys;
 
   /// [reauthToken]: token xác thực lại vừa lấy trên thiết bị này (không lưu,
   /// không dùng lại). Thiếu thì không gọi máy chủ.
@@ -79,6 +85,12 @@ final class DeleteAccountUseCase {
     );
     if (deletion case FailureResult<void>()) {
       return deletion;
+    }
+
+    try {
+      await _purgeDeviceKeys?.call();
+    } on Object {
+      // Không cản việc dọn phiên.
     }
 
     Object? cleanupError;

@@ -29,7 +29,14 @@ enum SecureStoreKey {
   // Khoá thiết bị gắn IDE; đăng xuất gỡ gắn (xoá cùng phiên).
   ideDevice('ide_device_v1'),
   // Mã máy (`mobile-<uuid>`) báo cho phiên AI của IDE; giữ cố định theo máy.
-  ideClientId('ide_client_id_v1');
+  ideClientId('ide_client_id_v1'),
+  // Lượt mở VPSTTT IDE (WebView) đang chờ trình duyệt; xoá cùng phiên.
+  ideWebPending('ide_web_pending_v1'),
+  // Siêu dữ liệu khoá thiết bị của VPSTTT IDE: GIỮ khi đăng xuất (Smart OTP),
+  // xoá khi người khác đăng nhập hoặc xoá tài khoản.
+  ideWebDevice('ide_web_device_v1'),
+  // WebView của VPSTTT IDE đang giữ dữ liệu của ai / đang chờ xoá.
+  ideWebViewData('ide_web_view_data_v1');
 
   const SecureStoreKey(this.value);
 
@@ -54,8 +61,12 @@ final class FlutterSecureKeyValueStore implements SecureKeyValueStore {
     accessibility: KeychainAccessibility.unlocked_this_device,
   );
 
-  static IOSOptions? _iosOptions(SecureStoreKey key) =>
-      key == SecureStoreKey.ideDevice ? _ideDeviceIos : null;
+  static IOSOptions? _iosOptions(SecureStoreKey key) => switch (key) {
+    SecureStoreKey.ideDevice ||
+    SecureStoreKey.ideWebPending ||
+    SecureStoreKey.ideWebDevice => _ideDeviceIos,
+    _ => null,
+  };
 
   @override
   Future<String?> read(SecureStoreKey key) {
@@ -86,6 +97,7 @@ final class FlutterSecureKeyValueStore implements SecureKeyValueStore {
       delete(SecureStoreKey.activeWorkspaceId),
       delete(SecureStoreKey.activeWorkspaceInstanceScopeId),
       delete(SecureStoreKey.ideDevice),
+      delete(SecureStoreKey.ideWebPending),
     ]);
   }
 }
