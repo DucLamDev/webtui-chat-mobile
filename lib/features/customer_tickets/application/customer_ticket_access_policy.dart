@@ -3,10 +3,14 @@ import '../../workspace/domain/entities/workspace_permission.dart';
 
 const customerTicketViewPermission = 'order.view';
 const customerTicketReplyPermission = 'order.ticket_reply';
+const customerTicketBillingPermission = 'order.billing';
 
 /// Ai được thấy / trả lời ticket khách. Chỉ máy chủ nội bộ VPSTTT (discovery:
 /// host + zone nội bộ, có capability `bots`) mới có hộp thư ticket; trong đó
-/// xem cần `order.view`, trả lời / thao tác cần thêm `order.ticket_reply`.
+/// xem cần `order.view` và quyền nhân viên (`order.ticket_reply` hoặc
+/// `order.billing`), trả lời / thao tác cần `order.ticket_reply`. Thành viên
+/// thường cũng có `order.view` nhưng máy chủ (từ 1.60.1) không cho xem ticket
+/// của mọi khách, nên ẩn mục với họ.
 /// Máy chủ vẫn tự kiểm quyền cho mọi yêu cầu: đây chỉ là ẩn / hiện giao diện.
 final class CustomerTicketAccess {
   const CustomerTicketAccess({
@@ -29,14 +33,19 @@ final class CustomerTicketAccess {
     if (!customerTicketServerSupported(discovery)) {
       return const CustomerTicketAccess.unavailable();
     }
-    final canView = permissions?.allows(customerTicketViewPermission) ?? false;
+    final canReplyTickets =
+        permissions?.allows(customerTicketReplyPermission) ?? false;
+    final isOrderStaff =
+        canReplyTickets ||
+        (permissions?.allows(customerTicketBillingPermission) ?? false);
+    final canView =
+        isOrderStaff &&
+        (permissions?.allows(customerTicketViewPermission) ?? false);
     return CustomerTicketAccess(
       serverSupported: true,
       permissionsLoaded: permissions != null,
       canView: canView,
-      canReply:
-          canView &&
-          (permissions?.allows(customerTicketReplyPermission) ?? false),
+      canReply: canView && canReplyTickets,
     );
   }
 
