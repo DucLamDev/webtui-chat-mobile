@@ -35,6 +35,9 @@ class _IdeWebScreenState extends ConsumerState<IdeWebScreen>
   bool _routeCurrent = true;
   bool _popping = false;
 
+  /// Phải đóng nhưng màn khác (cuộc gọi...) đang đè lên: đợi màn đó rời đi.
+  bool _closeWhenCurrent = false;
+
   /// Hộp xác nhận đang mở (tối đa một).
   DialogRoute<bool>? _dialog;
 
@@ -59,6 +62,10 @@ class _IdeWebScreenState extends ConsumerState<IdeWebScreen>
     _locked = AppLockScope.isObscured(context);
     _routeCurrent = ModalRoute.of(context)?.isCurrent ?? true;
     _scheduleStatus();
+    if (_closeWhenCurrent && _routeCurrent) {
+      _closeWhenCurrent = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _pop());
+    }
   }
 
   @override
@@ -95,8 +102,9 @@ class _IdeWebScreenState extends ConsumerState<IdeWebScreen>
   void _pushStatus() {
     _controller.updateStatus(
       IdeWebScreenStatus(
-        // Hộp xác nhận của chính màn này không tính là rời màn.
-        visible: _routeCurrent || _dialog != null,
+        // Hộp xác nhận của chính màn này không tính là rời màn, trừ khi màn
+        // khác đè lên cả hộp.
+        visible: _routeCurrent || (_dialog?.isCurrent ?? false),
         resumed: _resumed,
         locked: _locked,
         inCall: ref.read(activeCallTrackerProvider).isNotEmpty,
@@ -110,7 +118,10 @@ class _IdeWebScreenState extends ConsumerState<IdeWebScreen>
     final navigator = Navigator.of(context, rootNavigator: true);
     final route = DialogRoute<bool>(
       context: context,
-      builder: (_) => IdeWebPromptDialog(prompt: prompt),
+      builder: (_) => _DialogWatcher(
+        onChanged: _scheduleStatus,
+        child: IdeWebPromptDialog(prompt: prompt),
+      ),
     );
     _dialog = route;
     try {
@@ -133,8 +144,13 @@ class _IdeWebScreenState extends ConsumerState<IdeWebScreen>
 
   void _pop() {
     if (!mounted || _popping) return;
-    _popping = true;
     dismiss();
+    if (ModalRoute.of(context)?.isCurrent == false) {
+      // `pop` gỡ màn trên cùng, có thể là màn cuộc gọi.
+      _closeWhenCurrent = true;
+      return;
+    }
+    _popping = true;
     final navigator = Navigator.of(context);
     if (navigator.canPop()) {
       navigator.pop();
@@ -222,4 +238,31 @@ class _IdeWebScreenState extends ConsumerState<IdeWebScreen>
       ),
     );
   }
+}
+
+/// Báo khi màn khác đè lên / rời khỏi hộp xác nhận.
+class _DialogWatcher extends StatefulWidget {
+  const _DialogWatcher({required this.onChanged, required this.child});
+
+  final VoidCallback onChanged;
+  final Widget child;
+
+  @override
+  State<_DialogWatcher> createState() => _DialogWatcherState();
+}
+
+class _DialogWatcherState extends State<_DialogWatcher> {
+  bool? _current;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final current = ModalRoute.of(context)?.isCurrent;
+    if (current == _current) return;
+    _current = current;
+    widget.onChanged();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

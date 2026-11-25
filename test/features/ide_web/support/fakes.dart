@@ -436,6 +436,8 @@ final class FakeIdeWebView implements IdeWebView {
   bool capture = false;
   bool canGoBack = false;
   Object? openError;
+  Completer<void>? disposeGate;
+  void Function()? onBlank;
 
   void add(IdeWebViewEvent event) => controller.add(event);
 
@@ -462,7 +464,10 @@ final class FakeIdeWebView implements IdeWebView {
   Future<void> reloadHome() async => log.add('home');
 
   @override
-  Future<void> loadBlank() async => log.add('blank');
+  Future<void> loadBlank() async {
+    log.add('blank');
+    onBlank?.call();
+  }
 
   @override
   Future<void> reply(String replyId, String payload) async =>
@@ -474,7 +479,7 @@ final class FakeIdeWebView implements IdeWebView {
   );
 
   @override
-  Future<bool> captureActive() async => capture;
+  Future<bool> captureOpen() async => capture;
 
   @override
   Future<void> stopCapture() async => log.add('stopCapture');
@@ -489,7 +494,10 @@ final class FakeIdeWebView implements IdeWebView {
   }
 
   @override
-  Future<void> dispose() async => log.add('dispose');
+  Future<void> dispose() async {
+    await disposeGate?.future;
+    log.add('dispose');
+  }
 }
 
 /// Chờ các việc bất đồng bộ ngắn chạy xong.

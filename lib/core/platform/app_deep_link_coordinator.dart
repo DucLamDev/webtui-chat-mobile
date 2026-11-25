@@ -173,14 +173,16 @@ final class AppDeepLinkCoordinator {
   int _navigationGeneration = 0;
 
   /// Callback VPSTTT IDE tới lúc phiên chưa sẵn sàng (app vừa được mở lại):
-  /// chỉ giữ trong bộ nhớ.
-  Uri? _pendingIdeWebCallback;
+  /// chỉ giữ trong bộ nhớ. Giữ vài bản vì app khác có thể bắn callback rác chen
+  /// vào; bên nhận chỉ dùng bản khớp lượt đang chờ.
+  final _pendingIdeWebCallbacks = <Uri>[];
+  static const _maxPendingIdeWebCallbacks = 4;
 
   String? get pendingLocation => _pendingLocation;
 
   /// Còn việc chờ phiên đăng nhập sẵn sàng.
   bool get hasPendingWork =>
-      _pendingLocation != null || _pendingIdeWebCallback != null;
+      _pendingLocation != null || _pendingIdeWebCallbacks.isNotEmpty;
 
   Future<void> handle(Uri uri) async {
     final activeInstance = _loadActiveInstance();
@@ -199,7 +201,10 @@ final class AppDeepLinkCoordinator {
           token = null;
         }
         if (token?.trim().isNotEmpty != true || !_isAuthenticationReady()) {
-          _pendingIdeWebCallback = uri;
+          if (!_pendingIdeWebCallbacks.contains(uri) &&
+              _pendingIdeWebCallbacks.length < _maxPendingIdeWebCallbacks) {
+            _pendingIdeWebCallbacks.add(uri);
+          }
           return;
         }
         await handler(uri);
@@ -281,11 +286,11 @@ final class AppDeepLinkCoordinator {
     if (accessToken?.trim().isNotEmpty != true || !_isAuthenticationReady()) {
       return;
     }
-    final ideWebCallback = _pendingIdeWebCallback;
-    _pendingIdeWebCallback = null;
+    final ideWebCallbacks = _pendingIdeWebCallbacks.toList();
+    _pendingIdeWebCallbacks.clear();
     _resumeLocation();
-    if (ideWebCallback != null) {
-      await _handleIdeWebCallback?.call(ideWebCallback);
+    for (final uri in ideWebCallbacks) {
+      await _handleIdeWebCallback?.call(uri);
     }
   }
 

@@ -1,6 +1,7 @@
-// Điểm vào chỉ để xem giao diện màn VPSTTT IDE (không vào bản phát hành):
-//   vpsttt-app run --target test/preview/ide_web_preview.dart
-// Dùng khung giả thay WebView, không gọi máy chủ.
+// Điểm vào chỉ để xem giao diện màn VPSTTT IDE (không vào bản phát hành). Dùng
+// khung giả thay WebView, không gọi máy chủ. `vpsttt-app run --target` chỉ nhận tệp
+// trong lib/: chép tạm tệp này và support/fakes.dart vào lib/ ở một worktree riêng,
+// sửa lại dòng import, không commit.
 import 'dart:async';
 
 import 'package:flutter/material.dart';

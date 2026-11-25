@@ -90,8 +90,8 @@ class IdeWebHost : FlutterPlugin, MethodChannel.MethodCallHandler, EventChannel.
   'use strict';
   if (window !== window.top || location.origin !== ${jsString(origin)}) return;
   if (Object.prototype.hasOwnProperty.call(window, '__appChatStopCapture')) return;
-  var devices = navigator.mediaDevices;
-  if (!devices || !devices.getUserMedia) return;
+  // Vá ở prototype: vá riêng đối tượng thì trang gọi thẳng hàm gốc của prototype là lách được.
+  var proto = window.MediaDevices && MediaDevices.prototype;
   var tracks = new Set(), generation = 0;
   function watch(track) {
     tracks.add(track);
@@ -99,18 +99,35 @@ class IdeWebHost : FlutterPlugin, MethodChannel.MethodCallHandler, EventChannel.
     return track;
   }
   function stop(track) { try { track.stop(); } catch (e) {} tracks.delete(track); }
-  var original = devices.getUserMedia.bind(devices);
-  Object.defineProperty(devices, 'getUserMedia', { value: function (constraints) {
-    var started = generation;
-    return original(constraints).then(function (stream) {
-      stream.getTracks().forEach(watch);
-      if (started !== generation) {
-        stream.getTracks().forEach(stop);
-        throw new DOMException('Capture stopped', 'AbortError');
-      }
-      return stream;
-    });
-  } });
+  function stopped() { return new DOMException('Capture stopped', 'AbortError'); }
+  // true: luồng còn hợp lệ; false: đã có lệnh dừng trong lúc chờ cấp quyền.
+  function accept(stream, started) {
+    stream.getTracks().forEach(watch);
+    if (started === generation) return true;
+    stream.getTracks().forEach(stop);
+    return false;
+  }
+  if (proto && proto.getUserMedia) {
+    var original = proto.getUserMedia;
+    Object.defineProperty(proto, 'getUserMedia', { value: function (constraints) {
+      var started = generation;
+      return original.call(this, constraints).then(function (stream) {
+        if (!accept(stream, started)) throw stopped();
+        return stream;
+      });
+    } });
+  }
+  // Hàm kiểu cũ (gọi lại thay vì Promise).
+  ['getUserMedia', 'webkitGetUserMedia'].forEach(function (name) {
+    var legacy = Navigator.prototype[name];
+    if (typeof legacy !== 'function') return;
+    Object.defineProperty(Navigator.prototype, name, { value: function (constraints, ok, fail) {
+      var started = generation;
+      return legacy.call(this, constraints, function (stream) {
+        if (accept(stream, started)) { if (ok) ok(stream); } else if (fail) { fail(stopped()); }
+      }, fail);
+    } });
+  });
   var cloneTrack = MediaStreamTrack.prototype.clone;
   MediaStreamTrack.prototype.clone = function () {
     var copy = cloneTrack.call(this);
@@ -175,6 +192,7 @@ class IdeWebHost : FlutterPlugin, MethodChannel.MethodCallHandler, EventChannel.
     private val attachments = HashMap<Long, Attachment>()
     private var audio: AudioManager? = null
     private var captureActive = false
+    private var captureAny = false
 
     private val recordingCallback = object : AudioManager.AudioRecordingCallback() {
         override fun onRecordingConfigChanged(configs: MutableList<AudioRecordingConfiguration>?) {
@@ -230,7 +248,8 @@ class IdeWebHost : FlutterPlugin, MethodChannel.MethodCallHandler, EventChannel.
                     result.success(null)
                 }
                 "emit" -> emit(id, args?.get("payload") as? String, result)
-                "captureState" -> result.success(mapOf("active" to captureActive))
+                "captureState" ->
+                    result.success(mapOf("active" to captureActive, "any" to captureAny))
                 "stopCapture" -> {
                     attachments[id]?.let { stopCapture(it) }
                     result.success(null)
@@ -311,7 +330,13 @@ class IdeWebHost : FlutterPlugin, MethodChannel.MethodCallHandler, EventChannel.
             allowFileAccessFromFileURLs = false
             @Suppress("DEPRECATION")
             allowUniversalAccessFromFileURLs = false
+            // Gói mở WebView tạm cho `window.open` / `target=_blank`, không có chính sách điều hướng và
+            // không có lớp canh tiến trình dựng trang: tắt để liên kết đó mở trong khung chính.
+            setSupportMultipleWindows(false)
         }
+        // Gói coi tải tệp là một lần điều hướng và tải lại đúng địa chỉ đó, lặp không dừng. Lưu tệp đi
+        // qua cầu nối `file.save`.
+        webView.setDownloadListener { _, _, _, _, _ -> }
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false)
         val flags = webView.context.applicationInfo.flags
         WebView.setWebContentsDebuggingEnabled(flags and ApplicationInfo.FLAG_DEBUGGABLE != 0)
@@ -460,12 +485,16 @@ class IdeWebHost : FlutterPlugin, MethodChannel.MethodCallHandler, EventChannel.
 
     private fun updateCapture(configs: List<AudioRecordingConfiguration>?) {
         // Callback đã xếp hàng trước lúc gỡ thì bỏ qua (audio == null).
-        val active = audio != null && configs.orEmpty().any {
+        val open = if (audio == null) emptyList() else configs.orEmpty()
+        val active = open.any {
             Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || !it.isClientSilenced
         }
-        if (active == captureActive) return
+        // `any`: luồng thu còn mở kể cả lúc hệ điều hành đang bịt tiếng (app ở nền).
+        val any = open.isNotEmpty()
+        if (active == captureActive && any == captureAny) return
         captureActive = active
-        sink?.success(mapOf("type" to "capture", "active" to active))
+        captureAny = any
+        sink?.success(mapOf("type" to "capture", "active" to active, "any" to any))
     }
 
     private fun stopCapture(attachment: Attachment) {

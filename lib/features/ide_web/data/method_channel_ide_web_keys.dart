@@ -21,31 +21,36 @@ final class MethodChannelIdeWebKeyChip implements IdeWebKeyChip {
   final MethodChannel _channel;
 
   @override
-  Future<IdeWebCreatedKey> create(IdeWebKeyPurpose purpose, String alias) =>
-      _run(() async {
-        if (purpose == IdeWebKeyPurpose.biometric) {
-          final publicKey = await _biometric.createStepKey(alias);
-          return IdeWebCreatedKey(
-            publicKey: ideWebBase64Url(
-              base64.decode(base64.normalize(publicKey.replaceAll('\n', ''))),
-            ),
-            hardware: await _hardwareOf(alias),
-          );
-        }
-        final value = await _channel.invokeMapMethod<String, Object?>(
-          'createPossessionKey',
-          {'alias': alias},
-        );
-        final publicKey = value?['publicKey'];
-        final hardware = value?['hardware'];
-        if (publicKey is! String ||
-            publicKey.isEmpty ||
-            hardware is! String ||
-            !const {'strongbox', 'tee', 'secure_enclave'}.contains(hardware)) {
-          throw const IdeWebKeyException('failed');
-        }
-        return IdeWebCreatedKey(publicKey: publicKey, hardware: hardware);
-      });
+  Future<IdeWebCreatedKey> create(
+    IdeWebKeyPurpose purpose,
+    String alias,
+  ) => _run(() async {
+    if (purpose == IdeWebKeyPurpose.biometric) {
+      // iOS dọn khoá của bản cài trước ở lần gọi đầu của kênh mới: phải chạy
+      // trước khi kênh cũ tạo khoá, không thì khoá vừa tạo bị dọn theo.
+      await isUsable(purpose, alias);
+      final publicKey = await _biometric.createStepKey(alias);
+      return IdeWebCreatedKey(
+        publicKey: ideWebBase64Url(
+          base64.decode(base64.normalize(publicKey.replaceAll('\n', ''))),
+        ),
+        hardware: await _hardwareOf(alias),
+      );
+    }
+    final value = await _channel.invokeMapMethod<String, Object?>(
+      'createPossessionKey',
+      {'alias': alias},
+    );
+    final publicKey = value?['publicKey'];
+    final hardware = value?['hardware'];
+    if (publicKey is! String ||
+        publicKey.isEmpty ||
+        hardware is! String ||
+        !const {'strongbox', 'tee', 'secure_enclave'}.contains(hardware)) {
+      throw const IdeWebKeyException('failed');
+    }
+    return IdeWebCreatedKey(publicKey: publicKey, hardware: hardware);
+  });
 
   /// Kênh cũ chỉ nhận khoá trong phần cứng nhưng không báo loại nào: hỏi kênh
   /// mới; không đọc được thì báo loại thấp nhất kênh cũ bảo đảm.

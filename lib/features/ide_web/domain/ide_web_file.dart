@@ -4,19 +4,45 @@ import 'dart:typed_data';
 /// Trần tệp `file.save` sau khi giải mã.
 const ideWebMaxFileBytes = 10 * 1024 * 1024;
 
-/// Đuôi cài đặt / chạy được / trang web: không lưu ra máy.
+/// Đuôi cài đặt / chạy được / trang web / lối tắt: không lưu ra máy. Mã nguồn
+/// (`js`, `sh`, `py`...) chỉ là chữ trên điện thoại nên không chặn.
 const _blockedExtensions = {
+  'aab',
   'apk',
+  'apkm',
   'apks',
-  'xapk',
+  'bat',
+  'cmd',
+  'com',
+  'dmg',
   'exe',
-  'msi',
+  'hta',
   'htm',
   'html',
-  'xhtml',
-  'shtml',
+  'ipa',
+  'jar',
+  'lnk',
+  'mht',
+  'mhtml',
   'mobileconfig',
+  'mobileprovision',
+  'msi',
+  'pkg',
+  'ps1',
+  'scr',
+  'shtml',
+  'svg',
+  'svgz',
+  'url',
+  'vbs',
+  'webloc',
+  'xapk',
+  'xht',
+  'xhtml',
 };
+
+/// Trần tên tệp theo byte UTF-8 (hệ thống tệp chỉ cho 255).
+const _maxNameBytes = 200;
 
 const _blockedMimes = {
   'application/vnd.android.package-archive',
@@ -25,6 +51,9 @@ const _blockedMimes = {
   'application/vnd.microsoft.portable-executable',
   'application/x-apple-aspen-config',
   'application/xhtml+xml',
+  'image/svg+xml',
+  'message/rfc822',
+  'multipart/related',
   'text/html',
 };
 
@@ -73,16 +102,28 @@ String ideWebSafeFileName(String raw) {
     ),
     '',
   );
-  name = name
-      .replaceAll(RegExp(r'^[.\s]+'), '')
-      .replaceAll(RegExp(r'[.\s]+$'), '');
-  if (name.length > 120) {
+  name = _trimName(name);
+  if (utf8.encode(name).length > _maxNameBytes) {
     final dot = name.lastIndexOf('.');
     final ext = dot > 0 && name.length - dot <= 12 ? name.substring(dot) : '';
-    name = '${name.substring(0, 120 - ext.length)}$ext';
+    final room = _maxNameBytes - utf8.encode(ext).length;
+    final base = ext.isEmpty ? name : name.substring(0, dot);
+    final kept = StringBuffer();
+    var used = 0;
+    for (final rune in base.runes) {
+      final char = String.fromCharCode(rune);
+      used += utf8.encode(char).length;
+      if (used > room) break;
+      kept.write(char);
+    }
+    // Cắt xong có thể lộ dấu chấm cuối: bỏ lần nữa để đuôi xét đúng là đuôi lưu.
+    name = _trimName('$kept$ext');
   }
   return name.isEmpty ? 'tep-vpsttt-ide' : name;
 }
+
+String _trimName(String name) =>
+    name.replaceAll(RegExp(r'^[.\s]+'), '').replaceAll(RegExp(r'[.\s]+$'), '');
 
 enum IdeWebFileIssue { malformed, blocked, tooLarge }
 

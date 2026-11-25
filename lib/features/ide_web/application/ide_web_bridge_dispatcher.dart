@@ -204,6 +204,10 @@ final class IdeWebBridgeDispatcher {
         }
         return _exclusive(current, () => _saveFile(file, current));
       case BridgeMethod.appClose:
+        // Màn đang bị che / khoá: trang không được đóng thay người dùng.
+        if (!_isActive()) {
+          throw const BridgeException(BridgeErrorCode.cancelled);
+        }
         // Trả lời trang trước rồi mới đóng màn.
         Timer.run(_prompter.close);
         return Future.value(const {});

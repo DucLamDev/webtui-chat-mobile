@@ -96,6 +96,9 @@ final class _Rig {
     ],
   );
 
+  /// Lần mở đầu của máy luôn xoá một lần trước khi tạo WebView.
+  static const firstOpenClears = 1;
+
   FakeIdeWebView get view => views.last;
 
   Future<void> open(
@@ -333,7 +336,7 @@ void main() {
       await rig.pump(tester);
       expect(_key('ide_web_expired'), findsOneWidget);
       expect(rig.view.log.last, 'dispose');
-      expect(rig.data.calls, 1);
+      expect(rig.data.calls, _Rig.firstOpenClears + 1);
     });
 
     testWidgets('mất mạng: chỉ ngắt người xem, giữ dữ liệu', (tester) async {
@@ -342,7 +345,7 @@ void main() {
       rig.view.add(const IdeWebPageFailed(IdeWebFailureKind.unavailable));
       await rig.pump(tester);
       expect(_key('ide_web_unavailable'), findsOneWidget);
-      expect(rig.data.calls, 0);
+      expect(rig.data.calls, _Rig.firstOpenClears);
       expect(rig.repository.ended, 0);
     });
 
@@ -366,7 +369,7 @@ void main() {
       await rig.pump(tester);
       expect(_key('ide_web_disabled'), findsOneWidget);
       expect(rig.view.log.last, 'dispose');
-      expect(rig.data.calls, 1);
+      expect(rig.data.calls, _Rig.firstOpenClears + 1);
     });
 
     testWidgets('TC4: phiên chat kết thúc: màn đóng rồi mới xoá dữ liệu', (
@@ -378,7 +381,7 @@ void main() {
       await rig.pump(tester);
       expect(find.byType(IdeWebScreen), findsNothing);
       expect(rig.view.log.last, 'dispose');
-      expect(rig.data.calls, 1);
+      expect(rig.data.calls, _Rig.firstOpenClears + 1);
       expect(rig.view.emitted, contains('session.closing'));
     });
 
@@ -496,7 +499,7 @@ void main() {
       );
       await rig.pump(tester);
       granted = rig.mic.asked >= 2;
-      rig.view.add(const IdeWebCaptureChanged(active: true));
+      rig.view.add(const IdeWebCaptureChanged(active: true, any: true));
       await rig.pump(tester);
       return granted;
     }
@@ -517,7 +520,7 @@ void main() {
       await tester.pump();
       expect(rig.view.log, contains('stopCapture'));
       expect(rig.view.emitted, ['app.background']);
-      rig.view.add(const IdeWebCaptureChanged(active: false));
+      rig.view.add(const IdeWebCaptureChanged(active: false, any: false));
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
@@ -536,7 +539,7 @@ void main() {
       rig.container.read(activeCallTrackerProvider.notifier).begin('c');
       await rig.pump(tester);
       expect(rig.view.log, containsAll(['stopCapture', 'pauseMedia']));
-      rig.view.add(const IdeWebCaptureChanged(active: false));
+      rig.view.add(const IdeWebCaptureChanged(active: false, any: false));
       await tester.pump(const Duration(seconds: 2));
       var granted = true;
       rig.view.add(
@@ -565,6 +568,96 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
     });
 
+    testWidgets('màn khác đè lên cả hộp hỏi: coi là rời màn, dừng mic', (
+      tester,
+    ) async {
+      final rig = _Rig();
+      await rig.open(tester);
+      await grantMic(rig, tester);
+      rig.view.add(IdeWebExternalLink(Uri.parse('https://example.com')));
+      await rig.pump(tester);
+      expect(find.byType(IdeWebPromptDialog), findsOneWidget);
+      expect(rig.view.log, isNot(contains('stopCapture')));
+      unawaited(
+        Navigator.of(
+          tester.element(find.byType(IdeWebScreen)),
+        ).push(MaterialPageRoute<void>(builder: (_) => const Scaffold())),
+      );
+      await rig.pump(tester);
+      expect(rig.view.log, contains('stopCapture'));
+      await tester.pump(const Duration(seconds: 2));
+    });
+
+    testWidgets('liên kết ngoài hỏi có hạn', (tester) async {
+      final rig = _Rig();
+      await rig.open(tester);
+      for (var i = 0; i < 5; i++) {
+        rig.view.add(IdeWebExternalLink(Uri.parse('https://example.com')));
+        await rig.pump(tester);
+        await tester.tap(_key('ide_web_prompt_cancel'));
+        await rig.pump(tester);
+      }
+      rig.view.add(IdeWebExternalLink(Uri.parse('https://example.com')));
+      await rig.pump(tester);
+      expect(find.byType(IdeWebPromptDialog), findsNothing);
+      expect(rig.launcher.opened, isEmpty);
+    });
+
+    testWidgets('màn khác đang đè lên: không đóng nhầm màn đó', (tester) async {
+      final rig = _Rig();
+      await rig.open(tester);
+      final navigator = Navigator.of(tester.element(find.byType(IdeWebScreen)));
+      unawaited(
+        navigator.push(
+          MaterialPageRoute<void>(
+            builder: (_) => const Scaffold(body: Text('màn cuộc gọi')),
+          ),
+        ),
+      );
+      await rig.pump(tester);
+      // Trang không được đóng thay người dùng khi đang bị che.
+      rig.view.add(
+        const IdeWebBridgeMessage(
+          replyId: 'r',
+          json: '{"v":1,"id":"a","method":"app.close"}',
+          isMainFrame: true,
+          origin: testOrigin,
+        ),
+      );
+      await rig.pump(tester);
+      expect(
+        (rig.view.replies.single.$2['error'] as Map<String, dynamic>)['code'],
+        'cancelled',
+      );
+      expect(find.text('màn cuộc gọi'), findsOneWidget);
+      // Phiên chat kết thúc: trang đóng ngay, màn IDE đợi tới lượt rồi tự rời.
+      unawaited(rig.cleaner.clearAll());
+      await rig.pump(tester);
+      expect(rig.view.log, contains('dispose'));
+      expect(find.text('màn cuộc gọi'), findsOneWidget);
+      navigator.pop();
+      await rig.pump(tester);
+      expect(find.byType(IdeWebScreen), findsNothing);
+      expect(find.text('mở'), findsOneWidget);
+    });
+
+    testWidgets('đang đóng dở mà đăng xuất: xoá dữ liệu sau khi trang ngừng', (
+      tester,
+    ) async {
+      final rig = _Rig();
+      await rig.open(tester);
+      final calls = rig.data.calls;
+      rig.view.disposeGate = Completer<void>();
+      await tester.tap(_key('ide_web_close'));
+      await rig.pump(tester);
+      unawaited(rig.cleaner.clearAll());
+      await rig.pump(tester);
+      expect(rig.data.calls, calls);
+      rig.view.disposeGate!.complete();
+      await rig.pump(tester);
+      expect(rig.data.calls, calls + 1);
+    });
+
     testWidgets('khoá app: gỡ khung native, dừng mic, đóng hộp hỏi', (
       tester,
     ) async {
@@ -580,7 +673,7 @@ void main() {
       expect(find.byType(IdeWebPromptDialog), findsNothing);
       expect(rig.view.log, contains('stopCapture'));
       expect(rig.view.log, isNot(contains('dispose')));
-      rig.view.add(const IdeWebCaptureChanged(active: false));
+      rig.view.add(const IdeWebCaptureChanged(active: false, any: false));
       await tester.pump(const Duration(seconds: 2));
       rig.locked.value = false;
       await rig.pump(tester);

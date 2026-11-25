@@ -64,10 +64,13 @@ final class LocalSessionStateRepository implements SessionStateRepository {
     final instanceScope = _loadInstanceScope();
     await _clearNativeInstanceBinding();
     await _secureStore.clearSession();
-    await _clearIdeWebDataSafely();
-    await _terminateNativeCalls?.call(instanceScope);
-    await _clearMessageNotifications?.call();
-    await _clearScopedAttachmentFiles?.call(instanceScope);
+    try {
+      await _terminateNativeCalls?.call(instanceScope);
+      await _clearMessageNotifications?.call();
+      await _clearScopedAttachmentFiles?.call(instanceScope);
+    } finally {
+      await _clearIdeWebDataSafely();
+    }
   }
 
   @override
@@ -76,17 +79,21 @@ final class LocalSessionStateRepository implements SessionStateRepository {
     await _clearNativeInstanceBinding();
     await _serverAccountRegistry?.clearActiveSession();
     await _secureStore.clearSession();
-    await _clearIdeWebDataSafely();
-    await _terminateNativeCalls?.call(instanceScope);
-    await _clearMessageNotifications?.call();
-    await _clearScopedAttachmentFiles?.call(instanceScope);
-    if (instanceScope != null) {
-      await _database.deleteScopesWithPrefix(instanceScope.storagePrefix);
+    try {
+      await _terminateNativeCalls?.call(instanceScope);
+      await _clearMessageNotifications?.call();
+      await _clearScopedAttachmentFiles?.call(instanceScope);
+      if (instanceScope != null) {
+        await _database.deleteScopesWithPrefix(instanceScope.storagePrefix);
+      }
+    } finally {
+      await _clearIdeWebDataSafely();
     }
   }
 
-  /// Lỗi dọn WebView không được làm hỏng đăng xuất: bộ dọn đã ghi cờ để lần mở
-  /// IDE sau phải xoá xong mới tạo WebView.
+  /// Chạy SAU cùng: xoá WebView có thể mất vài giây, không được làm chậm việc kết
+  /// thúc cuộc gọi và xoá thông báo. Lỗi không được làm hỏng đăng xuất: bộ dọn đã
+  /// ghi cờ để lần mở IDE sau phải xoá xong mới tạo WebView.
   Future<void> _clearIdeWebDataSafely() async {
     try {
       await _clearIdeWebData?.call();
@@ -128,7 +135,6 @@ final class LocalSessionStateRepository implements SessionStateRepository {
         ),
       );
       await cleanup(_secureStore.clearSession);
-      await cleanup(_clearIdeWebDataSafely);
       await cleanup(() async => _terminateNativeCalls?.call(instanceScope));
       await cleanup(() async => _clearMessageNotifications?.call());
       await cleanup(
@@ -139,6 +145,7 @@ final class LocalSessionStateRepository implements SessionStateRepository {
           'instance_v2:${guard.instanceScopeId}:',
         ),
       );
+      await cleanup(_clearIdeWebDataSafely);
       if (firstError != null) {
         Error.throwWithStackTrace(firstError!, firstStack!);
       }

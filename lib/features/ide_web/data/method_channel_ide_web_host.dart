@@ -49,11 +49,11 @@ final class MethodChannelIdeWebHost implements IdeWebDataCleaner {
         'payload': payload,
       });
 
-  Future<bool> captureActive() async {
+  Future<bool> captureOpen() async {
     final value = await _channel.invokeMapMethod<String, Object?>(
       'captureState',
     );
-    return value?['active'] == true;
+    return value?['any'] == true || value?['active'] == true;
   }
 
   Future<void> stopCapture(int webViewId) =>
@@ -89,7 +89,11 @@ IdeWebViewEvent? parseIdeWebHostEvent(Object? event, int webViewId) {
         origin: origin,
       );
     case 'capture':
-      return IdeWebCaptureChanged(active: event['active'] == true);
+      final active = event['active'] == true;
+      return IdeWebCaptureChanged(
+        active: active,
+        any: active || event['any'] == true,
+      );
     case 'render_gone':
       return const IdeWebRenderGone();
     default:

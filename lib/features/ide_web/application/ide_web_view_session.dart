@@ -8,6 +8,7 @@ import '../domain/ide_web_launch.dart';
 import 'ide_web_bridge_dispatcher.dart';
 import 'ide_web_mic_guard.dart';
 import 'ide_web_prompter.dart';
+import 'ide_web_rate_limiter.dart';
 import 'ide_web_view.dart';
 
 /// Một phiên màn IDE đang mở: nối WebView với cầu nối và bộ canh micro.
@@ -17,12 +18,14 @@ final class IdeWebViewSession {
     required this.mic,
     required IdeWebBridgeDispatcher dispatcher,
     required IdeWebPrompter prompter,
+    required IdeWebRateLimiter limiter,
     required Future<void> Function() disposeFiles,
     required Future<bool> Function(Uri uri) openExternal,
     required void Function(IdeWebFailureKind kind) onFailed,
     required IdeWebScreenStatus Function() status,
   }) : _dispatcher = dispatcher,
        _prompter = prompter,
+       _limiter = limiter,
        _disposeFiles = disposeFiles,
        _openExternal = openExternal,
        _onFailed = onFailed,
@@ -32,6 +35,7 @@ final class IdeWebViewSession {
   final IdeWebMicGuard mic;
   final IdeWebBridgeDispatcher _dispatcher;
   final IdeWebPrompter _prompter;
+  final IdeWebRateLimiter _limiter;
   final Future<void> Function() _disposeFiles;
   final Future<bool> Function(Uri uri) _openExternal;
   final void Function(IdeWebFailureKind kind) _onFailed;
@@ -72,8 +76,8 @@ final class IdeWebViewSession {
         _onFailed(kind);
       case IdeWebRenderGone():
         _onFailed(IdeWebFailureKind.expired);
-      case IdeWebCaptureChanged(:final active):
-        mic.onCaptureChanged(active: active);
+      case IdeWebCaptureChanged(:final active, :final any):
+        mic.onCaptureChanged(active: active, any: any);
       case IdeWebBridgeMessage():
         unawaited(_onMessage(event));
       case IdeWebExternalLink(:final uri):
@@ -105,8 +109,11 @@ final class IdeWebViewSession {
   }
 
   Future<void> _onExternal(Uri uri) async {
-    // Lớp native không báo được cử chỉ người dùng: luôn hỏi, một hộp một lúc.
-    if (_askingExternal || !_status().active) return;
+    // Lớp native không báo được cử chỉ người dùng: luôn hỏi, một hộp một lúc,
+    // có hạn để trang không giữ người dùng trong chuỗi hộp hỏi.
+    if (_askingExternal || !_status().active || !ideWebAllowPrompt(_limiter)) {
+      return;
+    }
     _askingExternal = true;
     try {
       if (await _prompter.confirm(IdeWebExternalLinkPrompt(uri)) && !isClosed) {

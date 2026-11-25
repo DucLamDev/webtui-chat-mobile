@@ -1475,6 +1475,7 @@ final class IdeWebHost: NSObject {
   private let registrar: FlutterPluginRegistrar?
   private var attachments: [Int64: IdeWebAttachment] = [:]
   private var captureActive = false
+  private var captureAny = false
 
   init(registrar: FlutterPluginRegistrar?) {
     self.registrar = registrar
@@ -1524,7 +1525,7 @@ final class IdeWebHost: NSObject {
       attachment?.emit(payload)
       result(nil)
     case "captureState":
-      result(["active": captureActive])
+      result(["active": captureActive, "any": captureAny])
     case "stopCapture":
       attachment?.stopCapture()
       result(nil)
@@ -1548,9 +1549,11 @@ final class IdeWebHost: NSObject {
 
   func refreshCapture() {
     let active = attachments.values.contains { $0.isCapturing }
-    guard active != captureActive else { return }
+    let any = attachments.values.contains { $0.holdsMicrophone }
+    guard active != captureActive || any != captureAny else { return }
     captureActive = active
-    events.sink?(["type": "capture", "active": active] as [String: Any])
+    captureAny = any
+    events.sink?(["type": "capture", "active": active, "any": any] as [String: Any])
   }
 
   /// `https://host` (cổng 443, không phần khác) hoặc nil.
@@ -1619,6 +1622,12 @@ final class IdeWebAttachment: NSObject, WKScriptMessageHandlerWithReply {
 
   var isCapturing: Bool {
     webView?.microphoneCaptureState == WKMediaCaptureState.active
+  }
+
+  /// Trang còn giữ micro, kể cả lúc đang bị tắt tiếng.
+  var holdsMicrophone: Bool {
+    guard let webView else { return false }
+    return webView.microphoneCaptureState != WKMediaCaptureState.none
   }
 
   func dispose() {

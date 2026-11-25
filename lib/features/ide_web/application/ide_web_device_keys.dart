@@ -49,6 +49,9 @@ final class IdeWebDeviceKeys {
   final DateTime Function() _clock;
   final _serial = IdeWebSerial();
 
+  /// Khoá đang tạo dở (chờ sinh trắc).
+  final _creating = <String>{};
+
   Future<IdeWebBiometricState> biometricState() => _chip.biometricState();
 
   Future<List<IdeWebKeyStatus>> status(IdeWebOwner owner) async {
@@ -91,9 +94,10 @@ final class IdeWebDeviceKeys {
     final alias = _alias(owner, key);
     await _serial.run(() async {
       await _dropOther(owner);
-      final keys = await _keysOf(owner);
+      final keys = await _dropUnfinished(owner, await _keysOf(owner));
       if (keys.length >= maxKeys) throw const IdeWebKeyException('failed');
       await _save(owner, [...keys, key]);
+      _creating.add(key.keyId);
     });
     try {
       final created = await _chip.create(purpose, alias);
@@ -125,7 +129,30 @@ final class IdeWebDeviceKeys {
     } on Object {
       await _discard(owner, key);
       rethrow;
+    } finally {
+      _creating.remove(key.keyId);
     }
+  }
+
+  /// Bỏ khoá tạo dở của lần trước (app bị tắt lúc chờ sinh trắc): trang không
+  /// thấy nên không xoá được, để lại sẽ chiếm hết số khoá.
+  Future<List<IdeWebDeviceKey>> _dropUnfinished(
+    IdeWebOwner owner,
+    List<IdeWebDeviceKey> keys,
+  ) async {
+    final kept = <IdeWebDeviceKey>[];
+    for (final key in keys) {
+      if (key.ready || _creating.contains(key.keyId)) {
+        kept.add(key);
+        continue;
+      }
+      try {
+        await _chip.delete(key.purpose, _alias(owner, key));
+      } on Object {
+        kept.add(key);
+      }
+    }
+    return kept;
   }
 
   Future<String> sign({

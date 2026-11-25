@@ -148,6 +148,9 @@ final class IdeWebController extends StateNotifier<IdeWebState>
   late final void Function() _unregister;
   IdeWebPrompter? _prompter;
   IdeWebViewSession? _session;
+
+  /// Lượt đóng trang đang chạy: dọn dữ liệu phải đợi trang cũ ngừng hẳn.
+  Future<void>? _closing;
   Timer? _waitingTimer;
   int _run = 0;
   bool _started = false;
@@ -319,6 +322,7 @@ final class IdeWebController extends StateNotifier<IdeWebState>
         policy: policy,
         prompter: this,
         permission: _deps.micPermission,
+        limiter: _deps.limiter,
         status: () => _status,
       ),
       dispatcher: IdeWebBridgeDispatcher(
@@ -338,6 +342,7 @@ final class IdeWebController extends StateNotifier<IdeWebState>
         }),
       ),
       prompter: this,
+      limiter: _deps.limiter,
       disposeFiles: files.disposeTemp,
       openExternal: (uri) => _deps.launcher.open(uri.toString()),
       onFailed: (kind) {
@@ -415,24 +420,36 @@ final class IdeWebController extends StateNotifier<IdeWebState>
   /// Phiên chat kết thúc: đóng ngay trước khi dữ liệu WebView bị xoá. Gọi lúc
   /// không còn WebView (màn lỗi) thì chỉ bỏ lượt đang chờ.
   Future<void> _closeForCleanup() async {
-    if (!mounted) return;
     final pendingWork =
-        _session != null ||
-        state is IdeWebLoading ||
-        state is IdeWebWaitingBrowser ||
-        state is IdeWebReady;
-    if (!pendingWork) return;
-    _run++;
-    _deps.start.abandon();
-    _waitingTimer?.cancel();
-    state = const IdeWebClosed();
+        mounted &&
+        (_session != null ||
+            state is IdeWebLoading ||
+            state is IdeWebWaitingBrowser ||
+            state is IdeWebReady);
+    if (pendingWork) {
+      _run++;
+      _deps.start.abandon();
+      _waitingTimer?.cancel();
+      state = const IdeWebClosed();
+    }
     await _closeSession();
   }
 
-  Future<void> _closeSession() async {
+  /// Đóng trang đang mở và đợi cả lượt đóng trước đó (nếu còn).
+  Future<void> _closeSession() {
     final session = _session;
     _session = null;
-    await session?.close();
+    if (session == null) return _closing ?? Future<void>.value();
+    final previous = _closing;
+    late final Future<void> closing;
+    Future<void> run() async {
+      await previous;
+      await session.close();
+    }
+
+    return _closing = closing = run().whenComplete(() {
+      if (identical(_closing, closing)) _closing = null;
+    });
   }
 
   @override
@@ -455,9 +472,9 @@ final class IdeWebController extends StateNotifier<IdeWebState>
     _deps.start.abandon();
     _waitingTimer?.cancel();
     _unlisten();
-    _unregister();
     _prompter = null;
-    unawaited(_closeSession());
+    // Gỡ đăng ký sau khi đóng xong: đăng xuất lúc này vẫn phải đợi trang ngừng.
+    unawaited(_closeSession().whenComplete(_unregister));
     if (waiting) unawaited(_deps.cancel.execute());
     super.dispose();
   }

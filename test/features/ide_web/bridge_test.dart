@@ -151,6 +151,17 @@ void main() {
     expect(code(await rig.sign(id)), 'key_missing');
   });
 
+  test('app.close chỉ chạy khi màn đang hiện', () async {
+    rig.active = false;
+    expect(code(await rig.call('app.close')), 'cancelled');
+    await settle();
+    expect(rig.prompter.closed, 0);
+    rig.active = true;
+    expect(code(await rig.call('app.close')), isNull);
+    await settle();
+    expect(rig.prompter.closed, 1);
+  });
+
   test('device.status báo đúng sinh trắc, không suy ra mức mạnh', () async {
     Future<Object?> biometric() async =>
         ((await rig.call('device.status'))['result']
@@ -438,6 +449,32 @@ void main() {
       );
       expect(rig.files.saved, isEmpty);
       expect(rig.prompter.prompts, isEmpty);
+    });
+
+    test('tên dài cắt theo byte, đuôi lộ ra sau khi cắt vẫn bị chặn', () async {
+      expect((await save('${'ệ' * 100}.pdf'))['result'], {'saved': true});
+      final name = rig.files.saved.single.name;
+      expect(utf8.encode(name).length, lessThanOrEqualTo(200));
+      expect(name, endsWith('.pdf'));
+      // Cắt rơi đúng sau ".apk.": đuôi thật khi lưu là apk.
+      for (var i = 190; i <= 200; i++) {
+        final reply = await save('${'a' * i}.apk.${'x' * 40}');
+        if (code(reply) == null) {
+          expect(rig.files.saved.last.name, isNot(endsWith('.apk')));
+          expect(rig.files.saved.last.name, isNot(endsWith('.')));
+        }
+        rig.now = rig.now.add(const Duration(minutes: 1));
+      }
+    });
+
+    test('chặn thêm loại chạy được / trang web, mã nguồn vẫn lưu', () async {
+      for (final name in ['a.svg', 'a.mhtml', 'a.jar', 'a.ipa', 'a.lnk']) {
+        expect(code(await save(name)), 'unsupported', reason: name);
+      }
+      rig.now = rig.now.add(const Duration(minutes: 2));
+      for (final name in ['a.js', 'a.sh', 'a.py']) {
+        expect(code(await save(name)), isNull, reason: name);
+      }
     });
 
     test('sai dạng, quá 10 MB, huỷ, lỗi', () async {

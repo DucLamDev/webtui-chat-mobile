@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/features/ide_web/application/ide_web_mic_guard.dart';
 import 'package:webtui_chat/features/ide_web/application/ide_web_prompter.dart';
+import 'package:webtui_chat/features/ide_web/application/ide_web_rate_limiter.dart';
 import 'package:webtui_chat/features/ide_web/application/ide_web_view.dart';
 import 'package:webtui_chat/features/ide_web/data/method_channel_ide_web_browser.dart';
 import 'package:webtui_chat/features/ide_web/data/method_channel_ide_web_host.dart';
@@ -127,6 +128,7 @@ void main() {
         policy: IdeWebHostPolicy(testBase),
         prompter: prompter,
         permission: permission,
+        limiter: IdeWebRateLimiter(clock: () => now),
         status: () => status,
         stopGrace: const Duration(milliseconds: 1),
         clock: () => now,
@@ -195,10 +197,10 @@ void main() {
 
     test('dừng: trang chịu dừng thì không tải trang trống', () async {
       await ask();
-      mic.onCaptureChanged(active: true);
+      mic.onCaptureChanged(active: true, any: true);
       expect(mic.capturing.value, isTrue);
       final stop = mic.stop();
-      mic.onCaptureChanged(active: false);
+      mic.onCaptureChanged(active: false, any: false);
       await stop;
       expect(view.log, ['stopCapture']);
       expect(mic.capturing.value, isFalse);
@@ -208,7 +210,7 @@ void main() {
       'dừng: vẫn thu thì tải trang trống, quay lại mở lại trang chính',
       () async {
         await ask();
-        mic.onCaptureChanged(active: true);
+        mic.onCaptureChanged(active: true, any: true);
         view.capture = true;
         status = inCall;
         await mic.stop();
@@ -226,24 +228,93 @@ void main() {
     test(
       'cuộc gọi / tin thoại của app không bị coi là trang đang thu',
       () async {
-        mic.onCaptureChanged(active: true);
+        mic.onCaptureChanged(active: true, any: true);
         expect(mic.capturing.value, isFalse);
         await ask();
         now = now.add(const Duration(minutes: 1));
         status = inCall;
         view.capture = true;
-        mic.onCaptureChanged(active: true);
+        mic.onCaptureChanged(active: true, any: true);
         await settle();
         expect(mic.capturing.value, isFalse);
         expect(view.log, ['stopCapture']);
       },
     );
 
+    test('quay lại trước khi hết hạn chờ: không tải trang trống', () async {
+      await ask();
+      mic.onCaptureChanged(active: true, any: true);
+      view.capture = true;
+      status = inCall;
+      final stop = mic.stop();
+      status = ok;
+      mic.onCaptureChanged(active: true, any: true);
+      await stop;
+      expect(view.log, ['stopCapture']);
+      expect(mic.blanked, isFalse);
+      expect(mic.capturing.value, isTrue);
+    });
+
+    test(
+      'quay lại đúng lúc đang tải trang trống: tự mở lại trang chính',
+      () async {
+        await ask();
+        mic.onCaptureChanged(active: true, any: true);
+        view.capture = true;
+        status = inCall;
+        view.onBlank = () => status = ok;
+        await mic.stop();
+        expect(view.log, ['stopCapture', 'blank', 'home']);
+        expect(mic.blanked, isFalse);
+      },
+    );
+
+    test(
+      'trang lách lệnh dừng, hệ điều hành bịt tiếng lúc ở nền: vẫn bị cắt',
+      () async {
+        await ask();
+        mic.onCaptureChanged(active: true, any: true);
+        view.capture = true;
+        status = inCall;
+        // Xuống nền: hệ điều hành bịt tiếng nhưng luồng thu vẫn mở.
+        mic.onCaptureChanged(active: false, any: true);
+        expect(mic.capturing.value, isFalse);
+        await mic.stop();
+        expect(view.log, contains('blank'));
+      },
+    );
+
+    test(
+      'bịt tiếng rồi có tiếng lại lúc lớp khoá che: cắt, không chỉ xin dừng',
+      () async {
+        await ask();
+        mic.onCaptureChanged(active: true, any: true);
+        now = now.add(const Duration(minutes: 5));
+        mic.onCaptureChanged(active: false, any: true);
+        status = inCall;
+        view.capture = true;
+        mic.onCaptureChanged(active: true, any: true);
+        await settle();
+        expect(view.log, ['stopCapture', 'blank']);
+      },
+    );
+
+    test('hộp hỏi micro có hạn, quá hạn thì từ chối lặng', () async {
+      prompter.answer = false;
+      for (var i = 0; i < 8; i++) {
+        expect(await ask(), isFalse);
+      }
+      expect(prompter.prompts, hasLength(5));
+      now = now.add(const Duration(minutes: 1));
+      prompter.answer = true;
+      expect(await ask(), isTrue);
+    });
+
     test('vừa cấp xong thì màn bị che: dừng thật', () async {
       await ask();
       status = inCall;
       view.capture = true;
-      mic.onCaptureChanged(active: true);
+      mic.onCaptureChanged(active: true, any: true);
       await settle();
       expect(view.log, ['stopCapture', 'blank']);
     });
@@ -265,7 +336,7 @@ void main() {
         calls.add(call);
         return switch (call.method) {
           'attach' => {'supported': true},
-          'captureState' => {'active': true},
+          'captureState' => {'active': false, 'any': true},
           _ => null,
         };
       });
@@ -280,7 +351,7 @@ void main() {
       );
       await channel.postReply(webViewId: 3, replyId: 'r', payload: 'p');
       await channel.emit(webViewId: 3, payload: 'p');
-      expect(await channel.captureActive(), isTrue);
+      expect(await channel.captureOpen(), isTrue);
       await channel.stopCapture(3);
       await channel.detach(3);
       await channel.clearAll();
@@ -357,10 +428,16 @@ void main() {
             .isMainFrame,
         isFalse,
       );
-      expect(
-        parseIdeWebHostEvent({'type': 'capture', 'active': true}, 3),
-        isA<IdeWebCaptureChanged>(),
-      );
+      List<bool> capture(Map<String, Object?> value) {
+        final event =
+            parseIdeWebHostEvent({'type': 'capture', ...value}, 3)!
+                as IdeWebCaptureChanged;
+        return [event.active, event.any];
+      }
+
+      expect(capture({'active': true}), [true, true]);
+      expect(capture({'active': false, 'any': true}), [false, true]);
+      expect(capture({'active': false, 'any': false}), [false, false]);
       expect(
         parseIdeWebHostEvent({'type': 'render_gone'}, 3),
         isA<IdeWebRenderGone>(),

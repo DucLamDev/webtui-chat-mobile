@@ -74,6 +74,18 @@ void main() {
     },
   );
 
+  test('callback rác chen vào lúc chờ không đè mất callback thật', () async {
+    token = '';
+    for (var i = 0; i < 10; i++) {
+      await coordinator.handle(callbackUri(state: 'rac-$i'));
+      if (i == 1) await coordinator.handle(callbackUri());
+    }
+    token = 'token';
+    await coordinator.onAuthenticationChanged('token');
+    expect(ide, contains(callbackUri()));
+    expect(ide, hasLength(4));
+  });
+
   test('link lạ bị bỏ', () async {
     for (final value in const [
       'webtui://ide-web/callback/x?state=a&code=b',

@@ -51,7 +51,11 @@ final class IdeWebSessionCleaner {
       await _serial
           .run(() async {
             final marker = await _markers.read();
-            if (marker != null && !marker.isUsedBy(owner)) await _clear();
+            // Không có dấu: vẫn xoá, vì trang cũ có thể ghi thêm cookie ngay
+            // sau lần xoá trước.
+            if (marker == null || !marker.isUsedBy(owner)) {
+              await _clear(always: true);
+            }
             await _markers.write(IdeWebDataMarker.usedBy(owner.digest));
           })
           .timeout(timeout);
@@ -75,8 +79,8 @@ final class IdeWebSessionCleaner {
     }
   }
 
-  Future<void> _clear() async {
-    if (await _markers.read() == null) return;
+  Future<void> _clear({bool always = false}) async {
+    if (!always && await _markers.read() == null) return;
     await _markers.write(const IdeWebDataMarker.needsClear());
     await _data.clearAll().timeout(timeout);
     await _markers.clear();

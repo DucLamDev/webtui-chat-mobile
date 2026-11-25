@@ -46,10 +46,21 @@ void main() {
     final order = <String>[];
     cleaner.registerOpenView(() async => order.add('đóng ${data.calls}'));
     await cleaner.clearAll();
-    expect(order, ['đóng 0']);
-    expect(data.calls, 1);
+    expect(order, ['đóng 1']);
+    expect(data.calls, 2);
     expect(markers.value, isNull);
   });
+
+  test(
+    'sau lần xoá, lần mở kế tiếp xoá lại: trang cũ có thể ghi muộn',
+    () async {
+      await cleaner.prepareFor(testOwner);
+      await cleaner.clearAll();
+      final calls = data.calls;
+      expect(await cleaner.prepareFor(otherOwner), isTrue);
+      expect(data.calls, calls + 1);
+    },
+  );
 
   test('xoá hỏng: ghi cờ, lần mở sau phải xoá xong mới mở', () async {
     await cleaner.prepareFor(testOwner);
@@ -65,9 +76,9 @@ void main() {
   test('cùng người mở lại giữ dữ liệu, người khác phải xoá trước', () async {
     await cleaner.prepareFor(testOwner);
     await cleaner.prepareFor(testOwner);
-    expect(data.calls, 0);
-    expect(await cleaner.prepareFor(otherOwner), isTrue);
     expect(data.calls, 1);
+    expect(await cleaner.prepareFor(otherOwner), isTrue);
+    expect(data.calls, 2);
   });
 
   test('màn treo / lỗi khi đóng vẫn xoá dữ liệu', () async {
@@ -76,7 +87,7 @@ void main() {
       ..registerOpenView(() => Completer<void>().future)
       ..registerOpenView(() async => throw StateError('x'));
     await cleaner.clearAll();
-    expect(data.calls, 1);
+    expect(data.calls, 2);
   });
 
   test('dấu bền đọc lại đúng, giá trị lạ coi như phải xoá', () async {
@@ -115,11 +126,11 @@ void main() {
     );
     await drop.execute();
     expect(chip.keys, hasLength(1));
-    expect(data.calls, 0);
+    expect(data.calls, 1);
     user = 'user-2';
     await drop.execute();
     expect(chip.keys, isEmpty);
-    expect(data.calls, 1);
+    expect(data.calls, 2);
   });
 
   test(
@@ -166,17 +177,26 @@ void main() {
         });
     });
     tearDown(() => database.close());
-    LocalSessionStateRepository repository({bool fail = false}) =>
-        LocalSessionStateRepository(
-          secureStore: store,
-          database: database,
-          loadInstanceScope: () => instance,
-          clearNativeInstanceBinding: () async {},
-          clearIdeWebData: () async {
-            cleared++;
-            if (fail) throw StateError('webview');
-          },
-        );
+    final order = <String>[];
+    LocalSessionStateRepository repository({
+      bool fail = false,
+      bool callFails = false,
+    }) => LocalSessionStateRepository(
+      secureStore: store,
+      database: database,
+      loadInstanceScope: () => instance,
+      clearNativeInstanceBinding: () async {},
+      terminateNativeCalls: (_) async {
+        order.add('cuộc gọi');
+        if (callFails) throw StateError('native');
+      },
+      clearMessageNotifications: () async => order.add('thông báo'),
+      clearIdeWebData: () async {
+        order.add('webview');
+        cleared++;
+        if (fail) throw StateError('webview');
+      },
+    );
     final guard = AuthTokenMutationGuard(
       instanceScopeId: instance.storageId,
       generation: 'g',
@@ -193,6 +213,30 @@ void main() {
         expect(store.values[SecureStoreKey.ideWebDevice], 'giữ');
       },
     );
+
+    test('WebView dọn sau cùng, bước trước lỗi vẫn dọn', () async {
+      for (final reset in <Future<void> Function(LocalSessionStateRepository)>[
+        (r) => r.resetForServerSwitch(),
+        (r) => r.resetForLogout(),
+        (r) => r.resetForLogoutIfCurrent(guard),
+      ]) {
+        store.values
+          ..[SecureStoreKey.activeInstanceScopeId] = instance.storageId
+          ..[SecureStoreKey.activeInstanceGeneration] = 'g';
+        order.clear();
+        await reset(repository());
+        expect(order, ['cuộc gọi', 'thông báo', 'webview']);
+        store.values
+          ..[SecureStoreKey.activeInstanceScopeId] = instance.storageId
+          ..[SecureStoreKey.activeInstanceGeneration] = 'g';
+        order.clear();
+        await expectLater(
+          reset(repository(callFails: true)),
+          throwsA(isA<StateError>()),
+        );
+        expect(order.last, 'webview');
+      }
+    });
 
     test('lỗi dọn không cản đăng xuất; phiên mới không bị dọn', () async {
       expect(

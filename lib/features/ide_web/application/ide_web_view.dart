@@ -25,11 +25,15 @@ final class IdeWebRenderGone extends IdeWebViewEvent {
   const IdeWebRenderGone();
 }
 
-/// Lớp native báo có / không đang thu micro.
+/// Lớp native báo trạng thái thu micro.
 final class IdeWebCaptureChanged extends IdeWebViewEvent {
-  const IdeWebCaptureChanged({required this.active});
+  const IdeWebCaptureChanged({required this.active, required this.any});
 
+  /// Đang thu thật (có tiếng).
   final bool active;
+
+  /// Còn luồng thu nào mở, kể cả lúc hệ điều hành đang bịt tiếng.
+  final bool any;
 }
 
 final class IdeWebBridgeMessage extends IdeWebViewEvent {
@@ -93,7 +97,8 @@ abstract interface class IdeWebView {
 
   Future<void> emit(String payload);
 
-  Future<bool> captureActive();
+  /// Còn luồng thu nào mở, kể cả lúc hệ điều hành đang bịt tiếng.
+  Future<bool> captureOpen();
 
   Future<void> stopCapture();
 

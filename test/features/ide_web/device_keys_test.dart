@@ -217,6 +217,36 @@ void main() {
       expect(status.single.usable, isTrue);
     });
 
+    test('khoá tạo dở của lần trước bị dọn, không chiếm chỗ', () async {
+      final unfinished = [
+        for (var i = 0; i < IdeWebDeviceKeys.maxKeys; i++)
+          IdeWebDeviceKey(
+            keyId: '6b1f0e3a-8c57-4c8e-9b39-2f1f5b0d7a1$i',
+            purpose: IdeWebKeyPurpose.biometric,
+            createdAt: DateTime.utc(2026),
+          ),
+      ];
+      await store.write(
+        IdeWebKeyRecord(ownerDigest: testOwner.digest, keys: unfinished),
+      );
+      final fresh = await create();
+      expect(chip.deleted, hasLength(IdeWebDeviceKeys.maxKeys));
+      expect(store.value!.keys.single.keyId, fresh.keyId);
+    });
+
+    test('khoá đang chờ sinh trắc không bị lượt tạo khác dọn', () async {
+      chip.createGate = Completer<void>();
+      final first = create(IdeWebKeyPurpose.biometric);
+      await settle();
+      final second = create();
+      await settle();
+      chip.createGate!.complete();
+      await first;
+      await second;
+      expect(await keys.status(testOwner), hasLength(2));
+      expect(chip.deleted, isEmpty);
+    });
+
     test('không vượt số khoá tối đa', () async {
       for (var i = 0; i < IdeWebDeviceKeys.maxKeys; i++) {
         await create();
@@ -324,21 +354,21 @@ void main() {
     );
 
     test('biometric dùng kênh sẵn có, đổi base64 sang base64url', () async {
+      final order = <String>[];
       messenger
         ..setMockMethodCallHandler(biometric, (call) async {
           calls.add(call);
+          order.add(call.method);
           return base64.encode([251, 255, 254]);
         })
-        ..setMockMethodCallHandler(
-          channel,
-          (call) async => {
-            'exists': true,
-            'usable': true,
-            'hardware': 'strongbox',
-          },
-        );
+        ..setMockMethodCallHandler(channel, (call) async {
+          order.add(call.method);
+          return {'exists': true, 'usable': true, 'hardware': 'strongbox'};
+        });
       const b = IdeWebKeyPurpose.biometric;
       final created = await chip.create(b, 'a');
+      // Kênh mới chạy trước: iOS dọn khoá bản cài cũ ở lần gọi đầu.
+      expect(order, ['keyState', 'createStepKey', 'keyState']);
       expect(created.publicKey, '-__-');
       expect(created.hardware, 'strongbox');
       expect(await chip.sign(b, 'a', Uint8List.fromList([1])), [251, 255, 254]);

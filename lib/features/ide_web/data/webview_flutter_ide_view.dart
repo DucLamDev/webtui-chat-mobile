@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -53,6 +54,7 @@ final class WebViewFlutterIdeView implements IdeWebView {
   String? _mainUrl;
   String? _landingUrl;
   final _requestedUrls = <String>{};
+  final _picked = <String>{};
   ({String url, int status})? _earlyHttpError;
 
   static PlatformWebViewControllerCreationParams _creationParams() {
@@ -88,11 +90,10 @@ final class WebViewFlutterIdeView implements IdeWebView {
       NavigationDelegate(
         onNavigationRequest: _onNavigation,
         onPageStarted: _onPageStarted,
+        onPageFinished: _rememberLanding,
         onUrlChange: (change) {
           final url = change.url;
-          if (url == null || !_policy.isInternalText(url)) return;
-          _mainUrl = url;
-          _rememberLanding(url);
+          if (url != null && _policy.isInternalText(url)) _mainUrl = url;
         },
         onHttpError: _onHttpError,
         onWebResourceError: _onResourceError,
@@ -103,6 +104,11 @@ final class WebViewFlutterIdeView implements IdeWebView {
         },
       ),
     );
+    // Hộp `alert` / `confirm` / `prompt` của trang là hộp hệ thống: vẽ đè cả lớp
+    // khoá app và giả được hộp của app.
+    await _controller.setOnJavaScriptAlertDialog((_) async {});
+    await _controller.setOnJavaScriptConfirmDialog((_) async => false);
+    await _controller.setOnJavaScriptTextInputDialog((_) async => '');
     if (_controller.platform case final AndroidWebViewController android) {
       await android.setAllowFileAccess(false);
       await android.setAllowContentAccess(false);
@@ -159,7 +165,7 @@ final class WebViewFlutterIdeView implements IdeWebView {
       _host.emit(webViewId: _id, payload: payload);
 
   @override
-  Future<bool> captureActive() => _host.captureActive();
+  Future<bool> captureOpen() => _host.captureOpen();
 
   @override
   Future<void> stopCapture() => _host.stopCapture(_id);
@@ -196,6 +202,21 @@ final class WebViewFlutterIdeView implements IdeWebView {
       // Vẫn tải trang trống để trang cũ ngừng chạy.
     }
     await _controller.loadRequest(Uri.parse('about:blank'));
+    await _deletePicked();
+  }
+
+  /// Bản sao tệp người dùng chọn cho trang (bộ chọn tệp để trong cache).
+  Future<void> _deletePicked() async {
+    for (final path in _picked) {
+      // Chỉ xoá bản sao trong cache, không bao giờ xoá tệp gốc.
+      if (!path.contains('/cache/file_picker/')) continue;
+      try {
+        await File(path).delete();
+      } on FileSystemException {
+        // Hệ điều hành tự dọn cache.
+      }
+    }
+    _picked.clear();
   }
 
   NavigationDecision _onNavigation(NavigationRequest request) {
@@ -221,11 +242,11 @@ final class WebViewFlutterIdeView implements IdeWebView {
     _requestedUrls.add(url);
   }
 
+  /// Trang đầu tiên tải xong (đã qua các bước chuyển mã).
   void _rememberLanding(String url) {
+    if (_landingUrl != null || !_policy.isInternalText(url)) return;
     final path = Uri.tryParse(url)?.path ?? '';
-    if (_landingUrl == null &&
-        path.startsWith('/appchat/') &&
-        path != '/appchat/open') {
+    if (path.startsWith('/appchat/') && path != '/appchat/open') {
       _landingUrl = url;
     }
   }
@@ -243,8 +264,6 @@ final class WebViewFlutterIdeView implements IdeWebView {
       unawaited(_fail(IdeWebFailureKind.unavailable));
       return;
     }
-    _blank = false;
-    _rememberLanding(url);
     _requestedUrls.clear();
     _add(const IdeWebPageStarted());
     final early = _earlyHttpError;
@@ -319,10 +338,11 @@ final class WebViewFlutterIdeView implements IdeWebView {
       final result = await FilePicker.pickFiles(
         allowMultiple: params.mode == FileSelectorMode.openMultiple,
       );
-      return [
-        for (final file in result?.files ?? const <PlatformFile>[])
-          if (file.path case final path?) Uri.file(path).toString(),
+      final paths = [
+        for (final file in result?.files ?? const <PlatformFile>[]) ?file.path,
       ];
+      _picked.addAll(paths);
+      return [for (final path in paths) Uri.file(path).toString()];
     } on Object {
       return const [];
     }

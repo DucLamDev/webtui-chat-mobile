@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../domain/ide_web_host_policy.dart';
 import '../domain/ide_web_ports.dart';
 import 'ide_web_prompter.dart';
+import 'ide_web_rate_limiter.dart';
 import 'ide_web_view.dart';
 
 /// Điều kiện hiện thời của màn IDE.
@@ -34,6 +35,7 @@ final class IdeWebMicGuard {
     required IdeWebHostPolicy policy,
     required IdeWebPrompter prompter,
     required IdeWebMicPermission permission,
+    required IdeWebRateLimiter limiter,
     required IdeWebScreenStatus Function() status,
     this.stopGrace = const Duration(seconds: 1),
     DateTime Function()? clock,
@@ -41,6 +43,7 @@ final class IdeWebMicGuard {
        _policy = policy,
        _prompter = prompter,
        _permission = permission,
+       _limiter = limiter,
        _status = status,
        _clock = clock ?? DateTime.now;
 
@@ -48,12 +51,13 @@ final class IdeWebMicGuard {
   final IdeWebHostPolicy _policy;
   final IdeWebPrompter _prompter;
   final IdeWebMicPermission _permission;
+  final IdeWebRateLimiter _limiter;
   final IdeWebScreenStatus Function() _status;
 
   /// Vừa cấp trong khoảng này thì lượt thu mới được coi là của trang.
   static const recentGrant = Duration(seconds: 5);
 
-  /// Chờ lớp native báo đã dừng trước khi tải trang trống.
+  /// Chờ trang dừng thu trước khi tải trang trống.
   final Duration stopGrace;
 
   final _capturing = ValueNotifier<bool>(false);
@@ -61,6 +65,9 @@ final class IdeWebMicGuard {
   bool _asking = false;
   final DateTime Function() _clock;
   DateTime? _grantedAt;
+
+  /// Trang đã mở luồng thu mà chưa thấy máy báo hết (kể cả lúc bị bịt tiếng).
+  bool _holding = false;
   bool _blanked = false;
   bool _disposed = false;
   Future<void>? _stopping;
@@ -85,7 +92,8 @@ final class IdeWebMicGuard {
     _asking = true;
     try {
       if (!_agreed) {
-        if (!await _prompter.confirm(const IdeWebMicrophonePrompt())) {
+        if (!ideWebAllowPrompt(_limiter) ||
+            !await _prompter.confirm(const IdeWebMicrophonePrompt())) {
           return false;
         }
         _agreed = true;
@@ -102,21 +110,24 @@ final class IdeWebMicGuard {
     }
   }
 
-  void onCaptureChanged({required bool active}) {
+  void onCaptureChanged({required bool active, required bool any}) {
     if (_disposed) return;
-    if (!active || _grantedAt == null) {
+    if (!any || _grantedAt == null) {
+      _holding = false;
       _capturing.value = false;
       return;
     }
-    if (_capturing.value) return;
     if (_status().micAllowed) {
-      _capturing.value = true;
+      if (active) _holding = true;
+      _capturing.value = active && _holding;
       return;
     }
     // Android báo mọi nơi thu của hệ thống. Lúc không được phép, trang không xin
-    // được micro mới nên đây là cuộc gọi / tin thoại, trừ khi vừa cấp xong.
-    if (_clock().difference(_grantedAt!) < recentGrant) {
-      _capturing.value = true;
+    // được micro mới: luồng thu là của trang khi trang còn giữ hoặc vừa được cấp,
+    // còn lại là cuộc gọi / tin thoại.
+    if (_holding || _clock().difference(_grantedAt!) < recentGrant) {
+      _holding = true;
+      _capturing.value = active;
       unawaited(stop());
     } else {
       unawaited(_stopQuietly());
@@ -137,28 +148,39 @@ final class IdeWebMicGuard {
 
   Future<void> _stop() async {
     if (_grantedAt == null) return;
+    final held = _holding;
     await _stopQuietly();
-    if (!_capturing.value) return;
+    if (!held) return;
     await Future<void>.delayed(stopGrace);
-    // Lớp native đã báo dừng: xong.
-    if (_disposed || !_capturing.value) return;
-    var active = true;
+    // Đã báo hết, hoặc đã quay lại màn và được thu tiếp.
+    if (_disposed || !_holding || _status().micAllowed) return;
+    var open = true;
     try {
-      active = await _view.captureActive();
+      open = await _view.captureOpen();
     } on Object {
       // Không đọc được: coi như còn thu.
     }
-    if (_disposed) return;
-    if (active) {
+    if (_disposed || _status().micAllowed) return;
+    if (open) {
       _blanked = true;
+      _grantedAt = null;
       try {
         await _view.loadBlank();
       } on Object {
         // WebView đã hỏng: controller nhận sự kiện render_gone.
       }
     }
-    if (active) _grantedAt = null;
-    if (!_disposed) _capturing.value = false;
+    if (_disposed) return;
+    _holding = false;
+    _capturing.value = false;
+    // Quay lại đúng lúc đang tải trang trống: `onStatusChanged` đã chạy trước đó.
+    if (_status().micAllowed) {
+      try {
+        await resume();
+      } on Object {
+        // Trang báo lỗi tải qua sự kiện của WebView.
+      }
+    }
   }
 
   /// Quay lại màn sau khi đã tải trang trống: mở lại trang chính.

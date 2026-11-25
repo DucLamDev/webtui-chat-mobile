@@ -17,3 +17,7 @@ final class IdeWebRateLimiter {
     return true;
   }
 }
+
+/// Hộp hỏi do trang tự gây ra mà không qua cầu nối (micro, liên kết ngoài).
+bool ideWebAllowPrompt(IdeWebRateLimiter limiter) =>
+    limiter.allow('prompt', limit: 5, window: const Duration(minutes: 1));
