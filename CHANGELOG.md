@@ -3,6 +3,19 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.67.0 · 25/11/2026
+### VPSTTT IDE ngay trong app
+- **Ô "VPSTTT IDE"** ở Công việc → Ứng dụng: chỉ hiện ở máy chủ nội bộ đã bật tích hợp; khi hiện thì ô IDE cũ ẩn đi.
+- **Mở IDE:** đăng nhập bằng trình duyệt của máy rồi tự quay lại app; máy đã đăng ký thì vào thẳng. Có màn báo rõ khi đang mở,
+  chờ trình duyệt, chưa kết nối được (Thử lại), mở quá nhiều lần, quản trị tắt, chưa được cấp quyền, hết hạn, WebView cũ.
+- **Trang IDE chỉ chạy ở địa chỉ IDE của máy chủ mình.** Liên kết ra ngoài thì hỏi rồi mở bằng trình duyệt.
+- **Dùng khả năng của điện thoại, luôn hỏi trước:**
+  - đăng ký / xoá khoá thiết bị; ký bằng vân tay hoặc khuôn mặt;
+  - micro: hỏi một lần mỗi lần mở màn, có chữ "Đang thu", tự tắt khi rời màn, xuống nền, khoá app hoặc có cuộc gọi;
+  - gửi tệp cho IDE; lưu tệp IDE trả về (tối đa 10 MB, chặn loại cài đặt / trang web).
+- **Đăng xuất, đổi người, đổi máy chủ:** đóng màn, báo máy chủ thu hồi phiên IDE và xoá dữ liệu trang trên máy. Khoá thiết bị giữ lại
+  khi cùng người đăng nhập lại; xoá khi người khác đăng nhập hoặc xoá tài khoản.
+
 ## 1.66.0 · 25/11/2026
 ### VPSTTT IDE ngay trong app: phần nền cho Android và iPhone
 - Chuẩn bị cho màn VPSTTT IDE trong app; bản này chưa có gì mới hiện ra với người dùng.
