@@ -1549,11 +1549,11 @@ final class IdeWebHost: NSObject {
 
   func refreshCapture() {
     let active = attachments.values.contains { $0.isCapturing }
-    let any = attachments.values.contains { $0.holdsMicrophone }
-    guard active != captureActive || any != captureAny else { return }
+    let held = attachments.values.contains { $0.holdsMicrophone }
+    guard active != captureActive || held != captureAny else { return }
     captureActive = active
-    captureAny = any
-    events.sink?(["type": "capture", "active": active, "any": any] as [String: Any])
+    captureAny = held
+    events.sink?(["type": "capture", "active": active, "any": held] as [String: Any])
   }
 
   /// `https://host` (cổng 443, không phần khác) hoặc nil.
