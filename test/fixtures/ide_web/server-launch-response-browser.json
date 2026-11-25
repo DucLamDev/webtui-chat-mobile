@@ -1,5 +1,0 @@
-{
-  "mode": "browser",
-  "auth_url": "https://ide.chat.example.com/appchat/auth/start?launch=abc",
-  "expires_at": "2026-11-25T08:10:00Z"
-}

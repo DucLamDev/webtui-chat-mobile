@@ -193,6 +193,7 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
   /// đăng nhập kèm lời giải thích.
   void _onSessionEnded(SessionEndedNotice notice) {
     if (!mounted) return;
+    ref.read(ideWebCallbackInboxProvider).clear();
     ref.read(loginNoticeProvider.notifier).state = notice;
     ref.invalidate(authAccessTokenProvider);
     ref.read(appRouterProvider).go('/login');

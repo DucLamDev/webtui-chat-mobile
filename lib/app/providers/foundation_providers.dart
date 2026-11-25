@@ -740,16 +740,19 @@ final logoutUseCaseProvider = Provider<LogoutUseCase>((ref) {
     sessionStateRepository: ref.watch(sessionStateRepositoryProvider),
     // Còn token: báo máy chủ gỡ máy IDE đã gắn trước khi xoá phiên.
     // Song song, mỗi nhánh tự nuốt lỗi: bên này hỏng không cản bên kia.
-    beforeSignOut: () => Future.wait<void>([
-      _ignoringErrors(
-        () => ref.read(idePairingServiceProvider).removeThisDevice(),
-      ),
-      _ignoringErrors(() async {
-        if (ref.read(ideWebEnabledProvider)) {
-          await ref.read(endIdeWebSessionUseCaseProvider).execute();
-        }
-      }),
-    ]),
+    beforeSignOut: () {
+      ref.read(ideWebCallbackInboxProvider).clear();
+      return Future.wait<void>([
+        _ignoringErrors(
+          () => ref.read(idePairingServiceProvider).removeThisDevice(),
+        ),
+        _ignoringErrors(() async {
+          if (ref.read(ideWebEnabledProvider)) {
+            await ref.read(endIdeWebSessionUseCaseProvider).execute();
+          }
+        }),
+      ]);
+    },
   );
 });
 

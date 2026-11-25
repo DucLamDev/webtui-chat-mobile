@@ -8,7 +8,7 @@ import 'support/fakes.dart';
 void main() {
   final instance = InstanceScope(
     instanceId: '11111111-1111-4111-8111-111111111111',
-    serverOrigin: Uri.parse('https://chat.vpsttt.com'),
+    serverOrigin: Uri.parse('https://chat.example.com'),
   );
   final navigations = <String>[];
   final oidc = <Uri>[];
@@ -111,6 +111,13 @@ void main() {
     expect(inbox.deliver(callbackUri()), isFalse);
     expect(got, hasLength(1));
     stop();
+    expect(inbox.deliver(callbackUri()), isTrue);
+  });
+
+  test('hộp trao callback: hết phiên thì không giữ lại mã', () {
+    final inbox = IdeWebCallbackInbox()..deliver(callbackUri());
+    inbox.clear();
+    expect(inbox.take(), isNull);
     expect(inbox.deliver(callbackUri()), isTrue);
   });
 }

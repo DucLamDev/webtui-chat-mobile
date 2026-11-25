@@ -34,11 +34,11 @@ other server never shows it.
 - Must be confirmed by the IDE operator before submission: retention of audio,
   prompts, and files; AI sub-processors; deletion on request.
 
-Guidelines 4.7 and 4.7.2: the embedded page can call only seven app functions
-(app info; device-key status, create, sign, delete; save a file; close). State
-this in the review notes, and give the reviewer an account on a server where
-the feature is enabled or state that it is off there. If Apple objects, the
-server setting `IDE_WEB_BRIDGE_PLATFORMS` turns these functions off for iOS
+Guidelines 4.7 and 4.7.2: the embedded page can call only a small, fixed set of
+app functions, and the app asks the user before creating or deleting a device
+key or saving a file. State this in the review notes, and give the reviewer an
+account on a server where the feature is enabled or state that it is off there.
+If Apple objects, the server administrator can turn these functions off for iOS
 without an app update.
 
 ## Review Requirements

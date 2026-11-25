@@ -30,4 +30,7 @@ final class IdeWebCallbackInbox {
     _pending = null;
     return uri;
   }
+
+  /// Phiên kết thúc khi chưa màn nào kịp nhận: không giữ lại mã.
+  void clear() => _pending = null;
 }
