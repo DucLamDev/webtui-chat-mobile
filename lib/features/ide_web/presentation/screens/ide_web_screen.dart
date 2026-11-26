@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/providers/foundation_providers.dart';
+import '../../../../core/privacy/background_privacy.dart';
 import '../../../../core/security/active_call_tracker.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
 import '../../../auth/presentation/widgets/app_lock_gate.dart';
@@ -41,6 +42,11 @@ class _IdeWebScreenState extends ConsumerState<IdeWebScreen>
   /// Bảng hỏi đang mở (tối đa một).
   ModalBottomSheetRoute<bool>? _dialog;
 
+  /// Màn nhúng hiện nội dung dự án, câu trả lời AI và tệp kết quả: trong lúc
+  /// màn đang hiện thì chặn chụp / quay (Android) và che khi quay (iPhone).
+  static const _privacy = BackgroundPrivacyController();
+  bool _secureHeld = false;
+
   @override
   void initState() {
     super.initState();
@@ -72,7 +78,16 @@ class _IdeWebScreenState extends ConsumerState<IdeWebScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _controller.detachPrompter(this);
+    _holdSecureScreen(false);
     super.dispose();
+  }
+
+  void _holdSecureScreen(bool hold) {
+    if (hold == _secureHeld) return;
+    _secureHeld = hold;
+    unawaited(
+      hold ? _privacy.acquireSecureScreen() : _privacy.releaseSecureScreen(),
+    );
   }
 
   // `inactive` một mình (hộp sinh trắc, thanh thông báo) không phải xuống nền.
@@ -100,11 +115,13 @@ class _IdeWebScreenState extends ConsumerState<IdeWebScreen>
   }
 
   void _pushStatus() {
+    // Hộp xác nhận của chính màn này không tính là rời màn, trừ khi màn khác
+    // đè lên cả hộp.
+    final visible = _routeCurrent || (_dialog?.isCurrent ?? false);
+    _holdSecureScreen(visible);
     _controller.updateStatus(
       IdeWebScreenStatus(
-        // Hộp xác nhận của chính màn này không tính là rời màn, trừ khi màn
-        // khác đè lên cả hộp.
-        visible: _routeCurrent || (_dialog?.isCurrent ?? false),
+        visible: visible,
         resumed: _resumed,
         locked: _locked,
         inCall: ref.read(activeCallTrackerProvider).isNotEmpty,
