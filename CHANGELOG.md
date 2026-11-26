@@ -10,9 +10,11 @@ danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số k�
 - **Mở nhanh bằng PIN / 2FA:** khi IDE cần xác minh lại, app mở trình duyệt rồi tự quay lại màn IDE. Huỷ giữa chừng thì
   vẫn giữ nguyên màn đang mở.
 - **Tệp kết quả:** khi không có cầu nối, liên kết tải của IDE mở bằng trình duyệt, không hỏi.
+- **Chặn chụp / quay màn IDE:** khi màn VPSTTT IDE đang hiện, Android chặn chụp và quay màn hình; iPhone che nội dung khi
+  đang quay màn hình. Rời màn thì thôi chặn.
 - Ô VPSTTT IDE chỉ hiện khi máy chủ báo đủ địa chỉ màn nhúng và địa chỉ đăng nhập của IDE; máy chủ chưa cập nhật thì ô ẩn.
-- Khai App Store, Google Play, chính sách riêng tư: thêm cách IDE xử lý giọng nói và những gì IDE lưu; còn chờ IDE chốt
-  thời hạn lưu và cách xoá.
+- Khai App Store, Google Play, chính sách riêng tư theo trả lời của đội IDE: dữ liệu lưu ở đâu, bao lâu, AI nào trả lời
+  (Claude, GPT), cách yêu cầu xoá. Mục giọng nói tạm chưa khai, chờ IDE xác nhận dịch vụ giọng nói có dùng bên ngoài không.
 
 ## 1.67.1 · 26/11/2026
 ### Kiểm tra tự động trên GitHub đỡ tốn phút chạy

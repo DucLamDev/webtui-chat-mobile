@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/app/providers/foundation_providers.dart';
 import 'package:webtui_chat/core/error/failure.dart';
+import 'package:webtui_chat/core/privacy/background_privacy.dart';
 import 'package:webtui_chat/core/result/result.dart';
 import 'package:webtui_chat/core/security/active_call_tracker.dart';
 import 'package:webtui_chat/design_system/theme/webtui_theme.dart';
@@ -553,6 +554,30 @@ void main() {
       await rig.pump(tester);
       granted = rig.mic.asked > 2;
       expect(granted, isFalse);
+    });
+
+    testWidgets('chặn chụp / quay khi màn IDE đang hiện, thôi khi rời màn', (
+      tester,
+    ) async {
+      BackgroundPrivacyController.resetSecureHolds();
+      addTearDown(BackgroundPrivacyController.resetSecureHolds);
+      final rig = _Rig();
+      await rig.open(tester);
+      expect(BackgroundPrivacyController.secureHolds, 1);
+      unawaited(
+        Navigator.of(
+          tester.element(find.byType(IdeWebScreen)),
+        ).push(MaterialPageRoute<void>(builder: (_) => const Scaffold())),
+      );
+      await rig.pump(tester);
+      expect(BackgroundPrivacyController.secureHolds, 0);
+      Navigator.of(tester.element(find.byType(Scaffold).last)).pop();
+      await rig.pump(tester);
+      expect(BackgroundPrivacyController.secureHolds, 1);
+      await tester.pumpWidget(const SizedBox());
+      rig.container.dispose();
+      await rig.pump(tester);
+      expect(BackgroundPrivacyController.secureHolds, 0);
     });
 
     testWidgets('mic dừng khi màn khác che và khi rời màn', (tester) async {

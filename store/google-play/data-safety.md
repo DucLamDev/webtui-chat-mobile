@@ -47,14 +47,16 @@ Shown only on the company's internal server after its administrator enables it.
 Add these rows to the form only for a release where the feature is enabled, and
 confirm retention, AI sub-processors, and deletion with the IDE operator first.
 The IDE password, 2FA code, and PIN are typed on the IDE's own website in the
-system browser; the app does not collect them.
+system browser; the app does not collect them. Users ask the IDE platform
+administrator to delete their IDE data; the app blocks screenshots and screen
+recording of the IDE screen on Android.
 
 | Play data type | Required or optional | Purpose | Destination / processor |
 | --- | --- | --- | --- |
 | Name, email address | Required to open the IDE | Account selection in the IDE (sent by the chat server) | Company IDE operator |
-| Voice or sound recordings | Optional, user initiated, in-app confirmation plus system permission | Voice input in the IDE (speech to text; the IDE gateway does not store raw audio) | Company IDE operator; company speech-recognition service (AI-API for VPSTTT) |
-| Files, documents, photos | Optional, user initiated | Attachments to IDE tasks | Company IDE operator |
-| Other user-generated content (prompts, edits) | Optional, user initiated | IDE functionality; text to speech when the user asks to hear a reply | Company IDE operator and its AI services |
+| Voice or sound recordings | Optional, user initiated, in-app confirmation plus system permission | Voice input in the IDE (speech to text; audio kept in memory only, not stored) | Company IDE operator; company speech-recognition service (AI-API for VPSTTT). Hold this row until the operator confirms whether that service uses an outside provider |
+| Files, documents, photos | Optional, user initiated | Attachments to IDE tasks; kept in the project folder for the life of the project | Company IDE operator |
+| Other user-generated content (prompts, edits) | Optional, user initiated | IDE functionality; IDE chat history kept per account with no automatic deletion in v1; text to speech when the user asks to hear a reply | Company IDE operator; Anthropic (Claude) or OpenAI (Codex / GPT) answer the questions |
 | Device-key identifier and public key | Optional | Device registration and sign-in security | Company IDE operator |
 
 Workspace-member names and profiles are server-side collaboration data; the app
