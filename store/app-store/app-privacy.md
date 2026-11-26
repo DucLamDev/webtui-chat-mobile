@@ -44,8 +44,11 @@ other server never shows it.
   - Text the user asks to hear: sent to the company's voice service (or the
     project's own voice connection), not stored again.
   - Name and email of a launch: kept in the launch record until it expires (at
-    most 8 hours) or is revoked; registered devices keep only a hash of the
-    email.
+    most 8 hours) or is revoked.
+  - Registered devices: for each device the user registers, the IDE keeps the
+    user's IDE account name, a hash of the email, and the device's public keys
+    until the user revokes the device in the IDE screen (declare as a user
+    identifier linked to the user, purpose App Functionality and Security).
   - Retention: v1 has no automatic deletion period for chat history, prompts,
     and files; they are kept until the project is deleted or the user asks.
   - Deletion: the user asks the IDE platform administrator (through the IDE

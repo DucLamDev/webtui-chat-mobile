@@ -26,7 +26,9 @@ service. The IDE keeps your IDE chat history, task prompts, and files until the
 project is deleted or you ask for deletion; there is no automatic deletion
 period yet. To delete them, contact the IDE platform administrator. The
 microphone is used only after you agree and stops when you leave the screen.
-Device keys stay in your phone's security chip. Before this section is
+Device keys stay in your phone's security chip; for each phone you register,
+the IDE keeps your IDE account name, a hash of your email, and the phone's public
+keys until you revoke the phone in the IDE screen. Before this section is
 published, the IDE operator still has to confirm whether the voice service uses
 an outside provider and give a public contact for deletion requests.
 
