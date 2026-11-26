@@ -21,3 +21,12 @@ final class IdeWebRateLimiter {
 /// Hộp hỏi do trang tự gây ra mà không qua cầu nối (micro, liên kết ngoài).
 bool ideWebAllowPrompt(IdeWebRateLimiter limiter) =>
     limiter.allow('prompt', limit: 5, window: const Duration(minutes: 1));
+
+/// Mở trang đăng nhập / nâng quyền của IDE bằng trình duyệt (không hỏi): hạn
+/// riêng, không ăn vào hạn hộp hỏi.
+bool ideWebAllowAuthFlow(IdeWebRateLimiter limiter) =>
+    limiter.allow('auth', limit: 5, window: const Duration(minutes: 1));
+
+/// Mở liên kết tải tệp của IDE bằng trình duyệt (không hỏi): hạn riêng.
+bool ideWebAllowDownload(IdeWebRateLimiter limiter) =>
+    limiter.allow('download', limit: 10, window: const Duration(minutes: 1));

@@ -171,7 +171,22 @@ final class StartIdeWebUseCase {
             unawaited(_repository.cancel(launch.launchId));
             return FailureResult(_unavailable());
           }
-          await _pending.clear();
+          // Giữ lượt để nhận callback nâng quyền (PIN / 2FA trên trình duyệt).
+          await _pending.write(
+            PendingIdeWebLaunch(
+              launchId: launch.launchId,
+              state: launch.state,
+              codeVerifier: pkce.verifier,
+              scopeId: session.owner.scopeId,
+              userId: session.owner.userId,
+              expiresAt: launch.launchExpiresAt.toUtc(),
+              elevation: true,
+            ),
+          );
+          if (generation != _generation) {
+            await _pending.clear();
+            return FailureResult(_cancelled());
+          }
           return Success(IdeWebStartView(entry: entry, session: session));
         case IdeWebBrowserLaunch():
           if (!policy.isBrowserUrl(launch.browserUrl)) {
@@ -238,6 +253,8 @@ final class IdeWebCompletionFailed extends IdeWebCompletion {
 
 /// Đổi callback lấy dữ liệu mở WebView. Bản ghi chờ bị xoá TRƯỚC khi gọi máy
 /// chủ nên mã chỉ dùng một lần, kể cả khi hệ điều hành phát callback hai lần.
+/// Thành công thì ghi lại lượt (chỉ để nâng quyền sau đó, máy chủ nhận tối đa
+/// 3 lần); mã đã dùng được nhớ trong bộ nhớ để callback lặp bị bỏ êm.
 final class CompleteIdeWebUseCase {
   CompleteIdeWebUseCase({
     required IdeWebRepository repository,
@@ -257,6 +274,15 @@ final class CompleteIdeWebUseCase {
   final IdeWebHostPolicy? Function() _policy;
   final DateTime Function() _clock;
   final _serial = IdeWebSerial();
+  final _usedCodes = <String>[];
+
+  bool _wasUsed(String code) =>
+      _usedCodes.any((used) => ideWebConstantTimeEquals(used, code));
+
+  void _markUsed(String code) {
+    if (_usedCodes.length >= 8) _usedCodes.removeAt(0);
+    _usedCodes.add(code);
+  }
 
   /// Callback này có thuộc lượt đang chờ không (không xoá gì).
   Future<bool> matches(Uri uri) async {
@@ -265,6 +291,7 @@ final class CompleteIdeWebUseCase {
       if (callback == null) return false;
       final pending = await _pending.read();
       return pending != null &&
+          !_wasUsed(callback.code) &&
           ideWebConstantTimeEquals(pending.state, callback.state);
     } on Object {
       return false;
@@ -285,10 +312,12 @@ final class CompleteIdeWebUseCase {
     final pending = await _serial.run(() async {
       final stored = await _pending.read();
       if (stored == null ||
+          _wasUsed(callback.code) ||
           !ideWebConstantTimeEquals(stored.state, callback.state)) {
         return null;
       }
       await _pending.clear();
+      _markUsed(callback.code);
       return stored;
     });
     if (pending == null) return const IdeWebCallbackIgnored();
@@ -314,12 +343,32 @@ final class CompleteIdeWebUseCase {
     if (!await _sessions.isCurrent(session)) {
       return IdeWebCompletionFailed(_cancelled());
     }
-    return result.when(
-      success: (entry) => policy.isEnterUrl(entry.enterUrl)
-          ? IdeWebCompleted(entry: entry, session: session)
-          : IdeWebCompletionFailed(_unavailable()),
-      failure: IdeWebCompletionFailed.new,
-    );
+    switch (result) {
+      case FailureResult(:final failure):
+        return IdeWebCompletionFailed(failure);
+      case Success(value: final entry):
+        if (!policy.isEnterUrl(entry.enterUrl)) {
+          return IdeWebCompletionFailed(_unavailable());
+        }
+        await _rearm(pending);
+        return IdeWebCompleted(entry: entry, session: session);
+    }
+  }
+
+  /// Ghi lại lượt để nhận callback nâng quyền sau (không ghi đè lượt mới hơn).
+  /// Chỉ lượt mở thẳng màn nhúng mới nâng quyền được; lượt đăng nhập bằng
+  /// trình duyệt máy chủ chỉ nhận complete một lần.
+  Future<void> _rearm(PendingIdeWebLaunch pending) async {
+    if (!pending.elevation) return;
+    try {
+      await _serial.run(() async {
+        if (await _pending.read() != null) return;
+        if (!_clock().toUtc().isBefore(pending.expiresAt)) return;
+        await _pending.write(pending);
+      });
+    } on Object {
+      // Không nâng quyền được nữa thì mở lại màn là lượt mới.
+    }
   }
 }
 
@@ -339,6 +388,8 @@ final class CancelIdeWebUseCase {
       final pending = await _pending.read();
       if (pending == null) return;
       await _pending.clear();
+      // Lượt đã vào màn nhúng: đóng màn chỉ ngắt người xem.
+      if (pending.elevation) return;
       await _repository.cancel(pending.launchId);
     } on Object {
       // Máy chủ tự hết hạn lượt.

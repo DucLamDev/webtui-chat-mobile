@@ -8,6 +8,7 @@ import '../../../core/network/api_transport.dart';
 import '../../../core/result/result.dart';
 import '../../../core/result/result_guard.dart';
 import '../../../l10n/app_strings.dart';
+import '../domain/ide_web_host_policy.dart';
 import '../domain/ide_web_launch.dart';
 import '../domain/ide_web_ports.dart';
 
@@ -55,11 +56,16 @@ final class IdeWebApi implements IdeWebRepository {
             return IdeWebBrowserLaunch(
               launchId: launchId,
               state: _text(data, 'state'),
-              browserUrl: _uri(data, 'browser_url'),
+              browserUrl: _safeUri(data, 'browser_url'),
               expiresAt: _time(data),
             );
           case 'webview':
-            return IdeWebDirectLaunch(launchId: launchId, entry: _entry(data));
+            return IdeWebDirectLaunch(
+              launchId: launchId,
+              state: _text(data, 'state'),
+              entry: _entry(data),
+              launchExpiresAt: _time(data, 'launch_expires_at'),
+            );
           default:
             throw const FormatException('mode');
         }
@@ -111,7 +117,12 @@ final class IdeWebApi implements IdeWebRepository {
   static Uri _uri(JsonMap data, String key) =>
       Uri.tryParse(_text(data, key)) ?? (throw FormatException(key));
 
-  static DateTime _time(JsonMap data) =>
-      DateTime.tryParse(_text(data, 'expires_at')) ??
-      (throw const FormatException('expires_at'));
+  /// `Uri` tự gỡ `..` / `.`: kiểm đường dẫn trên chuỗi gốc trước.
+  static Uri _safeUri(JsonMap data, String key) =>
+      ideWebRawPathIsSafe(_text(data, key))
+      ? _uri(data, key)
+      : throw FormatException(key);
+
+  static DateTime _time(JsonMap data, [String key = 'expires_at']) =>
+      DateTime.tryParse(_text(data, key)) ?? (throw FormatException(key));
 }

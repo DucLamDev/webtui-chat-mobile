@@ -8,6 +8,7 @@ import 'package:webtui_chat/core/result/result.dart';
 import 'package:webtui_chat/features/ide_web/data/ide_web_api.dart';
 import 'package:webtui_chat/features/ide_web/data/webview_flutter_ide_view.dart';
 import 'package:webtui_chat/features/ide_web/domain/ide_web_failure.dart';
+import 'package:webtui_chat/features/ide_web/domain/ide_web_host_policy.dart';
 import 'package:webtui_chat/features/ide_web/domain/ide_web_launch.dart';
 
 import 'support/fakes.dart';
@@ -100,17 +101,39 @@ void main() {
     final launch = (result as Success<IdeWebLaunch>).value;
     expect(launch, isA<IdeWebBrowserLaunch>());
     launch as IdeWebBrowserLaunch;
-    expect(launch.state, testState);
-    expect(launch.browserUrl.path, '/_appchat/start');
-    expect('$launch', isNot(contains(testState)));
+    const state = 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8';
+    expect(launch.state, state);
+    expect(launch.browserUrl.host, 'ide.example.net');
+    expect(launch.browserUrl.path, '/appchat/auth/');
+    expect(launch.browserUrl.queryParameters['flow'], state);
+    expect(
+      IdeWebHostPolicy(
+        Uri.parse('https://ide.chat.example.com'),
+        Uri.parse('https://ide.example.net'),
+      ).isBrowserUrl(launch.browserUrl),
+      isTrue,
+    );
+    expect('$launch', isNot(contains(state)));
   });
 
   test('mode webview và complete đọc đúng mẫu', () async {
     final transport = _Transport()
       ..response = {'data': fixture('app-launch-response-webview.json')};
     final api = IdeWebApi(transport);
-    final launch = (await api.launch(request)).valueOrNull;
-    expect((launch! as IdeWebDirectLaunch).entry.bridgeEnabled, isTrue);
+    final launch =
+        (await api.launch(request)).valueOrNull! as IdeWebDirectLaunch;
+    expect(launch.entry.bridgeEnabled, isTrue);
+    expect(launch.state, 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8');
+    expect(launch.entry.expiresAt, DateTime.utc(2026, 11, 25, 8, 1));
+    expect(launch.launchExpiresAt, DateTime.utc(2026, 11, 25, 8, 10));
+    expect(
+      IdeWebHostPolicy(
+        Uri.parse('https://ide.chat.example.com'),
+        Uri.parse('https://ide.example.net'),
+      ).isEnterUrl(launch.entry.enterUrl),
+      isTrue,
+    );
+    expect('$launch', isNot(contains(launch.state)));
 
     transport
       ..response = {'data': fixture('app-complete-response.json')}
@@ -151,6 +174,22 @@ void main() {
     for (final data in [
       {'mode': 'other', 'launch_id': 'x'},
       {...fixture('app-launch-response-webview.json')}..remove('open_code'),
+      {...fixture('app-launch-response-webview.json')}..remove('state'),
+      {...fixture('app-launch-response-webview.json')}
+        ..remove('launch_expires_at'),
+      {
+        ...fixture('app-launch-response-webview.json'),
+        'launch_expires_at': 'mai',
+      },
+      // `Uri` tự gỡ `..`: chuỗi gốc phải bị chặn trước.
+      {
+        ...fixture('app-launch-response-browser.json'),
+        'browser_url': 'https://ide.example.net/appchat/auth/../download/v',
+      },
+      {
+        ...fixture('app-launch-response-browser.json'),
+        'browser_url': 'https://ide.example.net/appchat/%2e%2e/auth/',
+      },
       {...fixture('app-launch-response-browser.json'), 'state': 5},
       null,
     ]) {

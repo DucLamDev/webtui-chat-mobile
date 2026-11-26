@@ -21,6 +21,7 @@ final class SelfHostedServerDiscovery {
     this.logoUrl,
     this.adminBaseUri,
     this.ideWebBaseUri,
+    this.ideWebAuthBaseUri,
     this.zoneKind = '',
     this.privacyPolicy = const SelfHostedPrivacyPolicy(),
     this.sessionPolicy = const SessionPolicy(),
@@ -238,6 +239,10 @@ final class SelfHostedServerDiscovery {
         requestedServer,
       ),
       ideWebBaseUri: _ideWebBaseUriOrNull(runtime['ide_web_base_url'], domain),
+      ideWebAuthBaseUri: _ideWebAuthBaseUriOrNull(
+        runtime['ide_web_auth_base_url'],
+        domain,
+      ),
       zoneKind: _text(zone['kind']).toLowerCase(),
       privacyPolicy: SelfHostedPrivacyPolicy.fromJson(privacyPolicy),
       sessionPolicy: SessionPolicy.fromJson(
@@ -289,6 +294,12 @@ final class SelfHostedServerDiscovery {
   /// khoản. Sai dạng thì null và coi như tắt.
   final Uri? ideWebBaseUri;
 
+  /// Địa chỉ đăng nhập VPSTTT IDE (`runtime.ide_web_auth_base_url`): tên miền
+  /// riêng của IDE (mật khẩu, 2FA, PIN nhập ở đó, mở bằng trình duyệt hệ thống).
+  /// Đúng `https://<host>`, cổng 443, không đường dẫn / query / fragment / tài
+  /// khoản, host khác host nhúng và khác tên miền chat. Sai dạng thì null.
+  final Uri? ideWebAuthBaseUri;
+
   /// Chính sách riêng tư (khoá máy, tin bí mật); máy chủ cũ không trả thì dùng mặc định.
   final SelfHostedPrivacyPolicy privacyPolicy;
 
@@ -303,10 +314,14 @@ final class SelfHostedServerDiscovery {
   bool get vpstttInternalModules =>
       domain == vpstttInternalHost && zoneKind == vpstttInternalZoneKind;
 
-  /// VPSTTT IDE nhúng: zone nội bộ, máy chủ bật `ide_web` và địa chỉ nhúng hợp
-  /// lệ. Thiếu một điều kiện là tắt; máy chủ vẫn kiểm ở mọi API.
+  /// VPSTTT IDE nhúng: zone nội bộ, máy chủ bật `ide_web`, có cả địa chỉ nhúng
+  /// lẫn địa chỉ đăng nhập hợp lệ. Thiếu một điều kiện là tắt; máy chủ vẫn kiểm
+  /// ở mọi API.
   bool get ideWebEnabled =>
-      vpstttInternalModules && capabilities.ideWeb && ideWebBaseUri != null;
+      vpstttInternalModules &&
+      capabilities.ideWeb &&
+      ideWebBaseUri != null &&
+      ideWebAuthBaseUri != null;
 
   /// Tab / kênh Automation (kênh bot nội bộ) chỉ có trên server nội bộ VPSTTT.
   bool get automationEnabled =>
@@ -338,6 +353,8 @@ final class SelfHostedServerDiscovery {
           if (adminBaseUri != null) 'admin_base_url': adminBaseUri.toString(),
           if (ideWebBaseUri != null)
             'ide_web_base_url': ideWebBaseUri.toString(),
+          if (ideWebAuthBaseUri != null)
+            'ide_web_auth_base_url': ideWebAuthBaseUri.toString(),
           'app_name': name,
           'logo_url': logoUrl,
           'api_contract_version': apiContractVersion,
@@ -735,6 +752,35 @@ Uri? _ideWebBaseUriOrNull(Object? value, String domain) {
   }
   return Uri(scheme: 'https', host: parsed.host);
 }
+
+/// Địa chỉ đăng nhập IDE: tên miền riêng do IDE cấp, không được trùng host
+/// nhúng (`ide.<domain>`) hay tên miền chat.
+Uri? _ideWebAuthBaseUriOrNull(Object? value, String domain) {
+  if (value is! String || domain.isEmpty) return null;
+  final parsed = Uri.tryParse(value);
+  if (parsed == null ||
+      parsed.scheme != 'https' ||
+      parsed.host.isEmpty ||
+      parsed.port != 443 ||
+      parsed.userInfo.isNotEmpty ||
+      (parsed.path.isNotEmpty && parsed.path != '/') ||
+      parsed.hasQuery ||
+      parsed.hasFragment) {
+    return null;
+  }
+  final host = parsed.host.toLowerCase();
+  // Chỉ tên miền ASCII thường, không dấu chấm cuối (`x.` cùng host với `x`).
+  if (!_plainHostPattern.hasMatch(host) ||
+      host == domain ||
+      host == 'ide.$domain') {
+    return null;
+  }
+  return Uri(scheme: 'https', host: host);
+}
+
+final _plainHostPattern = RegExp(
+  r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$',
+);
 
 Uri _wsRuntimeUri(String value, Uri requestedServer) {
   final parsed = parseSelfHostedWebSocketUri(value);

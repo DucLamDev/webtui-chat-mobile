@@ -46,13 +46,15 @@ publisher and instance operator, can read the data; TLS alone does not qualify.
 Shown only on the company's internal server after its administrator enables it.
 Add these rows to the form only for a release where the feature is enabled, and
 confirm retention, AI sub-processors, and deletion with the IDE operator first.
+The IDE password, 2FA code, and PIN are typed on the IDE's own website in the
+system browser; the app does not collect them.
 
 | Play data type | Required or optional | Purpose | Destination / processor |
 | --- | --- | --- | --- |
 | Name, email address | Required to open the IDE | Account selection in the IDE (sent by the chat server) | Company IDE operator |
-| Voice or sound recordings | Optional, user initiated, in-app confirmation plus system permission | Voice input in the IDE | Company IDE operator |
+| Voice or sound recordings | Optional, user initiated, in-app confirmation plus system permission | Voice input in the IDE (speech to text; the IDE gateway does not store raw audio) | Company IDE operator; company speech-recognition service (AI-API for VPSTTT) |
 | Files, documents, photos | Optional, user initiated | Attachments to IDE tasks | Company IDE operator |
-| Other user-generated content (prompts, edits) | Optional, user initiated | IDE functionality | Company IDE operator and its AI sub-processors |
+| Other user-generated content (prompts, edits) | Optional, user initiated | IDE functionality; text to speech when the user asks to hear a reply | Company IDE operator and its AI services |
 | Device-key identifier and public key | Optional | Device registration and sign-in security | Company IDE operator |
 
 Workspace-member names and profiles are server-side collaboration data; the app

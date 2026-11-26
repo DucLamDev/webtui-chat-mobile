@@ -24,7 +24,7 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
 
   test('phân loại địa chỉ', () {
-    final policy = IdeWebHostPolicy(testBase);
+    final policy = IdeWebHostPolicy(testBase, testAuthBase);
     const table = {
       'https://ide.chat.example.com': IdeWebUrlClass.internal,
       'https://ide.chat.example.com/appchat/x?y#z': IdeWebUrlClass.internal,
@@ -47,6 +47,44 @@ void main() {
       'webtui://ide-web/callback': IdeWebUrlClass.blocked,
       'http://[': IdeWebUrlClass.blocked,
       '': IdeWebUrlClass.blocked,
+      // Tên miền đăng nhập của IDE: chỉ hai tiền tố, còn lại như trang ngoài.
+      'https://ide.example.net/appchat/auth/': IdeWebUrlClass.authFlow,
+      'https://IDE.example.net:443/appchat/auth/?flow=x':
+          IdeWebUrlClass.authFlow,
+      'https://ide.example.net/appchat/auth/pin?flow=a/b..c':
+          IdeWebUrlClass.authFlow,
+      'https://ide.example.net/appchat/download/ve-1': IdeWebUrlClass.download,
+      'https://ide.example.net/appchat/download/a.b_c~d-e':
+          IdeWebUrlClass.download,
+      'https://ide.example.net/': IdeWebUrlClass.external,
+      'https://ide.example.net/appchat/': IdeWebUrlClass.external,
+      'https://ide.example.net/appchat/auth': IdeWebUrlClass.external,
+      'https://ide.example.net/appchat/authx/': IdeWebUrlClass.external,
+      'https://ide.example.net/appchat/downloads/x': IdeWebUrlClass.external,
+      'https://ide.example.net/x/appchat/auth/': IdeWebUrlClass.external,
+      'https://ide.example.net/appchat/auth/#x': IdeWebUrlClass.external,
+      'https://ide.example.net:8443/appchat/auth/': IdeWebUrlClass.external,
+      'https://ide.example.net.evil.example/appchat/auth/':
+          IdeWebUrlClass.external,
+      'https://evil.example/appchat/auth/': IdeWebUrlClass.external,
+      'https://chat.example.com/appchat/auth/': IdeWebUrlClass.external,
+      'https://u@ide.example.net/appchat/auth/': IdeWebUrlClass.blocked,
+      'https://ide.example.net@evil.example/appchat/auth/':
+          IdeWebUrlClass.blocked,
+      'http://ide.example.net/appchat/auth/': IdeWebUrlClass.blocked,
+      // Đường dẫn độc hại: `Uri` gỡ `..` nên phải xét chuỗi gốc.
+      'https://ide.example.net/appchat/auth/../download/x':
+          IdeWebUrlClass.external,
+      'https://ide.example.net/appchat/download/../auth/':
+          IdeWebUrlClass.external,
+      'https://ide.example.net/appchat/auth/./x': IdeWebUrlClass.external,
+      'https://ide.example.net/appchat/auth//x': IdeWebUrlClass.external,
+      'https://ide.example.net/appchat/auth/%2e%2e/x': IdeWebUrlClass.external,
+      'https://ide.example.net/appchat/auth/%2Fx': IdeWebUrlClass.external,
+      'https://ide.example.net/appchat/download/%41': IdeWebUrlClass.external,
+      'https://ide.example.net/appchat/auth/a\\b': IdeWebUrlClass.external,
+      'https://ide.example.net/appchat/auth/a b': IdeWebUrlClass.external,
+      'https://ide.example.net/appchat/%61uth/': IdeWebUrlClass.external,
     };
     table.forEach(
       (url, kind) => expect(policy.classifyText(url), kind, reason: url),
@@ -55,7 +93,7 @@ void main() {
   });
 
   test('điều hướng: trong IDE cho đi, ngoài hỏi, còn lại chặn', () {
-    final policy = IdeWebHostPolicy(testBase);
+    final policy = IdeWebHostPolicy(testBase, testAuthBase);
     IdeWebNavigation go(
       String url, {
       bool main = true,
@@ -98,6 +136,59 @@ void main() {
     expect(go('https://x.example/', main: false), IdeWebNavigation.block);
   });
 
+  test('điều hướng tới trang đăng nhập / tải tệp IDE: mở trình duyệt', () {
+    final policy = IdeWebHostPolicy(testBase, testAuthBase);
+    IdeWebNavigation go(String url, {bool main = true, bool ios = false}) =>
+        policy.navigation(
+          url: url,
+          isMainFrame: main,
+          blankExpected: false,
+          newWindowAsSubframe: ios,
+        );
+    const auth = '$testAuthOrigin/appchat/auth/?flow=x';
+    const download = '$testAuthOrigin/appchat/download/ve';
+    for (final ios in [false, true]) {
+      expect(go(auth, ios: ios), IdeWebNavigation.openAuth);
+      expect(go(download, ios: ios), IdeWebNavigation.openDownload);
+      expect(
+        go('$testAuthOrigin/appchat/', ios: ios),
+        IdeWebNavigation.askExternal,
+      );
+      expect(
+        go('$testAuthOrigin/appchat/auth/../download/x', ios: ios),
+        IdeWebNavigation.askExternal,
+      );
+    }
+    // Khung phụ vẫn chặn; `target=_blank` trên iOS như khung chính.
+    expect(go(auth, main: false), IdeWebNavigation.block);
+    expect(go(download, main: false), IdeWebNavigation.block);
+    expect(go(auth, main: false, ios: true), IdeWebNavigation.openAuth);
+    expect(go(download, main: false, ios: true), IdeWebNavigation.openDownload);
+  });
+
+  test('browser_url: đúng tên miền đăng nhập, tiền tố, không fragment', () {
+    final policy = IdeWebHostPolicy(testBase, testAuthBase);
+    expect(policy.authOrigin, testAuthOrigin);
+    for (final url in [
+      '$testAuthOrigin/appchat/auth/?flow=x',
+      '$testAuthOrigin/appchat/auth/start',
+    ]) {
+      expect(policy.isBrowserUrl(Uri.parse(url)), isTrue, reason: url);
+    }
+    for (final url in [
+      '$testOrigin/_appchat/start#t=x',
+      '$testOrigin/appchat/auth/?flow=x',
+      '$testAuthOrigin/appchat/auth/?flow=x#f',
+      '$testAuthOrigin/appchat/download/x',
+      '$testAuthOrigin:8443/appchat/auth/',
+      'https://u@ide.example.net/appchat/auth/',
+      'http://ide.example.net/appchat/auth/',
+      '$testAuthOrigin/appchat/auth//x',
+    ]) {
+      expect(policy.isBrowserUrl(Uri.parse(url)), isFalse, reason: url);
+    }
+  });
+
   group('micro', () {
     late FakeIdeWebView view;
     late FakePrompter prompter;
@@ -125,7 +216,7 @@ void main() {
       now = DateTime.utc(2026);
       mic = IdeWebMicGuard(
         view: view,
-        policy: IdeWebHostPolicy(testBase),
+        policy: IdeWebHostPolicy(testBase, testAuthBase),
         prompter: prompter,
         permission: permission,
         limiter: IdeWebRateLimiter(clock: () => now),
@@ -448,7 +539,7 @@ void main() {
 
     test('ide_web_auth', () async {
       const browser = MethodChannelIdeWebBrowser();
-      final url = Uri.parse('$testOrigin/_appchat/start#t=x');
+      final url = Uri.parse('$testAuthOrigin/appchat/auth/?flow=x');
       Object? answer;
       messenger.setMockMethodCallHandler(auth, (call) async {
         calls.add(call);

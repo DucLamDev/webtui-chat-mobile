@@ -232,6 +232,12 @@ final class WebViewFlutterIdeView implements IdeWebView {
       case IdeWebNavigation.askExternal:
         _add(IdeWebExternalLink(Uri.parse(request.url)));
         return NavigationDecision.prevent;
+      case IdeWebNavigation.openAuth:
+        _add(IdeWebAuthLink(Uri.parse(request.url)));
+        return NavigationDecision.prevent;
+      case IdeWebNavigation.openDownload:
+        _add(IdeWebDownloadLink(Uri.parse(request.url)));
+        return NavigationDecision.prevent;
       case IdeWebNavigation.block:
         return NavigationDecision.prevent;
     }

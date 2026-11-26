@@ -18,7 +18,7 @@ final class _Rig {
   final tokens = FakeTokenRepository();
   String? userId = 'user-1';
   DateTime now = DateTime.utc(2026, 11, 25, 8);
-  IdeWebHostPolicy? policy = IdeWebHostPolicy(testBase);
+  IdeWebHostPolicy? policy = IdeWebHostPolicy(testBase, testAuthBase);
 
   late final sessions = IdeWebSessionReader(
     tokens: tokens,
@@ -65,13 +65,50 @@ void main() {
     },
   );
 
+  test(
+    'browser_url đúng hợp đồng: trang đăng nhập trên tên miền IDE',
+    () async {
+      final rig = _Rig()
+        ..repository.launchResult = Success(
+          testBrowserLaunch(
+            url: '$testAuthOrigin/appchat/auth/start?flow=abc&x=1',
+          ),
+        );
+      final result = await rig.start.execute();
+      expect(
+        (result.valueOrNull! as IdeWebStartBrowser).url.host,
+        'ide.example.net',
+      );
+      expect(rig.pending.value!.elevation, isFalse);
+    },
+  );
+
+  test('lượt đăng nhập trình duyệt: complete xong không giữ lượt', () async {
+    final rig = _Rig();
+    await rig.start.execute();
+    expect(await rig.complete.execute(callbackUri()), isA<IdeWebCompleted>());
+    // Máy chủ chỉ nhận complete một lần cho lượt trình duyệt.
+    expect(rig.pending.value, isNull);
+  });
+
   test('địa chỉ máy chủ trả sai host / đường thì bỏ lượt, không mở', () async {
     for (final url in [
-      'https://evil.example/_appchat/start#t=x',
-      'https://ide.chat.example.com/other#t=x',
-      'http://ide.chat.example.com/_appchat/start#t=x',
-      'https://ide.chat.example.com/_appchat/start?t=x',
-      'https://ide.chat.example.com:8443/_appchat/start#t=x',
+      // Dạng cũ trên host nhúng đã bỏ.
+      '$testOrigin/_appchat/start#t=x',
+      '$testOrigin/appchat/auth/?flow=x',
+      'https://evil.example/appchat/auth/?flow=x',
+      'https://ide.example.net.evil.example/appchat/auth/?flow=x',
+      'https://chat.example.com/appchat/auth/?flow=x',
+      'http://ide.example.net/appchat/auth/?flow=x',
+      'https://ide.example.net:8443/appchat/auth/?flow=x',
+      'https://u@ide.example.net/appchat/auth/?flow=x',
+      'https://ide.example.net/appchat/auth/?flow=x#f',
+      'https://ide.example.net/appchat/auth',
+      'https://ide.example.net/appchat/authx/?flow=x',
+      'https://ide.example.net/appchat/download/ve',
+      'https://ide.example.net/other/appchat/auth/',
+      'https://ide.example.net/appchat/auth//x',
+      'https://ide.example.net/appchat/auth/%2Fx',
     ]) {
       final rig = _Rig()
         ..repository.launchResult = Success(testBrowserLaunch(url: url));
@@ -237,6 +274,128 @@ void main() {
         isA<IdeWebCompletionFailed>(),
       );
       expect(rig.repository.completes, isEmpty);
+    });
+  });
+
+  group('lượt webview: giữ lượt chờ để nâng quyền', () {
+    _Rig webview() => _Rig()
+      ..repository.launchResult = Success(
+        IdeWebDirectLaunch(
+          launchId: 'launch-1',
+          state: testState,
+          entry: testEntry(),
+          launchExpiresAt: DateTime.utc(2026, 11, 25, 8, 10),
+        ),
+      );
+
+    test('ghi lượt chờ đúng state, verifier, hạn launch_expires_at', () async {
+      final rig = webview();
+      final result = await rig.start.execute();
+      expect(result.valueOrNull, isA<IdeWebStartView>());
+      final pending = rig.pending.value!;
+      expect(pending.launchId, 'launch-1');
+      expect(pending.state, testState);
+      expect(pending.scopeId, 'scope-1');
+      expect(pending.userId, 'user-1');
+      expect(pending.expiresAt, DateTime.utc(2026, 11, 25, 8, 10));
+      expect(pending.elevation, isTrue);
+      expect(
+        rig.repository.launches.single.codeChallenge,
+        oidcPkceChallengeS256(pending.codeVerifier),
+      );
+      final restored = PendingIdeWebLaunch.fromJson(pending.toJson())!;
+      expect(restored.elevation, isTrue);
+      // Bản ghi cũ (trước bản này) không có trường: là lượt đăng nhập.
+      expect(
+        PendingIdeWebLaunch.fromJson(
+          {...pending.toJson()}..remove('elevation'),
+        )!.elevation,
+        isFalse,
+      );
+    });
+
+    test('enter_url lạ: bỏ lượt, không ghi gì', () async {
+      final rig = _Rig()
+        ..repository.launchResult = Success(
+          testDirectLaunch(
+            id: 'launch-1',
+            entry: testEntry(enterUrl: '$testAuthOrigin/_appchat/enter'),
+          ),
+        );
+      expect(
+        (await rig.start.execute()).failureOrNull?.code,
+        'IDE_WEB_UNAVAILABLE',
+      );
+      expect(rig.pending.value, isNull);
+      expect(rig.repository.cancelled, ['launch-1']);
+    });
+
+    test('huỷ ngay sau khi ghi: xoá lượt chờ', () async {
+      final rig = webview();
+      rig.pending.onWrite = rig.start.abandon;
+      expect(
+        (await rig.start.execute()).failureOrNull?.code,
+        'IDE_WEB_LAUNCH_CANCELLED',
+      );
+      expect(rig.pending.value, isNull);
+    });
+
+    test('callback nâng quyền: complete rồi giữ lượt cho lần sau', () async {
+      final rig = webview();
+      await rig.start.execute();
+      final verifier = rig.pending.value!.codeVerifier;
+      expect(await rig.complete.matches(callbackUri()), isTrue);
+      expect(await rig.complete.execute(callbackUri()), isA<IdeWebCompleted>());
+      expect(rig.repository.completes.single['code_verifier'], verifier);
+      expect(rig.repository.completes.single['launch_id'], 'launch-1');
+      // Mã đã dùng: callback lặp bỏ êm, không gọi lại máy chủ.
+      expect(await rig.complete.matches(callbackUri()), isFalse);
+      expect(
+        await rig.complete.execute(callbackUri()),
+        isA<IdeWebCallbackIgnored>(),
+      );
+      expect(rig.repository.completes, hasLength(1));
+      // Lần nâng quyền sau (mã mới, cùng lượt) vẫn nhận.
+      expect(
+        await rig.complete.execute(callbackUri(code: 'ma-2')),
+        isA<IdeWebCompleted>(),
+      );
+      expect(rig.repository.completes, hasLength(2));
+      expect(rig.pending.value!.elevation, isTrue);
+    });
+
+    test('quá launch_expires_at: hết hạn', () async {
+      final rig = webview();
+      await rig.start.execute();
+      rig.now = DateTime.utc(2026, 11, 25, 8, 10);
+      final done = await rig.complete.execute(callbackUri());
+      expect(
+        (done as IdeWebCompletionFailed).failure.code,
+        'IDE_WEB_LAUNCH_EXPIRED',
+      );
+      expect(rig.repository.completes, isEmpty);
+    });
+
+    test('complete lỗi: không giữ lượt', () async {
+      final rig = webview();
+      await rig.start.execute();
+      rig.repository.completeResult = failResult(FailureKind.unauthorized);
+      expect(
+        await rig.complete.execute(callbackUri()),
+        isA<IdeWebCompletionFailed>(),
+      );
+      expect(rig.pending.value, isNull);
+    });
+
+    test('đóng màn: chỉ xoá trên máy, không báo máy chủ huỷ', () async {
+      final rig = webview();
+      await rig.start.execute();
+      await CancelIdeWebUseCase(
+        repository: rig.repository,
+        pending: rig.pending,
+      ).execute();
+      expect(rig.pending.value, isNull);
+      expect(rig.repository.cancelled, isEmpty);
     });
   });
 

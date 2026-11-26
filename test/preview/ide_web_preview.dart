@@ -54,9 +54,7 @@ final _scenes = <String, FakeIdeWebRepository Function()>{
   'Đang mở': () =>
       _repository(Success(testBrowserLaunch()))..launchGate = Completer<void>(),
   'Chờ trình duyệt': () => _repository(Success(testBrowserLaunch())),
-  'Trang IDE': () => _repository(
-    Success(IdeWebDirectLaunch(launchId: 'l', entry: testEntry())),
-  ),
+  'Trang IDE': () => _repository(Success(testDirectLaunch())),
   'Chưa kết nối được': () => _repository(failResult(FailureKind.network)),
   'Mở quá nhiều lần': () => _repository(failResult(FailureKind.rateLimited)),
   'Quản trị tắt': () =>
@@ -67,9 +65,7 @@ final _scenes = <String, FakeIdeWebRepository Function()>{
   'Hết hạn': () => _repository(
     failResult(FailureKind.unknown, code: 'IDE_WEB_LAUNCH_EXPIRED'),
   ),
-  'WebView cũ': () => _repository(
-    Success(IdeWebDirectLaunch(launchId: 'l', entry: testEntry())),
-  ),
+  'WebView cũ': () => _repository(Success(testDirectLaunch())),
 };
 
 final _prompts = <String, IdeWebPrompt>{
@@ -151,7 +147,9 @@ class _Scene extends StatelessWidget {
   Widget build(BuildContext context) => ProviderScope(
     overrides: [
       ideWebEnabledProvider.overrideWithValue(true),
-      ideWebHostPolicyProvider.overrideWithValue(IdeWebHostPolicy(testBase)),
+      ideWebHostPolicyProvider.overrideWithValue(
+        IdeWebHostPolicy(testBase, testAuthBase),
+      ),
       authAccessTokenProvider.overrideWith((_) async => 'token'),
       ideWebRepositoryProvider.overrideWithValue(repository),
       ideWebPendingStoreProvider.overrideWithValue(FakePendingStore()),

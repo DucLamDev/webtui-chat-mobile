@@ -22,24 +22,37 @@ The binary can open the company's VPSTTT IDE in a WebView. The entry appears
 only on the company's internal server after its administrator enables it; every
 other server never shows it.
 
+- Sign-in: the IDE password, 2FA code, and PIN are entered on the IDE's own
+  website in the system browser. They do not pass through the app or the chat
+  server.
 - Sent when the user opens it: name and email (by the chat server), platform,
   app version, and up to two device-key identifiers.
 - Sent while using it: what the user types, uploads, or says to the embedded
   page. Audio needs an in-app confirmation and the system permission, shows a
   recording indicator, and stops when the user leaves the screen, locks the
   app, sends it to the background, or is in a call.
+- Processing stated by the IDE operator: voice clips go to the company's
+  speech-recognition service (AI-API for VPSTTT) to produce text, and the IDE
+  gateway does not write raw audio to disk. Text the user asks to hear is sent
+  to a text-to-speech service. The IDE keeps its chat history, task prompts,
+  attached files, and result files; result downloads are limited to the task
+  owner or an authorized operator.
 - Device keys: private keys stay in the Secure Enclave. Only public keys and
   signatures over challenges issued by the IDE are sent.
 - Purposes: App Functionality and Security. No tracking, no advertising.
-- Must be confirmed by the IDE operator before submission: retention of audio,
-  prompts, and files; AI sub-processors; deletion on request.
+- Still to be confirmed by the IDE operator before submission: retention
+  periods for chat history, prompts, and files; whether AI-API for VPSTTT
+  passes audio or text to outside AI providers (and which); how users request
+  deletion.
 
 Guidelines 4.7 and 4.7.2: the embedded page can call only a small, fixed set of
 app functions, and the app asks the user before creating or deleting a device
 key or saving a file. State this in the review notes, and give the reviewer an
 account on a server where the feature is enabled or state that it is off there.
 If Apple objects, the server administrator can turn these functions off for iOS
-without an app update.
+without an app update; the IDE then asks for the password and 2FA code on every
+open and serves result files through the system browser. A reviewer account
+needs an IDE test account with 2FA from the IDE operator (not issued yet).
 
 ## Review Requirements
 

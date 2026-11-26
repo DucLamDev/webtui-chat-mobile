@@ -155,6 +155,10 @@ final class IdeWebController extends StateNotifier<IdeWebState>
   int _run = 0;
   bool _started = false;
   bool _completing = false;
+
+  /// Đang có một lượt trình duyệt nâng quyền (PIN / 2FA) mở từ màn nhúng.
+  bool _authOpen = false;
+  Timer? _authTimer;
   IdeWebScreenStatus _status = const IdeWebScreenStatus(
     visible: false,
     resumed: true,
@@ -237,6 +241,51 @@ final class IdeWebController extends StateNotifier<IdeWebState>
     }
   }
 
+  /// Trang nhúng chuyển tới trang đăng nhập / nâng quyền của IDE: mở bằng
+  /// trình duyệt hệ thống, không hỏi, giữ nguyên màn đang hiện. Mỗi lúc một
+  /// lượt, hạn riêng. Huỷ / lỗi không huỷ lượt (người dùng có thể chỉ đặt PIN
+  /// rồi đóng trình duyệt, không có callback).
+  Future<void> _openAuthFlow(int run, Uri url) async {
+    if (_authOpen ||
+        !_isCurrent(run) ||
+        state is! IdeWebReady ||
+        !_status.active ||
+        !ideWebAllowAuthFlow(_deps.limiter)) {
+      return;
+    }
+    _authOpen = true;
+    _authTimer?.cancel();
+    var keepOpen = false;
+    try {
+      final result = await _deps.browser.authenticate(
+        url,
+        scheme: ideWebCallbackScheme,
+      );
+      if (!_isCurrent(run)) return;
+      switch (result) {
+        case IdeWebBrowserCallback(:final uri):
+          _releaseAuth();
+          await _complete(uri);
+        case IdeWebBrowserOpened():
+          // Android: callback về qua deep link; nhả khi app quay lại trước.
+          keepOpen = true;
+          _authTimer = Timer(const Duration(minutes: 2), _releaseAuth);
+        case IdeWebBrowserCancelled() || IdeWebBrowserFailed():
+          break;
+      }
+    } on Object {
+      // Không mở được trình duyệt: giữ nguyên trang.
+    } finally {
+      if (!keepOpen) _releaseAuth();
+    }
+  }
+
+  void _releaseAuth() {
+    _authOpen = false;
+    _authTimer?.cancel();
+    _authTimer = null;
+  }
+
   /// `false` khi callback không thuộc lượt nào (bỏ êm), kể cả bản lặp của
   /// callback đang xử lý.
   Future<bool> _complete(Uri uri) async {
@@ -248,6 +297,7 @@ final class IdeWebController extends StateNotifier<IdeWebState>
       if (!await _deps.complete.matches(uri) || !mounted) return false;
       run = ++_run;
       _waitingTimer?.cancel();
+      _releaseAuth();
       state = const IdeWebLoading();
       completion = await _deps.complete.execute(uri);
     } finally {
@@ -257,11 +307,12 @@ final class IdeWebController extends StateNotifier<IdeWebState>
     switch (completion) {
       case IdeWebCallbackIgnored():
         // Lượt đã bị dùng / bỏ giữa chừng.
-        state = const IdeWebExpired();
+        await _failWith(IdeWebFailureKind.expired);
       case IdeWebCompleted(:final entry, :final session):
         await _enter(run, entry, session);
       case IdeWebCompletionFailed(:final failure):
-        _show(ideWebFailureKindOf(failure));
+        // Nâng quyền lỗi khi màn nhúng còn mở: đóng trang cũ rồi báo lỗi.
+        await _failWith(ideWebFailureKindOf(failure));
     }
     return true;
   }
@@ -345,6 +396,9 @@ final class IdeWebController extends StateNotifier<IdeWebState>
       limiter: _deps.limiter,
       disposeFiles: files.disposeTemp,
       openExternal: (uri) => _deps.launcher.open(uri.toString()),
+      onAuthFlow: (uri) {
+        if (_isCurrent(run)) unawaited(_openAuthFlow(run, uri));
+      },
       onFailed: (kind) {
         if (_isCurrent(run)) unawaited(_failWith(kind));
       },
@@ -359,7 +413,11 @@ final class IdeWebController extends StateNotifier<IdeWebState>
     final session = _session;
     if (session == null) return;
     if (before.resumed && !status.resumed) unawaited(session.onAppBackground());
-    if (!before.resumed && status.resumed) unawaited(session.onAppForeground());
+    if (!before.resumed && status.resumed) {
+      // Trình duyệt nâng quyền (Android) đã đóng: cho mở lượt khác.
+      if (_authTimer != null) _releaseAuth();
+      unawaited(session.onAppForeground());
+    }
     unawaited(session.onStatusChanged());
   }
 
@@ -378,6 +436,7 @@ final class IdeWebController extends StateNotifier<IdeWebState>
   /// Người dùng huỷ hoặc đóng màn.
   Future<void> cancel() async {
     _run++;
+    _releaseAuth();
     _deps.start.abandon();
     _waitingTimer?.cancel();
     if (mounted) state = const IdeWebClosed();
@@ -387,6 +446,7 @@ final class IdeWebController extends StateNotifier<IdeWebState>
 
   Future<void> _failWith(IdeWebFailureKind kind) async {
     final run = ++_run;
+    _releaseAuth();
     _deps.start.abandon();
     _waitingTimer?.cancel();
     final hadView = _session != null;
@@ -430,6 +490,7 @@ final class IdeWebController extends StateNotifier<IdeWebState>
       _run++;
       _deps.start.abandon();
       _waitingTimer?.cancel();
+      _releaseAuth();
       state = const IdeWebClosed();
     }
     await _closeSession();
@@ -471,6 +532,7 @@ final class IdeWebController extends StateNotifier<IdeWebState>
     _run++;
     _deps.start.abandon();
     _waitingTimer?.cancel();
+    _releaseAuth();
     _unlisten();
     _prompter = null;
     // Gỡ đăng ký sau khi đóng xong: đăng xuất lúc này vẫn phải đợi trang ngừng.

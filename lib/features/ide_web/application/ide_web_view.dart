@@ -60,6 +60,27 @@ final class IdeWebExternalLink extends IdeWebViewEvent {
   final Uri uri;
 }
 
+/// Trang chuyển tới trang đăng nhập / nâng quyền trên tên miền IDE: mở bằng
+/// trình duyệt hệ thống, không hỏi. Địa chỉ mang `flow` dùng một lần.
+final class IdeWebAuthLink extends IdeWebViewEvent {
+  const IdeWebAuthLink(this.uri);
+
+  final Uri uri;
+
+  @override
+  String toString() => 'IdeWebAuthLink(<redacted>)';
+}
+
+/// Liên kết tải tệp bằng vé của IDE: mở bằng trình duyệt hệ thống, không hỏi.
+final class IdeWebDownloadLink extends IdeWebViewEvent {
+  const IdeWebDownloadLink(this.uri);
+
+  final Uri uri;
+
+  @override
+  String toString() => 'IdeWebDownloadLink(<redacted>)';
+}
+
 /// Trang xin quyền thiết bị; phải gọi [resolve] đúng một lần.
 final class IdeWebPermissionAsked extends IdeWebViewEvent {
   const IdeWebPermissionAsked({

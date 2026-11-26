@@ -60,11 +60,22 @@ final class IdeWebBrowserLaunch extends IdeWebLaunch {
   String toString() => 'IdeWebBrowserLaunch(<redacted>)';
 }
 
-/// Thiết bị đã đăng ký: vào thẳng WebView.
+/// Thiết bị đã đăng ký: vào thẳng WebView. Lượt vẫn nhận callback nâng quyền
+/// (PIN / 2FA nhập trên trình duyệt) tới [launchExpiresAt].
 final class IdeWebDirectLaunch extends IdeWebLaunch {
-  const IdeWebDirectLaunch({required super.launchId, required this.entry});
+  const IdeWebDirectLaunch({
+    required super.launchId,
+    required this.state,
+    required this.entry,
+    required this.launchExpiresAt,
+  });
 
+  final String state;
   final IdeWebEntry entry;
+  final DateTime launchExpiresAt;
+
+  @override
+  String toString() => 'IdeWebDirectLaunch(<redacted>)';
 }
 
 /// Dữ liệu một lần để mở WebView (gửi bằng thân POST, không nằm trong URL).
@@ -87,7 +98,8 @@ final class IdeWebEntry {
   String toString() => 'IdeWebEntry(<redacted>)';
 }
 
-/// Lượt đang chờ trình duyệt; giữ qua việc app bị hệ điều hành tắt. Không ghi
+/// Lượt đang chờ trình duyệt (đăng nhập, hoặc nâng quyền khi đã ở trong màn
+/// nhúng: [elevation]); giữ qua việc app bị hệ điều hành tắt. Không ghi
 /// thế hệ phiên: mỗi lần mở lạnh app sinh thế hệ mới. Phiên khác thì bản ghi đã
 /// bị `clearSession` xoá hoặc lệch [scopeId] / [userId].
 final class PendingIdeWebLaunch {
@@ -98,6 +110,7 @@ final class PendingIdeWebLaunch {
     required this.scopeId,
     required this.userId,
     required this.expiresAt,
+    this.elevation = false,
   });
 
   static PendingIdeWebLaunch? fromJson(Object? json) {
@@ -128,6 +141,7 @@ final class PendingIdeWebLaunch {
       scopeId: scopeId,
       userId: userId,
       expiresAt: expiresAt,
+      elevation: json['elevation'] == true,
     );
   }
 
@@ -138,6 +152,10 @@ final class PendingIdeWebLaunch {
   final String userId;
   final DateTime expiresAt;
 
+  /// Lượt đã vào màn nhúng, chỉ còn chờ callback nâng quyền: bỏ lượt thì chỉ
+  /// xoá trên máy, không báo máy chủ huỷ (đóng màn không kết thúc phiên IDE).
+  final bool elevation;
+
   Map<String, Object?> toJson() => {
     'v': 1,
     'launch_id': launchId,
@@ -146,6 +164,7 @@ final class PendingIdeWebLaunch {
     'scope': scopeId,
     'user': userId,
     'expires_at': expiresAt.toUtc().toIso8601String(),
+    if (elevation) 'elevation': true,
   };
 
   @override

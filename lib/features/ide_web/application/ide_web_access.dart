@@ -6,7 +6,7 @@ import '../../ide_mobile/application/ide_access.dart';
 const ideWebRoutePath = '/ide-web';
 
 /// Ô VPSTTT IDE (WebView) chỉ hiện trên Android / iOS, ở máy chủ nội bộ đã bật
-/// tích hợp với địa chỉ nhúng hợp lệ. Máy chủ vẫn kiểm quyền ở mọi API.
+/// tích hợp với địa chỉ nhúng và địa chỉ đăng nhập hợp lệ. Máy chủ vẫn kiểm quyền ở mọi API.
 final ideWebEnabledProvider = Provider<bool>((ref) {
   if (!ideSupportedPlatform()) return false;
   return ref.watch(activeServerDiscoveryProvider)?.ideWebEnabled ?? false;
@@ -16,4 +16,10 @@ final ideWebEnabledProvider = Provider<bool>((ref) {
 final ideWebBaseUriProvider = Provider<Uri?>((ref) {
   if (!ref.watch(ideWebEnabledProvider)) return null;
   return ref.watch(activeServerDiscoveryProvider)?.ideWebBaseUri;
+});
+
+/// Địa chỉ đăng nhập `https://<ide>` đã kiểm; `null` khi tắt.
+final ideWebAuthBaseUriProvider = Provider<Uri?>((ref) {
+  if (!ref.watch(ideWebEnabledProvider)) return null;
+  return ref.watch(activeServerDiscoveryProvider)?.ideWebAuthBaseUri;
 });
