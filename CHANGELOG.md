@@ -3,6 +3,15 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.69.0 · 26/11/2026
+### Gỡ VPSTTT IDE bản cũ (native) khỏi app
+- Đội IDE xác nhận màn VPSTTT IDE nhúng thay hẳn bản cũ, nên bỏ toàn bộ mục IDE cũ: các màn, ghép máy bằng mã QR, kênh
+  kết nối riêng, thông báo kiểu IDE cũ. Ô "VPSTTT IDE" mới không đổi.
+- Lần mở app đầu tiên sau khi cập nhật, app xoá hai khoá cũ của bản IDE cũ trong kho bảo mật của máy.
+- Bỏ sáu thư viện chỉ bản cũ dùng (nhận dạng giọng nói trên máy, giữ màn sáng, terminal, tô màu mã, markdown, mã hoá
+  riêng) và câu xin quyền nhận dạng giọng nói trên iPhone; sửa câu xin quyền camera, Face ID cho đúng việc còn lại.
+- App nhẹ hơn khoảng 59.500 dòng mã.
+
 ## 1.68.0 · 26/11/2026
 ### VPSTTT IDE: làm theo hợp đồng đã chốt với đội IDE
 - **Đăng nhập trên trang riêng của IDE:** mật khẩu, 2FA, PIN nhập trên trang của IDE mở bằng trình duyệt của máy; app và
