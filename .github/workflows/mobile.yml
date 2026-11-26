@@ -20,6 +20,12 @@ on:
 permissions:
   contents: read
 
+# Đẩy thêm commit vào PR thì huỷ lượt kiểm cũ của chính PR đó (đỡ tốn phút chạy).
+# Nhánh chính và thẻ phát hành không bị huỷ giữa chừng.
+concurrency:
+  group: mobile-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   FLUTTER_VERSION: 3.44.9
 

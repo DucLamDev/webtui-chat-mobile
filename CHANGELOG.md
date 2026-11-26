@@ -3,6 +3,11 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.67.1 · 26/11/2026
+### Kiểm tra tự động trên GitHub đỡ tốn phút chạy
+- Đẩy thêm commit vào một PR thì lượt kiểm cũ của chính PR đó tự huỷ, không chạy hết. Nhánh chính và thẻ phát hành không bị
+  huỷ giữa chừng. App không đổi gì.
+
 ## 1.67.0 · 25/11/2026
 ### VPSTTT IDE ngay trong app
 - **Ô "VPSTTT IDE"** ở Công việc → Ứng dụng: chỉ hiện ở máy chủ nội bộ đã bật tích hợp; khi hiện thì ô IDE cũ ẩn đi.
