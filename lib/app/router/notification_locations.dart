@@ -4,26 +4,9 @@ import '../../features/meeting_calendar/presentation/meeting_calendar_routes.dar
 import '../../features/notifications/domain/entities/mobile_notification.dart';
 import '../../l10n/app_strings.dart';
 
-/// Màn `/ide/ai/<mã>` hoặc `/ide/jobs/<mã>` đang mở đúng là [target]
-/// (so cả khi mã được mã hoá %).
-bool isSameIdeLocation(String current, String? target) {
-  if (target == null || !target.startsWith('/ide/')) return false;
-  String norm(String p) {
-    try {
-      return Uri.decodeFull(p);
-    } on Object {
-      return p;
-    }
-  }
-
-  return norm(current) == norm(target);
-}
-
 /// Đường dẫn của màn cần mở cho một thông báo / liên kết đã phân tích; `null`
 /// khi không đủ thông tin để mở.
 String? locationForNotificationTarget(NotificationTarget target) {
-  final ide = target.ideLocation;
-  if (ide != null) return ide;
   if (target.isInboxConversation) {
     return inboxConversationLocation(
       conversationId: target.inboxConversationId!,

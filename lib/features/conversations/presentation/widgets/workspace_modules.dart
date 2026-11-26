@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../design_system/icons/webtui_icons.dart';
 import '../../../../l10n/app_strings.dart';
-import '../../../ide_mobile/application/ide_access.dart';
 import '../../../ide_web/application/ide_web_access.dart';
 import '../../../my_notes/presentation/controllers/my_notes_access_provider.dart';
 
@@ -32,7 +31,6 @@ final class WorkspaceModule {
 /// Danh sách tiện ích đã đăng ký. Hiện chỉ có My Note (bật theo máy chủ);
 /// tiện ích khác (IDE, mini app...) đăng ký thêm ở đây khi sẵn sàng.
 final workspaceModulesProvider = Provider<List<WorkspaceModule>>((ref) {
-  final ideWebEnabled = ref.watch(ideWebEnabledProvider);
   return [
     WorkspaceModule(
       id: 'my_notes',
@@ -49,18 +47,6 @@ final workspaceModulesProvider = Provider<List<WorkspaceModule>>((ref) {
       enabled: ref.watch(myNotesEnabledProvider),
     ),
     WorkspaceModule(
-      id: 'ide',
-      title: 'IDE',
-      description: tr(
-        'Điều khiển IDE trên máy tính từ điện thoại',
-        'Control the desktop IDE from your phone',
-      ),
-      icon: WebTuiIcons.bot,
-      routeFor: (_) => '/ide',
-      // VPSTTT IDE nhúng thay ô IDE cũ: hai ô không bao giờ cùng hiện.
-      enabled: ref.watch(ideEnabledProvider) && !ideWebEnabled,
-    ),
-    WorkspaceModule(
       id: 'ide_web',
       title: 'VPSTTT IDE',
       description: tr(
@@ -69,7 +55,7 @@ final workspaceModulesProvider = Provider<List<WorkspaceModule>>((ref) {
       ),
       icon: WebTuiIcons.bot,
       routeFor: (_) => ideWebRoutePath,
-      enabled: ideWebEnabled,
+      enabled: ref.watch(ideWebEnabledProvider),
     ),
   ];
 });

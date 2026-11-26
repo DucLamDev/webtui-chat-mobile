@@ -8,8 +8,7 @@ import 'package:webtui_chat/features/ide_web/application/ide_web_providers.dart'
 import '../auth/support/core2_fakes.dart';
 import 'support/fakes.dart';
 
-/// Dây đăng xuất của app (provider thật): IDE cũ hỏng hay IDE nhúng hỏng đều
-/// không cản nhau, không cản xoá phiên.
+/// Dây đăng xuất của app (provider thật): IDE nhúng hỏng không cản xoá phiên.
 void main() {
   late FakeIdeWebRepository repository;
   late RecordingSessionStateRepository sessions;
@@ -20,9 +19,6 @@ void main() {
         authRepositoryProvider.overrideWithValue(ScriptedAuthRepository()),
         authTokenRepositoryProvider.overrideWithValue(FakeTokenRepository()),
         sessionStateRepositoryProvider.overrideWithValue(sessions),
-        idePairingServiceProvider.overrideWith(
-          (ref) => throw StateError('IDE cũ hỏng'),
-        ),
         ideWebEnabledProvider.overrideWithValue(enabled),
         ideWebRepositoryProvider.overrideWithValue(repository),
       ],

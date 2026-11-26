@@ -5,7 +5,6 @@ import 'package:webtui_chat/app/providers/foundation_providers.dart';
 import 'package:webtui_chat/core/platform/external_url_launcher.dart';
 import 'package:webtui_chat/design_system/theme/webtui_theme.dart';
 import 'package:webtui_chat/features/conversations/presentation/screens/workspace_tools_screen.dart';
-import 'package:webtui_chat/features/ide_mobile/application/ide_access.dart';
 import 'package:webtui_chat/features/ide_web/application/ide_web_access.dart';
 import 'package:webtui_chat/features/meeting_calendar/application/meeting_calendar_providers.dart';
 import 'package:webtui_chat/features/meeting_calendar/presentation/controllers/meeting_calendar_controllers.dart';
@@ -101,7 +100,6 @@ Widget workHubApp({
       ),
       workHubEnabledProvider.overrideWithValue(workHub),
       myNotesEnabledProvider.overrideWithValue(myNotes),
-      ideEnabledProvider.overrideWithValue(false),
       ideWebEnabledProvider.overrideWithValue(false),
       externalUrlLauncherProvider.overrideWithValue(launcher ?? FakeLauncher()),
       meetingCalendarRepositoryProvider.overrideWithValue(

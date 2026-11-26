@@ -44,6 +44,8 @@ Future<void> bootstrap({required AppFlavor flavor}) async {
   await secureStorage.delete(
     key: SecureStoreKey.liveDiscoveryValidatedScopeId.value,
   );
+  // IDE native cũ đã gỡ: dọn khoá còn sót, không chặn khung hình đầu.
+  unawaited(secureStore.deleteRetiredKeys().catchError((Object _) {}));
   final storedValues = await Future.wait<String?>([
     secureStorage.read(key: SecureStoreKey.instanceDiscoverySnapshot.value),
     secureStorage.read(key: SecureStoreKey.instanceId.value),

@@ -147,7 +147,7 @@ import webview_flutter_wkwebview
 
     FlutterMethodChannel(name: "webtui/biometric", binaryMessenger: messenger)
       .setMethodCallHandler { call, result in
-        // Mục IDE: mở mục bằng khoá máy + khoá xác nhận P-256 trong Secure Enclave.
+        // VPSTTT IDE: khoá xác nhận P-256 trong Secure Enclave.
         if IdeDeviceSecurity.handle(call, result: result) { return }
         let context = LAContext()
         var policyError: NSError?
@@ -896,7 +896,7 @@ final class VideoCompressBridge {
   }
 }
 
-/// Khoá màn hình / Face ID cho mục IDE (kênh `webtui/biometric`).
+/// Khoá xác nhận P-256 (Face ID / Touch ID mỗi lần ký) cho VPSTTT IDE (kênh `webtui/biometric`).
 enum IdeDeviceSecurity {
   // Phần đầu SubjectPublicKeyInfo của khoá công khai P-256 (26 byte), theo sau là điểm X9.63 65 byte.
   private static let p256SpkiHeader = Data([
@@ -904,19 +904,14 @@ enum IdeDeviceSecurity {
     0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07, 0x03, 0x42, 0x00,
   ])
 
-  /// true nếu đã xử lý lệnh (là một trong các lệnh IDE).
+  /// true nếu đã xử lý lệnh (là một trong các lệnh khoá xác nhận).
   static func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) -> Bool {
     let arguments = call.arguments as? [String: Any]
     switch call.method {
-    case "authenticateDeviceOwner":
-      authenticate(reason: arguments?["reason"] as? String ?? "Xác nhận để dùng IDE", result: result)
     case "createStepKey":
       createStepKey(alias: arguments?["alias"] as? String, result: result)
     case "deleteStepKey":
       deleteStepKey(alias: arguments?["alias"] as? String, result: result)
-    case "uptimeMs":
-      // CLOCK_MONOTONIC trên Darwin tính cả lúc máy ngủ, người dùng không chỉnh được.
-      result(NSNumber(value: clock_gettime_nsec_np(CLOCK_MONOTONIC) / 1_000_000))
     case "signWithStepKey":
       signWithStepKey(
         alias: arguments?["alias"] as? String,
@@ -928,32 +923,6 @@ enum IdeDeviceSecurity {
       return false
     }
     return true
-  }
-
-  private static func authenticate(reason: String, result: @escaping FlutterResult) {
-    let context = LAContext()
-    var policyError: NSError?
-    guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &policyError) else {
-      let code = (policyError as? LAError)?.code
-      result(code == .passcodeNotSet ? "notEnrolled" : "unavailable")
-      return
-    }
-    context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, error in
-      DispatchQueue.main.async {
-        if success {
-          result("ok")
-          return
-        }
-        switch (error as? LAError)?.code {
-        case .userCancel, .appCancel, .systemCancel:
-          result("cancelled")
-        case .passcodeNotSet, .biometryNotEnrolled:
-          result("notEnrolled")
-        default:
-          result("unavailable")
-        }
-      }
-    }
   }
 
   private static func keyError(_ code: String, _ result: FlutterResult) {

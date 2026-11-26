@@ -41,16 +41,14 @@
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>WebTUI Chat dùng mic để gọi thoại, ghi và gửi tin nhắn thoại, và để bạn hỏi hoặc giao việc cho VPSTTT IDE bằng giọng nói.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>WebTUI Chat dùng nhận dạng giọng nói để chuyển lời bạn nói thành chữ khi bạn ra lệnh cho AI trong mục IDE.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>WebTUI Chat dùng camera cho cuộc gọi video, để chụp ảnh bạn chọn gửi vào cuộc trò chuyện, gửi vào VPSTTT IDE hoặc đính kèm vào ghi chú My Note, và để quét mã QR gắn điện thoại với IDE.</string>
+	<string>WebTUI Chat dùng camera cho cuộc gọi video, để chụp ảnh bạn chọn gửi vào cuộc trò chuyện, gửi vào VPSTTT IDE hoặc đính kèm vào ghi chú My Note.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>WebTUI Chat truy cập các ảnh và video bạn chọn để gửi vào cuộc trò chuyện, đính kèm vào ghi chú My Note hoặc dùng làm ảnh đại diện.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>WebTUI Chat lưu ảnh và video bạn chọn từ cuộc trò chuyện vào thư viện ảnh của máy.</string>
 	<key>NSFaceIDUsageDescription</key>
-	<string>WebTUI Chat dùng Face ID để mở khóa ứng dụng khi bạn bật khóa ứng dụng, để mở mục IDE, để mở và xác nhận trong VPSTTT IDE, và để xác nhận các thao tác quan trọng của IDE (như triển khai) trên điện thoại.</string>
+	<string>WebTUI Chat dùng Face ID để mở khóa ứng dụng khi bạn bật khóa ứng dụng, và để mở và xác nhận trong VPSTTT IDE.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>WebTUI Chat kết nối đến máy chủ tự lưu trữ trong mạng nội bộ do bạn hoặc tổ chức của bạn chọn.</string>
 	<key>UIBackgroundModes</key>

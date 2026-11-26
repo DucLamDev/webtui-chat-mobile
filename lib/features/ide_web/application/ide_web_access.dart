@@ -1,9 +1,18 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers/foundation_providers.dart';
-import '../../ide_mobile/application/ide_access.dart';
 
 const ideWebRoutePath = '/ide-web';
+
+/// IDE chỉ chạy trên Android và iOS (cần chip bảo mật + sinh trắc học).
+bool ideSupportedPlatform([TargetPlatform? platform]) {
+  if (kIsWeb) return false;
+  return switch (platform ?? defaultTargetPlatform) {
+    TargetPlatform.android || TargetPlatform.iOS => true,
+    _ => false,
+  };
+}
 
 /// Ô VPSTTT IDE (WebView) chỉ hiện trên Android / iOS, ở máy chủ nội bộ đã bật
 /// tích hợp với địa chỉ nhúng và địa chỉ đăng nhập hợp lệ. Máy chủ vẫn kiểm quyền ở mọi API.

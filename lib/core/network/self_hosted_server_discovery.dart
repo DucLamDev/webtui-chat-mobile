@@ -211,7 +211,6 @@ final class SelfHostedServerDiscovery {
         transcription: capabilities['transcription'] == true,
         myNotes: capabilities['my_notes'] == true,
         // IDE trên điện thoại (cổng IDE đã cấu hình); thiếu trường = tắt.
-        ide: capabilities['ide'] == true,
         // VPSTTT IDE nhúng bằng WebView; thiếu trường = tắt.
         ideWeb: capabilities['ide_web'] == true,
         secretMessages: capabilities['secret_messages'] == true,
@@ -444,7 +443,6 @@ final class SelfHostedCapabilities {
     this.aiStreaming = false,
     this.transcription = false,
     this.myNotes = false,
-    this.ide = false,
     this.ideWeb = false,
     this.secretMessages = false,
     this.mfa = false,
@@ -486,9 +484,6 @@ final class SelfHostedCapabilities {
 
   /// Sổ ghi chú cá nhân My Note.
   final bool myNotes;
-
-  /// Mục IDE (cổng IDE đã cấu hình ở máy chủ chat).
-  final bool ide;
 
   /// VPSTTT IDE nhúng bằng WebView (`ide_web`).
   final bool ideWeb;
@@ -549,7 +544,6 @@ final class SelfHostedCapabilities {
       'ai_streaming': aiStreaming,
       'transcription': transcription,
       'my_notes': myNotes,
-      'ide': ide,
       'ide_web': ideWeb,
       'secret_messages': secretMessages,
       'mfa': mfa,

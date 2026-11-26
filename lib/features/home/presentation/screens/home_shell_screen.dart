@@ -1098,11 +1098,6 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
       }
       if (target.isMeeting) bumpMeetingCalendar(ref.read);
       final location = locationForNotificationTarget(target);
-      // Đang mở đúng phiên AI / việc nền đó rồi thì không nhắc lại.
-      final current = GoRouter.of(
-        context,
-      ).routeInformationProvider.value.uri.path;
-      if (isSameIdeLocation(current, location)) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(tr('Có thông báo mới', 'New notification')),

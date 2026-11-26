@@ -3,12 +3,10 @@ package com.vpsttt.webtui_chat
 import android.app.Activity
 import android.app.KeyguardManager
 import android.content.Context
-import android.content.Intent
 import android.hardware.biometrics.BiometricManager
 import android.hardware.biometrics.BiometricPrompt
 import android.os.Build
 import android.os.CancellationSignal
-import android.os.SystemClock
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyInfo
 import android.security.keystore.KeyPermanentlyInvalidatedException
@@ -27,42 +25,29 @@ import java.security.spec.ECGenParameterSpec
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Khoá màn hình / vân tay cho mục IDE (kênh `webtui/biometric`):
- *  - authenticateDeviceOwner: mở mục IDE;
- *  - createStepKey / signWithStepKey: khoá xác nhận P-256 trong phần cứng an toàn (StrongBox,
+ * Khoá xác nhận cho VPSTTT IDE (kênh `webtui/biometric`):
+ *  - createStepKey / signWithStepKey / deleteStepKey: khoá xác nhận P-256 trong phần cứng an toàn (StrongBox,
  *    không có thì TEE), mỗi lần ký phải xác nhận bằng sinh trắc học mức mạnh (không nhận mật
  *    mã máy); thêm / xoá sinh trắc học thì khoá mất hiệu lực (`key_invalid`).
  * Dùng BiometricPrompt của framework (không cần androidx), nên giữ nguyên FlutterActivity.
  */
 class IdeDeviceSecurity(private val activity: Activity) {
     companion object {
-        const val REQUEST_CONFIRM_CREDENTIAL = 7411
         private const val KEYSTORE = "AndroidKeyStore"
         // BiometricPrompt.BIOMETRIC_ERROR_NEGATIVE_BUTTON (= 13) không công khai trong SDK framework.
         private const val ERROR_NEGATIVE_BUTTON = 13
-        private const val AUTHENTICATORS =
-            BiometricManager.Authenticators.BIOMETRIC_STRONG or
-                BiometricManager.Authenticators.DEVICE_CREDENTIAL
         // Khoá xác nhận: chỉ sinh trắc học mức mạnh.
         private const val STEP_AUTHENTICATORS = BiometricManager.Authenticators.BIOMETRIC_STRONG
     }
 
-    private var credentialResult: MethodChannel.Result? = null
-
     fun handles(method: String) =
-        method == "authenticateDeviceOwner" || method == "createStepKey" ||
-            method == "signWithStepKey" || method == "deleteStepKey" ||
-            method == "uptimeMs"
+        method == "createStepKey" || method == "signWithStepKey" || method == "deleteStepKey"
 
     fun handle(call: MethodCall, result: MethodChannel.Result) {
         val args = call.arguments as? Map<*, *>
         when (call.method) {
-            "authenticateDeviceOwner" ->
-                authenticateDeviceOwner(args?.get("reason") as? String, result)
             "createStepKey" -> createStepKey(args?.get("alias") as? String, result)
             "deleteStepKey" -> deleteStepKey(args?.get("alias") as? String, result)
-            // Đồng hồ tính cả lúc máy ngủ, người dùng không chỉnh được (đo thời gian nền).
-            "uptimeMs" -> result.success(SystemClock.elapsedRealtime())
             "signWithStepKey" -> signWithStepKey(
                 args?.get("alias") as? String,
                 args?.get("data") as? String,
@@ -79,72 +64,6 @@ class IdeDeviceSecurity(private val activity: Activity) {
 
     private fun title(reason: String?) = reason?.takeIf { it.isNotBlank() } ?: "Xác nhận để dùng IDE"
 
-    // ---- mở mục: vân tay hoặc mã khoá màn hình ----
-
-    private fun authenticateDeviceOwner(reason: String?, result: MethodChannel.Result) {
-        if (!deviceSecure()) {
-            result.success("notEnrolled")
-            return
-        }
-        when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> {
-                val manager = activity.getSystemService(BiometricManager::class.java)
-                when (manager?.canAuthenticate(AUTHENTICATORS)) {
-                    BiometricManager.BIOMETRIC_SUCCESS -> Unit
-                    BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
-                        result.success("notEnrolled")
-                        return
-                    }
-                    else -> {
-                        result.success("unavailable")
-                        return
-                    }
-                }
-                val completed = AtomicBoolean(false)
-                val finish: (String) -> Unit = { value ->
-                    if (completed.compareAndSet(false, true)) result.success(value)
-                }
-                val prompt = BiometricPrompt.Builder(activity)
-                    .setTitle(title(reason))
-                    .setAllowedAuthenticators(AUTHENTICATORS)
-                    .build()
-                prompt.authenticate(
-                    CancellationSignal(),
-                    activity.mainExecutor,
-                    ownerCallback(finish)
-                )
-            }
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
-                val completed = AtomicBoolean(false)
-                val finish: (String) -> Unit = { value ->
-                    if (completed.compareAndSet(false, true)) result.success(value)
-                }
-                @Suppress("DEPRECATION")
-                val prompt = BiometricPrompt.Builder(activity)
-                    .setTitle(title(reason))
-                    .setDeviceCredentialAllowed(true)
-                    .build()
-                prompt.authenticate(
-                    CancellationSignal(),
-                    activity.mainExecutor,
-                    ownerCallback(finish)
-                )
-            }
-            else -> confirmWithKeyguard(reason, result)
-        }
-    }
-
-    private fun ownerCallback(finish: (String) -> Unit) =
-        object : BiometricPrompt.AuthenticationCallback() {
-            override fun onAuthenticationSucceeded(r: BiometricPrompt.AuthenticationResult) {
-                finish("ok")
-            }
-
-            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                finish(errorToResult(errorCode))
-            }
-        }
-
     private fun errorToResult(code: Int): String = when (code) {
         BiometricPrompt.BIOMETRIC_ERROR_USER_CANCELED,
         BiometricPrompt.BIOMETRIC_ERROR_CANCELED,
@@ -152,28 +71,6 @@ class IdeDeviceSecurity(private val activity: Activity) {
         BiometricPrompt.BIOMETRIC_ERROR_NO_BIOMETRICS,
         BiometricPrompt.BIOMETRIC_ERROR_NO_DEVICE_CREDENTIAL -> "notEnrolled"
         else -> "unavailable"
-    }
-
-    /** Máy < API 29: hộp nhập mã khoá màn hình của hệ thống (KeyguardManager). */
-    @Suppress("DEPRECATION")
-    private fun confirmWithKeyguard(reason: String?, result: MethodChannel.Result) {
-        val intent = keyguard()?.createConfirmDeviceCredentialIntent(title(reason), null)
-        if (intent == null) {
-            result.success("unavailable")
-            return
-        }
-        credentialResult?.success("cancelled")
-        credentialResult = result
-        activity.startActivityForResult(intent, REQUEST_CONFIRM_CREDENTIAL)
-    }
-
-    /** MainActivity chuyển `onActivityResult` vào đây; trả true nếu đã xử lý. */
-    fun onActivityResult(requestCode: Int, resultCode: Int, @Suppress("UNUSED_PARAMETER") data: Intent?): Boolean {
-        if (requestCode != REQUEST_CONFIRM_CREDENTIAL) return false
-        val pending = credentialResult
-        credentialResult = null
-        pending?.success(if (resultCode == Activity.RESULT_OK) "ok" else "cancelled")
-        return true
     }
 
     // ---- khoá xác nhận P-256 ----

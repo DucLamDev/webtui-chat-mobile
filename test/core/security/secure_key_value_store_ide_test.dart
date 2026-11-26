@@ -9,25 +9,62 @@ void main() {
     'clearSession xoá cả khoá máy IDE, giữ nguyên khoá không thuộc phiên',
     () async {
       FlutterSecureStorage.setMockInitialValues({
-        SecureStoreKey.ideDevice.value: '{"x":1}',
+        SecureStoreKey.legacyIdeDevice.value: '{"x":1}',
         SecureStoreKey.accessToken.value: 'token',
       });
       const store = FlutterSecureKeyValueStore(FlutterSecureStorage());
       await store.clearSession();
-      expect(await store.read(SecureStoreKey.ideDevice), isNull);
+      expect(await store.read(SecureStoreKey.legacyIdeDevice), isNull);
       expect(await store.read(SecureStoreKey.accessToken), isNull);
+    },
+  );
+
+  test('deleteRetiredKeys xoá khoá IDE native cũ, giữ khoá khác', () async {
+    FlutterSecureStorage.setMockInitialValues({
+      SecureStoreKey.legacyIdeDevice.value: '{"x":1}',
+      SecureStoreKey.legacyIdeClientId.value: 'mobile-1',
+      SecureStoreKey.accessToken.value: 'token',
+      SecureStoreKey.ideWebDevice.value: '{"y":1}',
+    });
+    const store = FlutterSecureKeyValueStore(FlutterSecureStorage());
+    await store.deleteRetiredKeys();
+    await store.deleteRetiredKeys();
+    expect(await store.read(SecureStoreKey.legacyIdeDevice), isNull);
+    expect(await store.read(SecureStoreKey.legacyIdeClientId), isNull);
+    expect(await store.read(SecureStoreKey.accessToken), 'token');
+    expect(await store.read(SecureStoreKey.ideWebDevice), '{"y":1}');
+  });
+
+  test(
+    'deleteRetiredKeys xoá khoá máy cũ ở đúng chế độ keychain (iOS)',
+    () async {
+      final storage = _RecordingStorage();
+      final store = FlutterSecureKeyValueStore(storage);
+      await store.deleteRetiredKeys();
+      final device = storage.calls.singleWhere(
+        (c) => c.key == SecureStoreKey.legacyIdeDevice.value,
+      );
+      expect(device.op, 'delete');
+      expect(
+        device.ios?.accessibility,
+        KeychainAccessibility.unlocked_this_device,
+      );
+      final clientId = storage.calls.singleWhere(
+        (c) => c.key == SecureStoreKey.legacyIdeClientId.value,
+      );
+      expect(clientId.ios, isNull, reason: 'mã máy cũ ghi ở chế độ mặc định');
     },
   );
 
   test('khoá máy IDE ghi / đọc / xoá ở chế độ chỉ máy này (iOS)', () async {
     final storage = _RecordingStorage();
     final store = FlutterSecureKeyValueStore(storage);
-    await store.write(SecureStoreKey.ideDevice, 'x');
-    await store.read(SecureStoreKey.ideDevice);
-    await store.delete(SecureStoreKey.ideDevice);
+    await store.write(SecureStoreKey.legacyIdeDevice, 'x');
+    await store.read(SecureStoreKey.legacyIdeDevice);
+    await store.delete(SecureStoreKey.legacyIdeDevice);
     await store.clearSession();
     final ide = storage.calls.where(
-      (c) => c.key == SecureStoreKey.ideDevice.value,
+      (c) => c.key == SecureStoreKey.legacyIdeDevice.value,
     );
     expect(ide, hasLength(4));
     for (final call in ide) {

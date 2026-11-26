@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -65,25 +63,5 @@ void main() {
     ]) {
       expect(all, isNot(contains(leaked)));
     }
-  });
-
-  test('mã IDE trong app không tự ghi nhật ký', () {
-    final pattern = RegExp(
-      r'\bdebugPrint\(|(^|[^.\w])print\(|developer\.log\(|RedactingLogger|'
-      r'redactingLoggerProvider|\bdart:developer\b',
-    );
-    final offenders = <String>[];
-    for (final entity in Directory(
-      'lib/features/ide_mobile',
-    ).listSync(recursive: true)) {
-      if (entity is! File || !entity.path.endsWith('.dart')) continue;
-      final lines = entity.readAsLinesSync();
-      for (var i = 0; i < lines.length; i++) {
-        final line = lines[i].trimLeft();
-        if (line.startsWith('//')) continue;
-        if (pattern.hasMatch(line)) offenders.add('${entity.path}:${i + 1}');
-      }
-    }
-    expect(offenders, isEmpty);
   });
 }
