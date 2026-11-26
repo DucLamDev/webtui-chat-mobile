@@ -58,6 +58,7 @@ recording of the IDE screen on Android.
 | Files, documents, photos | Optional, user initiated | Attachments to IDE tasks; kept in the project folder for the life of the project | Company IDE operator |
 | Other user-generated content (prompts, edits) | Optional, user initiated | IDE functionality; IDE chat history kept per account with no automatic deletion in v1; text to speech when the user asks to hear a reply | Company IDE operator; Anthropic (Claude) or OpenAI (Codex / GPT) answer the questions |
 | Device-key identifier and public key | Optional | Device registration and sign-in security | Company IDE operator |
+| User IDs (IDE account name, hash of the email) | Optional, only for a registered device | Device registration and sign-in security; kept until the user revokes the device in the IDE screen | Company IDE operator |
 
 Workspace-member names and profiles are server-side collaboration data; the app
 does not read the Android address book. Data sent to a server selected by the

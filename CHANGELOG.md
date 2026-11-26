@@ -3,6 +3,12 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.69.1 · 26/11/2026
+### Khai cửa hàng: dữ liệu IDE giữ cho thiết bị đã đăng ký
+- Theo trả lời lần 3 của đội IDE: với mỗi điện thoại đã đăng ký, IDE giữ tên tài khoản IDE, mã băm email và khoá công khai
+  của máy tới khi người dùng thu hồi thiết bị. Bổ sung vào bản khai App Store, Google Play và bản nháp chính sách riêng tư.
+  App không đổi gì.
+
 ## 1.69.0 · 26/11/2026
 ### Gỡ VPSTTT IDE bản cũ (native) khỏi app
 - Đội IDE xác nhận màn VPSTTT IDE nhúng thay hẳn bản cũ, nên bỏ toàn bộ mục IDE cũ: các màn, ghép máy bằng mã QR, kênh
