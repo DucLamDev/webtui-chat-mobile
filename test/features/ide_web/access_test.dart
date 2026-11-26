@@ -8,6 +8,7 @@ import 'package:webtui_chat/core/network/self_hosted_server_discovery.dart';
 import 'package:webtui_chat/features/conversations/presentation/widgets/workspace_modules.dart';
 import 'package:webtui_chat/features/ide_mobile/application/ide_access.dart';
 import 'package:webtui_chat/features/ide_web/application/ide_web_access.dart';
+import 'package:webtui_chat/features/ide_web/application/ide_web_providers.dart';
 
 /// TC1: ô "VPSTTT IDE" chỉ hiện ở máy chủ nội bộ đã bật tích hợp.
 SelfHostedServerDiscovery _discovery({
@@ -15,6 +16,7 @@ SelfHostedServerDiscovery _discovery({
   String kind = 'vpsttt_internal',
   Object? ideWeb = true,
   Object? ideWebUrl = 'https://ide.chat.vpsttt.com',
+  Object? ideWebAuthUrl = 'https://ide.vpsttt.net',
   bool ide = false,
 }) => SelfHostedServerDiscovery.fromApiResponse(
   requestedServer: Uri.parse('https://$domain'),
@@ -33,6 +35,7 @@ SelfHostedServerDiscovery _discovery({
         'app_version': '1.0.0',
         'minimum_supported_mobile_version': '1.0.0',
         'ide_web_base_url': ?ideWebUrl,
+        'ide_web_auth_base_url': ?ideWebAuthUrl,
       },
       'deployment': {'status': 'ready'},
       'capabilities': {
@@ -83,6 +86,8 @@ void main() {
       _discovery(ideWeb: null),
       _discovery(ideWeb: 'true'),
       _discovery(ideWebUrl: null),
+      _discovery(ideWebAuthUrl: null),
+      _discovery(ideWebAuthUrl: 'https://ide.chat.vpsttt.com'),
     ]) {
       expect(discovery.ideWebEnabled, isFalse);
       expect(_enabledTiles(discovery), isNot(contains('ide_web')));
@@ -110,6 +115,67 @@ void main() {
     expect(_discovery(ideWebUrl: 42).ideWebBaseUri, isNull);
   });
 
+  test('địa chỉ đăng nhập IDE: đọc chặt, sai / thiếu coi như không có', () {
+    for (final url in const [
+      'https://ide.vpsttt.net',
+      'https://ide.vpsttt.net/',
+      'https://IDE.vpsttt.net',
+      'https://ide.vpsttt.net:443',
+    ]) {
+      final discovery = _discovery(ideWebAuthUrl: url);
+      expect(
+        discovery.ideWebAuthBaseUri,
+        Uri.parse('https://ide.vpsttt.net'),
+        reason: url,
+      );
+      expect(discovery.ideWebEnabled, isTrue, reason: url);
+    }
+    for (final url in const [
+      'http://ide.vpsttt.net',
+      'https://ide.vpsttt.net/appchat/auth/',
+      'https://ide.vpsttt.net/x',
+      'https://ide.vpsttt.net?x=1',
+      'https://ide.vpsttt.net/?x=1',
+      'https://ide.vpsttt.net#x',
+      'https://ide.vpsttt.net:8443',
+      'https://a@ide.vpsttt.net',
+      'https://a:b@ide.vpsttt.net',
+      // Trùng host nhúng / tên miền chat (kể cả dấu chấm cuối).
+      'https://ide.chat.vpsttt.com',
+      'https://IDE.chat.vpsttt.com',
+      'https://ide.chat.vpsttt.com.',
+      'https://chat.vpsttt.com',
+      'https://ide.vpsttt.net.',
+      'https://localhost',
+      'https://ide_vpsttt.net',
+      'javascript:alert(1)',
+      'ide.vpsttt.net',
+      '',
+    ]) {
+      final discovery = _discovery(ideWebAuthUrl: url);
+      expect(discovery.ideWebAuthBaseUri, isNull, reason: url);
+      expect(discovery.ideWebEnabled, isFalse, reason: url);
+    }
+    expect(_discovery(ideWebAuthUrl: 42).ideWebAuthBaseUri, isNull);
+  });
+
+  test('chính sách host có cả địa chỉ đăng nhập; thiếu thì tắt', () {
+    ProviderContainer container(SelfHostedServerDiscovery discovery) {
+      final value = ProviderContainer(
+        overrides: [activeServerDiscoveryProvider.overrideWithValue(discovery)],
+      );
+      addTearDown(value.dispose);
+      return value;
+    }
+
+    final policy = container(_discovery()).read(ideWebHostPolicyProvider)!;
+    expect(policy.origin, 'https://ide.chat.vpsttt.com');
+    expect(policy.authOrigin, 'https://ide.vpsttt.net');
+    final off = container(_discovery(ideWebAuthUrl: null));
+    expect(off.read(ideWebHostPolicyProvider), isNull);
+    expect(off.read(ideWebAuthBaseUriProvider), isNull);
+  });
+
   test(
     'ảnh discovery lưu trên máy giữ nguyên; bản cũ thiếu trường thì tắt',
     () {
@@ -122,7 +188,16 @@ void main() {
         roundTrip(_discovery()).ideWebBaseUri,
         Uri.parse('https://ide.chat.vpsttt.com'),
       );
+      expect(
+        roundTrip(_discovery()).ideWebAuthBaseUri,
+        Uri.parse('https://ide.vpsttt.net'),
+      );
       expect(roundTrip(_discovery()).ideWebEnabled, isTrue);
+      // Ảnh lưu trước bản này: chưa có địa chỉ đăng nhập thì tắt.
+      final old = roundTrip(_discovery(ideWebAuthUrl: null));
+      expect(old.ideWebBaseUri, isNotNull);
+      expect(old.ideWebAuthBaseUri, isNull);
+      expect(old.ideWebEnabled, isFalse);
       expect(
         roundTrip(_discovery(ideWeb: null, ideWebUrl: null)).ideWebEnabled,
         isFalse,

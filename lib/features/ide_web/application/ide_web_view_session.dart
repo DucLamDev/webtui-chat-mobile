@@ -21,6 +21,7 @@ final class IdeWebViewSession {
     required IdeWebRateLimiter limiter,
     required Future<void> Function() disposeFiles,
     required Future<bool> Function(Uri uri) openExternal,
+    required void Function(Uri uri) onAuthFlow,
     required void Function(IdeWebFailureKind kind) onFailed,
     required IdeWebScreenStatus Function() status,
   }) : _dispatcher = dispatcher,
@@ -28,6 +29,7 @@ final class IdeWebViewSession {
        _limiter = limiter,
        _disposeFiles = disposeFiles,
        _openExternal = openExternal,
+       _onAuthFlow = onAuthFlow,
        _onFailed = onFailed,
        _status = status;
 
@@ -38,6 +40,7 @@ final class IdeWebViewSession {
   final IdeWebRateLimiter _limiter;
   final Future<void> Function() _disposeFiles;
   final Future<bool> Function(Uri uri) _openExternal;
+  final void Function(Uri uri) _onAuthFlow;
   final void Function(IdeWebFailureKind kind) _onFailed;
   final IdeWebScreenStatus Function() _status;
 
@@ -82,6 +85,11 @@ final class IdeWebViewSession {
         unawaited(_onMessage(event));
       case IdeWebExternalLink(:final uri):
         unawaited(_onExternal(uri));
+      case IdeWebAuthLink(:final uri):
+        // Người gọi lo một lượt một lúc và hạn riêng.
+        if (_status().active) _onAuthFlow(uri);
+      case IdeWebDownloadLink(:final uri):
+        unawaited(_onDownload(uri));
       case IdeWebPermissionAsked():
         unawaited(_onPermission(event));
     }
@@ -121,6 +129,16 @@ final class IdeWebViewSession {
       }
     } finally {
       _askingExternal = false;
+    }
+  }
+
+  /// Tải tệp bằng vé của IDE: không hỏi, hạn riêng (không tính vào hạn hộp hỏi).
+  Future<void> _onDownload(Uri uri) async {
+    if (!_status().active || !ideWebAllowDownload(_limiter)) return;
+    try {
+      await _openExternal(uri);
+    } on Object {
+      // Không mở được trình duyệt: trang vẫn giữ nguyên.
     }
   }
 

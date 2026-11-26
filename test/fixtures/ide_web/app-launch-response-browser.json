@@ -1,8 +1,8 @@
 {
   "launch_id": "6f1a5b0e-3c1a-4a8b-9d2e-0a3b5c7d9e11",
   "mode": "browser",
-  "state": "c3RhdGUtdmF0LW1hdS0wMTIzNDU2Nzg5MDEyMzQ1Njc4OQ",
-  "browser_url": "https://ide.chat.example.com/_appchat/start#t=ve-mot-lan",
+  "state": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+  "browser_url": "https://ide.example.net/appchat/auth/?flow=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
   "expires_at": "2026-11-25T08:10:00Z",
   "bridge_enabled": true
 }

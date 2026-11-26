@@ -79,7 +79,8 @@ final ideWebAppInfoProvider = Provider<IdeWebAppInfo>(
 /// Chính sách địa chỉ hiện thời; `null` khi tính năng tắt.
 final ideWebHostPolicyProvider = Provider<IdeWebHostPolicy?>((ref) {
   final base = ref.watch(ideWebBaseUriProvider);
-  return base == null ? null : IdeWebHostPolicy(base);
+  final auth = ref.watch(ideWebAuthBaseUriProvider);
+  return base == null || auth == null ? null : IdeWebHostPolicy(base, auth);
 });
 
 final startIdeWebUseCaseProvider = Provider<StartIdeWebUseCase>((ref) {

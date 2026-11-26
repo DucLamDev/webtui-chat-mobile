@@ -15,11 +15,20 @@ Webtui Chat processes:
 ## VPSTTT IDE (Company Server Only, Draft)
 
 On the company's internal server the administrator can enable an embedded VPSTTT
-IDE. Opening it sends your name and email to the IDE. What you type, upload, or
-say there is processed by the IDE and its AI providers. The microphone is used
-only after you agree and stops when you leave the screen. Device keys stay in
-your phone's security chip. Retention, AI providers, and deletion must be
-confirmed by the IDE operator before this section is published.
+IDE. Opening it sends your name and email to the IDE. You sign in to the IDE on
+its own website in your phone's browser, so the chat server does not see your
+IDE password, 2FA code, or PIN. What you type, upload, or say in the IDE is
+processed by the IDE: speech is turned into text by the company's
+speech-recognition service and the audio is not stored; questions are answered
+by Claude (Anthropic) or Codex / GPT (OpenAI), depending on the AI account the
+company gives you; text you ask to hear is read aloud by the company's voice
+service. The IDE keeps your IDE chat history, task prompts, and files until the
+project is deleted or you ask for deletion; there is no automatic deletion
+period yet. To delete them, contact the IDE platform administrator. The
+microphone is used only after you agree and stops when you leave the screen.
+Device keys stay in your phone's security chip. Before this section is
+published, the IDE operator still has to confirm whether the voice service uses
+an outside provider and give a public contact for deletion requests.
 
 ## Why We Process Data
 

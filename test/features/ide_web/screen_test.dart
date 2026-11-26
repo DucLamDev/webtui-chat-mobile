@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webtui_chat/app/providers/foundation_providers.dart';
 import 'package:webtui_chat/core/error/failure.dart';
+import 'package:webtui_chat/core/privacy/background_privacy.dart';
 import 'package:webtui_chat/core/result/result.dart';
 import 'package:webtui_chat/core/security/active_call_tracker.dart';
 import 'package:webtui_chat/design_system/theme/webtui_theme.dart';
@@ -39,9 +40,7 @@ final _enabled = StateProvider<bool>((_) => true);
 final _token = StateProvider<String?>((_) => 'token');
 
 final class _Rig {
-  final repository = FakeIdeWebRepository(
-    launch: Success(IdeWebDirectLaunch(launchId: 'l', entry: testEntry())),
-  );
+  final repository = FakeIdeWebRepository(launch: Success(testDirectLaunch()));
   final pending = FakePendingStore();
   final tokens = FakeTokenRepository();
   final browser = FakeBrowser();
@@ -61,7 +60,9 @@ final class _Rig {
     overrides: [
       ideWebEnabledProvider.overrideWith((ref) => ref.watch(_enabled)),
       ideWebHostPolicyProvider.overrideWith(
-        (ref) => ref.watch(_enabled) ? IdeWebHostPolicy(testBase) : null,
+        (ref) => ref.watch(_enabled)
+            ? IdeWebHostPolicy(testBase, testAuthBase)
+            : null,
       ),
       authAccessTokenProvider.overrideWith((ref) async => ref.watch(_token)),
       ideWebRepositoryProvider.overrideWithValue(repository),
@@ -177,7 +178,8 @@ void main() {
         ..repository.launchResult = Success(testBrowserLaunch());
       await rig.open(tester);
       expect(_key('ide_web_waiting'), findsOneWidget);
-      expect(rig.browser.opened.single.fragment, 't=ve');
+      expect(rig.browser.opened.single.host, 'ide.example.net');
+      expect(rig.browser.opened.single.queryParameters['flow'], 've');
       rig.inbox.deliver(callbackUri(state: 'la'));
       await rig.pump(tester);
       expect(_key('ide_web_waiting'), findsOneWidget);
@@ -256,9 +258,7 @@ void main() {
         ..repository.launchResult = failResult(FailureKind.network);
       await rig.open(tester);
       expect(find.text('Chưa kết nối được VPSTTT IDE'), findsOneWidget);
-      rig.repository.launchResult = Success(
-        IdeWebDirectLaunch(launchId: 'l', entry: testEntry()),
-      );
+      rig.repository.launchResult = Success(testDirectLaunch());
       await tester.tap(find.text('Thử lại'));
       await rig.pump(tester);
       expect(_key('ide_web_view'), findsOneWidget);
@@ -287,7 +287,7 @@ void main() {
       await tester.tap(_key('ide_web_close_action'));
       await rig.pump(tester);
       rig.repository.launchResult = Success(
-        IdeWebDirectLaunch(launchId: 'l', entry: testEntry(bridge: false)),
+        testDirectLaunch(entry: testEntry(bridge: false)),
       );
       await tester.tap(find.text('mở'));
       await rig.pump(tester);
@@ -556,6 +556,30 @@ void main() {
       expect(granted, isFalse);
     });
 
+    testWidgets('chặn chụp / quay khi màn IDE đang hiện, thôi khi rời màn', (
+      tester,
+    ) async {
+      BackgroundPrivacyController.resetSecureHolds();
+      addTearDown(BackgroundPrivacyController.resetSecureHolds);
+      final rig = _Rig();
+      await rig.open(tester);
+      expect(BackgroundPrivacyController.secureHolds, 1);
+      unawaited(
+        Navigator.of(
+          tester.element(find.byType(IdeWebScreen)),
+        ).push(MaterialPageRoute<void>(builder: (_) => const Scaffold())),
+      );
+      await rig.pump(tester);
+      expect(BackgroundPrivacyController.secureHolds, 0);
+      Navigator.of(tester.element(find.byType(Scaffold).last)).pop();
+      await rig.pump(tester);
+      expect(BackgroundPrivacyController.secureHolds, 1);
+      await tester.pumpWidget(const SizedBox());
+      rig.container.dispose();
+      await rig.pump(tester);
+      expect(BackgroundPrivacyController.secureHolds, 0);
+    });
+
     testWidgets('mic dừng khi màn khác che và khi rời màn', (tester) async {
       final rig = _Rig();
       await rig.open(tester);
@@ -602,6 +626,194 @@ void main() {
       rig.view.add(IdeWebExternalLink(Uri.parse('https://example.com')));
       await rig.pump(tester);
       expect(find.byType(IdeWebPromptSheet), findsNothing);
+      expect(rig.launcher.opened, isEmpty);
+    });
+
+    final authUrl = Uri.parse('$testAuthOrigin/appchat/auth/?flow=pin');
+    final downloadUrl = Uri.parse('$testAuthOrigin/appchat/download/ve');
+
+    testWidgets('lượt webview giữ lượt chờ để nâng quyền', (tester) async {
+      final rig = _Rig();
+      await rig.open(tester);
+      expect(rig.pending.value?.launchId, 'l');
+      expect(rig.pending.value?.elevation, isTrue);
+      // Đóng màn: không báo máy chủ huỷ lượt đã vào.
+      await tester.tap(_key('ide_web_close'));
+      await rig.pump(tester);
+      expect(rig.repository.cancelled, isEmpty);
+      expect(rig.pending.value, isNull);
+    });
+
+    testWidgets('PIN (iOS): mở trình duyệt không hỏi, callback thì nạp lại', (
+      tester,
+    ) async {
+      final rig = _Rig();
+      await rig.open(tester);
+      final first = rig.view;
+      rig.browser.result = IdeWebBrowserCallback(callbackUri());
+      rig.view.add(IdeWebAuthLink(authUrl));
+      await rig.pump(tester);
+      expect(find.byType(IdeWebPromptSheet), findsNothing);
+      expect(rig.browser.opened, [authUrl]);
+      expect(rig.repository.completes.single['launch_id'], 'l');
+      expect(rig.repository.completes.single['state'], testState);
+      expect(rig.views, hasLength(2));
+      expect(first.log.last, 'dispose');
+      expect(rig.view.log, contains('open'));
+      expect(_key('ide_web_view'), findsOneWidget);
+      expect(rig.repository.launches, hasLength(1));
+      expect(rig.repository.cancelled, isEmpty);
+    });
+
+    testWidgets('PIN (Android): mở trình duyệt, callback về qua deep link', (
+      tester,
+    ) async {
+      final rig = _Rig();
+      await rig.open(tester);
+      rig.view.add(IdeWebAuthLink(authUrl));
+      await rig.pump(tester);
+      expect(rig.browser.opened, [authUrl]);
+      // Vẫn giữ màn nhúng, không chuyển sang màn chờ trình duyệt.
+      expect(_key('ide_web_view'), findsOneWidget);
+      expect(_key('ide_web_waiting'), findsNothing);
+      // Trình duyệt còn mở: yêu cầu thứ hai không mở thêm.
+      rig.view.add(IdeWebAuthLink(authUrl));
+      await rig.pump(tester);
+      expect(rig.browser.opened, hasLength(1));
+      rig.inbox.deliver(callbackUri());
+      await rig.pump(tester);
+      expect(rig.repository.completes, hasLength(1));
+      expect(rig.views, hasLength(2));
+      expect(_key('ide_web_view'), findsOneWidget);
+    });
+
+    for (final result in const <IdeWebBrowserResult>[
+      IdeWebBrowserCancelled(),
+      IdeWebBrowserFailed(),
+    ]) {
+      testWidgets(
+        'trình duyệt ${result.runtimeType}: giữ nguyên trang, không huỷ lượt',
+        (tester) async {
+          final rig = _Rig();
+          await rig.open(tester);
+          rig.browser.result = result;
+          rig.view.add(IdeWebAuthLink(authUrl));
+          await rig.pump(tester);
+          expect(rig.browser.opened, [authUrl]);
+          expect(_key('ide_web_view'), findsOneWidget);
+          expect(rig.views, hasLength(1));
+          expect(rig.view.log, isNot(contains('dispose')));
+          expect(rig.repository.cancelled, isEmpty);
+          expect(rig.repository.completes, isEmpty);
+          expect(rig.pending.value?.launchId, 'l');
+          // Mở lại được ngay (chỉ đặt PIN, không có callback).
+          rig.view.add(IdeWebAuthLink(authUrl));
+          await rig.pump(tester);
+          expect(rig.browser.opened, hasLength(2));
+        },
+      );
+    }
+
+    testWidgets(
+      'Android: người dùng đóng trình duyệt quay về thì mở lại được',
+      (tester) async {
+        final rig = _Rig();
+        await rig.open(tester);
+        rig.view.add(IdeWebAuthLink(authUrl));
+        await rig.pump(tester);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        await rig.pump(tester);
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await rig.pump(tester);
+        expect(_key('ide_web_view'), findsOneWidget);
+        rig.view.add(IdeWebAuthLink(authUrl));
+        await rig.pump(tester);
+        expect(rig.browser.opened, hasLength(2));
+        await tester.pump(const Duration(minutes: 3));
+      },
+    );
+
+    testWidgets('hai yêu cầu liền nhau chỉ mở một trình duyệt', (tester) async {
+      final rig = _Rig();
+      await rig.open(tester);
+      rig.browser.gate = Completer<IdeWebBrowserResult>();
+      rig.view.add(IdeWebAuthLink(authUrl));
+      rig.view.add(IdeWebAuthLink(authUrl));
+      await rig.pump(tester);
+      expect(rig.browser.opened, hasLength(1));
+      rig.browser.gate!.complete(const IdeWebBrowserCancelled());
+      await rig.pump(tester);
+      expect(_key('ide_web_view'), findsOneWidget);
+    });
+
+    testWidgets('nâng quyền lỗi ở máy chủ: đóng trang cũ, báo lỗi', (
+      tester,
+    ) async {
+      final rig = _Rig();
+      await rig.open(tester);
+      rig.repository.completeResult = failResult(FailureKind.network);
+      rig.browser.result = IdeWebBrowserCallback(callbackUri());
+      rig.view.add(IdeWebAuthLink(authUrl));
+      await rig.pump(tester);
+      expect(_key('ide_web_unavailable'), findsOneWidget);
+      expect(rig.view.log.last, 'dispose');
+    });
+
+    testWidgets('trang đăng nhập có hạn riêng, không ăn vào hạn hộp hỏi', (
+      tester,
+    ) async {
+      final rig = _Rig();
+      await rig.open(tester);
+      rig.browser.result = const IdeWebBrowserCancelled();
+      for (var i = 0; i < 6; i++) {
+        rig.view.add(IdeWebAuthLink(authUrl));
+        await rig.pump(tester);
+      }
+      expect(rig.browser.opened, hasLength(5));
+      for (var i = 0; i < 12; i++) {
+        rig.view.add(IdeWebDownloadLink(downloadUrl));
+        await rig.pump(tester);
+      }
+      expect(rig.launcher.opened, hasLength(10));
+      expect(find.byType(IdeWebPromptSheet), findsNothing);
+      // Hộp hỏi liên kết ngoài vẫn còn đủ hạn.
+      rig.view.add(IdeWebExternalLink(Uri.parse('https://example.com')));
+      await rig.pump(tester);
+      expect(find.byType(IdeWebPromptSheet), findsOneWidget);
+      await tester.tap(_key('ide_web_prompt_cancel'));
+      await rig.pump(tester);
+    });
+
+    testWidgets('tải tệp bằng vé: mở trình duyệt, không hỏi', (tester) async {
+      final rig = _Rig();
+      await rig.open(tester);
+      rig.view.add(IdeWebDownloadLink(downloadUrl));
+      await rig.pump(tester);
+      expect(find.byType(IdeWebPromptSheet), findsNothing);
+      expect(rig.launcher.opened, ['$downloadUrl']);
+      expect(rig.browser.opened, isEmpty);
+      expect(_key('ide_web_view'), findsOneWidget);
+    });
+
+    testWidgets('khoá app: không mở trang đăng nhập / tải tệp', (tester) async {
+      final rig = _Rig();
+      await rig.open(tester);
+      rig.locked.value = true;
+      await rig.pump(tester);
+      rig.view.add(IdeWebAuthLink(authUrl));
+      rig.view.add(IdeWebDownloadLink(downloadUrl));
+      await rig.pump(tester);
+      expect(rig.browser.opened, isEmpty);
       expect(rig.launcher.opened, isEmpty);
     });
 

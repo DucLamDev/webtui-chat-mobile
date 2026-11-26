@@ -21,6 +21,8 @@ import 'package:webtui_chat/features/ide_web/domain/ide_web_ports.dart';
 
 const testOrigin = 'https://ide.chat.example.com';
 final testBase = Uri.parse(testOrigin);
+const testAuthOrigin = 'https://ide.example.net';
+final testAuthBase = Uri.parse(testAuthOrigin);
 const testOwner = IdeWebOwner(scopeId: 'scope-1', userId: 'user-1');
 const otherOwner = IdeWebOwner(scopeId: 'scope-1', userId: 'user-2');
 const testState = 'c3RhdGUtdmF0LW1hdS0wMTIzNDU2Nzg5MDEyMzQ1Njc4OQ';
@@ -49,9 +51,20 @@ IdeWebBrowserLaunch testBrowserLaunch({String? url, String id = 'launch-1'}) =>
     IdeWebBrowserLaunch(
       launchId: id,
       state: testState,
-      browserUrl: Uri.parse(url ?? '$testOrigin/_appchat/start#t=ve'),
+      browserUrl: Uri.parse(url ?? '$testAuthOrigin/appchat/auth/?flow=ve'),
       expiresAt: DateTime.utc(2030),
     );
+
+IdeWebDirectLaunch testDirectLaunch({
+  String id = 'l',
+  IdeWebEntry? entry,
+  DateTime? launchExpiresAt,
+}) => IdeWebDirectLaunch(
+  launchId: id,
+  state: testState,
+  entry: entry ?? testEntry(),
+  launchExpiresAt: launchExpiresAt ?? DateTime.utc(2030),
+);
 
 FailureResult<T> failResult<T>(FailureKind kind, {String? code}) =>
     FailureResult(Failure(kind: kind, message: 'lỗi', code: code));
@@ -125,10 +138,13 @@ final class FakePendingStore implements IdeWebPendingStore {
   @override
   Future<PendingIdeWebLaunch?> read() async => value;
 
+  void Function()? onWrite;
+
   @override
   Future<void> write(PendingIdeWebLaunch launch) async {
     log.add('write');
     value = launch;
+    onWrite?.call();
   }
 }
 
@@ -405,6 +421,7 @@ final class FakeMicPermission implements IdeWebMicPermission {
 
 final class FakeBrowser implements IdeWebBrowser {
   IdeWebBrowserResult result = const IdeWebBrowserOpened();
+  Completer<IdeWebBrowserResult>? gate;
   final opened = <Uri>[];
 
   @override
@@ -413,7 +430,7 @@ final class FakeBrowser implements IdeWebBrowser {
     required String scheme,
   }) async {
     opened.add(url);
-    return result;
+    return gate?.future ?? result;
   }
 }
 
