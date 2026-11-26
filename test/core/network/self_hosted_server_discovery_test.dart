@@ -329,31 +329,24 @@ void main() {
     expect(restored.capabilities.readReceipts, isTrue);
   });
 
-  test('ide được đọc, thiếu cờ = tắt, và giữ trong bản lưu', () {
+  test('máy chủ cũ còn gửi cờ ide (IDE native đã gỡ): bỏ qua êm', () {
     final payload = _payload();
     final discovery =
         (payload['data']! as Map<String, Object?>)['discovery']!
             as Map<String, Object?>;
-    final old = SelfHostedServerDiscovery.fromApiResponse(
-      payload: payload,
-      requestedServer: Uri.parse('https://chat.company.example'),
-      mobileVersion: '1.2.0',
-    );
-    expect(old.capabilities.ide, isFalse);
-    expect(old.capabilities.toJson()['ide'], isFalse);
-
     (discovery['capabilities']! as Map<String, Object?>)['ide'] = true;
     final parsed = SelfHostedServerDiscovery.fromApiResponse(
       payload: payload,
       requestedServer: Uri.parse('https://chat.company.example'),
       mobileVersion: '1.2.0',
     );
-    expect(parsed.capabilities.ide, isTrue);
+    expect(parsed.capabilities.toJson().containsKey('ide'), isFalse);
+    expect(parsed.capabilities.ideWeb, isFalse);
     final restored = SelfHostedServerDiscovery.fromStorageSnapshot(
       encodedSnapshot: parsed.toStorageSnapshot(),
       mobileVersion: '1.2.0',
     );
-    expect(restored.capabilities.ide, isTrue);
+    expect(restored.capabilities.toJson().containsKey('ide'), isFalse);
   });
 
   test('cold-start snapshot keeps account, privacy and session policy', () {

@@ -82,12 +82,6 @@ dependencies:
   opus_dart: ^3.0.1
   opus_flutter: ^3.0.3
   gal: ^3.0.1
-  cryptography: ^2.9.0
-  markdown: ^7.3.1
-  speech_to_text: ^7.5.0
-  xterm: ^4.0.0
-  wakelock_plus: ^1.5.2
-  re_highlight: ^0.0.3
   # Biết đang dùng Wi-Fi hay dữ liệu di động (tự tải ảnh / lưu video vào kho).
   # Đã có sẵn qua livekit_client, khai trực tiếp đúng bản trong pubspec.lock.
   connectivity_plus: ^7.3.1

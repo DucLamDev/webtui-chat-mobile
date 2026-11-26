@@ -26,10 +26,10 @@ enum SecureStoreKey {
   appLockPinHash('app_lock_pin_hash'),
   appLockIdleMinutes('app_lock_idle_minutes'),
   serverAccounts('server_accounts_v1'),
-  // Khoá thiết bị gắn IDE; đăng xuất gỡ gắn (xoá cùng phiên).
-  ideDevice('ide_device_v1'),
-  // Mã máy (`mobile-<uuid>`) báo cho phiên AI của IDE; giữ cố định theo máy.
-  ideClientId('ide_client_id_v1'),
+  // Đã bỏ cùng IDE native cũ: chỉ còn để dọn máy đã cài bản cũ
+  // ([FlutterSecureKeyValueStore.deleteRetiredKeys]). Không dùng lại tên này.
+  legacyIdeDevice('ide_device_v1'),
+  legacyIdeClientId('ide_client_id_v1'),
   // Lượt mở VPSTTT IDE (WebView) đang chờ trình duyệt; xoá cùng phiên.
   ideWebPending('ide_web_pending_v1'),
   // Siêu dữ liệu khoá thiết bị của VPSTTT IDE: GIỮ khi đăng xuất (Smart OTP),
@@ -55,14 +55,14 @@ final class FlutterSecureKeyValueStore implements SecureKeyValueStore {
 
   final FlutterSecureStorage _storage;
 
-  /// Khoá gắn IDE chỉ ở máy này: không theo bản sao lưu / iCloud sang iPhone
+  /// Khoá IDE chỉ ở máy này: không theo bản sao lưu / iCloud sang iPhone
   /// khác. Đọc, ghi, xoá đều phải cùng chế độ (keychain lọc theo chế độ).
   static const _ideDeviceIos = IOSOptions(
     accessibility: KeychainAccessibility.unlocked_this_device,
   );
 
   static IOSOptions? _iosOptions(SecureStoreKey key) => switch (key) {
-    SecureStoreKey.ideDevice ||
+    SecureStoreKey.legacyIdeDevice ||
     SecureStoreKey.ideWebPending ||
     SecureStoreKey.ideWebDevice => _ideDeviceIos,
     _ => null,
@@ -96,8 +96,17 @@ final class FlutterSecureKeyValueStore implements SecureKeyValueStore {
       delete(SecureStoreKey.sessionPersistence),
       delete(SecureStoreKey.activeWorkspaceId),
       delete(SecureStoreKey.activeWorkspaceInstanceScopeId),
-      delete(SecureStoreKey.ideDevice),
+      delete(SecureStoreKey.legacyIdeDevice),
       delete(SecureStoreKey.ideWebPending),
+    ]);
+  }
+
+  /// Xoá khoá của IDE native cũ (bản gắn máy, mã máy) còn sót trên máy đã cài
+  /// bản cũ. Chạy mỗi lần mở app; khoá không còn thì không làm gì.
+  Future<void> deleteRetiredKeys() async {
+    await Future.wait([
+      delete(SecureStoreKey.legacyIdeDevice),
+      delete(SecureStoreKey.legacyIdeClientId),
     ]);
   }
 }

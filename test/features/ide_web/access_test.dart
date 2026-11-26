@@ -6,7 +6,6 @@ import 'package:webtui_chat/app/flavor/app_flavor.dart';
 import 'package:webtui_chat/app/providers/foundation_providers.dart';
 import 'package:webtui_chat/core/network/self_hosted_server_discovery.dart';
 import 'package:webtui_chat/features/conversations/presentation/widgets/workspace_modules.dart';
-import 'package:webtui_chat/features/ide_mobile/application/ide_access.dart';
 import 'package:webtui_chat/features/ide_web/application/ide_web_access.dart';
 import 'package:webtui_chat/features/ide_web/application/ide_web_providers.dart';
 
@@ -69,10 +68,10 @@ Set<String> _enabledTiles(SelfHostedServerDiscovery? discovery) {
 
 void main() {
   // Nền mặc định của flutter_test là Android.
-  test('bật đủ điều kiện: hiện ô mới, ẩn ô IDE cũ, giữ nguyên ô khác', () {
+  test('bật đủ điều kiện: hiện ô mới; cờ ide cũ không còn mở ô IDE nào', () {
     expect(_enabledTiles(_discovery(ide: true)), {'ide_web'});
     expect(_enabledTiles(_discovery()), {'ide_web'});
-    expect(_enabledTiles(_discovery(ide: true, ideWeb: false)), {'ide'});
+    expect(_enabledTiles(_discovery(ide: true, ideWeb: false)), isEmpty);
     expect(_enabledTiles(null), isEmpty);
   });
 

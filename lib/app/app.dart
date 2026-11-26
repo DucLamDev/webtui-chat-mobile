@@ -100,20 +100,6 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
     );
   }
 
-  /// Cổng vân tay IDE đếm thời gian ở nền cho cả app, không chỉ lúc đang mở
-  /// màn IDE (ra tab chat, để nền lâu rồi vào lại vẫn phải xác thực).
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (!ref.exists(ideAccessControllerProvider)) return;
-    final ide = ref.read(ideAccessControllerProvider);
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.hidden) {
-      ide.onBackground();
-    } else if (state == AppLifecycleState.resumed) {
-      ide.onForeground();
-    }
-  }
-
   @override
   void didChangePlatformBrightness() {
     final next = ui.PlatformDispatcher.instance.platformBrightness;
@@ -162,16 +148,10 @@ class _WebTuiChatAppState extends ConsumerState<WebTuiChatApp>
     });
   }
 
-  /// Người khác (hoặc máy chủ khác) vừa đăng nhập: xoá hẳn bản gắn IDE và khoá
-  /// xác nhận của người trước, không đợi tới lúc mở mục IDE.
+  /// Người khác (hoặc máy chủ khác) vừa đăng nhập: xoá khoá thiết bị và dữ
+  /// liệu WebView VPSTTT IDE của người trước, không đợi tới lúc mở mục IDE.
   Future<void> _dropOtherAccountIdeBinding() async {
     try {
-      await ref.read(ideCredentialsProvider.future);
-    } on Object {
-      // Chưa có máy chủ / không đọc được kho: lần mở IDE sau sẽ dọn.
-    }
-    try {
-      // VPSTTT IDE nhúng: khoá thiết bị và dữ liệu WebView của người trước.
       await ref.read(dropOtherIdeWebOwnerUseCaseProvider).execute();
     } on Object {
       // Lần mở màn IDE sau sẽ dọn.

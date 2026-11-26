@@ -143,6 +143,7 @@ final class ScopedNotificationQuickReply {
   final String? messageId;
 }
 
+/// Liên kết `webtui://ide/...` của IDE native cũ (đã gỡ): không hiện, không mở.
 bool _looksLikeIdeLink(String? value) {
   final uri = value == null ? null : Uri.tryParse(value.trim());
   return uri != null &&
@@ -162,7 +163,6 @@ Map<String, String>? scopedNotificationRoutingData(Map<String, Object?> data) {
     'notification_id',
     'message_id',
     'approval_id',
-    // Thông báo IDE (webtui://ide/...) chỉ có `tag` làm mã duy nhất.
     'tag',
   ], 256);
   if (instanceId == null ||
@@ -179,7 +179,7 @@ Map<String, String>? scopedNotificationRoutingData(Map<String, Object?> data) {
   );
   final ideLink = _looksLikeIdeLink(target.deepLink);
   if (!target.isBoundToInstance(instanceId) ||
-      (ideLink && target.ideLocation == null) ||
+      ideLink ||
       (!target.canOpenConversation &&
           target.deepLink == null &&
           !target.isApprovalRequest &&

@@ -132,19 +132,18 @@ class WorkspaceToolsScreen extends ConsumerWidget {
 
 IconData _moduleIcon(WorkspaceModule module) => switch (module.id) {
   'my_notes' => Icons.sticky_note_2_rounded,
-  'ide' || 'ide_web' => Icons.terminal_rounded,
+  'ide_web' => Icons.terminal_rounded,
   _ => workShortcutIcon(null),
 };
 
 Color _moduleColor(WorkspaceModule module) => switch (module.id) {
   'my_notes' => workAppViolet,
-  'ide' || 'ide_web' => workAppBlue,
+  'ide_web' => workAppBlue,
   _ => workAppBlue,
 };
 
 String _moduleLabel(WorkspaceModule module) => switch (module.id) {
   'my_notes' => tr('Ghi chú', 'Notes'),
-  'ide' => 'IDE',
   'ide_web' => 'VPSTTT IDE',
   _ => module.title,
 };

@@ -4,9 +4,6 @@ import 'package:flutter/services.dart';
 
 import '../../l10n/app_strings.dart';
 
-/// Kết quả hỏi vân tay / mã khoá màn hình của máy.
-enum DeviceOwnerAuthResult { ok, cancelled, notEnrolled, unavailable }
-
 /// Lỗi khi tạo / dùng khoá xác nhận trong chip bảo mật.
 final class StepKeyException implements Exception {
   const StepKeyException(this.code);
@@ -53,26 +50,6 @@ final class BiometricAuthService {
     }
   }
 
-  /// Hỏi chủ máy bằng vân tay / khuôn mặt hoặc mã khoá màn hình.
-  Future<DeviceOwnerAuthResult> authenticateDeviceOwner(String reason) async {
-    try {
-      final value = await _channel.invokeMethod<String>(
-        'authenticateDeviceOwner',
-        {'reason': reason},
-      );
-      return switch (value) {
-        'ok' => DeviceOwnerAuthResult.ok,
-        'cancelled' => DeviceOwnerAuthResult.cancelled,
-        'notEnrolled' => DeviceOwnerAuthResult.notEnrolled,
-        _ => DeviceOwnerAuthResult.unavailable,
-      };
-    } on MissingPluginException {
-      return DeviceOwnerAuthResult.unavailable;
-    } on PlatformException {
-      return DeviceOwnerAuthResult.unavailable;
-    }
-  }
-
   /// Tạo khoá ký P-256 trong chip bảo mật (mỗi lần ký phải xác nhận). Trả
   /// khoá công khai SPKI DER base64.
   Future<String> createStepKey(String alias) async {
@@ -88,18 +65,6 @@ final class BiometricAuthService {
       throw const StepKeyException('unavailable');
     } on PlatformException catch (error) {
       throw StepKeyException(_stepCode(error));
-    }
-  }
-
-  /// Mili giây của đồng hồ máy tính cả lúc ngủ, không chỉnh được (Android
-  /// `elapsedRealtime`, iOS `CLOCK_MONOTONIC`). `null` nếu không đọc được.
-  Future<int?> uptimeMs() async {
-    try {
-      return await _channel.invokeMethod<int>('uptimeMs');
-    } on MissingPluginException {
-      return null;
-    } on PlatformException {
-      return null;
     }
   }
 

@@ -824,21 +824,8 @@ String? _eventId(RemoteMessage message) {
   return notificationEventId(message.data, messageId: message.messageId);
 }
 
-bool _isIdeNotification(Map<String, Object?> data) {
-  final type = data['event_type']?.toString().trim().toLowerCase() ?? '';
-  final tag = data['tag']?.toString().trim().toLowerCase() ?? '';
-  return type.startsWith('ide_') || tag.startsWith('ide:');
-}
-
-/// Mã chống trùng thông báo. Loại `ide_*`: `tag` không đổi giữa các lượt nên
-/// ghép với mã tin FCM; không có mã tin thì không chống trùng theo tag.
+/// Mã chống trùng thông báo.
 String? notificationEventId(Map<String, Object?> data, {String? messageId}) {
-  final fcmId = messageId?.trim();
-  if (_isIdeNotification(data)) {
-    final tag = data['tag']?.toString().trim() ?? '';
-    if (fcmId == null || fcmId.isEmpty) return null;
-    return tag.isEmpty ? fcmId : '$tag|$fcmId';
-  }
   return _eventIdFromData(data) ?? messageId;
 }
 

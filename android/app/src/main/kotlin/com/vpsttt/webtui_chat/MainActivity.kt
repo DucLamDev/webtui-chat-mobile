@@ -129,12 +129,6 @@ class MainActivity : FlutterActivity() {
         super.cleanUpFlutterEngine(flutterEngine)
     }
 
-    @Suppress("DEPRECATION")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (ideDeviceSecurity.onActivityResult(requestCode, resultCode, data)) return
-        super.onActivityResult(requestCode, resultCode, data)
-    }
-
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)

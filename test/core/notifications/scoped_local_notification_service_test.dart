@@ -15,20 +15,37 @@ final _instanceB = InstanceScope(
 );
 
 void main() {
-  test('thông báo ide_*: mã chống trùng theo tag + messageId', () {
-    const data = <String, Object?>{
-      'event_type': 'ide_approval',
-      'tag': 'ide:approval:k1',
-    };
-    final first = notificationEventId(data, messageId: 'm1');
-    final second = notificationEventId(data, messageId: 'm2');
-    expect(first, isNot(second));
-    expect(notificationEventId(data, messageId: 'm1'), first);
-    expect(notificationEventId(data), isNull);
-    // Loại khác giữ hành vi cũ: tag là mã sự kiện.
+  test('mã chống trùng: tag là mã sự kiện, kể cả loại ide_* cũ', () {
     expect(
       notificationEventId(const {'tag': 'chat:1'}, messageId: 'm1'),
       'chat:1',
+    );
+    expect(
+      notificationEventId(const {
+        'event_type': 'ide_approval',
+        'tag': 'ide:approval:k1',
+      }, messageId: 'm1'),
+      'ide:approval:k1',
+    );
+    expect(notificationEventId(const {}, messageId: 'm1'), 'm1');
+  });
+  test('liên kết webtui://ide/... của IDE native cũ: không hiện, không mở', () {
+    for (final link in [
+      'webtui://ide/ai/0123456789abcdef01234567',
+      'webtui://ide/jobs/j_0123456789abcdef',
+      'webtui://ide/mergeq?pr=1',
+      'webtui://ide/tasks',
+    ]) {
+      final data = {
+        ..._messageData(instanceId: _instanceBId),
+        'event_type': 'ide_approval',
+        'deep_link': link,
+      };
+      expect(scopedNotificationRoutingData(data), isNull, reason: link);
+    }
+    expect(
+      scopedNotificationRoutingData(_messageData(instanceId: _instanceBId)),
+      isNotNull,
     );
   });
   approvalNotificationTests();
