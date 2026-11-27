@@ -314,13 +314,10 @@ final class SelfHostedServerDiscovery {
       domain == vpstttInternalHost && zoneKind == vpstttInternalZoneKind;
 
   /// VPSTTT IDE nhúng: zone nội bộ, máy chủ bật `ide_web`, có cả địa chỉ nhúng
-  /// lẫn địa chỉ đăng nhập hợp lệ. Thiếu một điều kiện là tắt; máy chủ vẫn kiểm
-  /// ở mọi API.
+  /// (địa chỉ đăng nhập riêng là tuỳ chọn: chế độ đăng nhập trong WebView không
+  /// có). Thiếu một điều kiện là tắt; máy chủ vẫn kiểm ở mọi API.
   bool get ideWebEnabled =>
-      vpstttInternalModules &&
-      capabilities.ideWeb &&
-      ideWebBaseUri != null &&
-      ideWebAuthBaseUri != null;
+      vpstttInternalModules && capabilities.ideWeb && ideWebBaseUri != null;
 
   /// Tab / kênh Automation (kênh bot nội bộ) chỉ có trên server nội bộ VPSTTT.
   bool get automationEnabled =>

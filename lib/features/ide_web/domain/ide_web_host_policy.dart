@@ -12,15 +12,21 @@ const _downloadPrefix = '/appchat/download/';
 /// Địa chỉ nào được ở trong WebView: đúng `https://ide.<chat>` cổng 443. Trang
 /// đăng nhập / tải tệp nằm trên tên miền riêng của IDE ([authOrigin]).
 final class IdeWebHostPolicy {
-  IdeWebHostPolicy(Uri baseUri, Uri authBaseUri)
+  IdeWebHostPolicy(Uri baseUri, [Uri? authBaseUri])
     : host = baseUri.host.toLowerCase(),
       origin = 'https://${baseUri.host.toLowerCase()}',
-      authHost = authBaseUri.host.toLowerCase(),
-      authOrigin = 'https://${authBaseUri.host.toLowerCase()}',
+      authHost = authBaseUri?.host.toLowerCase(),
+      authOrigin = authBaseUri == null
+          ? null
+          : 'https://${authBaseUri.host.toLowerCase()}',
       assert(baseUri.scheme == 'https' && baseUri.host.isNotEmpty),
-      assert(authBaseUri.scheme == 'https' && authBaseUri.host.isNotEmpty),
       assert(
-        baseUri.host.toLowerCase() != authBaseUri.host.toLowerCase(),
+        authBaseUri == null ||
+            (authBaseUri.scheme == 'https' && authBaseUri.host.isNotEmpty),
+      ),
+      assert(
+        authBaseUri == null ||
+            baseUri.host.toLowerCase() != authBaseUri.host.toLowerCase(),
         'Tên miền đăng nhập phải khác tên miền nhúng',
       );
 
@@ -29,9 +35,11 @@ final class IdeWebHostPolicy {
   /// Không có dấu `/` cuối (dùng trong chuỗi ký và cho lớp native).
   final String origin;
 
-  /// Host đăng nhập của IDE (`runtime.ide_web_auth_base_url`).
-  final String authHost;
-  final String authOrigin;
+  /// Host đăng nhập của IDE (`runtime.ide_web_auth_base_url`); `null` ở chế độ
+  /// đăng nhập trong WebView (máy chủ không trả địa chỉ này): khi đó không có
+  /// lớp [IdeWebUrlClass.authFlow], đường tải tệp nằm ngay trên host nhúng.
+  final String? authHost;
+  final String? authOrigin;
 
   Uri get homeUri => Uri.parse('$origin/appchat/');
 
@@ -53,9 +61,20 @@ final class IdeWebHostPolicy {
     }
     final uriHost = uri.host.toLowerCase();
     if (uriHost == host) {
-      return uri.port == 443 ? IdeWebUrlClass.internal : IdeWebUrlClass.blocked;
+      if (uri.port != 443) return IdeWebUrlClass.blocked;
+      // Không có host đăng nhập riêng: link tải tệp trên host nhúng vẫn mở
+      // bằng trình duyệt hệ thống như link tải cũ.
+      if (authHost == null &&
+          !uri.hasFragment &&
+          rawPathSafe &&
+          ideWebPathIsSafe(uri.path) &&
+          uri.path.startsWith(_downloadPrefix)) {
+        return IdeWebUrlClass.download;
+      }
+      return IdeWebUrlClass.internal;
     }
-    if (uriHost == authHost &&
+    if (authHost != null &&
+        uriHost == authHost &&
         uri.port == 443 &&
         !uri.hasFragment &&
         rawPathSafe &&

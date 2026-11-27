@@ -314,6 +314,27 @@ void main() {
       );
     });
 
+    test('không có host đăng nhập, cầu nối tắt: mở thẳng WebView', () async {
+      final rig = _Rig()
+        ..policy = IdeWebHostPolicy(testBase)
+        ..repository.launchResult = Success(
+          testDirectLaunch(id: 'launch-1', entry: testEntry(bridge: false)),
+        );
+      final view = (await rig.start.execute()).valueOrNull;
+      expect(view, isA<IdeWebStartView>());
+      expect((view! as IdeWebStartView).entry.bridgeEnabled, isFalse);
+      expect(rig.repository.cancelled, isEmpty);
+    });
+
+    test('không có host đăng nhập: lượt browser bị từ chối', () async {
+      final rig = _Rig()..policy = IdeWebHostPolicy(testBase);
+      expect(
+        (await rig.start.execute()).failureOrNull?.code,
+        'IDE_WEB_UNAVAILABLE',
+      );
+      expect(rig.pending.value, isNull);
+    });
+
     test('enter_url lạ: bỏ lượt, không ghi gì', () async {
       final rig = _Rig()
         ..repository.launchResult = Success(

@@ -85,11 +85,17 @@ void main() {
       _discovery(ideWeb: null),
       _discovery(ideWeb: 'true'),
       _discovery(ideWebUrl: null),
-      _discovery(ideWebAuthUrl: null),
-      _discovery(ideWebAuthUrl: 'https://ide.chat.vpsttt.com'),
     ]) {
       expect(discovery.ideWebEnabled, isFalse);
       expect(_enabledTiles(discovery), isNot(contains('ide_web')));
+    }
+    // Không (hoặc sai) địa chỉ đăng nhập: vẫn bật, đăng nhập trong WebView.
+    for (final discovery in [
+      _discovery(ideWebAuthUrl: null),
+      _discovery(ideWebAuthUrl: 'https://ide.chat.vpsttt.com'),
+    ]) {
+      expect(discovery.ideWebEnabled, isTrue);
+      expect(_enabledTiles(discovery), contains('ide_web'));
     }
   });
 
@@ -153,27 +159,37 @@ void main() {
     ]) {
       final discovery = _discovery(ideWebAuthUrl: url);
       expect(discovery.ideWebAuthBaseUri, isNull, reason: url);
-      expect(discovery.ideWebEnabled, isFalse, reason: url);
+      // Địa chỉ đăng nhập là tuỳ chọn (đăng nhập trong WebView): sai thì như không có.
+      expect(discovery.ideWebEnabled, isTrue, reason: url);
     }
     expect(_discovery(ideWebAuthUrl: 42).ideWebAuthBaseUri, isNull);
   });
 
-  test('chính sách host có cả địa chỉ đăng nhập; thiếu thì tắt', () {
-    ProviderContainer container(SelfHostedServerDiscovery discovery) {
-      final value = ProviderContainer(
-        overrides: [activeServerDiscoveryProvider.overrideWithValue(discovery)],
-      );
-      addTearDown(value.dispose);
-      return value;
-    }
+  test(
+    'chính sách host: có địa chỉ đăng nhập thì giữ; thiếu thì không có lớp đó',
+    () {
+      ProviderContainer container(SelfHostedServerDiscovery discovery) {
+        final value = ProviderContainer(
+          overrides: [
+            activeServerDiscoveryProvider.overrideWithValue(discovery),
+          ],
+        );
+        addTearDown(value.dispose);
+        return value;
+      }
 
-    final policy = container(_discovery()).read(ideWebHostPolicyProvider)!;
-    expect(policy.origin, 'https://ide.chat.vpsttt.com');
-    expect(policy.authOrigin, 'https://ide.vpsttt.net');
-    final off = container(_discovery(ideWebAuthUrl: null));
-    expect(off.read(ideWebHostPolicyProvider), isNull);
-    expect(off.read(ideWebAuthBaseUriProvider), isNull);
-  });
+      final policy = container(_discovery()).read(ideWebHostPolicyProvider)!;
+      expect(policy.origin, 'https://ide.chat.vpsttt.com');
+      expect(policy.authOrigin, 'https://ide.vpsttt.net');
+      final webviewOnly = container(_discovery(ideWebAuthUrl: null));
+      final bare = webviewOnly.read(ideWebHostPolicyProvider)!;
+      expect(bare.origin, 'https://ide.chat.vpsttt.com');
+      expect(bare.authOrigin, isNull);
+      expect(webviewOnly.read(ideWebAuthBaseUriProvider), isNull);
+      final off = container(_discovery(ideWeb: null, ideWebUrl: null));
+      expect(off.read(ideWebHostPolicyProvider), isNull);
+    },
+  );
 
   test(
     'ảnh discovery lưu trên máy giữ nguyên; bản cũ thiếu trường thì tắt',
@@ -192,11 +208,11 @@ void main() {
         Uri.parse('https://ide.vpsttt.net'),
       );
       expect(roundTrip(_discovery()).ideWebEnabled, isTrue);
-      // Ảnh lưu trước bản này: chưa có địa chỉ đăng nhập thì tắt.
+      // Chế độ đăng nhập trong WebView: không có địa chỉ đăng nhập vẫn bật.
       final old = roundTrip(_discovery(ideWebAuthUrl: null));
       expect(old.ideWebBaseUri, isNotNull);
       expect(old.ideWebAuthBaseUri, isNull);
-      expect(old.ideWebEnabled, isFalse);
+      expect(old.ideWebEnabled, isTrue);
       expect(
         roundTrip(_discovery(ideWeb: null, ideWebUrl: null)).ideWebEnabled,
         isFalse,

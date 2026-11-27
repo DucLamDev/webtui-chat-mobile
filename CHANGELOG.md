@@ -3,6 +3,15 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.70.0 · 27/11/2026
+### VPSTTT IDE: đăng nhập ngay trong WebView (cách mới của đội IDE)
+- Máy chủ chat không trả địa chỉ đăng nhập riêng của IDE thì ô VPSTTT IDE vẫn bật: app mở thẳng màn IDE trong WebView,
+  người dùng đăng nhập IDE ngay trong đó (không mở trình duyệt ngoài, không cầu nối khoá thiết bị).
+- Link tải tệp của IDE trên `ide.<tên miền chat>` (`/appchat/download/…`) mở bằng trình duyệt của máy như trước, vẫn kiểm
+  cổng 443 và đường dẫn an toàn.
+- Máy chủ còn dùng cách cũ (có địa chỉ đăng nhập riêng) vẫn chạy như trước. Đăng xuất, bị thu hồi phiên hay đổi người
+  dùng trên cùng máy vẫn xoá sạch cookie và dữ liệu WebView của IDE.
+
 ## 1.69.1 · 26/11/2026
 ### Khai cửa hàng: dữ liệu IDE giữ cho thiết bị đã đăng ký
 - Theo trả lời lần 3 của đội IDE: với mỗi điện thoại đã đăng ký, IDE giữ tên tài khoản IDE, mã băm email và khoá công khai
