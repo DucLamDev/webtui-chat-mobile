@@ -92,6 +92,66 @@ void main() {
     expect(policy.classifyText(null), IdeWebUrlClass.blocked);
   });
 
+  test(
+    'không có host đăng nhập: không có lớp authFlow, tải tệp ở host nhúng',
+    () {
+      final policy = IdeWebHostPolicy(testBase);
+      expect(policy.authHost, isNull);
+      expect(policy.authOrigin, isNull);
+      const table = {
+        'https://ide.chat.example.com/appchat/': IdeWebUrlClass.internal,
+        'https://ide.chat.example.com/appchat/auth/': IdeWebUrlClass.internal,
+        'https://ide.chat.example.com/appchat/download/ve-1':
+            IdeWebUrlClass.download,
+        'https://IDE.chat.example.com:443/appchat/download/a.b':
+            IdeWebUrlClass.download,
+        'https://ide.chat.example.com/appchat/download/':
+            IdeWebUrlClass.download,
+        'https://ide.chat.example.com/appchat/downloads/x':
+            IdeWebUrlClass.internal,
+        'https://ide.chat.example.com/appchat/download/../x':
+            IdeWebUrlClass.internal,
+        'https://ide.chat.example.com/appchat/download/%41':
+            IdeWebUrlClass.internal,
+        'https://ide.chat.example.com/appchat/download/x#f':
+            IdeWebUrlClass.internal,
+        'https://ide.chat.example.com:8443/appchat/download/x':
+            IdeWebUrlClass.blocked,
+        'https://u@ide.chat.example.com/appchat/download/x':
+            IdeWebUrlClass.blocked,
+        'https://ide.example.net/appchat/auth/': IdeWebUrlClass.external,
+        'https://ide.example.net/appchat/download/x': IdeWebUrlClass.external,
+      };
+      table.forEach(
+        (url, kind) => expect(policy.classifyText(url), kind, reason: url),
+      );
+      IdeWebNavigation go(String url, {bool main = true}) => policy.navigation(
+        url: url,
+        isMainFrame: main,
+        blankExpected: false,
+        newWindowAsSubframe: false,
+      );
+      expect(
+        go('$testOrigin/appchat/download/ve-1'),
+        IdeWebNavigation.openDownload,
+      );
+      expect(go('$testOrigin/appchat/'), IdeWebNavigation.allow);
+      expect(
+        go('$testOrigin/appchat/download/ve-1', main: false),
+        IdeWebNavigation.block,
+      );
+      expect(go('$testAuthOrigin/appchat/auth/'), IdeWebNavigation.askExternal);
+      expect(
+        policy.isBrowserUrl(Uri.parse('$testAuthOrigin/appchat/auth/')),
+        isFalse,
+      );
+      expect(
+        policy.isEnterUrl(Uri.parse('$testOrigin/_appchat/enter')),
+        isTrue,
+      );
+    },
+  );
+
   test('điều hướng: trong IDE cho đi, ngoài hỏi, còn lại chặn', () {
     final policy = IdeWebHostPolicy(testBase, testAuthBase);
     IdeWebNavigation go(

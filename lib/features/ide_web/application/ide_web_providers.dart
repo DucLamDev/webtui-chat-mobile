@@ -80,7 +80,7 @@ final ideWebAppInfoProvider = Provider<IdeWebAppInfo>(
 final ideWebHostPolicyProvider = Provider<IdeWebHostPolicy?>((ref) {
   final base = ref.watch(ideWebBaseUriProvider);
   final auth = ref.watch(ideWebAuthBaseUriProvider);
-  return base == null || auth == null ? null : IdeWebHostPolicy(base, auth);
+  return base == null ? null : IdeWebHostPolicy(base, auth);
 });
 
 final startIdeWebUseCaseProvider = Provider<StartIdeWebUseCase>((ref) {
