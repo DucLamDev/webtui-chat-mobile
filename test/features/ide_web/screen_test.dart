@@ -173,20 +173,46 @@ void main() {
     expect(rig.markers.value!.isUsedBy(testOwner), isTrue);
   });
 
-  testWidgets('thanh trên gọn 52, trang IDE nằm sát ngay dưới', (tester) async {
+  testWidgets(
+    'trang IDE phủ kín màn, không thanh trên; chỉ nút tròn quay lại',
+    (tester) async {
+      for (final textScale in [1.0, 2.0]) {
+        final rig = _Rig();
+        await rig.open(tester, textScale: textScale);
+        expect(find.byType(IdeWebTopBar), findsNothing);
+        expect(find.text('VPSTTT IDE'), findsNothing);
+        expect(
+          tester.getTopLeft(_key('ide_web_view')).dy,
+          0,
+          reason: 'trang IDE sát mép trên, không dải trống (cỡ chữ $textScale)',
+        );
+        final back = tester.getRect(_key('ide_web_back'));
+        final screen = tester.getRect(find.byType(IdeWebScreen));
+        expect(back.width, greaterThanOrEqualTo(48));
+        expect(back.height, greaterThanOrEqualTo(48));
+        expect(back.left, lessThan(screen.width / 2), reason: 'góc trái');
+        expect(back.top, greaterThan(screen.height / 2), reason: 'góc dưới');
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      }
+    },
+  );
+
+  testWidgets('màn trạng thái vẫn có thanh trên gọn 52 với nút đóng', (
+    tester,
+  ) async {
     for (final textScale in [1.0, 2.0]) {
-      final rig = _Rig();
+      final rig = _Rig()
+        ..repository.launchResult = Success(testBrowserLaunch());
       await rig.open(tester, textScale: textScale);
-      final bar = tester.getRect(find.byType(IdeWebTopBar));
-      expect(bar.height, 52, reason: 'cỡ chữ $textScale');
-      expect(
-        tester.getTopLeft(_key('ide_web_view')).dy,
-        bar.bottom,
-        reason:
-            'không có dải trống giữa thanh trên và trang (cỡ chữ $textScale)',
-      );
+      expect(_key('ide_web_waiting'), findsOneWidget);
+      expect(tester.getRect(find.byType(IdeWebTopBar)).height, 52);
+      expect(_key('ide_web_close'), findsOneWidget);
+      expect(_key('ide_web_back'), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
+      rig.container.dispose();
+      await rig.pump(tester);
     }
   });
 
@@ -217,15 +243,20 @@ void main() {
         ..browser.result = IdeWebBrowserCallback(callbackUri());
       await rig.open(tester);
       expect(_key('ide_web_view'), findsOneWidget);
-      await tester.tap(_key('ide_web_close'));
+      await tester.tap(_key('ide_web_back'));
       await rig.pump(tester);
       expect(find.text('mở'), findsOneWidget);
-      rig.browser.result = const IdeWebBrowserCancelled();
-      await tester.tap(find.text('mở'));
-      await rig.pump(tester);
+      expect(rig.repository.cancelled, isEmpty, reason: 'trang được giữ');
+      await tester.pumpWidget(const SizedBox());
+
+      final cancelled = _Rig()
+        ..repository.launchResult = Success(testBrowserLaunch())
+        ..browser.result = const IdeWebBrowserCancelled();
+      await cancelled.open(tester);
       expect(find.text('mở'), findsOneWidget);
       expect(find.byType(IdeWebScreen), findsNothing);
-      expect(rig.repository.cancelled, ['launch-1']);
+      expect(cancelled.repository.cancelled, ['launch-1']);
+      expect(cancelled.views, isEmpty);
     });
 
     testWidgets('mở lạnh với callback có sẵn: hoàn tất, không mở lượt mới', (
@@ -415,14 +446,170 @@ void main() {
       expect(find.byType(IdeWebScreen), findsNothing);
     });
 
-    testWidgets('đóng màn không kết thúc phiên IDE ở máy chủ', (tester) async {
+    Future<void> leave(_Rig rig, WidgetTester tester) async {
+      await tester.tap(_key('ide_web_back'));
+      await rig.pump(tester);
+      expect(find.byType(IdeWebScreen), findsNothing);
+    }
+
+    testWidgets('quay lại app: trang IDE được giữ, vào lại không mở lượt mới', (
+      tester,
+    ) async {
       final rig = _Rig();
       await rig.open(tester);
-      await tester.tap(_key('ide_web_close'));
-      await rig.pump(tester);
+      final first = rig.view;
+      await leave(rig, tester);
       expect(rig.repository.ended, 0);
-      expect(rig.files.disposed, 1);
+      expect(rig.repository.cancelled, isEmpty);
+      expect(rig.files.disposed, 0);
+      expect(first.log, isNot(contains('dispose')));
+      expect(first.log, isNot(contains('blank')));
+      await tester.tap(find.text('mở'));
+      await rig.pump(tester);
+      expect(_key('ide_web_view'), findsOneWidget);
+      expect(rig.views, [first]);
+      expect(rig.repository.launches, hasLength(1));
+      expect(first.log.where((e) => e == 'open'), hasLength(1));
+      expect(rig.data.calls, _Rig.firstOpenClears);
+      // Vào lại rồi quay lại lần nữa vẫn giữ.
+      await leave(rig, tester);
+      expect(first.log, isNot(contains('dispose')));
     });
+
+    testWidgets(
+      'rời màn: trang nhận "xuống nền", âm thanh dừng; vào lại thì "lên"',
+      (tester) async {
+        final rig = _Rig();
+        await rig.open(tester);
+        await leave(rig, tester);
+        expect(rig.view.log, contains('pauseMedia'));
+        expect(rig.view.emitted, ['app.background']);
+        await tester.tap(find.text('mở'));
+        await rig.pump(tester);
+        expect(rig.view.emitted, ['app.background', 'app.foreground']);
+      },
+    );
+
+    testWidgets('bấm quay lại hai lần liên tiếp chỉ đóng màn IDE', (
+      tester,
+    ) async {
+      final rig = _Rig();
+      await rig.open(tester);
+      await tester.tap(_key('ide_web_back'));
+      await tester.tap(_key('ide_web_back'), warnIfMissed: false);
+      await rig.pump(tester);
+      expect(find.byType(IdeWebScreen), findsNothing);
+      expect(find.text('mở'), findsOneWidget);
+      expect(rig.view.log, isNot(contains('dispose')));
+    });
+
+    testWidgets('bàn phím mở: ẩn nút quay lại, Back vẫn về app', (
+      tester,
+    ) async {
+      final rig = _Rig();
+      await rig.open(tester);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      addTearDown(tester.view.resetViewInsets);
+      await rig.pump(tester);
+      expect(_key('ide_web_back'), findsNothing);
+      await tester.binding.handlePopRoute();
+      await rig.pump(tester);
+      expect(find.byType(IdeWebScreen), findsNothing);
+      expect(rig.view.log, isNot(contains('dispose')));
+    });
+
+    testWidgets('đang giữ ngầm mà mất quyền: đóng trang, xoá dữ liệu', (
+      tester,
+    ) async {
+      final rig = _Rig();
+      await rig.open(tester);
+      await leave(rig, tester);
+      rig.container.read(_enabled.notifier).state = false;
+      await rig.pump(tester);
+      expect(rig.view.log.last, 'dispose');
+      expect(rig.data.calls, _Rig.firstOpenClears + 1);
+      await tester.tap(find.text('mở'));
+      await rig.pump(tester);
+      expect(_key('ide_web_disabled'), findsOneWidget);
+      expect(rig.views, hasLength(1));
+    });
+
+    testWidgets('đang giữ ngầm mà mất token: đóng trang', (tester) async {
+      final rig = _Rig();
+      await rig.open(tester);
+      await leave(rig, tester);
+      rig.container.read(_token.notifier).state = null;
+      expect(rig.container.read(authAccessTokenProvider).isLoading, isTrue);
+      await rig.pump(tester);
+      expect(rig.view.log.last, 'dispose');
+    });
+
+    testWidgets('đang giữ ngầm mà phiên chat kết thúc: đóng rồi mới xoá', (
+      tester,
+    ) async {
+      final rig = _Rig();
+      await rig.open(tester);
+      await leave(rig, tester);
+      final gate = rig.view.disposeGate = Completer<void>();
+      unawaited(rig.cleaner.clearAll());
+      await rig.pump(tester);
+      expect(rig.data.calls, _Rig.firstOpenClears, reason: 'trang chưa ngừng');
+      gate.complete();
+      await rig.pump(tester);
+      expect(rig.view.log.last, 'dispose');
+      expect(rig.data.calls, _Rig.firstOpenClears + 1);
+      expect(rig.view.emitted, contains('session.closing'));
+    });
+
+    testWidgets('đang giữ ngầm mà trang chết: lần sau mở lượt mới', (
+      tester,
+    ) async {
+      final rig = _Rig();
+      await rig.open(tester);
+      final first = rig.view;
+      await leave(rig, tester);
+      first.add(const IdeWebRenderGone());
+      await rig.pump(tester);
+      expect(first.log.last, 'dispose');
+      await tester.tap(find.text('mở'));
+      await rig.pump(tester);
+      expect(_key('ide_web_view'), findsOneWidget);
+      expect(rig.views, hasLength(2));
+      expect(rig.repository.launches, hasLength(2));
+    });
+
+    testWidgets(
+      'đang giữ ngầm: trang không hỏi, không mở liên kết, không đóng',
+      (tester) async {
+        final rig = _Rig();
+        await rig.open(tester);
+        await leave(rig, tester);
+        rig.view.add(IdeWebExternalLink(Uri.parse('https://example.com')));
+        rig.view.add(
+          IdeWebPermissionAsked(
+            microphoneOnly: true,
+            mainUrl: '$testOrigin/appchat/',
+            resolve: ({required granted}) async {},
+          ),
+        );
+        rig.view.add(
+          const IdeWebBridgeMessage(
+            replyId: 'n-1',
+            json: '{"v":1,"id":"p-1","method":"app.close"}',
+            isMainFrame: true,
+            origin: testOrigin,
+          ),
+        );
+        await rig.pump(tester);
+        expect(find.byType(IdeWebPromptSheet), findsNothing);
+        expect(rig.launcher.opened, isEmpty);
+        expect(rig.mic.asked, 0);
+        final (_, payload) = rig.view.replies.single;
+        expect(payload['ok'], isFalse);
+        expect(rig.view.log, isNot(contains('dispose')));
+        expect(find.text('mở'), findsOneWidget);
+      },
+    );
 
     testWidgets('nút Quay lại: lùi trong IDE trước, hết thì đóng', (
       tester,
@@ -612,6 +799,21 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
     });
 
+    testWidgets('quay lại app khi đang thu: mic dừng, trang vẫn giữ', (
+      tester,
+    ) async {
+      final rig = _Rig();
+      await rig.open(tester);
+      await grantMic(rig, tester);
+      expect(_key('ide_web_back'), findsOneWidget);
+      expect(find.byType(IdeWebMicChip), findsOneWidget);
+      await tester.tap(_key('ide_web_back'));
+      await rig.pump(tester);
+      expect(rig.view.log, contains('stopCapture'));
+      expect(rig.view.log, isNot(contains('dispose')));
+      await tester.pump(const Duration(seconds: 2));
+    });
+
     testWidgets('màn khác đè lên cả hộp hỏi: coi là rời màn, dừng mic', (
       tester,
     ) async {
@@ -655,11 +857,11 @@ void main() {
       await rig.open(tester);
       expect(rig.pending.value?.launchId, 'l');
       expect(rig.pending.value?.elevation, isTrue);
-      // Đóng màn: không báo máy chủ huỷ lượt đã vào.
-      await tester.tap(_key('ide_web_close'));
+      // Quay lại app: trang còn giữ nên lượt chờ cũng giữ, không huỷ ở máy chủ.
+      await tester.tap(_key('ide_web_back'));
       await rig.pump(tester);
       expect(rig.repository.cancelled, isEmpty);
-      expect(rig.pending.value, isNull);
+      expect(rig.pending.value?.elevation, isTrue);
     });
 
     testWidgets('PIN (iOS): mở trình duyệt không hỏi, callback thì nạp lại', (
@@ -704,6 +906,32 @@ void main() {
       expect(rig.views, hasLength(2));
       expect(_key('ide_web_view'), findsOneWidget);
     });
+
+    testWidgets(
+      'PIN xong lúc trang đang giữ ngầm: app mở màn, màn nhận kết quả',
+      (tester) async {
+        final rig = _Rig();
+        await rig.open(tester);
+        final first = rig.view;
+        rig.view.add(IdeWebAuthLink(authUrl));
+        await rig.pump(tester);
+        await tester.tap(_key('ide_web_back'));
+        await rig.pump(tester);
+        // Trang giữ không nhận thay: hộp báo app phải mở màn IDE.
+        expect(rig.inbox.deliver(callbackUri()), isTrue);
+        await rig.pump(tester);
+        expect(rig.repository.completes, isEmpty);
+        expect(first.log, isNot(contains('dispose')));
+        await tester.tap(find.text('mở'));
+        await rig.pump(tester);
+        expect(rig.repository.completes.single['launch_id'], 'l');
+        expect(rig.views, hasLength(2));
+        expect(first.log.last, 'dispose');
+        expect(_key('ide_web_view'), findsOneWidget);
+        // Màn đang hiện thì nhận lại như thường.
+        expect(rig.inbox.deliver(callbackUri()), isFalse);
+      },
+    );
 
     for (final result in const <IdeWebBrowserResult>[
       IdeWebBrowserCancelled(),
@@ -880,7 +1108,10 @@ void main() {
       await rig.open(tester);
       final calls = rig.data.calls;
       rig.view.disposeGate = Completer<void>();
-      await tester.tap(_key('ide_web_close'));
+      // Trang chết lúc đang giữ ngầm: phiên đang đóng dở thì đăng xuất.
+      await tester.tap(_key('ide_web_back'));
+      await rig.pump(tester);
+      rig.view.add(const IdeWebRenderGone());
       await rig.pump(tester);
       unawaited(rig.cleaner.clearAll());
       await rig.pump(tester);
@@ -953,7 +1184,16 @@ void main() {
                 await rig.open(tester, dark: dark, textScale: scale);
                 expect(tester.takeException(), isNull);
                 expect(_key(entry.key), findsOneWidget);
-                expect(find.text('VPSTTT IDE'), findsOneWidget);
+                if (entry.key == 'ide_web_view') {
+                  // Trang IDE phủ kín: chỉ còn nút tròn quay lại.
+                  expect(find.text('VPSTTT IDE'), findsNothing);
+                  expect(
+                    tester.getSize(_key('ide_web_back')).height,
+                    greaterThanOrEqualTo(48),
+                  );
+                } else {
+                  expect(find.text('VPSTTT IDE'), findsOneWidget);
+                }
                 // Mọi nút đủ 48 và chạm tới được (cuộn nếu cần).
                 for (final button
                     in find
@@ -1127,35 +1367,37 @@ void main() {
       });
     }
 
-    testWidgets('chữ to: chỉ báo thu còn biểu tượng, tên màn không bị cắt', (
-      tester,
-    ) async {
-      tester.view
-        ..physicalSize = const Size(320, 568)
-        ..devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      final rig = _Rig();
-      await rig.open(tester, textScale: 1.6);
-      rig.view.add(
-        IdeWebPermissionAsked(
-          microphoneOnly: true,
-          mainUrl: '$testOrigin/appchat/',
-          resolve: ({required granted}) async {},
-        ),
-      );
-      await rig.pump(tester);
-      await tester.tap(_key('ide_web_prompt_ok'));
-      await rig.pump(tester);
-      rig.view.add(const IdeWebCaptureChanged(active: true, any: true));
-      await rig.pump(tester);
-      expect(_key('ide_web_mic_chip'), findsOneWidget);
-      expect(find.text('Đang thu'), findsNothing);
-      expect(find.bySemanticsLabel('Đang thu micro'), findsOneWidget);
-      final title = tester.renderObject<RenderParagraph>(
-        find.text('VPSTTT IDE'),
-      );
-      expect(title.didExceedMaxLines, isFalse);
-    });
+    testWidgets(
+      'chữ to: chỉ báo thu còn biểu tượng, nằm gọn cạnh nút quay lại',
+      (tester) async {
+        tester.view
+          ..physicalSize = const Size(320, 568)
+          ..devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final rig = _Rig();
+        await rig.open(tester, textScale: 1.6);
+        rig.view.add(
+          IdeWebPermissionAsked(
+            microphoneOnly: true,
+            mainUrl: '$testOrigin/appchat/',
+            resolve: ({required granted}) async {},
+          ),
+        );
+        await rig.pump(tester);
+        await tester.tap(_key('ide_web_prompt_ok'));
+        await rig.pump(tester);
+        rig.view.add(const IdeWebCaptureChanged(active: true, any: true));
+        await rig.pump(tester);
+        expect(_key('ide_web_mic_chip'), findsOneWidget);
+        expect(find.text('Đang thu'), findsNothing);
+        expect(find.bySemanticsLabel('Đang thu micro'), findsOneWidget);
+        final back = tester.getRect(_key('ide_web_back'));
+        final chip = tester.getRect(_key('ide_web_mic_chip'));
+        expect(chip.left, greaterThanOrEqualTo(back.right));
+        expect(chip.right, lessThanOrEqualTo(320));
+        expect(tester.takeException(), isNull);
+      },
+    );
   });
 }
 
