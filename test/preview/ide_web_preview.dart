@@ -22,7 +22,7 @@ import 'package:webtui_chat/features/ide_web/domain/ide_web_device_key.dart';
 import 'package:webtui_chat/features/ide_web/domain/ide_web_host_policy.dart';
 import 'package:webtui_chat/features/ide_web/domain/ide_web_launch.dart';
 import 'package:webtui_chat/features/ide_web/presentation/screens/ide_web_screen.dart';
-import 'package:webtui_chat/features/ide_web/presentation/widgets/ide_web_back_button.dart';
+import 'package:webtui_chat/features/ide_web/presentation/widgets/ide_web_floating_back.dart';
 import 'package:webtui_chat/features/ide_web/presentation/widgets/ide_web_prompt_sheet.dart';
 import 'package:webtui_chat/features/work_hub/presentation/controllers/work_hub_providers.dart';
 import 'package:webtui_chat/features/work_hub/presentation/widgets/work_apps_grid.dart';
@@ -125,6 +125,10 @@ class _Menu extends StatelessWidget {
           onTap: () => _open(context, const _MicScene()),
         ),
         ListTile(
+          title: const Text('Nút đã kéo sang phải'),
+          onTap: () => _open(context, const _MicScene(right: true)),
+        ),
+        ListTile(
           title: const Text('Ô trong lưới'),
           onTap: () => _open(context, const _TileScene()),
         ),
@@ -185,23 +189,30 @@ class _Scene extends StatelessWidget {
 }
 
 class _MicScene extends StatelessWidget {
-  const _MicScene();
+  const _MicScene({this.right = false});
+
+  final bool right;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
-      child: Stack(
-        children: [
-          Positioned.fill(child: FakeIdeWebView().build()),
-          PositionedDirectional(
-            start: 12,
-            bottom: 12,
-            child: IdeWebBackButton(
-              onPressed: () => Navigator.of(context).pop(),
-              capturing: ValueNotifier<bool>(true),
+  Widget build(BuildContext context) => ProviderScope(
+    overrides: [
+      ideWebBackDockProvider.overrideWith(
+        (_) => IdeWebBackDock(right: right, y: right ? 0.6 : 1),
+      ),
+    ],
+    child: Scaffold(
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Positioned.fill(child: FakeIdeWebView().build()),
+            Positioned.fill(
+              child: IdeWebFloatingBack(
+                onPressed: () => Navigator.of(context).pop(),
+                capturing: ValueNotifier<bool>(true),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     ),
   );

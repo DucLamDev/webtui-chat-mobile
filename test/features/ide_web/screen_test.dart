@@ -28,6 +28,7 @@ import 'package:webtui_chat/features/ide_web/domain/ide_web_host_policy.dart';
 import 'package:webtui_chat/features/ide_web/domain/ide_web_launch.dart';
 import 'package:webtui_chat/features/ide_web/domain/ide_web_ports.dart';
 import 'package:webtui_chat/features/ide_web/presentation/screens/ide_web_screen.dart';
+import 'package:webtui_chat/features/ide_web/presentation/widgets/ide_web_floating_back.dart';
 import 'package:webtui_chat/features/ide_web/presentation/widgets/ide_web_mic_chip.dart';
 import 'package:webtui_chat/features/ide_web/presentation/widgets/ide_web_prompt_sheet.dart';
 import 'package:webtui_chat/features/ide_web/presentation/widgets/ide_web_top_bar.dart';
@@ -197,6 +198,71 @@ void main() {
       }
     },
   );
+
+  group('kéo nút quay lại', () {
+    testWidgets(
+      'kéo sang phải: hít mép phải, không rời trang; vào lại vẫn ở đó',
+      (tester) async {
+        final rig = _Rig();
+        await rig.open(tester);
+        final screen = tester.getRect(find.byType(IdeWebScreen));
+        final before = tester.getRect(_key('ide_web_back'));
+        await tester.drag(_key('ide_web_back'), const Offset(500, -200));
+        await rig.pump(tester);
+        expect(_key('ide_web_view'), findsOneWidget, reason: 'kéo không rời');
+        expect(find.text('mở'), findsNothing);
+        final after = tester.getRect(_key('ide_web_back'));
+        expect(after.right, moreOrLessEquals(screen.right - 12));
+        expect(after.top, moreOrLessEquals(before.top - 200));
+        expect(rig.container.read(ideWebBackDockProvider).right, isTrue);
+
+        await tester.tap(_key('ide_web_back'));
+        await rig.pump(tester);
+        expect(find.text('mở'), findsOneWidget, reason: 'bấm vẫn quay lại');
+        await tester.tap(find.text('mở'));
+        await rig.pump(tester);
+        expect(tester.getRect(_key('ide_web_back')), after);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('kéo quá mép: nút vẫn nằm trọn trong màn', (tester) async {
+      final rig = _Rig();
+      await rig.open(tester);
+      final screen = tester.getRect(find.byType(IdeWebScreen));
+      await tester.drag(_key('ide_web_back'), const Offset(-300, -2000));
+      await rig.pump(tester);
+      final back = tester.getRect(_key('ide_web_back'));
+      expect(back.left, moreOrLessEquals(12));
+      expect(back.top, moreOrLessEquals(screen.top + 12));
+      expect(rig.container.read(ideWebBackDockProvider).right, isFalse);
+    });
+
+    testWidgets('nút bên phải: chỉ báo thu nằm phía trái nút', (tester) async {
+      final rig = _Rig();
+      rig.container.read(ideWebBackDockProvider.notifier).state =
+          const IdeWebBackDock(right: true, y: 0.5);
+      await rig.open(tester);
+      rig.view.add(
+        IdeWebPermissionAsked(
+          microphoneOnly: true,
+          mainUrl: '$testOrigin/appchat/',
+          resolve: ({required granted}) async {},
+        ),
+      );
+      await rig.pump(tester);
+      await tester.tap(_key('ide_web_prompt_ok'));
+      await rig.pump(tester);
+      rig.view.add(const IdeWebCaptureChanged(active: true, any: true));
+      await rig.pump(tester);
+      final back = tester.getRect(_key('ide_web_back'));
+      final chip = tester.getRect(_key('ide_web_mic_chip'));
+      expect(chip.right, lessThanOrEqualTo(back.left));
+      expect(chip.left, greaterThanOrEqualTo(0));
+      expect(chip.center.dy, moreOrLessEquals(back.center.dy, epsilon: 1));
+      expect(tester.takeException(), isNull);
+    });
+  });
 
   testWidgets('màn trạng thái vẫn có thanh trên gọn 52 với nút đóng', (
     tester,
