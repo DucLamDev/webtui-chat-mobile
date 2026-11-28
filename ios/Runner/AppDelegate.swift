@@ -2,6 +2,7 @@ import AVFoundation
 import AuthenticationServices
 import CallKit
 import Flutter
+import Foundation
 import LocalAuthentication
 import PushKit
 import UIKit
@@ -9,6 +10,12 @@ import WebKit
 import WebRTC
 import flutter_callkit_incoming
 import webview_flutter_wkwebview
+
+// flutter_callkit_incoming cũng có lớp công khai tên `Data`: viết `Data` trơn bị
+// Xcode báo "'Data' is ambiguous". Khai báo trong module app được ưu tiên hơn tên
+// nhập vào, nên `Data` trong app luôn là Foundation.Data; lớp của gói gọi gọn
+// `flutter_callkit_incoming.Data`.
+typealias Data = Foundation.Data
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, PKPushRegistryDelegate, CallkitIncomingAppDelegate {
