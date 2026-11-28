@@ -3,6 +3,12 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.72.1 · 28/11/2026
+### Sửa lỗi: bản iPhone không dựng được
+- Bản iPhone (TestFlight) dựng hỏng từ khi thêm phần VPSTTT IDE: gói cuộc gọi có một lớp tên `Data` trùng tên với kiểu
+  dữ liệu của Apple, Xcode không biết dùng cái nào ("'Data' is ambiguous"). App nay chỉ rõ dùng kiểu của Apple, gói
+  cuộc gọi vẫn gọi bằng tên đầy đủ như cũ. Không đổi gì về tính năng.
+
 ## 1.72.0 · 28/11/2026
 ### VPSTTT IDE: kéo nút quay lại sang chỗ khác
 - Nút tròn quay lại app trên trang IDE giờ kéo được: đè lên nút của IDE (như nút "+" góc dưới trái) thì kéo nó đi chỗ
