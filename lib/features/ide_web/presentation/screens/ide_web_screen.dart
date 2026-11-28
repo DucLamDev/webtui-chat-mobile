@@ -13,7 +13,7 @@ import '../../application/ide_web_mic_guard.dart';
 import '../../application/ide_web_prompter.dart';
 import '../../application/ide_web_providers.dart';
 import '../controllers/ide_web_controller.dart';
-import '../widgets/ide_web_back_button.dart';
+import '../widgets/ide_web_floating_back.dart';
 import '../widgets/ide_web_prompt_sheet.dart';
 import '../widgets/ide_web_state_view.dart';
 import '../widgets/ide_web_top_bar.dart';
@@ -234,10 +234,8 @@ class _IdeWebScreenState extends ConsumerState<IdeWebScreen>
                     child: session.view.build(),
                   ),
                 ),
-                PositionedDirectional(
-                  start: 12,
-                  bottom: 12,
-                  child: IdeWebBackButton(
+                Positioned.fill(
+                  child: IdeWebFloatingBack(
                     onPressed: () => unawaited(_leave()),
                     capturing: session.capturing,
                     // Bàn phím mở: nút không che ô nhập của IDE (Back vẫn

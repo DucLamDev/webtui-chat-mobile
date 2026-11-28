@@ -3,6 +3,14 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.72.0 · 28/11/2026
+### VPSTTT IDE: kéo nút quay lại sang chỗ khác
+- Nút tròn quay lại app trên trang IDE giờ kéo được: đè lên nút của IDE (như nút "+" góc dưới trái) thì kéo nó đi chỗ
+  khác. Thả tay ra nút tự trượt vào mép trái hoặc phải gần nhất, giữ nguyên độ cao vừa thả.
+- Chỗ đậu được nhớ suốt lúc app còn chạy: quay lại app rồi mở IDE lần nữa, nút vẫn ở chỗ cũ. Tắt hẳn app thì về góc dưới
+  trái.
+- Bấm (không kéo) vẫn quay lại app như cũ. Đang thu micro thì chỉ báo thu nằm cạnh nút, phía giữa màn hình.
+
 ## 1.71.0 · 28/11/2026
 ### VPSTTT IDE: trang IDE tràn màn, vào lại không phải đăng nhập lại
 - Trang IDE đã hiện thì bỏ thanh trên của app: trang phủ kín màn hình, chỉ còn một nút tròn nổi ở góc dưới bên trái để
