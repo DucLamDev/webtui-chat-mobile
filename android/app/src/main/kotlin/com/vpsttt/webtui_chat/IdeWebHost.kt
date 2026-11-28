@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.view.WindowInsets
 import android.webkit.CookieManager
 import android.webkit.WebSettings
 import android.webkit.WebStorage
@@ -338,6 +339,18 @@ class IdeWebHost : FlutterPlugin, MethodChannel.MethodCallHandler, EventChannel.
         // qua cầu nối `file.save`.
         webView.setDownloadListener { _, _, _, _, _ -> }
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false)
+        // Thanh trên của app đã chừa thanh trạng thái, nhưng WebView (Chromium 136+) vẫn chuyển inset hệ
+        // thống vào `env(safe-area-inset-*)` nên trang IDE chừa thêm một dải trống ở đầu. Nuốt inset để
+        // trang nhận 0; bàn phím vẫn đẩy nội dung lên vì Scaffold phía Flutter tự thu nhỏ khung.
+        webView.setOnApplyWindowInsetsListener { _, insets ->
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                WindowInsets.CONSUMED
+            } else {
+                @Suppress("DEPRECATION")
+                insets.consumeSystemWindowInsets()
+            }
+        }
+        webView.requestApplyInsets()
         val flags = webView.context.applicationInfo.flags
         WebView.setWebContentsDebuggingEnabled(flags and ApplicationInfo.FLAG_DEBUGGABLE != 0)
     }

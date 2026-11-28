@@ -30,6 +30,7 @@ import 'package:webtui_chat/features/ide_web/domain/ide_web_ports.dart';
 import 'package:webtui_chat/features/ide_web/presentation/screens/ide_web_screen.dart';
 import 'package:webtui_chat/features/ide_web/presentation/widgets/ide_web_mic_chip.dart';
 import 'package:webtui_chat/features/ide_web/presentation/widgets/ide_web_prompt_sheet.dart';
+import 'package:webtui_chat/features/ide_web/presentation/widgets/ide_web_top_bar.dart';
 import 'package:webtui_chat/l10n/app_strings.dart';
 
 import '../../support/system_font.dart';
@@ -170,6 +171,23 @@ void main() {
     expect(_key('ide_web_view'), findsOneWidget);
     expect(rig.view.log.take(2), ['attach:true:true', 'open']);
     expect(rig.markers.value!.isUsedBy(testOwner), isTrue);
+  });
+
+  testWidgets('thanh trên gọn 52, trang IDE nằm sát ngay dưới', (tester) async {
+    for (final textScale in [1.0, 2.0]) {
+      final rig = _Rig();
+      await rig.open(tester, textScale: textScale);
+      final bar = tester.getRect(find.byType(IdeWebTopBar));
+      expect(bar.height, 52, reason: 'cỡ chữ $textScale');
+      expect(
+        tester.getTopLeft(_key('ide_web_view')).dy,
+        bar.bottom,
+        reason:
+            'không có dải trống giữa thanh trên và trang (cỡ chữ $textScale)',
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
   });
 
   group('trạng thái', () {

@@ -3,6 +3,14 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.70.1 · 28/11/2026
+### VPSTTT IDE: bỏ dải trống dưới thanh trên, thanh trên gọn hơn
+- Trên Android, trang IDE trong app có một dải trống giữa thanh trên của app và thanh công cụ của IDE (WebView báo thêm
+  chỗ của thanh trạng thái cho trang, trong khi thanh trên của app đã chừa chỗ đó). Nay WebView không nhận phần chừa đó
+  nữa: trang IDE bắt đầu ngay dưới thanh trên.
+- Thanh trên màn IDE thấp hơn (60 → 52), dấu hiệu IDE nhỏ lại một chút; nút đóng vẫn dễ bấm (vùng bấm 48). Trang IDE có
+  thêm chỗ hiển thị.
+
 ## 1.70.0 · 27/11/2026
 ### VPSTTT IDE: đăng nhập ngay trong WebView (cách mới của đội IDE)
 - Máy chủ chat không trả địa chỉ đăng nhập riêng của IDE thì ô VPSTTT IDE vẫn bật: app mở thẳng màn IDE trong WebView,

@@ -9,7 +9,8 @@ import 'ide_web_code_window.dart';
 import 'ide_web_mic_chip.dart';
 import 'ide_web_prompt_sheet.dart';
 
-/// Thanh trên của màn IDE: đóng, tên kèm địa chỉ trang, chỉ báo thu.
+/// Thanh trên của màn IDE: đóng, tên kèm địa chỉ trang, chỉ báo thu. Giữ thấp
+/// (52) để trang IDE có thêm chỗ; nút đóng vẫn có vùng bấm 48.
 class IdeWebTopBar extends StatelessWidget implements PreferredSizeWidget {
   const IdeWebTopBar({
     required this.onClose,
@@ -25,7 +26,7 @@ class IdeWebTopBar extends StatelessWidget implements PreferredSizeWidget {
   final ValueListenable<bool>? capturing;
 
   @override
-  Size get preferredSize => const Size.fromHeight(60);
+  Size get preferredSize => const Size.fromHeight(52);
 
   @override
   Widget build(BuildContext context) {
@@ -33,14 +34,14 @@ class IdeWebTopBar extends StatelessWidget implements PreferredSizeWidget {
     final host = this.host;
     final capturing = this.capturing;
     return AppBar(
-      toolbarHeight: 60,
+      toolbarHeight: 52,
       backgroundColor: host == null ? c.background : c.surface,
       surfaceTintColor: Colors.transparent,
       scrolledUnderElevation: 0,
       elevation: 0,
       centerTitle: false,
       titleSpacing: 4,
-      leadingWidth: 60,
+      leadingWidth: 56,
       shape: host == null
           ? null
           : Border(bottom: BorderSide(color: c.hairline)),
@@ -65,7 +66,7 @@ class IdeWebTopBar extends StatelessWidget implements PreferredSizeWidget {
       title: Row(
         children: [
           if (host != null && !ideWebLargeText(context)) ...[
-            const IdeWebMark(size: 32),
+            const IdeWebMark(size: 28),
             const SizedBox(width: 10),
           ],
           Flexible(
@@ -78,7 +79,7 @@ class IdeWebTopBar extends StatelessWidget implements PreferredSizeWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: WebTuiTypography.titleMedium.copyWith(
-                    fontSize: 16.5,
+                    fontSize: 15.5,
                     height: 1.2,
                     fontWeight: FontWeight.w800,
                     color: c.textPrimary,
