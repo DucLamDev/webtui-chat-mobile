@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../app/providers/foundation_providers.dart';
 import '../../../../core/privacy/background_privacy.dart';
 import '../../../../core/security/active_call_tracker.dart';
 import '../../../../design_system/tokens/webtui_colors.dart';
@@ -14,6 +13,7 @@ import '../../application/ide_web_mic_guard.dart';
 import '../../application/ide_web_prompter.dart';
 import '../../application/ide_web_providers.dart';
 import '../controllers/ide_web_controller.dart';
+import '../widgets/ide_web_back_button.dart';
 import '../widgets/ide_web_prompt_sheet.dart';
 import '../widgets/ide_web_state_view.dart';
 import '../widgets/ide_web_top_bar.dart';
@@ -36,6 +36,10 @@ class _IdeWebScreenState extends ConsumerState<IdeWebScreen>
   bool _routeCurrent = true;
   bool _popping = false;
 
+  /// Người dùng đã quay lại app: từ đây màn không còn báo "đang hiện" (trang
+  /// đang giữ ngầm không được nhận lại quyền micro / hỏi trong lúc màn đóng).
+  bool _left = false;
+
   /// Phải đóng nhưng màn khác (cuộc gọi...) đang đè lên: đợi màn đó rời đi.
   bool _closeWhenCurrent = false;
 
@@ -55,6 +59,8 @@ class _IdeWebScreenState extends ConsumerState<IdeWebScreen>
     _resumed = !_isBackground(lifecycle);
     _controller = ref.read(ideWebControllerProvider.notifier)
       ..attachPrompter(this);
+    // Vào lại trang đang giữ thì khung đầu đã có nội dung IDE: chặn chụp ngay.
+    _holdSecureScreen(true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _pushStatus();
@@ -117,7 +123,7 @@ class _IdeWebScreenState extends ConsumerState<IdeWebScreen>
   void _pushStatus() {
     // Hộp xác nhận của chính màn này không tính là rời màn, trừ khi màn khác
     // đè lên cả hộp.
-    final visible = _routeCurrent || (_dialog?.isCurrent ?? false);
+    final visible = !_left && (_routeCurrent || (_dialog?.isCurrent ?? false));
     _holdSecureScreen(visible);
     _controller.updateStatus(
       IdeWebScreenStatus(
@@ -181,7 +187,15 @@ class _IdeWebScreenState extends ConsumerState<IdeWebScreen>
         await _controller.goBack()) {
       return;
     }
-    if (mounted) unawaited(_controller.cancel());
+    if (mounted) await _leave();
+  }
+
+  /// Quay lại app: trang IDE đang hiện thì giữ sống (lần sau vào khỏi đăng
+  /// nhập), chưa có trang thì huỷ lượt; trạng thái `IdeWebClosed` tự đóng màn.
+  Future<void> _leave() async {
+    if (_left) return;
+    _left = true;
+    if (await _controller.leave()) _pop();
   }
 
   @override
@@ -191,14 +205,8 @@ class _IdeWebScreenState extends ConsumerState<IdeWebScreen>
       WidgetsBinding.instance.addPostFrameCallback((_) => _pop());
     });
     ref.listen<Set<String>>(activeCallTrackerProvider, (_, _) => _pushStatus());
-    ref.listen<bool>(ideWebEnabledProvider, (_, enabled) {
-      if (!enabled) unawaited(_controller.onAccessLost());
-    });
-    ref.listen<AsyncValue<String?>>(authAccessTokenProvider, (_, next) {
-      if (next.hasValue && !next.isLoading && (next.value ?? '').isEmpty) {
-        unawaited(_controller.cancel());
-      }
-    });
+    // Mất quyền / phiên chat: provider của bộ điều khiển tự canh (cả khi trang
+    // đang giữ mà không có màn).
     final enabled = ref.watch(ideWebEnabledProvider);
     final current = ref.watch(ideWebControllerProvider);
     final state = enabled ? current : const IdeWebDisabled();
@@ -209,28 +217,40 @@ class _IdeWebScreenState extends ConsumerState<IdeWebScreen>
       },
       child: Scaffold(
         backgroundColor: WebTuiColors.of(context).background,
-        appBar: IdeWebTopBar(
-          onClose: () => unawaited(_controller.cancel()),
-          host: state is IdeWebReady
-              ? ref.watch(ideWebHostPolicyProvider)?.host
-              : null,
-          capturing: switch (state) {
-            IdeWebReady(:final session) => session.capturing,
-            _ => null,
-          },
-        ),
+        // Trang IDE hiện thì bỏ thanh trên cho trang tràn màn; nút quay lại nổi
+        // ở góc dưới trái.
+        appBar: state is IdeWebReady
+            ? null
+            : IdeWebTopBar(onClose: () => unawaited(_leave())),
         body: SafeArea(
           child: switch (state) {
             // Lớp khoá đang che: gỡ khung native khỏi cây (trang vẫn sống).
             IdeWebReady() when _locked => const SizedBox.expand(),
-            IdeWebReady(:final session) => KeyedSubtree(
-              key: const Key('ide_web_view'),
-              child: session.view.build(),
+            IdeWebReady(:final session) => Stack(
+              children: [
+                Positioned.fill(
+                  child: KeyedSubtree(
+                    key: const Key('ide_web_view'),
+                    child: session.view.build(),
+                  ),
+                ),
+                PositionedDirectional(
+                  start: 12,
+                  bottom: 12,
+                  child: IdeWebBackButton(
+                    onPressed: () => unawaited(_leave()),
+                    capturing: session.capturing,
+                    // Bàn phím mở: nút không che ô nhập của IDE (Back vẫn
+                    // dùng được); chỉ báo thu vẫn hiện.
+                    showBack: MediaQuery.viewInsetsOf(context).bottom == 0,
+                  ),
+                ),
+              ],
             ),
             _ => IdeWebStateView(
               state: state,
               onRetry: () => unawaited(_controller.open()),
-              onClose: () => unawaited(_controller.cancel()),
+              onClose: () => unawaited(_leave()),
             ),
           },
         ),

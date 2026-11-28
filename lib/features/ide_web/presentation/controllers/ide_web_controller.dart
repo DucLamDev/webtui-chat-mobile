@@ -7,6 +7,7 @@ import '../../../../core/logging/redacting_logger.dart';
 import '../../../../core/media/exclusive_media_playback.dart';
 import '../../../../core/platform/external_url_launcher.dart';
 import '../../../../core/result/result.dart';
+import '../../application/ide_web_access.dart';
 import '../../application/ide_web_bridge_dispatcher.dart';
 import '../../application/ide_web_callback_inbox.dart';
 import '../../application/ide_web_device_keys.dart';
@@ -129,22 +130,44 @@ final ideWebControllerDepsProvider = Provider.autoDispose<IdeWebControllerDeps>(
 );
 
 final ideWebControllerProvider =
-    StateNotifierProvider.autoDispose<IdeWebController, IdeWebState>(
+    StateNotifierProvider.autoDispose<IdeWebController, IdeWebState>((ref) {
       // `read`: làm mới discovery / mạng không được dựng lại màn đang mở.
-      (ref) => IdeWebController(ref.read(ideWebControllerDepsProvider)),
-    );
+      final controller = IdeWebController(
+        ref.read(ideWebControllerDepsProvider),
+      );
+      // Trang đang giữ sau khi rời màn: không còn màn nào canh quyền / phiên
+      // chat, nên provider tự canh.
+      KeepAliveLink? link;
+      controller._onParkedChanged = (parked) {
+        if (parked) {
+          link ??= ref.keepAlive();
+        } else {
+          link?.close();
+          link = null;
+        }
+      };
+      ref.listen<bool>(ideWebEnabledProvider, (_, enabled) {
+        if (!enabled) unawaited(controller.onAccessLost());
+      });
+      ref.listen<AsyncValue<String?>>(authAccessTokenProvider, (_, next) {
+        if (next.hasValue && !next.isLoading && (next.value ?? '').isEmpty) {
+          unawaited(controller.cancel());
+        }
+      });
+      return controller;
+    });
 
 /// Điều phối một lần mở màn IDE. Mọi bước bất đồng bộ mang số lượt [_run]: lượt
 /// cũ về muộn bị bỏ.
 final class IdeWebController extends StateNotifier<IdeWebState>
     implements IdeWebPrompter {
   IdeWebController(this._deps) : super(const IdeWebLoading()) {
-    _unlisten = _deps.inbox.listen((uri) => unawaited(_complete(uri)));
+    _listenInbox();
     _unregister = _deps.cleaner.registerOpenView(_closeForCleanup);
   }
 
   final IdeWebControllerDeps _deps;
-  late final void Function() _unlisten;
+  void Function()? _unlisten;
   late final void Function() _unregister;
   IdeWebPrompter? _prompter;
   IdeWebViewSession? _session;
@@ -158,6 +181,10 @@ final class IdeWebController extends StateNotifier<IdeWebState>
 
   /// Đang có một lượt trình duyệt nâng quyền (PIN / 2FA) mở từ màn nhúng.
   bool _authOpen = false;
+
+  /// Màn đã rời nhưng trang IDE còn sống (xem [leave]).
+  bool _parked = false;
+  void Function(bool parked)? _onParkedChanged;
   Timer? _authTimer;
   IdeWebScreenStatus _status = const IdeWebScreenStatus(
     visible: false,
@@ -175,9 +202,19 @@ final class IdeWebController extends StateNotifier<IdeWebState>
   }
 
   /// Lần đầu màn hiện: callback tới trước (app vừa được mở lại) thì hoàn tất
-  /// lượt cũ, không thì mở lượt mới.
+  /// lượt cũ, không thì mở lượt mới. Trang đang giữ từ lần trước thì hiện lại
+  /// đúng trang đó, không mở lượt mới (khỏi đăng nhập lại).
   Future<void> begin() async {
-    if (_started) return;
+    if (_started) {
+      // Gọi sau khung đầu: màn mới đã nghe provider, thả giữ không làm huỷ.
+      _setParked(false);
+      // Kết quả đăng nhập về lúc trang đang giữ: app đã mở màn này để nhận.
+      final callback = _deps.inbox.take();
+      if (callback != null && await _complete(callback)) return;
+      // Trang giữ vừa hỏng / bị đóng mà provider chưa kịp huỷ: mở lượt mới.
+      if (mounted && state is! IdeWebReady) await open();
+      return;
+    }
     _started = true;
     final callback = _deps.inbox.take();
     if (callback == null || _deps.policy() == null) {
@@ -411,7 +448,11 @@ final class IdeWebController extends StateNotifier<IdeWebState>
     final before = _status;
     _status = status;
     final session = _session;
+    // Màn hiện lại (kể cả màn IDE khác nằm dưới): trang không còn giữ ngầm.
+    final unparked = status.visible && _parked;
+    if (unparked) _setParked(false);
     if (session == null) return;
+    if (unparked && status.resumed) unawaited(session.onAppForeground());
     if (before.resumed && !status.resumed) unawaited(session.onAppBackground());
     if (!before.resumed && status.resumed) {
       // Trình duyệt nâng quyền (Android) đã đóng: cho mở lượt khác.
@@ -430,6 +471,67 @@ final class IdeWebController extends StateNotifier<IdeWebState>
       return await _session?.view.goBack() ?? false;
     } on Object {
       return false;
+    }
+  }
+
+  /// Người dùng quay lại app. Trang IDE đang hiện thì giữ sống, chỉ thôi hiện:
+  /// đăng nhập IDE là phiên Cockpit, trang ngắt kết nối là phiên hết, lần sau
+  /// phải đăng nhập lại cả 2FA. Trang giữ vẫn bị đóng như cũ khi phiên chat kết
+  /// thúc, mất quyền, trang lỗi. Chưa có trang thì huỷ như [cancel].
+  /// `true` = đã giữ, người gọi tự đóng màn.
+  Future<bool> leave() async {
+    final session = _session;
+    if (!mounted ||
+        state is! IdeWebReady ||
+        session == null ||
+        session.isClosed) {
+      await cancel();
+      return false;
+    }
+    _releaseAuth();
+    _prompter?.dismiss();
+    _setParked(true);
+    // Trang không còn được xem: báo như app xuống nền, dừng âm thanh.
+    unawaited(session.onAppBackground());
+    unawaited(_pauseMedia(session));
+    // Không còn màn: micro dừng, cầu nối / hộp hỏi / tải tệp bị chặn.
+    updateStatus(
+      IdeWebScreenStatus(
+        visible: false,
+        resumed: _status.resumed,
+        locked: _status.locked,
+        inCall: _status.inCall,
+      ),
+    );
+    return true;
+  }
+
+  void _setParked(bool parked) {
+    if (_parked == parked) return;
+    _parked = parked;
+    // Đang giữ: kết quả đăng nhập để app tự mở màn IDE nhận (xem [begin]),
+    // không để trang giữ dùng mất khi không có màn.
+    if (parked) {
+      _stopInbox();
+    } else {
+      _listenInbox();
+    }
+    _onParkedChanged?.call(parked);
+  }
+
+  void _listenInbox() =>
+      _unlisten ??= _deps.inbox.listen((uri) => unawaited(_complete(uri)));
+
+  void _stopInbox() {
+    _unlisten?.call();
+    _unlisten = null;
+  }
+
+  static Future<void> _pauseMedia(IdeWebViewSession session) async {
+    try {
+      await session.view.pauseMedia();
+    } on Object {
+      // Trang chưa sẵn sàng / đã đóng.
     }
   }
 
@@ -500,6 +602,8 @@ final class IdeWebController extends StateNotifier<IdeWebState>
   Future<void> _closeSession() {
     final session = _session;
     _session = null;
+    // Không còn trang để giữ: provider được huỷ khi không màn nào nghe.
+    _setParked(false);
     if (session == null) return _closing ?? Future<void>.value();
     final previous = _closing;
     late final Future<void> closing;
@@ -533,8 +637,10 @@ final class IdeWebController extends StateNotifier<IdeWebState>
     _deps.start.abandon();
     _waitingTimer?.cancel();
     _releaseAuth();
-    _unlisten();
     _prompter = null;
+    _onParkedChanged = null;
+    _parked = false;
+    _stopInbox();
     // Gỡ đăng ký sau khi đóng xong: đăng xuất lúc này vẫn phải đợi trang ngừng.
     unawaited(_closeSession().whenComplete(_unregister));
     if (waiting) unawaited(_deps.cancel.execute());

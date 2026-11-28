@@ -3,6 +3,16 @@
 Mỗi lần sửa (mỗi Pull Request): tăng VERSION (sửa lỗi → số cuối, tính năng → số giữa) và thêm đúng một mục mới ở đầu
 danh sách, theo mẫu bên dưới. Hàng chờ gộp tự đổi sang số kế tiếp khi hai nhánh cùng lấy một số.
 
+## 1.71.0 · 28/11/2026
+### VPSTTT IDE: trang IDE tràn màn, vào lại không phải đăng nhập lại
+- Trang IDE đã hiện thì bỏ thanh trên của app: trang phủ kín màn hình, chỉ còn một nút tròn nổi ở góc dưới bên trái để
+  quay lại app (đang thu micro thì cạnh nút có chỉ báo đang thu). Các màn chờ / lỗi vẫn có thanh trên gọn (cao 52).
+- Trên Android hết dải trống giữa phần trên màn hình và thanh công cụ của IDE (WebView không còn nhận thêm phần chừa
+  của thanh trạng thái).
+- Quay lại app không còn đóng trang IDE: trang được giữ chạy ngầm, lần sau mở VPSTTT IDE là vào thẳng, không phải đăng
+  nhập + 2FA lại. Lúc giữ ngầm âm thanh và micro dừng, trang không hỏi quyền, không mở liên kết hay tải tệp được. Trang bị đóng hẳn
+  (lần sau phải đăng nhập lại) khi tắt hẳn app, đăng xuất chat, mất quyền dùng IDE hoặc trang bị lỗi.
+
 ## 1.70.0 · 27/11/2026
 ### VPSTTT IDE: đăng nhập ngay trong WebView (cách mới của đội IDE)
 - Máy chủ chat không trả địa chỉ đăng nhập riêng của IDE thì ô VPSTTT IDE vẫn bật: app mở thẳng màn IDE trong WebView,

@@ -22,8 +22,8 @@ import 'package:webtui_chat/features/ide_web/domain/ide_web_device_key.dart';
 import 'package:webtui_chat/features/ide_web/domain/ide_web_host_policy.dart';
 import 'package:webtui_chat/features/ide_web/domain/ide_web_launch.dart';
 import 'package:webtui_chat/features/ide_web/presentation/screens/ide_web_screen.dart';
+import 'package:webtui_chat/features/ide_web/presentation/widgets/ide_web_back_button.dart';
 import 'package:webtui_chat/features/ide_web/presentation/widgets/ide_web_prompt_sheet.dart';
-import 'package:webtui_chat/features/ide_web/presentation/widgets/ide_web_top_bar.dart';
 import 'package:webtui_chat/features/work_hub/presentation/controllers/work_hub_providers.dart';
 import 'package:webtui_chat/features/work_hub/presentation/widgets/work_apps_grid.dart';
 
@@ -189,12 +189,21 @@ class _MicScene extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: IdeWebTopBar(
-      onClose: () => Navigator.of(context).pop(),
-      host: testBase.host,
-      capturing: ValueNotifier<bool>(true),
+    body: SafeArea(
+      child: Stack(
+        children: [
+          Positioned.fill(child: FakeIdeWebView().build()),
+          PositionedDirectional(
+            start: 12,
+            bottom: 12,
+            child: IdeWebBackButton(
+              onPressed: () => Navigator.of(context).pop(),
+              capturing: ValueNotifier<bool>(true),
+            ),
+          ),
+        ],
+      ),
     ),
-    body: FakeIdeWebView().build(),
   );
 }
 
